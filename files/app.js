@@ -11,6 +11,10 @@ const r2  = x => Math.round(x * 100) / 100;
 const fmt = n => Math.round(n).toLocaleString('en-US');
 const METHODS = ['ნოკაუტი', 'მტკივნეული', 'გადაწყვეტილება'];
 
+// უსაფრთხო DOM helpers — არ ისვრის შეცდომას თუ ელემენტი არ არსებობს
+const $ = id => document.getElementById(id);
+function $on(id, ev, fn) { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); }
+
 // ── global state ──────────────────────────────────────────────
 let FIGHTS = [];
 const START = 1000;
@@ -499,16 +503,21 @@ async function placeBets() {
 //  TICKETS
 // ─────────────────────────────────────────────────────────────
 function renderTickets() {
-  const activeList = document.getElementById('activeTickets');
-  const historyList = document.getElementById('historyTickets');
+  // index.html-ში შეიძლება იყოს ან activeTickets/historyTickets, ან ერთიანი ticketsList
+  const activeList  = $('activeTickets');
+  const historyList = $('historyTickets');
+  const singleList  = $('ticketsList'); // ერთიანი კონტეინერი (fallback)
+
   const activeTickets = state.tickets.filter(t => t.status === 'open');
   const historyTickets = state.tickets.filter(t => t.status !== 'open').sort((a, b) => (b.placedAt || 0) - (a.placedAt || 0));
-  document.getElementById('tkSummary').textContent = state.tickets.length + ' ბილეთი';
+
+  const summaryEl = $('tkSummary');
+  if (summaryEl) summaryEl.textContent = state.tickets.length + ' ბილეთი';
 
   const st = { open: 'ღია', won: 'მოგებული', lost: 'წაგებული', cashout: 'ქეშაუთი' };
   const cashoutOk = canCashout();
 
-  const renderTicketCard = (t, idx) => {
+  const renderTicketCard = (t) => {
     const realIdx = state.tickets.indexOf(t);
     const showCashout = t.status === 'open' && cashoutOk;
     return `
@@ -537,16 +546,20 @@ function renderTickets() {
     </div>`;
   };
 
-  if (activeTickets.length === 0) {
-    activeList.innerHTML = '<div class="tk-empty">აქტიური ბილეთი არ არის. აირჩიე კოეფიციენტი და დადე პირველი ფსონი.</div>';
-  } else {
-    activeList.innerHTML = activeTickets.map(renderTicketCard).join('');
-  }
-
-  if (historyTickets.length === 0) {
-    historyList.innerHTML = '<div class="tk-empty">ისტორია ცარიელია.</div>';
-  } else {
-    historyList.innerHTML = historyTickets.map(renderTicketCard).join('');
+  if (activeList && historyList) {
+    // ცალკე კონტეინერების ვარიანტი
+    activeList.innerHTML = activeTickets.length === 0
+      ? '<div class="tk-empty">აქტიური ბილეთი არ არის. აირჩიე კოეფიციენტი და დადე პირველი ფსონი.</div>'
+      : activeTickets.map(renderTicketCard).join('');
+    historyList.innerHTML = historyTickets.length === 0
+      ? '<div class="tk-empty">ისტორია ცარიელია.</div>'
+      : historyTickets.map(renderTicketCard).join('');
+  } else if (singleList) {
+    // ერთიანი კონტეინერის ვარიანტი (ticketsList) — ჯერ აქტიური, მერე ისტორია
+    const all = [...activeTickets, ...historyTickets];
+    singleList.innerHTML = all.length === 0
+      ? '<div class="tk-empty">ბილეთი ჯერ არ გაქვს. აირჩიე კოეფიციენტი და დადე პირველი ფსონი.</div>'
+      : all.map(renderTicketCard).join('');
   }
 
   document.querySelectorAll('[data-co]').forEach(b => b.onclick = () => doCashout(+b.dataset.co));
@@ -721,7 +734,8 @@ function openModal(mode) {
     ? 'უკვე გაქვს ანგარიში? <button id="switchMode">შესვლა</button>'
     : 'ახალი ხარ აქ? <button id="switchMode">რეგისტრაცია</button>';
   document.getElementById('switchMode').onclick = () => openModal(mode === 'join' ? 'signin' : 'join');
-  document.getElementById('forgotWrap').style.display = mode === 'signin' ? 'block' : 'none';
+  const forgotWrap = $('forgotWrap');
+  if (forgotWrap) forgotWrap.style.display = mode === 'signin' ? 'block' : 'none';
   modal.classList.add('show');
 }
 function closeModal() { modal.classList.remove('show'); authError(''); }
@@ -1024,49 +1038,50 @@ async function sendPasswordReset() {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  EVENT LISTENERS
+//  EVENT LISTENERS — ყველა უსაფრთხო ($on არ ისვრის შეცდომას თუ ელემენტი არ არსებობს)
 // ─────────────────────────────────────────────────────────────
-document.getElementById('openSlip').onclick   = openSlip;
-document.getElementById('closeSlip').onclick  = closeSlip;
-document.getElementById('slipBg').onclick     = closeSlip;
-document.getElementById('tabExpress').onclick = () => setMode('express');
-document.getElementById('tabSingle').onclick  = () => setMode('single');
-document.getElementById('joinBtn').onclick    = () => openModal('join');
-document.getElementById('signinBtn').onclick  = () => openModal('signin');
-document.getElementById('modalClose').onclick = closeModal;
-modal.onclick = e => { if (e.target === modal) closeModal(); };
-document.getElementById('modalSubmit').onclick = () => modalMode === 'join' ? doRegister() : doSignIn();
-document.getElementById('googleBtn').onclick   = handleGoogleAuth;
+$on('openSlip', 'click', openSlip);
+$on('closeSlip', 'click', closeSlip);
+$on('slipBg', 'click', closeSlip);
+$on('tabExpress', 'click', () => setMode('express'));
+$on('tabSingle', 'click', () => setMode('single'));
+$on('joinBtn', 'click', () => openModal('join'));
+$on('signinBtn', 'click', () => openModal('signin'));
+$on('modalClose', 'click', closeModal);
+if (modal) modal.onclick = e => { if (e.target === modal) closeModal(); };
+$on('modalSubmit', 'click', () => modalMode === 'join' ? doRegister() : doSignIn());
+$on('googleBtn', 'click', handleGoogleAuth);
 
 // Forgot password
-document.getElementById('forgotBtn').onclick = openForgotPassword;
-document.getElementById('forgotModalClose').onclick = closeForgotModal;
-document.getElementById('forgotModal').onclick = e => { if (e.target.id === 'forgotModal') closeForgotModal(); };
-document.getElementById('forgotSubmit').onclick = sendPasswordReset;
-document.getElementById('backToLogin').onclick = () => { closeForgotModal(); openModal('signin'); };
+$on('forgotBtn', 'click', openForgotPassword);
+$on('forgotModalClose', 'click', closeForgotModal);
+$on('forgotModal', 'click', e => { if (e.target.id === 'forgotModal') closeForgotModal(); });
+$on('forgotSubmit', 'click', sendPasswordReset);
+$on('backToLogin', 'click', () => { closeForgotModal(); openModal('signin'); });
 
 // Profile
-document.getElementById('profileClose').onclick = closeProfile;
-document.getElementById('profileModal').onclick = e => { if (e.target.id === 'profileModal') closeProfile(); };
-document.getElementById('profileSave').onclick = saveProfile;
-document.getElementById('profileLogout').onclick = () => { closeProfile(); doLogout(); };
+$on('profileClose', 'click', closeProfile);
+$on('profileModal', 'click', e => { if (e.target.id === 'profileModal') closeProfile(); });
+$on('profileSave', 'click', saveProfile);
+$on('profileLogout', 'click', () => { closeProfile(); doLogout(); });
 
 // History toggle
-document.getElementById('historyToggle').onclick = () => {
-  const hist = document.getElementById('historyTickets');
-  const arrow = document.getElementById('historyArrow');
+$on('historyToggle', 'click', () => {
+  const hist = $('historyTickets');
+  const arrow = $('historyArrow');
+  if (!hist) return;
   const isOpen = hist.style.display !== 'none';
   hist.style.display = isOpen ? 'none' : 'flex';
-  arrow.classList.toggle('open', !isOpen);
-};
+  if (arrow) arrow.classList.toggle('open', !isOpen);
+});
 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeSlip(); closeForgotModal(); closeProfile(); } });
 
-const navLinks = document.getElementById('navLinks');
-document.getElementById('menuBtn').onclick = () => navLinks.classList.toggle('open');
+const navLinks = $('navLinks');
+$on('menuBtn', 'click', () => { if (navLinks) navLinks.classList.toggle('open'); });
 document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', e => {
   const id = a.getAttribute('href').slice(1); const t = document.getElementById(id);
-  if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth', block: 'start' }); navLinks.classList.remove('open'); }
+  if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (navLinks) navLinks.classList.remove('open'); }
 }));
 
 // ─────────────────────────────────────────────────────────────
