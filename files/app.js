@@ -574,12 +574,20 @@ const LEADERBOARD = [];
 const AVATAR_ICONS = ['🥊','🏆','🔥','⚡','💪','🦁','🐺','👊','💎','🎯','⭐','🦅'];
 
 function renderLeaderboard() {
-  const rows = [...LEADERBOARD];
-  if (currentUser) rows.push({ name: currentUser.nick, tag: 'შენ', pts: state.balance, bets: state.tickets.length, you: true, icon: currentUser.icon || '🥊' });
+  // LEADERBOARD-დან ამოვიღოთ current user (თუ არის), რომ დუბლიკატი არ იყოს
+  const rows = currentUser
+    ? LEADERBOARD.filter(r => r.name !== currentUser.nick)
+    : [...LEADERBOARD];
+
+  if (currentUser) {
+    const profit = state.balance - 1000;
+    rows.push({ name: currentUser.nick, tag: 'შენ', pts: profit, bets: state.tickets.length, you: true, icon: currentUser.icon || '🥊' });
+  }
   rows.sort((a, b) => b.pts - a.pts);
   document.getElementById('lbRows').innerHTML = rows.map((r, idx) => {
     const rank = idx + 1;
     const icon = r.icon || '🥊';
+    const sign = r.pts > 0 ? '+' : '';
     return `<div class="lb-row ${r.you ? 'you' : ''}">
       <span class="lb-rank ${rank <= 3 ? 'top' : ''}">${rank}</span>
       <span class="lb-user">
@@ -587,7 +595,7 @@ function renderLeaderboard() {
         <span><span class="lb-name">${r.name}</span><br><span class="lb-tag">${r.tag || ''}</span></span>
       </span>
       <span class="lb-roi">${r.bets} ბილეთი</span>
-      <span class="lb-pts">${fmt(r.pts)}</span>
+      <span class="lb-pts">${sign}${fmt(r.pts)}</span>
     </div>`;
   }).join('');
 }
@@ -602,9 +610,12 @@ async function loadLeaderboard() {
       .order('balance', { ascending: false }).limit(20);
     if (error || !users) return;
     LEADERBOARD.length = 0;
-    users.forEach(u => LEADERBOARD.push({
-      name: u.nick || '—', tag: '', pts: u.balance || 0, bets: 0, icon: u.icon || '🥊'
-    }));
+    users.forEach(u => {
+      const profit = (u.balance || 0) - 1000; // მოგება = ბალანსი - საწყისი 1000
+      LEADERBOARD.push({
+        name: u.nick || '—', tag: '', pts: profit, bets: 0, icon: u.icon || '🥊'
+      });
+    });
     renderLeaderboard();
   } catch (e) {
     console.warn('loadLeaderboard failed:', e);
@@ -822,13 +833,66 @@ async function handleGoogleAuth() {
   if (error) console.warn(error.message);
 }
 
-// onAuthStateChange — Google OAuth-ის callback-ისთვის
+// onAuthStateChange — ერთადერთი სესიის მართვის წერტილი
+let _initDone = false;
+
+async function runInit(session) {
+  if (_initDone) return;
+  _initDone = true;
+
+  // 1. სესიიდან იუზერის წამოღება
+  if (session) {
+    try {
+      const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
+      if (ud) {
+        currentUser = {
+          id: session.user.id,
+          email: session.user.email,
+          nick: ud.nick,
+          balance: ud.balance || 1000,
+          icon: ud.icon || '🥊'
+        };
+      }
+    } catch (e) {
+      console.warn('User load failed:', e);
+    }
+  }
+
+  // 2. მებრძოლების ჩატვირთვა
+  await loadEventFromDB();
+
+  // 3. UI რენდერი
+  renderMarkets();
+  renderSlip();
+  renderBar();
+  updateNavForUser(currentUser);
+
+  // 4. ლიდერბორდი და ბილეთები
+  await loadLeaderboard();
+  if (currentUser) await loadUserTickets();
+  renderTickets();
+
+  // 5. Image fallback
+  setInterval(() => {
+    const fallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%230E0D14'/%3E%3Ccircle cx='100' cy='85' r='42' fill='%23F31D25' opacity='.9'/%3E%3Ccircle cx='78' cy='75' r='16' fill='%23ff4040'/%3E%3Ccircle cx='100' cy='68' r='16' fill='%23ff4040'/%3E%3Ccircle cx='122' cy='75' r='16' fill='%23ff4040'/%3E%3Crect x='75' y='110' width='50' height='40' rx='8' fill='%23F31D25' opacity='.85'/%3E%3Crect x='82' y='145' width='36' height='18' rx='5' fill='%23cc1018'/%3E%3C/svg%3E";
+    document.querySelectorAll('.stage-img img').forEach(img => {
+      if (!img.naturalWidth) img.src = fallback;
+    });
+  }, 3000);
+}
+
 sb.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'SIGNED_IN' && session && !currentUser) {
+  if (event === 'INITIAL_SESSION') {
+    // პირველი ჩატვირთვა — ეს ეშვება ყოველთვის (სესიით ან სესიის გარეშე)
+    await runInit(session);
+  } else if (event === 'SIGNED_IN' && session && !currentUser) {
+    // Google OAuth callback ან ახალი ლოგინი
     const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
     if (ud) {
       currentUser = { id: session.user.id, email: session.user.email, nick: ud.nick, balance: ud.balance || 1000, icon: ud.icon || '🥊' };
       updateNavForUser(currentUser);
+      await loadUserTickets();
+      renderTickets();
     }
   } else if (event === 'SIGNED_OUT') {
     currentUser = null; state.tickets = []; renderTickets(); updateNavForUser(null);
@@ -1003,52 +1067,7 @@ document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click
 }));
 
 // ─────────────────────────────────────────────────────────────
-//  INIT — ყველაფერი ერთ თანმიმდევრობაში, race condition აღარ არის
+//  INIT — loading ინდიკატორი (ძირითადი ლოგიკა runInit-შია, onAuthStateChange იძახებს)
 // ─────────────────────────────────────────────────────────────
-(async () => {
-  const loadingEl = document.getElementById('markets');
-  if (loadingEl) loadingEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">იტვირთება ბრძოლები…</div>';
-
-  // 1. ჯერ სესიის აღდგენა
-  try {
-    const { data: { session } } = await sb.auth.getSession();
-    if (session) {
-      const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
-      if (ud) {
-        currentUser = {
-          id: session.user.id,
-          email: session.user.email,
-          nick: ud.nick,
-          balance: ud.balance || 1000,
-          icon: ud.icon || '🥊'
-        };
-      }
-    }
-  } catch (e) {
-    console.warn('Session restore failed:', e);
-  }
-
-  // 2. მებრძოლების ჩატვირთვა
-  await loadEventFromDB();
-
-  // 3. ჯერ მებრძოლები (რომ UI-ში ბრძოლები გამოჩნდეს)
-  renderMarkets();
-  renderSlip();
-  renderBar();
-
-  // 4. მერე ნავიგაციის განახლება (currentUser უკვე სწორია)
-  updateNavForUser(currentUser);
-
-  // 5. ლიდერბორდი და ბილეთები DB-დან
-  await loadLeaderboard();
-  if (currentUser) await loadUserTickets();
-  renderTickets();
-
-  // 6. Image fallback
-  setInterval(() => {
-    const fallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%230E0D14'/%3E%3Ccircle cx='100' cy='85' r='42' fill='%23F31D25' opacity='.9'/%3E%3Ccircle cx='78' cy='75' r='16' fill='%23ff4040'/%3E%3Ccircle cx='100' cy='68' r='16' fill='%23ff4040'/%3E%3Ccircle cx='122' cy='75' r='16' fill='%23ff4040'/%3E%3Crect x='75' y='110' width='50' height='40' rx='8' fill='%23F31D25' opacity='.85'/%3E%3Crect x='82' y='145' width='36' height='18' rx='5' fill='%23cc1018'/%3E%3C/svg%3E";
-    document.querySelectorAll('.stage-img img').forEach(img => {
-      if (!img.naturalWidth) img.src = fallback;
-    });
-  }, 3000);
-})();
+const loadingEl = document.getElementById('markets');
+if (loadingEl) loadingEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">იტვირთება ბრძოლები…</div>';
