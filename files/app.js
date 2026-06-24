@@ -730,16 +730,7 @@ async function handleGoogleAuth() {
   if (error) console.warn(error.message);
 }
 
-// session restore
-sb.auth.getSession().then(async ({ data: { session } }) => {
-  if (session) {
-    const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
-    if (ud) {
-      currentUser = { id: session.user.id, email: session.user.email, nick: ud.nick, balance: ud.balance || 1000, icon: ud.icon || '🥊' };
-      updateNavForUser(currentUser);
-    }
-  }
-});
+
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_IN' && session && !currentUser) {
     const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
@@ -925,11 +916,34 @@ document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click
 (async () => {
   const loadingEl = document.getElementById('markets');
   if (loadingEl) loadingEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">იტვირთება ბრძოლები…</div>';
+
+  // 1. ჯერ სესიის აღდგენა
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) {
+    const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
+    if (ud) {
+      currentUser = {
+        id: session.user.id,
+        email: session.user.email,
+        nick: ud.nick,
+        balance: ud.balance || 1000,
+        icon: ud.icon || '🥊'
+      };
+    }
+  }
+
+  // 2. მებრძოლების ჩატვირთვა
   await loadEventFromDB();
+
+  // 3. UI განახლება (ახლა currentUser უკვე სწორია)
+  updateNavForUser(currentUser);
   renderMarkets(); renderSlip(); renderBar();
+
+  // 4. ბილეთები
   await loadLeaderboard();
   if (currentUser) await loadUserTickets();
   renderTickets();
+
   setInterval(() => {
     const fallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%230E0D14'/%3E%3Ccircle cx='100' cy='85' r='42' fill='%23F31D25' opacity='.9'/%3E%3Ccircle cx='78' cy='75' r='16' fill='%23ff4040'/%3E%3Ccircle cx='100' cy='68' r='16' fill='%23ff4040'/%3E%3Ccircle cx='122' cy='75' r='16' fill='%23ff4040'/%3E%3Crect x='75' y='110' width='50' height='40' rx='8' fill='%23F31D25' opacity='.85'/%3E%3Crect x='82' y='145' width='36' height='18' rx='5' fill='%23cc1018'/%3E%3C/svg%3E";
     document.querySelectorAll('.stage-img img').forEach(img => {
