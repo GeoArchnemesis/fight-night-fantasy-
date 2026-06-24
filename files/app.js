@@ -436,18 +436,9 @@ async function placeBets() {
   const arr = picksArr(); if (arr.length === 0) return;
   const eventId = window.__currentEventId || null;
 
-  // Fix #4: Refresh balance from DB before placing
-  const { data: freshUser } = await sb.from('users').select('balance').eq('id', currentUser.id).single();
-  if (freshUser) { state.balance = freshUser.balance; currentUser.balance = freshUser.balance; updateBalance(freshUser.balance); }
-
   if (state.mode === 'express') {
     const st = state.expressStake; if (st <= 0 || st > state.balance) return;
     const odds = comboOdds(), pw = Math.round(st * odds);
-
-    // Fix #6: Confirmation popup
-    const confirmed = await showBetConfirmPopup(st, odds, pw);
-    if (!confirmed) return;
-
     state.tickets.unshift({
       type: 'express',
       sels: arr.map(s => ({ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name })),
@@ -468,12 +459,6 @@ async function placeBets() {
     }
   } else {
     const ts = totalStakeSingle(); if (ts <= 0 || ts > state.balance) return;
-
-    // Fix #6: Confirmation popup
-    const totalReturn = picksArr().reduce((s, x) => s + (x.stake || 0) * x.odds, 0);
-    const confirmed = await showBetConfirmPopup(ts, 0, totalReturn);
-    if (!confirmed) return;
-
     for (const s of arr) {
       if (s.stake > 0) {
         const pw = Math.round(s.stake * s.odds);
@@ -681,18 +666,18 @@ function updateNavForUser(user) {
     }
     navUser.style.display = 'flex';
     document.querySelector('.balance-pill').classList.add('visible');
-    if (document.getElementById('navProfile')) document.getElementById('navProfile').style.display = 'block';
-    if (document.getElementById('navLogout')) document.getElementById('navLogout').style.display = 'block';
-    if (document.getElementById('navProfile')) document.getElementById('navProfile').onclick = (e) => { e.preventDefault(); openProfile(); };
-    if (document.getElementById('navLogout')) document.getElementById('navLogout').onclick = (e) => { e.preventDefault(); doLogout(); };
+    document.getElementById('navProfile').style.display = 'block';
+    document.getElementById('navLogout').style.display = 'block';
+    document.getElementById('navProfile').onclick = (e) => { e.preventDefault(); openProfile(); };
+    document.getElementById('navLogout').onclick = (e) => { e.preventDefault(); doLogout(); };
+    document.querySelector('.balance-pill').classList.remove('visible');
+    document.getElementById('navProfile').style.display = 'none';
+    document.getElementById('navLogout').style.display = 'none';
     updateBalance(user.balance || 1000);
   } else {
     if (joinBtn)   joinBtn.style.display = '';
     if (signinBtn) signinBtn.style.display = '';
     if (navUser)   navUser.style.display = 'none';
-    document.querySelector('.balance-pill').classList.remove('visible');
-    if (document.getElementById('navProfile')) document.getElementById('navProfile').style.display = 'none';
-    if (document.getElementById('navLogout')) document.getElementById('navLogout').style.display = 'none';
     updateBalance(1000);
   }
 }
@@ -714,17 +699,10 @@ async function doRegister() {
   const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick } } });
   btn.disabled = false; btn.textContent = 'რეგისტრაცია';
   if (error) { authError(error.message); return; }
-  closeModal();
-  for (let i = 0; i < 5; i++) {
-    await new Promise(r => setTimeout(r, 1500));
-    const { data: ud } = await sb.from('users').select('*').eq('id', data.user.id).single();
-    if (ud) {
-      currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: ud?.balance || 1000, icon: ud?.icon || '🥊' };
-      updateNavForUser(currentUser);
-      await loadUserTickets();
-      break;
-    }
-  }
+  await new Promise(r => setTimeout(r, 1000));
+  const { data: ud } = await sb.from('users').select('*').eq('id', data.user.id).single();
+  currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: ud?.balance || 1000, icon: ud?.icon || '🥊' };
+  closeModal(); updateNavForUser(currentUser);
 }
 
 async function doSignIn() {
@@ -738,8 +716,6 @@ async function doSignIn() {
   const { data: ud } = await sb.from('users').select('*').eq('id', data.user.id).single();
   currentUser = { id: data.user.id, email, nick: ud?.nick || email, balance: ud?.balance || 1000, icon: ud?.icon || '🥊' };
   closeModal(); updateNavForUser(currentUser);
-  await loadUserTickets();
-  await checkTicketResults();
 }
 
 async function doLogout() {
@@ -759,16 +735,8 @@ sb.auth.getSession().then(async ({ data: { session } }) => {
   if (session) {
     const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
     if (ud) {
-      // Fix #5: Check if Google user needs nickname
-      if (ud.nick && ud.nick.startsWith('user_')) {
-        const newNick = await showNicknamePrompt();
-        await sb.from('users').update({ nick: newNick }).eq('id', session.user.id);
-        ud.nick = newNick;
-      }
       currentUser = { id: session.user.id, email: session.user.email, nick: ud.nick, balance: ud.balance || 1000, icon: ud.icon || '🥊' };
       updateNavForUser(currentUser);
-      await loadUserTickets();
-      await checkTicketResults();
     }
   }
 });
@@ -776,15 +744,8 @@ sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_IN' && session && !currentUser) {
     const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
     if (ud) {
-      if (ud.nick && ud.nick.startsWith('user_')) {
-        const newNick = await showNicknamePrompt();
-        await sb.from('users').update({ nick: newNick }).eq('id', session.user.id);
-        ud.nick = newNick;
-      }
       currentUser = { id: session.user.id, email: session.user.email, nick: ud.nick, balance: ud.balance || 1000, icon: ud.icon || '🥊' };
       updateNavForUser(currentUser);
-      await loadUserTickets();
-      await checkTicketResults();
     }
   } else if (event === 'SIGNED_OUT') { currentUser = null; state.tickets = []; renderTickets(); updateNavForUser(null); }
 });
@@ -913,189 +874,6 @@ async function sendPasswordReset() {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  FIX #1: LOAD USER TICKETS FROM DB
-// ─────────────────────────────────────────────────────────────
-async function loadUserTickets() {
-  if (!currentUser || !window.__currentEventId) return;
-  const { data: tickets, error } = await sb
-    .from('tickets')
-    .select(`*, ticket_selections(*)`)
-    .eq('user_id', currentUser.id)
-    .order('placed_at', { ascending: false });
-  if (error || !tickets) return;
-
-  state.tickets = tickets.map(t => {
-    const statusMap = { pending: 'open', open: 'open', won: 'won', lost: 'lost', cashout: 'cashout' };
-    return {
-      dbId: t.id,
-      type: t.type,
-      stake: t.stake,
-      odds: Number(t.total_odds),
-      status: statusMap[t.status] || t.status,
-      placedAt: new Date(t.placed_at).getTime(),
-      sels: (t.ticket_selections || []).map(s => ({
-        i: FIGHTS.findIndex(f => f._dbId === s.fight_id),
-        fighter: s.picked_fighter,
-        round: s.picked_round,
-        method: s.picked_method,
-        odds: Number(s.odds),
-        name: buildSelName(s, FIGHTS.find(f => f._dbId === s.fight_id)),
-        res: s.result || null
-      }))
-    };
-  });
-  renderTickets();
-}
-
-function buildSelName(sel, fight) {
-  const parts = [];
-  if (sel.picked_fighter && fight) {
-    const f = sel.picked_fighter === 'red' ? fight.red : fight.blue;
-    parts.push(f.name + ' მოგება');
-  }
-  if (sel.picked_round) parts.push(sel.picked_round + '-ე რაუნდი');
-  if (sel.picked_method) parts.push(sel.picked_method);
-  return parts.join(' · ') || 'არჩევანი';
-}
-
-// ─────────────────────────────────────────────────────────────
-//  FIX #2: LOAD LEADERBOARD FROM DB
-// ─────────────────────────────────────────────────────────────
-async function loadLeaderboard() {
-  const { data: users, error } = await sb
-    .from('users')
-    .select('nick, monthly_score, tickets_count, icon')
-    .order('monthly_score', { ascending: false })
-    .limit(50);
-  if (error || !users) return;
-
-  LEADERBOARD.length = 0;
-  users.forEach(u => {
-    LEADERBOARD.push({
-      name: u.nick,
-      tag: '',
-      pts: u.monthly_score || 0,
-      bets: u.tickets_count || 0,
-      icon: u.icon || '🥊',
-      you: currentUser && u.nick === currentUser.nick
-    });
-  });
-  renderLeaderboard();
-}
-
-// ─────────────────────────────────────────────────────────────
-//  FIX #3: CHECK TICKET RESULTS FROM FIGHT DATA
-// ─────────────────────────────────────────────────────────────
-async function checkTicketResults() {
-  if (!currentUser) return;
-  const { data: tickets, error } = await sb
-    .from('tickets')
-    .select(`*, ticket_selections(*, fights!fight_id(result_winner, result_round, result_method, status))`)
-    .eq('user_id', currentUser.id)
-    .eq('status', 'pending');
-  if (error || !tickets) return;
-
-  for (const t of tickets) {
-    const sels = t.ticket_selections || [];
-    const allSettled = sels.every(s => s.fights && s.fights.status === 'finished');
-    if (!allSettled) continue;
-
-    let allWon = true;
-    for (const s of sels) {
-      const f = s.fights;
-      let selWon = true;
-      if (s.picked_fighter && f.result_winner !== s.picked_fighter) selWon = false;
-      if (s.picked_round && f.result_round !== s.picked_round) selWon = false;
-      if (s.picked_method && f.result_method !== s.picked_method) selWon = false;
-      await sb.from('ticket_selections').update({ result: selWon ? 'ok' : 'no' }).eq('id', s.id);
-      if (!selWon) allWon = false;
-    }
-
-    const newStatus = allWon ? 'won' : 'lost';
-    await sb.from('tickets').update({ status: newStatus, settled_at: new Date().toISOString() }).eq('id', t.id);
-
-    if (allWon) {
-      const payout = Math.round(t.stake * Number(t.total_odds));
-      const { data: usr } = await sb.from('users').select('balance, monthly_score, tickets_count').eq('id', currentUser.id).single();
-      if (usr) {
-        const newBal = (usr.balance || 0) + payout;
-        const newScore = (usr.monthly_score || 0) + Math.round(payout - t.stake);
-        await sb.from('users').update({
-          balance: newBal,
-          monthly_score: newScore,
-          tickets_count: (usr.tickets_count || 0) + 1
-        }).eq('id', currentUser.id);
-        currentUser.balance = newBal;
-        updateBalance(newBal);
-      }
-    }
-  }
-  await loadUserTickets();
-  await loadLeaderboard();
-}
-
-// ─────────────────────────────────────────────────────────────
-//  FIX #6: BET PLACEMENT CONFIRMATION POPUP
-// ─────────────────────────────────────────────────────────────
-function showBetConfirmPopup(stake, odds, potentialWin) {
-  return new Promise(resolve => {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-    overlay.innerHTML = `
-      <div style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:32px;max-width:360px;width:100%;text-align:center">
-        <div style="font-size:1.2rem;font-weight:700;margin-bottom:14px">ბილეთის დადასტურება</div>
-        <div style="color:var(--muted);margin-bottom:8px;font-size:.9rem">დარწმუნებული ხარ?</div>
-        <div style="display:flex;justify-content:space-between;padding:10px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin:12px 0;font-family:var(--mono);font-size:.88rem">
-          <span style="color:var(--muted)">ფსონი</span><span style="font-weight:700">${fmt(stake)} ქულა</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);margin-bottom:12px;font-family:var(--mono);font-size:.88rem">
-          <span style="color:var(--muted)">კოეფიციენტი</span><span style="font-weight:700;color:var(--gold)">${odds.toFixed(2)}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line);margin-bottom:20px;font-family:var(--mono);font-size:.88rem">
-          <span style="color:var(--muted)">შესაძლო მოგება</span><span style="font-weight:700;color:var(--green)">${fmt(potentialWin)} ქულა</span>
-        </div>
-        <div style="display:flex;gap:12px;justify-content:center">
-          <button id="betCancelBtn" style="padding:10px 24px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);cursor:pointer;font-family:inherit">გაუქმება</button>
-          <button id="betConfirmBtn" style="padding:10px 24px;border-radius:8px;border:none;background:var(--red);color:#fff;cursor:pointer;font-family:inherit;font-weight:700">დადება</button>
-        </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    const close = val => { document.body.removeChild(overlay); resolve(val); };
-    document.getElementById('betConfirmBtn').onclick = () => close(true);
-    document.getElementById('betCancelBtn').onclick = () => close(false);
-    overlay.onclick = e => { if (e.target === overlay) close(false); };
-  });
-}
-
-// ─────────────────────────────────────────────────────────────
-//  FIX #5: GOOGLE AUTH NICKNAME PROMPT
-// ─────────────────────────────────────────────────────────────
-function showNicknamePrompt() {
-  return new Promise(resolve => {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-    overlay.innerHTML = `
-      <div style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:32px;max-width:380px;width:100%;text-align:center">
-        <div style="font-size:1.2rem;font-weight:700;margin-bottom:8px">აირჩიე სახელი</div>
-        <div style="color:var(--muted);margin-bottom:18px;font-size:.88rem">შეიყვანე შენი სახელი ფენტეზიში</div>
-        <input id="googleNickInput" type="text" placeholder="მაგ. UFC.King" maxlength="20" style="width:100%;background:var(--ink);border:1px solid var(--line);border-radius:6px;padding:12px;color:var(--text);font-size:1rem;margin-bottom:8px;font-family:inherit">
-        <div id="googleNickErr" style="color:var(--red);font-size:.82rem;min-height:20px;margin-bottom:10px"></div>
-        <button id="googleNickBtn" style="width:100%;padding:12px;border-radius:8px;border:none;background:var(--red);color:#fff;cursor:pointer;font-family:inherit;font-weight:700;font-size:.95rem">შენახვა</button>
-      </div>`;
-    document.body.appendChild(overlay);
-    document.getElementById('googleNickBtn').onclick = () => {
-      const val = (document.getElementById('googleNickInput').value || '').trim();
-      if (!val || !/^[a-zA-Z0-9_]{3,20}$/.test(val)) {
-        document.getElementById('googleNickErr').textContent = '3-20 ლათინური სიმბოლო (a-z, 0-9, _)';
-        return;
-      }
-      document.body.removeChild(overlay);
-      resolve(val);
-    };
-  });
-}
-
-// ─────────────────────────────────────────────────────────────
 //  EVENT LISTENERS
 // ─────────────────────────────────────────────────────────────
 document.getElementById('openSlip').onclick   = openSlip;
@@ -1148,12 +926,14 @@ document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click
   const loadingEl = document.getElementById('markets');
   if (loadingEl) loadingEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">იტვირთება ბრძოლები…</div>';
   await loadEventFromDB();
-  renderMarkets(); renderSlip(); renderBar(); renderTickets();
+  renderMarkets(); renderSlip(); renderBar();
   await loadLeaderboard();
+  if (currentUser) await loadUserTickets();
+  renderTickets();
   setInterval(() => {
-  const fallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%230E0D14'/%3E%3Ccircle cx='100' cy='85' r='42' fill='%23F31D25' opacity='.9'/%3E%3Ccircle cx='78' cy='75' r='16' fill='%23ff4040'/%3E%3Ccircle cx='100' cy='68' r='16' fill='%23ff4040'/%3E%3Ccircle cx='122' cy='75' r='16' fill='%23ff4040'/%3E%3Crect x='75' y='110' width='50' height='40' rx='8' fill='%23F31D25' opacity='.85'/%3E%3Crect x='82' y='145' width='36' height='18' rx='5' fill='%23cc1018'/%3E%3C/svg%3E";
-  document.querySelectorAll('.stage-img img').forEach(img => {
-    if (!img.naturalWidth) img.src = fallback;
-  });
-}, 3000);
+    const fallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%230E0D14'/%3E%3Ccircle cx='100' cy='85' r='42' fill='%23F31D25' opacity='.9'/%3E%3Ccircle cx='78' cy='75' r='16' fill='%23ff4040'/%3E%3Ccircle cx='100' cy='68' r='16' fill='%23ff4040'/%3E%3Ccircle cx='122' cy='75' r='16' fill='%23ff4040'/%3E%3Crect x='75' y='110' width='50' height='40' rx='8' fill='%23F31D25' opacity='.85'/%3E%3Crect x='82' y='145' width='36' height='18' rx='5' fill='%23cc1018'/%3E%3C/svg%3E";
+    document.querySelectorAll('.stage-img img').forEach(img => {
+      if (!img.naturalWidth) img.src = fallback;
+    });
+  }, 3000);
 })();
