@@ -14,7 +14,7 @@ const METHODS = ['ნოკაუტი', 'მტკივნეული', 'გ
 // ── global state ──────────────────────────────────────────────
 let FIGHTS = [];
 const START = 1000;
-const state = {ჶ
+const state = {
   balance: START, score: 0,
   picks: {}, mode: 'express', expressStake: 0,
   tickets: [], user: null, openDetail: {}
@@ -134,14 +134,14 @@ async function loadEventFromDB() {
     showDetails: f.show_details !== false,
     red: {
       name: f.red.name, flag: f.red.flag || '🏳️', odds: Number(f.red_odds),
-      img: f.red.image_url || 'x',
+      img: f.red.image_url || '',
       record: f.red.record || '-', age: String(f.red.age || '-'),
       ht: (f.red.height_cm || '-') + ' სმ', wt: (f.red.weight_kg || '-') + ' კგ',
       reach: (f.red.reach_cm || '-') + ' სმ'
     },
     blue: {
       name: f.blue.name, flag: f.blue.flag || '🏳️', odds: Number(f.blue_odds),
-      img: f.blue.image_url || 'x',
+      img: f.blue.image_url || '',
       record: f.blue.record || '-', age: String(f.blue.age || '-'),
       ht: (f.blue.height_cm || '-') + ' სმ', wt: (f.blue.weight_kg || '-') + ' კგ',
       reach: (f.blue.reach_cm || '-') + ' სმ'
