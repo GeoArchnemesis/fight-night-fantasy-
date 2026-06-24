@@ -4,7 +4,15 @@
 
 const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+// navigator lock გათიშულია — ის იწვევდა deadlock-ს (queries იჭედებოდა როცა სესია არსებობდა)
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    lock: (name, acquireTimeout, fn) => fn()
+  }
+});
 
 // ── helpers ───────────────────────────────────────────────────
 const r2  = x => Math.round(x * 100) / 100;
