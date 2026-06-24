@@ -99,6 +99,10 @@ async function doCashout(idx) {
   updateBalance(state.balance);
   if (currentUser) {
     await sb.from('users').update({ balance: state.balance }).eq('id', currentUser.id);
+    // DB-შიც განაახლე ბილეთის სტატუსი
+    if (t._dbId) {
+      await sb.from('tickets').update({ status: 'cashout' }).eq('id', t._dbId);
+    }
   }
   renderTickets();
 }
@@ -135,7 +139,6 @@ async function loadEventFromDB() {
     red: {
       name: f.red.name, flag: f.red.flag || '🏳️', odds: Number(f.red_odds),
       img: f.red.image_url || null,
-
       record: f.red.record || '-', age: String(f.red.age || '-'),
       ht: (f.red.height_cm || '-') + ' სმ', wt: (f.red.weight_kg || '-') + ' კგ',
       reach: (f.red.reach_cm || '-') + ' სმ'
@@ -439,17 +442,18 @@ async function placeBets() {
   if (state.mode === 'express') {
     const st = state.expressStake; if (st <= 0 || st > state.balance) return;
     const odds = comboOdds(), pw = Math.round(st * odds);
-    state.tickets.unshift({
+    const ticket = {
       type: 'express',
       sels: arr.map(s => ({ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name })),
       stake: st, odds, status: 'open', placedAt: Date.now()
-    });
+    };
     state.balance -= st; updateBalance(state.balance);
     if (eventId) {
       const { data: tk } = await sb.from('tickets')
         .insert({ user_id: currentUser.id, event_id: eventId, type: 'express', stake: st, total_odds: odds, potential_win: pw, status: 'pending' })
         .select().single();
       if (tk) {
+        ticket._dbId = tk.id;
         await sb.from('ticket_selections').insert(arr.map(s => ({
           ticket_id: tk.id, fight_id: FIGHTS[s.i]?._dbId,
           picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds
@@ -457,25 +461,30 @@ async function placeBets() {
         await sb.from('users').update({ balance: state.balance }).eq('id', currentUser.id);
       }
     }
+    state.tickets.unshift(ticket);
   } else {
     const ts = totalStakeSingle(); if (ts <= 0 || ts > state.balance) return;
     for (const s of arr) {
       if (s.stake > 0) {
         const pw = Math.round(s.stake * s.odds);
-        state.tickets.unshift({
+        const ticket = {
           type: 'single',
           sels: [{ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name }],
           stake: s.stake, odds: s.odds, status: 'open', placedAt: Date.now()
-        });
+        };
         if (eventId) {
           const { data: tk } = await sb.from('tickets')
             .insert({ user_id: currentUser.id, event_id: eventId, type: 'single', stake: s.stake, total_odds: s.odds, potential_win: pw, status: 'pending' })
             .select().single();
-          if (tk) await sb.from('ticket_selections').insert({
-            ticket_id: tk.id, fight_id: FIGHTS[s.i]?._dbId,
-            picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds
-          });
+          if (tk) {
+            ticket._dbId = tk.id;
+            await sb.from('ticket_selections').insert({
+              ticket_id: tk.id, fight_id: FIGHTS[s.i]?._dbId,
+              picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds
+            });
+          }
         }
+        state.tickets.unshift(ticket);
       }
     }
     state.balance -= ts; updateBalance(state.balance);
@@ -558,8 +567,6 @@ function renderBar() {
   document.getElementById('betbar').classList.toggle('show', n > 0);
 }
 
-// (demo simulation and reset removed)
-
 // ─────────────────────────────────────────────────────────────
 //  LEADERBOARD
 // ─────────────────────────────────────────────────────────────
@@ -568,7 +575,7 @@ const AVATAR_ICONS = ['🥊','🏆','🔥','⚡','💪','🦁','🐺','👊','�
 
 function renderLeaderboard() {
   const rows = [...LEADERBOARD];
-  if (state.user) rows.push({ name: state.user, tag: 'შენ', pts: state.score, bets: state.tickets.length, you: true, icon: currentUser?.icon || '🥊' });
+  if (currentUser) rows.push({ name: currentUser.nick, tag: 'შენ', pts: state.balance, bets: state.tickets.length, you: true, icon: currentUser.icon || '🥊' });
   rows.sort((a, b) => b.pts - a.pts);
   document.getElementById('lbRows').innerHTML = rows.map((r, idx) => {
     const rank = idx + 1;
@@ -583,6 +590,78 @@ function renderLeaderboard() {
       <span class="lb-pts">${fmt(r.pts)}</span>
     </div>`;
   }).join('');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  LOAD LEADERBOARD FROM DB
+// ─────────────────────────────────────────────────────────────
+async function loadLeaderboard() {
+  try {
+    const { data: users, error } = await sb
+      .from('users').select('nick,icon,balance')
+      .order('balance', { ascending: false }).limit(20);
+    if (error || !users) return;
+    LEADERBOARD.length = 0;
+    users.forEach(u => LEADERBOARD.push({
+      name: u.nick || '—', tag: '', pts: u.balance || 0, bets: 0, icon: u.icon || '🥊'
+    }));
+    renderLeaderboard();
+  } catch (e) {
+    console.warn('loadLeaderboard failed:', e);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  LOAD USER TICKETS FROM DB
+// ─────────────────────────────────────────────────────────────
+function rebuildSelName(i, s) {
+  const f = FIGHTS[i];
+  if (!f) return s.picked_fighter || '—';
+  const a = [];
+  if (s.picked_fighter) a.push((s.picked_fighter === 'red' ? f.red.name : f.blue.name) + ' მოგება');
+  if (s.picked_round)   a.push(s.picked_round + '-ე რაუნდი');
+  if (s.picked_method)  a.push(s.picked_method);
+  return a.join(' · ');
+}
+
+async function loadUserTickets() {
+  if (!currentUser) return;
+  try {
+    let q = sb.from('tickets')
+      .select('id,type,stake,total_odds,status,created_at,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds)')
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false });
+
+    if (window.__currentEventId) {
+      q = q.eq('event_id', window.__currentEventId);
+    }
+
+    const { data: rows, error } = await q;
+    if (error || !rows) return;
+
+    const statusMap = { pending: 'open', open: 'open', won: 'won', lost: 'lost', cashout: 'cashout' };
+    state.tickets = rows.map(tk => ({
+      _dbId: tk.id,
+      type: tk.type,
+      sels: (tk.ticket_selections || []).map(s => {
+        const i = FIGHTS.findIndex(f => f._dbId === s.fight_id);
+        return {
+          i,
+          fighter: s.picked_fighter,
+          round: s.picked_round,
+          method: s.picked_method,
+          odds: Number(s.odds),
+          name: rebuildSelName(i, s)
+        };
+      }),
+      stake: Number(tk.stake),
+      odds: Number(tk.total_odds),
+      status: statusMap[tk.status] || tk.status,
+      placedAt: tk.created_at ? new Date(tk.created_at).getTime() : Date.now()
+    }));
+  } catch (e) {
+    console.warn('loadUserTickets failed:', e);
+  }
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -636,13 +715,19 @@ function openModal(mode) {
 }
 function closeModal() { modal.classList.remove('show'); authError(''); }
 
+// ─────────────────────────────────────────────────────────────
+//  NAV UPDATE (გასწორებული — აღარ აქვს add/remove კონფლიქტი)
+// ─────────────────────────────────────────────────────────────
 function updateNavForUser(user) {
-  const joinBtn = document.getElementById('joinBtn');
-  const signinBtn = document.getElementById('signinBtn');
-  let navUser = document.getElementById('navUser');
+  const joinBtn     = document.getElementById('joinBtn');
+  const signinBtn   = document.getElementById('signinBtn');
+  const balancePill = document.querySelector('.balance-pill');
+  let navUser       = document.getElementById('navUser');
+
   if (user) {
     if (joinBtn)   joinBtn.style.display = 'none';
     if (signinBtn) signinBtn.style.display = 'none';
+
     if (!navUser) {
       navUser = document.createElement('div');
       navUser.id = 'navUser'; navUser.className = 'nav-user';
@@ -653,31 +738,38 @@ function updateNavForUser(user) {
           <button class="nav-dd-item" id="ddProfile">პროფილი</button>
           <button class="nav-dd-item danger" id="ddLogout">გამოსვლა</button>
         </div>`;
-      if (joinBtn) joinBtn.parentNode.insertBefore(navUser, joinBtn);
+      if (joinBtn && joinBtn.parentNode) joinBtn.parentNode.insertBefore(navUser, joinBtn);
       navUser.onclick = (e) => {
         if (e.target.closest('.nav-dropdown')) return;
         document.getElementById('navDropdown').classList.toggle('show');
       };
       document.getElementById('ddProfile').onclick = () => { document.getElementById('navDropdown').classList.remove('show'); openProfile(); };
-      document.getElementById('ddLogout').onclick = () => { document.getElementById('navDropdown').classList.remove('show'); doLogout(); };
+      document.getElementById('ddLogout').onclick  = () => { document.getElementById('navDropdown').classList.remove('show'); doLogout(); };
     } else {
       navUser.querySelector('.nav-nick').textContent = user.nick;
-      navUser.querySelector('.nav-ava').textContent = user.icon || '🥊';
+      navUser.querySelector('.nav-ava').textContent  = user.icon || '🥊';
     }
+
     navUser.style.display = 'flex';
-    document.querySelector('.balance-pill').classList.add('visible');
-    document.getElementById('navProfile').style.display = 'block';
-    document.getElementById('navLogout').style.display = 'block';
-    document.getElementById('navProfile').onclick = (e) => { e.preventDefault(); openProfile(); };
-    document.getElementById('navLogout').onclick = (e) => { e.preventDefault(); doLogout(); };
-    document.querySelector('.balance-pill').classList.remove('visible');
-    document.getElementById('navProfile').style.display = 'none';
-    document.getElementById('navLogout').style.display = 'none';
+    if (balancePill) balancePill.classList.add('visible');
+
+    const navProfile = document.getElementById('navProfile');
+    const navLogout  = document.getElementById('navLogout');
+    if (navProfile) { navProfile.style.display = 'block'; navProfile.onclick = (e) => { e.preventDefault(); openProfile(); }; }
+    if (navLogout)  { navLogout.style.display  = 'block'; navLogout.onclick  = (e) => { e.preventDefault(); doLogout(); }; }
+
     updateBalance(user.balance || 1000);
   } else {
     if (joinBtn)   joinBtn.style.display = '';
     if (signinBtn) signinBtn.style.display = '';
     if (navUser)   navUser.style.display = 'none';
+    if (balancePill) balancePill.classList.remove('visible');
+
+    const navProfile = document.getElementById('navProfile');
+    const navLogout  = document.getElementById('navLogout');
+    if (navProfile) navProfile.style.display = 'none';
+    if (navLogout)  navLogout.style.display  = 'none';
+
     updateBalance(1000);
   }
 }
@@ -730,7 +822,7 @@ async function handleGoogleAuth() {
   if (error) console.warn(error.message);
 }
 
-
+// onAuthStateChange — Google OAuth-ის callback-ისთვის
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_IN' && session && !currentUser) {
     const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
@@ -738,7 +830,9 @@ sb.auth.onAuthStateChange(async (event, session) => {
       currentUser = { id: session.user.id, email: session.user.email, nick: ud.nick, balance: ud.balance || 1000, icon: ud.icon || '🥊' };
       updateNavForUser(currentUser);
     }
-  } else if (event === 'SIGNED_OUT') { currentUser = null; state.tickets = []; renderTickets(); updateNavForUser(null); }
+  } else if (event === 'SIGNED_OUT') {
+    currentUser = null; state.tickets = []; renderTickets(); updateNavForUser(null);
+  }
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -806,7 +900,6 @@ async function saveProfile() {
     if (newPass) {
       if (newPass.length < 6) { profileMsg('ახალი პაროლი მინ. 6 სიმბოლო', 'var(--red)'); return; }
       if (!oldPass) { profileMsg('შეიყვანე ძველი პაროლი', 'var(--red)'); return; }
-      // Verify old password by re-signing in
       const { error: signErr } = await sb.auth.signInWithPassword({ email: currentUser.email, password: oldPass });
       if (signErr) { profileMsg('ძველი პაროლი არასწორია', 'var(--red)'); return; }
       const { error: upErr } = await sb.auth.updateUser({ password: newPass });
@@ -857,7 +950,6 @@ async function sendPasswordReset() {
     errEl.textContent = error.message; errEl.style.display = 'block'; return;
   }
 
-  // Show success
   document.querySelector('#forgotModal .field').style.display = 'none';
   document.getElementById('forgotSubmit').style.display = 'none';
   document.getElementById('forgotSuccess').style.display = 'block';
@@ -911,39 +1003,48 @@ document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click
 }));
 
 // ─────────────────────────────────────────────────────────────
-//  INIT
+//  INIT — ყველაფერი ერთ თანმიმდევრობაში, race condition აღარ არის
 // ─────────────────────────────────────────────────────────────
 (async () => {
   const loadingEl = document.getElementById('markets');
   if (loadingEl) loadingEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">იტვირთება ბრძოლები…</div>';
 
   // 1. ჯერ სესიის აღდგენა
-  const { data: { session } } = await sb.auth.getSession();
-  if (session) {
-    const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
-    if (ud) {
-      currentUser = {
-        id: session.user.id,
-        email: session.user.email,
-        nick: ud.nick,
-        balance: ud.balance || 1000,
-        icon: ud.icon || '🥊'
-      };
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) {
+      const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
+      if (ud) {
+        currentUser = {
+          id: session.user.id,
+          email: session.user.email,
+          nick: ud.nick,
+          balance: ud.balance || 1000,
+          icon: ud.icon || '🥊'
+        };
+      }
     }
+  } catch (e) {
+    console.warn('Session restore failed:', e);
   }
 
   // 2. მებრძოლების ჩატვირთვა
   await loadEventFromDB();
 
-  // 3. UI განახლება (ახლა currentUser უკვე სწორია)
-  updateNavForUser(currentUser);
-  renderMarkets(); renderSlip(); renderBar();
+  // 3. ჯერ მებრძოლები (რომ UI-ში ბრძოლები გამოჩნდეს)
+  renderMarkets();
+  renderSlip();
+  renderBar();
 
-  // 4. ბილეთები
+  // 4. მერე ნავიგაციის განახლება (currentUser უკვე სწორია)
+  updateNavForUser(currentUser);
+
+  // 5. ლიდერბორდი და ბილეთები DB-დან
   await loadLeaderboard();
   if (currentUser) await loadUserTickets();
   renderTickets();
 
+  // 6. Image fallback
   setInterval(() => {
     const fallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%230E0D14'/%3E%3Ccircle cx='100' cy='85' r='42' fill='%23F31D25' opacity='.9'/%3E%3Ccircle cx='78' cy='75' r='16' fill='%23ff4040'/%3E%3Ccircle cx='100' cy='68' r='16' fill='%23ff4040'/%3E%3Ccircle cx='122' cy='75' r='16' fill='%23ff4040'/%3E%3Crect x='75' y='110' width='50' height='40' rx='8' fill='%23F31D25' opacity='.85'/%3E%3Crect x='82' y='145' width='36' height='18' rx='5' fill='%23cc1018'/%3E%3C/svg%3E";
     document.querySelectorAll('.stage-img img').forEach(img => {
