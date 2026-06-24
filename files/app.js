@@ -882,11 +882,14 @@ async function runInit(session) {
 }
 
 sb.auth.onAuthStateChange(async (event, session) => {
-  if (event === 'INITIAL_SESSION') {
-    // პირველი ჩატვირთვა — ეს ეშვება ყოველთვის (სესიით ან სესიის გარეშე)
+  // პირველი callback (ნებისმიერი ივენთი) → INIT გაშვება
+  if (!_initDone) {
     await runInit(session);
-  } else if (event === 'SIGNED_IN' && session && !currentUser) {
-    // Google OAuth callback ან ახალი ლოგინი
+    return;
+  }
+
+  // შემდეგი ივენთები — ლოგინი/ლოგაუთი სესიის დროს
+  if (event === 'SIGNED_IN' && session && !currentUser) {
     const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
     if (ud) {
       currentUser = { id: session.user.id, email: session.user.email, nick: ud.nick, balance: ud.balance || 1000, icon: ud.icon || '🥊' };
