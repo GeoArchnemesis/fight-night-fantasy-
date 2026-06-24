@@ -134,14 +134,15 @@ async function loadEventFromDB() {
     showDetails: f.show_details !== false,
     red: {
       name: f.red.name, flag: f.red.flag || '🏳️', odds: Number(f.red_odds),
-      img: f.red.image_url || '',
+      img: f.red.image_url || null,
+
       record: f.red.record || '-', age: String(f.red.age || '-'),
       ht: (f.red.height_cm || '-') + ' სმ', wt: (f.red.weight_kg || '-') + ' კგ',
       reach: (f.red.reach_cm || '-') + ' სმ'
     },
     blue: {
       name: f.blue.name, flag: f.blue.flag || '🏳️', odds: Number(f.blue_odds),
-      img: f.blue.image_url || '',
+      img: f.blue.image_url || null,
       record: f.blue.record || '-', age: String(f.blue.age || '-'),
       ht: (f.blue.height_cm || '-') + ' სმ', wt: (f.blue.weight_kg || '-') + ' კგ',
       reach: (f.blue.reach_cm || '-') + ' სმ'
@@ -246,7 +247,7 @@ function renderMarkets() {
     return;
   }
 
-  const noImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23111'/%3E%3Ctext x='100' y='110' text-anchor='middle' font-size='70'%3E%F0%9F%A5%8A%3C/text%3E%3C/svg%3E";
+  const noImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%230E0D14'/%3E%3Ccircle cx='100' cy='85' r='42' fill='%23F31D25' opacity='.9'/%3E%3Ccircle cx='78' cy='75' r='16' fill='%23ff4040'/%3E%3Ccircle cx='100' cy='68' r='16' fill='%23ff4040'/%3E%3Ccircle cx='122' cy='75' r='16' fill='%23ff4040'/%3E%3Crect x='75' y='110' width='50' height='40' rx='8' fill='%23F31D25' opacity='.85'/%3E%3Crect x='82' y='145' width='36' height='18' rx='5' fill='%23cc1018'/%3E%3Ctext x='100' y='185' text-anchor='middle' font-size='14' fill='%23555'%3EMMA%3C/text%3E%3C/svg%3E";
 
   document.getElementById('markets').innerHTML = FIGHTS.map((f, i) => {
     const p = state.picks[i], fr = p ? p.fighter : null, open = state.openDetail[i];
@@ -283,7 +284,7 @@ function renderMarkets() {
       </div>
       <div class="bout-stage">
         <div class="stage-img left">
-          <img src="${f.red.img}" alt="${f.red.name}" loading="lazy" onerror="this.src='${noImg}'">
+          <img src="${f.red.img || noImg}" alt="${f.red.name}" loading="lazy">
         </div>
         <div class="stage-mid">
           <div class="tale-wrap">
@@ -294,7 +295,7 @@ function renderMarkets() {
           </div>
         </div>
         <div class="stage-img right">
-          <img src="${f.blue.img}" alt="${f.blue.name}" loading="lazy" onerror="this.src='${noImg}'">
+          <img src="${f.blue.img || noImg}" alt="${f.blue.name}" loading="lazy">
         </div>
       </div>
       <div class="picks-wrap">
@@ -489,15 +490,17 @@ async function placeBets() {
 //  TICKETS
 // ─────────────────────────────────────────────────────────────
 function renderTickets() {
-  const list = document.getElementById('ticketsList');
+  const activeList = document.getElementById('activeTickets');
+  const historyList = document.getElementById('historyTickets');
+  const activeTickets = state.tickets.filter(t => t.status === 'open');
+  const historyTickets = state.tickets.filter(t => t.status !== 'open').sort((a, b) => (b.placedAt || 0) - (a.placedAt || 0));
   document.getElementById('tkSummary').textContent = state.tickets.length + ' ბილეთი';
-  if (state.tickets.length === 0) {
-    list.innerHTML = '<div class="tk-empty">ჯერ ბილეთი არ დაგიდია. აირჩიე კოეფიციენტი და დადე პირველი ფსონი.</div>';
-    return;
-  }
+
   const st = { open: 'ღია', won: 'მოგებული', lost: 'წაგებული', cashout: 'ქეშაუთი' };
   const cashoutOk = canCashout();
-  list.innerHTML = state.tickets.map((t, idx) => {
+
+  const renderTicketCard = (t, idx) => {
+    const realIdx = state.tickets.indexOf(t);
     const showCashout = t.status === 'open' && cashoutOk;
     return `
     <div class="ticket">
@@ -521,10 +524,23 @@ function renderTickets() {
             : 'შესაძლო ' + fmt(t.stake * t.odds)} ქულა
         </span>
       </div>
-      ${showCashout ? `<button class="cashout-btn" data-co="${idx}">${cashoutLabel(t)}</button>` : ''}
+      ${showCashout ? `<button class="cashout-btn" data-co="${realIdx}">${cashoutLabel(t)}</button>` : ''}
     </div>`;
-  }).join('');
-  list.querySelectorAll('[data-co]').forEach(b => b.onclick = () => doCashout(+b.dataset.co));
+  };
+
+  if (activeTickets.length === 0) {
+    activeList.innerHTML = '<div class="tk-empty">აქტიური ბილეთი არ არის. აირჩიე კოეფიციენტი და დადე პირველი ფსონი.</div>';
+  } else {
+    activeList.innerHTML = activeTickets.map(renderTicketCard).join('');
+  }
+
+  if (historyTickets.length === 0) {
+    historyList.innerHTML = '<div class="tk-empty">ისტორია ცარიელია.</div>';
+  } else {
+    historyList.innerHTML = historyTickets.map(renderTicketCard).join('');
+  }
+
+  document.querySelectorAll('[data-co]').forEach(b => b.onclick = () => doCashout(+b.dataset.co));
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -542,55 +558,26 @@ function renderBar() {
   document.getElementById('betbar').classList.toggle('show', n > 0);
 }
 
-// ─────────────────────────────────────────────────────────────
-//  DEMO SIMULATION
-// ─────────────────────────────────────────────────────────────
-function settleDemo() {
-  const open = state.tickets.filter(t => t.status === 'open');
-  if (open.length === 0) return;
-  const results = FIGHTS.map(f => {
-    const winner = Math.random() < (1 / f.red.odds) / ((1 / f.red.odds) + (1 / f.blue.odds)) ? 'red' : 'blue';
-    const m = METHODS[Math.floor(Math.random() * 3)];
-    const round = m === 'გადაწყვეტილება' ? null : 1 + Math.floor(Math.random() * f.maxRound);
-    return { winner, m, round };
-  });
-  const ok = s => {
-    const r = results[s.i];
-    return r.winner === s.fighter && (!s.round || r.round === s.round) && (!s.method || r.m === s.method);
-  };
-  let won = 0, payout = 0;
-  open.forEach(t => {
-    t.sels.forEach(s => s.res = ok(s) ? 'ok' : 'no');
-    const win = t.sels.every(s => s.res === 'ok');
-    t.status = win ? 'won' : 'lost';
-    if (win) { const p = t.stake * t.odds; state.balance += p; state.score += Math.round(p - t.stake); won++; payout += p; }
-    else state.score -= t.stake;
-  });
-  renderBar(); renderTickets(); renderLeaderboard();
-}
-
-function resetEvent() {
-  state.balance = START; state.picks = {}; state.expressStake = 0;
-  state.tickets = []; state.openDetail = {};
-  refresh(); renderSlip(); renderTickets();
-}
+// (demo simulation and reset removed)
 
 // ─────────────────────────────────────────────────────────────
 //  LEADERBOARD
 // ─────────────────────────────────────────────────────────────
 const LEADERBOARD = [];
+const AVATAR_ICONS = ['🥊','🏆','🔥','⚡','💪','🦁','🐺','👊','💎','🎯','⭐','🦅'];
+
 function renderLeaderboard() {
   const rows = [...LEADERBOARD];
-  if (state.user) rows.push({ name: state.user, tag: 'შენ', pts: state.score, bets: state.tickets.length, you: true });
+  if (state.user) rows.push({ name: state.user, tag: 'შენ', pts: state.score, bets: state.tickets.length, you: true, icon: currentUser?.icon || '🥊' });
   rows.sort((a, b) => b.pts - a.pts);
   document.getElementById('lbRows').innerHTML = rows.map((r, idx) => {
     const rank = idx + 1;
-    const initials = r.name.replace(/[^A-Za-z]/g, '').slice(0, 2).toUpperCase() || 'შ';
+    const icon = r.icon || '🥊';
     return `<div class="lb-row ${r.you ? 'you' : ''}">
       <span class="lb-rank ${rank <= 3 ? 'top' : ''}">${rank}</span>
       <span class="lb-user">
-        <span class="lb-ava">${initials}</span>
-        <span><span class="lb-name">${r.name}</span><br><span class="lb-tag">${r.tag}</span></span>
+        <span class="lb-ava-glove">${icon}</span>
+        <span><span class="lb-name">${r.name}</span><br><span class="lb-tag">${r.tag || ''}</span></span>
       </span>
       <span class="lb-roi">${r.bets} ბილეთი</span>
       <span class="lb-pts">${fmt(r.pts)}</span>
@@ -637,13 +624,14 @@ function openModal(mode) {
   modalMode = mode; authError('');
   const passEl = document.getElementById('inPass'); if (passEl) passEl.value = '';
   document.getElementById('modalTitle').textContent  = mode === 'join' ? 'შემოუერთდი ლიგას' : 'კეთილი იყოს დაბრუნება';
-  document.getElementById('modalSub').textContent    = mode === 'join' ? 'შექმენი სახელი და მიიღე 1,000 ქულა.' : 'შედი და გააგრძელე.';
+  document.getElementById('modalSub').textContent    = mode === 'join' ? ' ' : ' ';
   document.getElementById('nameField').style.display = mode === 'join' ? 'block' : 'none';
   document.getElementById('modalSubmit').textContent = mode === 'join' ? 'რეგისტრაცია' : 'შესვლა';
   document.getElementById('modalSwitch').innerHTML   = mode === 'join'
     ? 'უკვე გაქვს ანგარიში? <button id="switchMode">შესვლა</button>'
     : 'ახალი ხარ აქ? <button id="switchMode">რეგისტრაცია</button>';
   document.getElementById('switchMode').onclick = () => openModal(mode === 'join' ? 'signin' : 'join');
+  document.getElementById('forgotWrap').style.display = mode === 'signin' ? 'block' : 'none';
   modal.classList.add('show');
 }
 function closeModal() { modal.classList.remove('show'); authError(''); }
@@ -658,13 +646,33 @@ function updateNavForUser(user) {
     if (!navUser) {
       navUser = document.createElement('div');
       navUser.id = 'navUser'; navUser.className = 'nav-user';
-      navUser.innerHTML = '<span class="nav-nick">' + user.nick + '</span><button class="btn-logout" id="logoutBtn">გასვლა</button>';
+      navUser.innerHTML = `
+        <span class="nav-ava">${user.icon || '🥊'}</span>
+        <span class="nav-nick">${user.nick}</span>
+        <div class="nav-dropdown" id="navDropdown">
+          <button class="nav-dd-item" id="ddProfile">პროფილი</button>
+          <button class="nav-dd-item danger" id="ddLogout">გამოსვლა</button>
+        </div>`;
       if (joinBtn) joinBtn.parentNode.insertBefore(navUser, joinBtn);
-      document.getElementById('logoutBtn').onclick = doLogout;
+      navUser.onclick = (e) => {
+        if (e.target.closest('.nav-dropdown')) return;
+        document.getElementById('navDropdown').classList.toggle('show');
+      };
+      document.getElementById('ddProfile').onclick = () => { document.getElementById('navDropdown').classList.remove('show'); openProfile(); };
+      document.getElementById('ddLogout').onclick = () => { document.getElementById('navDropdown').classList.remove('show'); doLogout(); };
     } else {
       navUser.querySelector('.nav-nick').textContent = user.nick;
+      navUser.querySelector('.nav-ava').textContent = user.icon || '🥊';
     }
     navUser.style.display = 'flex';
+    document.querySelector('.balance-pill').classList.add('visible');
+    document.getElementById('navProfile').style.display = 'block';
+    document.getElementById('navLogout').style.display = 'block';
+    document.getElementById('navProfile').onclick = (e) => { e.preventDefault(); openProfile(); };
+    document.getElementById('navLogout').onclick = (e) => { e.preventDefault(); doLogout(); };
+    document.querySelector('.balance-pill').classList.remove('visible');
+    document.getElementById('navProfile').style.display = 'none';
+    document.getElementById('navLogout').style.display = 'none';
     updateBalance(user.balance || 1000);
   } else {
     if (joinBtn)   joinBtn.style.display = '';
@@ -673,6 +681,12 @@ function updateNavForUser(user) {
     updateBalance(1000);
   }
 }
+
+// Close dropdown when clicking outside
+document.addEventListener('click', e => {
+  const dd = document.getElementById('navDropdown');
+  if (dd && !e.target.closest('.nav-user')) dd.classList.remove('show');
+});
 
 async function doRegister() {
   const nick  = (document.getElementById('inName').value  || '').trim();
@@ -687,7 +701,7 @@ async function doRegister() {
   if (error) { authError(error.message); return; }
   await new Promise(r => setTimeout(r, 1000));
   const { data: ud } = await sb.from('users').select('*').eq('id', data.user.id).single();
-  currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: ud?.balance || 1000 };
+  currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: ud?.balance || 1000, icon: ud?.icon || '🥊' };
   closeModal(); updateNavForUser(currentUser);
 }
 
@@ -700,7 +714,7 @@ async function doSignIn() {
   btn.disabled = false; btn.textContent = 'შესვლა';
   if (error) { authError('არასწორი მეილი ან პაროლი'); return; }
   const { data: ud } = await sb.from('users').select('*').eq('id', data.user.id).single();
-  currentUser = { id: data.user.id, email, nick: ud?.nick || email, balance: ud?.balance || 1000 };
+  currentUser = { id: data.user.id, email, nick: ud?.nick || email, balance: ud?.balance || 1000, icon: ud?.icon || '🥊' };
   closeModal(); updateNavForUser(currentUser);
 }
 
@@ -720,15 +734,138 @@ async function handleGoogleAuth() {
 sb.auth.getSession().then(async ({ data: { session } }) => {
   if (session) {
     const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
-    if (ud) { currentUser = { id: session.user.id, email: session.user.email, nick: ud.nick, balance: ud.balance || 1000 }; updateNavForUser(currentUser); }
+    if (ud) { currentUser = { id: session.user.id, email: session.user.email, nick: ud.nick, balance: ud.balance || 1000, icon: ud.icon || '🥊' }; updateNavForUser(currentUser); }
   }
 });
 sb.auth.onAuthStateChange(async (event, session) => {
   if (event === 'SIGNED_IN' && session && !currentUser) {
     const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
-    if (ud) { currentUser = { id: session.user.id, email: session.user.email, nick: ud.nick, balance: ud.balance || 1000 }; updateNavForUser(currentUser); }
+    if (ud) { currentUser = { id: session.user.id, email: session.user.email, nick: ud.nick, balance: ud.balance || 1000, icon: ud.icon || '🥊' }; updateNavForUser(currentUser); }
   } else if (event === 'SIGNED_OUT') { currentUser = null; updateNavForUser(null); }
 });
+
+// ─────────────────────────────────────────────────────────────
+//  PROFILE MODAL
+// ─────────────────────────────────────────────────────────────
+function openProfile() {
+  if (!currentUser) return;
+  const pm = document.getElementById('profileModal');
+  document.getElementById('profNick').value = currentUser.nick || '';
+  document.getElementById('profEmail').value = currentUser.email || '';
+  document.getElementById('profOldPass').value = '';
+  document.getElementById('profNewPass').value = '';
+  profileMsg('', '');
+
+  // Render icon picker
+  const picker = document.getElementById('iconPicker');
+  picker.innerHTML = AVATAR_ICONS.map(ic =>
+    `<button class="icon-opt ${(currentUser.icon || '🥊') === ic ? 'active' : ''}" data-icon="${ic}">${ic}</button>`
+  ).join('');
+  picker.querySelectorAll('.icon-opt').forEach(b => b.onclick = () => {
+    picker.querySelectorAll('.icon-opt').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+  });
+
+  pm.classList.add('show');
+}
+
+function closeProfile() {
+  document.getElementById('profileModal').classList.remove('show');
+}
+
+function profileMsg(msg, color) {
+  const el = document.getElementById('profileMsg');
+  if (msg) { el.textContent = msg; el.style.color = color || 'var(--green)'; el.style.display = 'block'; }
+  else { el.style.display = 'none'; }
+}
+
+async function saveProfile() {
+  if (!currentUser) return;
+  const nick = (document.getElementById('profNick').value || '').trim();
+  const email = (document.getElementById('profEmail').value || '').trim();
+  const oldPass = document.getElementById('profOldPass').value || '';
+  const newPass = document.getElementById('profNewPass').value || '';
+  const selectedIcon = document.querySelector('#iconPicker .icon-opt.active');
+  const icon = selectedIcon ? selectedIcon.dataset.icon : currentUser.icon || '🥊';
+
+  if (nick && !/^[a-zA-Z0-9_]{3,20}$/.test(nick)) { profileMsg('სახელი: 3-20 ლათინური სიმბოლო (a-z, 0-9, _)', 'var(--red)'); return; }
+
+  try {
+    // Update nickname and icon in users table
+    if (nick && nick !== currentUser.nick || icon !== currentUser.icon) {
+      await sb.from('users').update({ nick, icon }).eq('id', currentUser.id);
+      currentUser.nick = nick;
+      currentUser.icon = icon;
+    }
+
+    // Update email
+    if (email && email !== currentUser.email) {
+      const { error } = await sb.auth.updateUser({ email });
+      if (error) { profileMsg('მეილის შეცვლა ვერ მოხერხდა: ' + error.message, 'var(--red)'); return; }
+      currentUser.email = email;
+    }
+
+    // Update password
+    if (newPass) {
+      if (newPass.length < 6) { profileMsg('ახალი პაროლი მინ. 6 სიმბოლო', 'var(--red)'); return; }
+      if (!oldPass) { profileMsg('შეიყვანე ძველი პაროლი', 'var(--red)'); return; }
+      // Verify old password by re-signing in
+      const { error: signErr } = await sb.auth.signInWithPassword({ email: currentUser.email, password: oldPass });
+      if (signErr) { profileMsg('ძველი პაროლი არასწორია', 'var(--red)'); return; }
+      const { error: upErr } = await sb.auth.updateUser({ password: newPass });
+      if (upErr) { profileMsg('პაროლის შეცვლა ვერ მოხერხდა', 'var(--red)'); return; }
+    }
+
+    updateNavForUser(currentUser);
+    renderLeaderboard();
+    profileMsg('წარმატებით შეინახა!', 'var(--green)');
+  } catch (e) {
+    profileMsg('შეცდომა: ' + e.message, 'var(--red)');
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  FORGOT PASSWORD
+// ─────────────────────────────────────────────────────────────
+function openForgotPassword() {
+  closeModal();
+  const fm = document.getElementById('forgotModal');
+  document.getElementById('forgotEmail').value = '';
+  document.getElementById('forgotError').style.display = 'none';
+  document.getElementById('forgotSuccess').style.display = 'none';
+  document.getElementById('forgotSubmit').style.display = 'block';
+  document.querySelector('#forgotModal .field').style.display = 'block';
+  fm.classList.add('show');
+}
+
+function closeForgotModal() {
+  document.getElementById('forgotModal').classList.remove('show');
+}
+
+async function sendPasswordReset() {
+  const email = (document.getElementById('forgotEmail').value || '').trim();
+  const errEl = document.getElementById('forgotError');
+  if (!email) { errEl.textContent = 'შეიყვანე ელ. ფოსტა'; errEl.style.display = 'block'; return; }
+
+  const btn = document.getElementById('forgotSubmit');
+  btn.textContent = '…'; btn.disabled = true;
+
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
+    redirectTo: window.location.origin + window.location.pathname
+  });
+
+  btn.disabled = false; btn.textContent = 'გამოგზავნა';
+
+  if (error) {
+    errEl.textContent = error.message; errEl.style.display = 'block'; return;
+  }
+
+  // Show success
+  document.querySelector('#forgotModal .field').style.display = 'none';
+  document.getElementById('forgotSubmit').style.display = 'none';
+  document.getElementById('forgotSuccess').style.display = 'block';
+  errEl.style.display = 'none';
+}
 
 // ─────────────────────────────────────────────────────────────
 //  EVENT LISTENERS
@@ -738,15 +875,36 @@ document.getElementById('closeSlip').onclick  = closeSlip;
 document.getElementById('slipBg').onclick     = closeSlip;
 document.getElementById('tabExpress').onclick = () => setMode('express');
 document.getElementById('tabSingle').onclick  = () => setMode('single');
-document.getElementById('simBtn').onclick     = settleDemo;
-document.getElementById('resetBtn').onclick   = resetEvent;
 document.getElementById('joinBtn').onclick    = () => openModal('join');
 document.getElementById('signinBtn').onclick  = () => openModal('signin');
 document.getElementById('modalClose').onclick = closeModal;
 modal.onclick = e => { if (e.target === modal) closeModal(); };
 document.getElementById('modalSubmit').onclick = () => modalMode === 'join' ? doRegister() : doSignIn();
 document.getElementById('googleBtn').onclick   = handleGoogleAuth;
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeSlip(); } });
+
+// Forgot password
+document.getElementById('forgotBtn').onclick = openForgotPassword;
+document.getElementById('forgotModalClose').onclick = closeForgotModal;
+document.getElementById('forgotModal').onclick = e => { if (e.target.id === 'forgotModal') closeForgotModal(); };
+document.getElementById('forgotSubmit').onclick = sendPasswordReset;
+document.getElementById('backToLogin').onclick = () => { closeForgotModal(); openModal('signin'); };
+
+// Profile
+document.getElementById('profileClose').onclick = closeProfile;
+document.getElementById('profileModal').onclick = e => { if (e.target.id === 'profileModal') closeProfile(); };
+document.getElementById('profileSave').onclick = saveProfile;
+document.getElementById('profileLogout').onclick = () => { closeProfile(); doLogout(); };
+
+// History toggle
+document.getElementById('historyToggle').onclick = () => {
+  const hist = document.getElementById('historyTickets');
+  const arrow = document.getElementById('historyArrow');
+  const isOpen = hist.style.display !== 'none';
+  hist.style.display = isOpen ? 'none' : 'flex';
+  arrow.classList.toggle('open', !isOpen);
+};
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeSlip(); closeForgotModal(); closeProfile(); } });
 
 const navLinks = document.getElementById('navLinks');
 document.getElementById('menuBtn').onclick = () => navLinks.classList.toggle('open');
@@ -763,4 +921,10 @@ document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click
   if (loadingEl) loadingEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">იტვირთება ბრძოლები…</div>';
   await loadEventFromDB();
   renderMarkets(); renderSlip(); renderBar(); renderTickets(); renderLeaderboard();
+  setInterval(() => {
+  const fallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%230E0D14'/%3E%3Ccircle cx='100' cy='85' r='42' fill='%23F31D25' opacity='.9'/%3E%3Ccircle cx='78' cy='75' r='16' fill='%23ff4040'/%3E%3Ccircle cx='100' cy='68' r='16' fill='%23ff4040'/%3E%3Ccircle cx='122' cy='75' r='16' fill='%23ff4040'/%3E%3Crect x='75' y='110' width='50' height='40' rx='8' fill='%23F31D25' opacity='.85'/%3E%3Crect x='82' y='145' width='36' height='18' rx='5' fill='%23cc1018'/%3E%3C/svg%3E";
+  document.querySelectorAll('.stage-img img').forEach(img => {
+    if (!img.naturalWidth) img.src = fallback;
+  });
+}, 3000);
 })();
