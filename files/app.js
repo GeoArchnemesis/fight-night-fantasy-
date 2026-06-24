@@ -847,46 +847,28 @@ async function handleGoogleAuth() {
   if (error) console.warn(error.message);
 }
 
-// onAuthStateChange — ერთადერთი სესიის მართვის წერტილი
-let _initDone = false;
+// ─────────────────────────────────────────────────────────────
+//  INIT ლოგიკა — მებრძოლები ცალკე, ავტორიზაცია ცალკე
+// ─────────────────────────────────────────────────────────────
+let _fightsLoaded = false;
+let _userApplied = false;
 
-async function runInit(session) {
-  if (_initDone) return;
-  _initDone = true;
-
-  // 1. სესიიდან იუზერის წამოღება
-  if (session) {
-    try {
-      const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
-      if (ud) {
-        currentUser = {
-          id: session.user.id,
-          email: session.user.email,
-          nick: ud.nick,
-          balance: ud.balance || 1000,
-          icon: ud.icon || '🥊'
-        };
-      }
-    } catch (e) {
-      console.warn('User load failed:', e);
-    }
+// მებრძოლების ჩატვირთვა — ავტორიზაციისგან დამოუკიდებლად, ყოველთვის ეშვება
+async function loadFightsAndRender() {
+  if (_fightsLoaded) return;
+  _fightsLoaded = true;
+  try {
+    await loadEventFromDB();
+  } catch (e) {
+    console.warn('loadEventFromDB failed:', e);
   }
-
-  // 2. მებრძოლების ჩატვირთვა
-  await loadEventFromDB();
-
-  // 3. UI რენდერი
   renderMarkets();
   renderSlip();
   renderBar();
   updateNavForUser(currentUser);
-
-  // 4. ლიდერბორდი და ბილეთები
-  await loadLeaderboard();
-  if (currentUser) await loadUserTickets();
+  try { await loadLeaderboard(); } catch (e) { console.warn('loadLeaderboard failed:', e); }
   renderTickets();
 
-  // 5. Image fallback
   setInterval(() => {
     const fallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%230E0D14'/%3E%3Ccircle cx='100' cy='85' r='42' fill='%23F31D25' opacity='.9'/%3E%3Ccircle cx='78' cy='75' r='16' fill='%23ff4040'/%3E%3Ccircle cx='100' cy='68' r='16' fill='%23ff4040'/%3E%3Ccircle cx='122' cy='75' r='16' fill='%23ff4040'/%3E%3Crect x='75' y='110' width='50' height='40' rx='8' fill='%23F31D25' opacity='.85'/%3E%3Crect x='82' y='145' width='36' height='18' rx='5' fill='%23cc1018'/%3E%3C/svg%3E";
     document.querySelectorAll('.stage-img img').forEach(img => {
@@ -895,25 +877,43 @@ async function runInit(session) {
   }, 3000);
 }
 
-sb.auth.onAuthStateChange(async (event, session) => {
-  // პირველი callback (ნებისმიერი ივენთი) → INIT გაშვება
-  if (!_initDone) {
-    await runInit(session);
-    return;
-  }
-
-  // შემდეგი ივენთები — ლოგინი/ლოგაუთი სესიის დროს
-  if (event === 'SIGNED_IN' && session && !currentUser) {
+// სესიის მომხმარებლის გამოყენება — ცალკე, lock-ის გარეთ
+async function applySession(session) {
+  if (!session || currentUser) return;
+  _userApplied = true;
+  try {
     const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
     if (ud) {
-      currentUser = { id: session.user.id, email: session.user.email, nick: ud.nick, balance: ud.balance || 1000, icon: ud.icon || '🥊' };
+      currentUser = {
+        id: session.user.id,
+        email: session.user.email,
+        nick: ud.nick,
+        balance: ud.balance || 1000,
+        icon: ud.icon || '🥊'
+      };
       updateNavForUser(currentUser);
-      await loadUserTickets();
+      try { await loadUserTickets(); } catch (e) { console.warn('loadUserTickets failed:', e); }
       renderTickets();
+      renderLeaderboard();
     }
-  } else if (event === 'SIGNED_OUT') {
-    currentUser = null; state.tickets = []; renderTickets(); updateNavForUser(null);
+  } catch (e) {
+    console.warn('applySession failed:', e);
   }
+}
+
+// onAuthStateChange — callback-ის შიგნით NULL await! ყველაფერი setTimeout-ით lock-ის გარეთ
+sb.auth.onAuthStateChange((event, session) => {
+  setTimeout(() => {
+    if (event === 'SIGNED_OUT') {
+      currentUser = null;
+      state.tickets = [];
+      renderTickets();
+      updateNavForUser(null);
+    } else {
+      // INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED — ყველა შემთხვევაში
+      applySession(session);
+    }
+  }, 0);
 });
 
 // ─────────────────────────────────────────────────────────────
@@ -1085,7 +1085,10 @@ document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click
 }));
 
 // ─────────────────────────────────────────────────────────────
-//  INIT — loading ინდიკატორი (ძირითადი ლოგიკა runInit-შია, onAuthStateChange იძახებს)
+//  INIT — მებრძოლები ეშვება მაშინვე (ავტორიზაციას არ ელოდება)
 // ─────────────────────────────────────────────────────────────
 const loadingEl = document.getElementById('markets');
 if (loadingEl) loadingEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">იტვირთება ბრძოლები…</div>';
+
+// მებრძოლები lock-ის გარეთ — setTimeout-ით
+setTimeout(loadFightsAndRender, 0);
