@@ -32,7 +32,8 @@ nav{position:sticky;top:0;z-index:50;background:rgba(11,10,15,.82);backdrop-filt
 .btn-ghost{border:1px solid var(--line);color:var(--text)}
 .btn-ghost:hover{border-color:var(--muted);background:var(--surface)}
 .nav-cta{display:flex;align-items:center;gap:10px}
-.balance-pill{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:30px;padding:7px 14px;font-family:var(--mono);font-weight:700;font-size:.86rem}
+.balance-pill{display:none;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:30px;padding:7px 14px;font-family:var(--mono);font-weight:700;font-size:.86rem}
+.balance-pill.visible{display:flex}
 .balance-pill .coin{width:15px;height:15px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#ffe08a,var(--gold));flex-shrink:0}
 .balance-pill b{color:var(--gold)}
 .menu-btn{display:none}
@@ -316,7 +317,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .modal h3{font-family:var(--display);font-size:1.9rem;line-height:1}
 .modal p.sub{color:var(--muted);font-size:.9rem;margin-top:8px;margin-bottom:24px}
 .field{margin-bottom:16px}
-.field label{display:block;font-family:var(--mono);font-size:.66rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted-2);margin-bottom:7px}
+.field label{display:block;font-family:var(--mono);font-size:1.05rem;letter-spacing:.04em;text-transform:uppercase;color:#fff;margin-bottom:8px;font-weight:600}
 .field input{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:4px;padding:12px 14px;color:var(--text);font-size:.95rem;transition:border-color .2s}
 .field input:focus{outline:none;border-color:var(--red)}
 .modal .btn-primary{width:100%;justify-content:center;padding:14px;display:block;text-align:center}
@@ -400,7 +401,51 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 
 
 
-@media(max-width:430px){#signinBtn{display:none}}
 @media(max-width:380px){.odds-btn .rc{display:none}.cd-cell{min-width:60px;padding:11px 7px}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important;transition-duration:.001s!important}}
 .brand { border: none; text-decoration: none; }
+
+/* ── PROFILE MODAL ── */
+.modal-profile{max-height:88vh;overflow-y:auto}
+.profile-section{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--line)}
+.profile-section:last-of-type{border-bottom:none}
+.field-label{font-family:var(--mono);font-size:1.05rem;letter-spacing:.04em;text-transform:uppercase;color:#fff;margin-bottom:8px;display:block;font-weight:600}
+.icon-picker{display:flex;gap:10px;flex-wrap:wrap}
+.icon-opt{width:50px;height:50px;border-radius:50%;border:2px solid var(--line);background:var(--ink);display:grid;place-items:center;font-size:1.5rem;cursor:pointer;transition:all .15s}
+.icon-opt:hover{border-color:var(--muted);transform:scale(1.08)}
+.icon-opt.active{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold);background:rgba(245,196,81,.1)}
+.modal-link{color:var(--gold);font-weight:700;font-size:.84rem;background:none;border:none;cursor:pointer;font-family:inherit}
+.modal-link:hover{text-decoration:underline}
+
+/* ── FORGOT PASSWORD SUCCESS ── */
+.forgot-success{text-align:center;padding:20px 0}
+.forgot-success-title{font-family:var(--display);font-size:1.2rem;margin-top:12px;color:var(--green)}
+.forgot-success-text{color:var(--muted);font-size:.88rem;margin-top:8px;line-height:1.5}
+
+/* ── NAV USER DROPDOWN ── */
+.nav-user{display:flex;align-items:center;gap:10px;cursor:pointer;position:relative}
+.nav-nick{color:var(--gold);font-weight:700;font-size:.9rem}
+.nav-ava{width:32px;height:32px;border-radius:50%;background:var(--surface-2);border:1.5px solid var(--line);display:grid;place-items:center;font-size:1rem;flex-shrink:0}
+.nav-dropdown{position:absolute;top:100%;right:0;margin-top:8px;background:var(--surface);border:1px solid var(--line);border-radius:8px;min-width:180px;z-index:60;box-shadow:0 12px 32px rgba(0,0,0,.5);display:none;overflow:hidden}
+.nav-dropdown.show{display:block;animation:rise .2s ease both}
+.nav-dd-item{display:block;width:100%;padding:12px 18px;font-size:.88rem;font-weight:600;color:var(--text);border:none;background:none;text-align:left;cursor:pointer;border-bottom:1px solid var(--line);font-family:inherit}
+.nav-dd-item:last-child{border-bottom:none}
+.nav-dd-item:hover{background:var(--surface-2)}
+.nav-dd-item.danger{color:var(--red-soft)}
+
+/* ── TICKET SECTIONS ── */
+.tk-section-title{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2);margin-bottom:12px}
+.tk-history-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border:1px solid var(--line);border-radius:8px;background:var(--surface);font-family:var(--mono);font-size:.82rem;font-weight:700;color:var(--text);cursor:pointer;transition:all .15s;margin-bottom:12px}
+.tk-history-toggle:hover{border-color:var(--muted);background:var(--surface-2)}
+.tk-arrow{transition:transform .2s}
+.tk-arrow.open{transform:rotate(180deg)}
+.tk-history{margin-top:0}
+
+/* ── FOOTER SOCIAL ICONS ── */
+.foot-socials{display:flex;gap:14px;margin-top:18px}
+.foot-social{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;color:var(--muted);transition:all .15s}
+.foot-social:hover{border-color:var(--red);color:#fff;background:var(--surface-2);transform:translateY(-2px)}
+
+/* ── GLOVE DEFAULT AVATAR (leaderboard) ── */
+.lb-ava-glove{width:34px;height:34px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;font-size:1.1rem}
+.nav-auth-link{color:var(--gold) !important;border-top:1px solid var(--line) !important}
