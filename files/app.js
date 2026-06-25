@@ -544,13 +544,9 @@ function renderTickets() {
           </div>`).join('')}
       </div>
       <div class="tk-foot">
-        <span class="lbl">ფსონი: ${fmt(t.stake)} · კოეფ. ${t.odds.toFixed(2)}</span>
-        <span class="pay ${t.status === 'won' ? 'won' : ''}">
-          ${t.status === 'won' ? '+' + fmt(t.stake * t.odds)
-            : t.status === 'lost'    ? '0'
-            : t.status === 'cashout' ? 'ქეშაუთი'
-            : 'შესაძლო ' + fmt(t.stake * t.odds)} ქულა
-        </span>
+        <div class="tf-item"><span class="tf-label">ფსონი</span><span class="tf-value">${fmt(t.stake)}</span></div>
+        <div class="tf-item"><span class="tf-label">კოეფიციენტი</span><span class="tf-value gold">${t.odds.toFixed(2)}</span></div>
+        <div class="tf-item"><span class="tf-label">${t.status === 'won' ? 'მოგება' : t.status === 'lost' ? 'შედეგი' : t.status === 'cashout' ? 'ქეშაუთი' : 'შესაძლო'}</span><span class="tf-value ${t.status === 'won' ? 'green' : t.status === 'lost' ? 'red' : 'gold'}">${t.status === 'won' ? '+' + fmt(Math.round(t.stake * t.odds)) : t.status === 'lost' ? '0' : t.status === 'cashout' ? fmt(cashoutAmount(t)) : fmt(Math.round(t.stake * t.odds))}</span></div>
       </div>
       ${showCashout ? `<button class="cashout-btn" data-co="${realIdx}">${cashoutLabel(t)}</button>` : ''}
     </div>`;
