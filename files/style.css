@@ -319,7 +319,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 @media(max-width:360px){.bout-stage{grid-template-columns:.85fr 1.7fr .85fr}.stage-img{height:200px}.stage-mid{padding:11px 6px}.stage-mid .tale-wrap{column-gap:6px;row-gap:9px}.tale-row .tv{font-size:.9rem}.tale-row .tl{font-size:.5rem}.pick{gap:3px;padding:10px 4px}}
 @media(max-width:920px){.nav-links{display:none}.menu-btn{display:grid;place-items:center;width:42px;height:42px;border:1px solid var(--line);border-radius:4px}.menu-btn span{display:block;width:18px;height:2px;background:var(--text);position:relative}.menu-btn span::before,.menu-btn span::after{content:"";position:absolute;left:0;width:18px;height:2px;background:var(--text)}.menu-btn span::before{top:-6px}.menu-btn span::after{top:6px}.nav-links.open{display:flex;position:absolute;top:68px;left:0;right:0;flex-direction:column;gap:0;background:var(--ink);border-bottom:1px solid var(--line);padding:8px 0}.nav-links.open a{padding:14px 4vw;width:100%;border-bottom:1px solid var(--line)}.odds-row{grid-template-columns:1fr 28px 1fr;gap:8px;padding:12px}.odds-btn{padding:11px 12px}.odds-btn .nm{font-size:.92rem}.odds-btn .od{font-size:1.2rem}.lb-head,.lb-row{grid-template-columns:42px 1fr 90px;padding:12px}.lb-roi{display:none}}
 nav,.nav-in,.nav-cta{max-width:100vw;overflow:hidden}
-.nav-nick{max-width:80px}
+.nav-nick{max-width:10ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:.75rem}
 .tk-sel-fighters span{max-width:100px}
 .lb-name{max-width:100px}
 @media(max-width:520px){.nav-nick{max-width:60px}.tk-sel-fighters span{max-width:80px}.lb-name{max-width:80px}}
