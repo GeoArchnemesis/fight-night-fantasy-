@@ -708,6 +708,236 @@ async function upsertFighter(f) {
 setInterval(updateCountdown, 60000);
 loadFromLocal();
 startAutoOdds();
+// ეს კოდი ჩასვი admin.html-ის <script> ტეგის შიგნით, ბოლოს (setInterval-ის შემდეგ)
+
+// ─────────────────────────────────────────────────────────────
+//  SETTLEMENT HELPERS
+// ─────────────────────────────────────────────────────────────
+function methodMatches(picked, result) {
+  if (!picked || !result) return false;
+  const r = result.toLowerCase();
+  if (picked === 'ნოკაუტი')        return r.includes('ko') || r.includes('tko');
+  if (picked === 'მტკივნეული')     return r.includes('sub');
+  if (picked === 'გადაწყვეტილება') return r.includes('dec') || r.includes('decision');
+  return false;
+}
+
+function selectionWon(sel, fight) {
+  if (!fight || !fight.result_winner) return null;
+  const winnerSide = fight.result_winner === fight.red_name ? 'red' : 'blue';
+  if (sel.picked_fighter && sel.picked_fighter !== winnerSide) return false;
+  if (sel.picked_round) {
+    const resultRound = fight.result_round ? Number(fight.result_round) : null;
+    if (resultRound !== Number(sel.picked_round)) return false;
+  }
+  if (sel.picked_method) {
+    if (!methodMatches(sel.picked_method, fight.result_method || '')) return false;
+  }
+  return true;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  MAIN SETTLEMENT FUNCTION
+// ─────────────────────────────────────────────────────────────
+async function settleAllTickets() {
+  log('🏆 ბილეთების შედეგების დამუშავება დაიწყო...', 'info');
+
+  // 1. DB-დან ამოვიღოთ upcoming → completed სტატუსის ივენთი
+  const { data: events } = await sb.from('events').select('id,name').in('status', ['upcoming', 'completed']);
+  if (!events || events.length === 0) { log('ივენთი ვერ მოიძებნა', 'err'); return; }
+
+  // ავიღოთ ის ივენთი სადაც completed ბრძოლები გვაქვს
+  let targetEventId = null;
+  for (const ev of events) {
+    const { data: fights } = await sb.from('fights').select('id').eq('event_id', ev.id).eq('status', 'completed').limit(1);
+    if (fights && fights.length > 0) { targetEventId = ev.id; log(`ივენთი: ${ev.name}`, 'info'); break; }
+  }
+  if (!targetEventId) { log('completed სტატუსის ბრძოლა ვერ მოიძებნა — ჯერ შეიყვანე შედეგები', 'err'); return; }
+
+  // 2. ყველა completed ბრძოლა
+  const { data: fights } = await sb
+    .from('fights')
+    .select('id,result_winner,result_method,result_round,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
+    .eq('event_id', targetEventId)
+    .eq('status', 'completed');
+
+  if (!fights || fights.length === 0) { log('completed ბრძოლა არ გვაქვს', 'err'); return; }
+
+  const fightMap = {};
+  fights.forEach(f => {
+    fightMap[f.id] = {
+      result_winner: f.result_winner || '',
+      result_method: f.result_method || '',
+      result_round:  f.result_round  || null,
+      red_name:      f.red?.name     || '',
+      blue_name:     f.blue?.name    || ''
+    };
+  });
+  log(`${fights.length} completed ბრძოლა ნაპოვნია`, 'ok');
+
+  // 3. pending ბილეთები
+  const { data: tickets } = await sb
+    .from('tickets')
+    .select('id,type,stake,total_odds,user_id,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds)')
+    .eq('event_id', targetEventId)
+    .eq('status', 'pending');
+
+  if (!tickets || tickets.length === 0) { log('pending ბილეთი ვერ მოიძებნა', 'info'); return; }
+  log(`${tickets.length} pending ბილეთი ნაპოვნია`, 'info');
+
+  // 4. user score cache
+  const scoreCache = {};
+
+  let wonCount = 0, lostCount = 0, skippedCount = 0;
+
+  for (const ticket of tickets) {
+    const sels = ticket.ticket_selections || [];
+    const results = sels.map(sel => {
+      const fight = fightMap[sel.fight_id];
+      if (!fight) return null;
+      return selectionWon(sel, fight);
+    });
+
+    if (results.some(r => r === null)) { skippedCount++; continue; }
+
+    const allWon  = results.every(r => r === true);
+    const anyLost = results.some(r => r === false);
+    const newStatus = anyLost ? 'lost' : (allWon ? 'won' : 'pending');
+    if (newStatus === 'pending') { skippedCount++; continue; }
+
+    await sb.from('tickets').update({ status: newStatus }).eq('id', ticket.id);
+
+    if (newStatus === 'won') {
+      wonCount++;
+      const winnings = Math.round(Number(ticket.stake) * Number(ticket.total_odds));
+      if (!scoreCache[ticket.user_id]) {
+        const { data: ud } = await sb.from('users').select('score,nick').eq('id', ticket.user_id).single();
+        scoreCache[ticket.user_id] = { score: Number(ud?.score) || 0, nick: ud?.nick || ticket.user_id };
+      }
+      scoreCache[ticket.user_id].score += winnings;
+      log(`✓ მოგება: ${scoreCache[ticket.user_id].nick} — ${winnings} ქულა (${ticket.type})`, 'ok');
+    } else {
+      lostCount++;
+      log(`✗ წაგება: ბილეთი ${ticket.id.slice(0,8)}... (${ticket.type})`, 'info');
+    }
+  }
+
+  // 5. score განახლება batch-ად
+  for (const [userId, data] of Object.entries(scoreCache)) {
+    await sb.from('users').update({ score: data.score }).eq('id', userId);
+    log(`💰 ${data.nick}: score განახლდა → ${data.score} ქულა`, 'ok');
+  }
+
+  log(`─────────────────────────────`, 'info');
+  log(`✅ დასრულდა: ${wonCount} მოგებული | ${lostCount} წაგებული | ${skippedCount} გამოტოვებული`, 'ok');
+}
+
+// ─────────────────────────────────────────────────────────────
+//  ESPN API-დან შედეგების ავტო-წამოღება + settlement
+// ─────────────────────────────────────────────────────────────
+async function fetchAndSettle() {
+  log('📡 ESPN-დან შედეგების წამოღება + ბილეთების დამუშავება...', 'info');
+
+  // ჯერ ESPN-დან შედეგები (checkResults-ის ლოგიკა)
+  const dateStr = localStorage.getItem('ufc_espn_event_date');
+  if (!dateStr) {
+    log('ESPN event date ვერ მოიძებნა localStorage-ში. ჯერ ESPN-დან წამოიღე ივენთი.', 'err');
+    return;
+  }
+
+  try {
+    const res  = await fetch(`${ESPN_BASE}?dates=${dateStr}`);
+    const data = await res.json();
+    if (!data.events || !data.events.length) { log('ESPN: ივენთი ვერ მოიძებნა', 'err'); return; }
+
+    const event = data.events[0];
+    const state = event.status?.type?.state;
+    log(`ESPN სტატუსი: ${event.status?.type?.description || state}`, 'info');
+
+    if (state === 'pre') { log('ივენთი ჯერ არ დაწყებულა — ბილეთების დამუშავება შეუძლებელია', 'info'); return; }
+
+    let updated = 0;
+    for (const comp of event.competitions) {
+      if (comp.status?.type?.state !== 'post') continue;
+      const winner = comp.competitors.find(c => c.winner);
+      if (!winner) continue;
+
+      const winnerName = winner.athlete?.fullName || '';
+      const method     = comp.status?.type?.description || '';
+      const round      = comp.status?.period || '';
+      const time       = comp.status?.displayClock || '';
+
+      const idx = fightsData.findIndex(f =>
+        nameSimilarity(f.red.name, winnerName) > 0.4 ||
+        nameSimilarity(f.blue.name, winnerName) > 0.4 ||
+        f.espn_comp_id === comp.id
+      );
+      if (idx >= 0) {
+        fightsData[idx].result_winner = winnerName;
+        fightsData[idx].result_method = method;
+        fightsData[idx].result_round  = String(round);
+        fightsData[idx].result_time   = time;
+        updated++;
+      }
+    }
+
+    if (updated === 0) {
+      log('ESPN: დასრულებული ბრძოლები ვერ მოიძებნა', 'info');
+    } else {
+      log(`ESPN: ${updated} შედეგი წამოღებულია`, 'ok');
+      renderFights();
+      saveToLocal();
+
+      // DB-ში შენახვა (მხოლოდ შედეგები)
+      await saveResultsToDB();
+    }
+
+    // ბილეთების დამუშავება
+    await settleAllTickets();
+
+  } catch (e) {
+    log('შეცდომა: ' + e.message, 'err');
+  }
+}
+
+// მხოლოდ შედეგების DB-ში შენახვა
+async function saveResultsToDB() {
+  const { data: events } = await sb.from('events').select('id').in('status', ['upcoming', 'completed']).limit(1);
+  if (!events || !events.length) return;
+  const eventId = events[0].id;
+
+  for (const f of fightsData) {
+    if (!f.result_winner) continue;
+    const { data: dbFight } = await sb.from('fights')
+      .select('id,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
+      .eq('event_id', eventId)
+      .maybeSingle();
+    if (!dbFight) continue;
+
+    // find by fighter names
+    const { data: dbFights } = await sb.from('fights')
+      .select('id,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
+      .eq('event_id', eventId);
+
+    for (const df of (dbFights || [])) {
+      const sim = Math.max(
+        nameSimilarity(df.red?.name || '', f.red.name),
+        nameSimilarity(df.blue?.name || '', f.blue.name)
+      );
+      if (sim > 0.4) {
+        await sb.from('fights').update({
+          status:         'completed',
+          result_winner:  f.result_winner,
+          result_method:  f.result_method,
+          result_round:   f.result_round ? parseInt(f.result_round) : null,
+          result_time:    f.result_time || null,
+        }).eq('id', df.id);
+        log(`DB განახლდა: ${f.red.name} vs ${f.blue.name} → ${f.result_winner}`, 'ok');
+        break;
+      }
+    }
+  }
+}
 </script>
 </body>
 </html>
