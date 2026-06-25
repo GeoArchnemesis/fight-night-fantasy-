@@ -1083,9 +1083,15 @@ async function doRegister() {
   const nick  = (document.getElementById('inName').value  || '').trim();
   const email = (document.getElementById('inEmail').value || '').trim();
   const pass  = document.getElementById('inPass').value   || '';
+  const passConfirm = document.getElementById('inPassConfirm').value || '';
   if (!nick || !/^[a-zA-Z0-9_]{3,20}$/.test(nick)) { authError('სახელი: 3-20 ლათინური სიმბოლო (a-z, 0-9, _)'); return; }
   if (!email) { authError('შეიყვანე ელ. ფოსტა'); return; }
   if (pass.length < 6) { authError('პაროლი მინ. 6 სიმბოლო'); return; }
+  if (!/[A-Z]/.test(pass)) { authError('პაროლში მინ. 1 დიდი ასო (A-Z)'); return; }
+  if (!/[a-z]/.test(pass)) { authError('პაროლში მინ. 1 პატარა ასო (a-z)'); return; }
+  if (!/[0-9]/.test(pass)) { authError('პაროლში მინ. 1 ციფრი (0-9)'); return; }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?`~]/.test(pass)) { authError('პაროლში მინ. 1 სიმბოლო (!@#$%...)'); return; }
+  if (pass !== passConfirm) { authError('პაროლები არ ემთხვევა'); return; }
   const btn = document.getElementById('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
   const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick } } });
   btn.disabled = false; btn.textContent = 'რეგისტრაცია';
@@ -1330,6 +1336,18 @@ async function sendPasswordReset() {
   document.getElementById('forgotSubmit').style.display = 'none';
   document.getElementById('forgotSuccess').style.display = 'block';
   errEl.style.display = 'none';
+}
+
+// ─────────────────────────────────────────────────────────────
+//  TOGGLE PASSWORD VISIBILITY
+// ─────────────────────────────────────────────────────────────
+function toggleEye(inputId) {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  const isPass = inp.type === 'password';
+  inp.type = isPass ? 'text' : 'password';
+  const btn = inp.parentElement.querySelector('.eye-toggle');
+  if (btn) btn.textContent = isPass ? '🙈' : '👁';
 }
 
 // ─────────────────────────────────────────────────────────────
