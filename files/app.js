@@ -579,7 +579,7 @@ function renderTickets() {
       <div class="tk-foot">
         <span class="tk-foot-type">${t.type === 'express' ? 'ექსპრესი' : 'სინგლი'}</span>
         <span class="tk-foot-pay ${t.status === 'won' ? 'green' : t.status === 'lost' ? 'red' : 'gold'}">
-          ${t.status === 'won' ? '+' + fmt(potentialWin) : t.status === 'lost' ? '0' : t.status === 'cashout' ? 'ქეშაუთი' : 'შესაძლო ' + fmt(potentialWin)}
+          ${t.status === 'won' ? '+' + fmt(potentialWin) : t.status === 'lost' ? '0' : t.status === 'cashout' ? 'ქეშაუთი' : 'შესაძლო მოგება' + fmt(potentialWin)}
         </span>
       </div>
       ${showCashout ? `<button class="cashout-btn" data-co="${realIdx}">${cashoutLabel(t)}</button>` : ''}
