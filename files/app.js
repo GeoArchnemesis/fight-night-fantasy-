@@ -519,6 +519,10 @@ function renderTickets() {
 
   const summaryEl = $('tkSummary');
   if (summaryEl) summaryEl.textContent = state.tickets.length + ' ბილეთი';
+  const activeBadge = $('activeBadge');
+  if (activeBadge) activeBadge.textContent = activeTickets.length;
+  const historyBadge = $('historyBadge');
+  if (historyBadge) historyBadge.textContent = historyTickets.length;
 
   const st = { open: 'ღია', won: 'მოგებული', lost: 'წაგებული', cashout: 'ქეშაუთი', pending: 'ღია' };
   const cashoutOk = canCashout();
@@ -1375,7 +1379,14 @@ $on('profileClose', 'click', closeProfile);
 $on('profileModal', 'click', e => { if (e.target.id === 'profileModal') closeProfile(); });
 $on('profileSave', 'click', saveProfile);
 $on('profileLogout', 'click', () => { closeProfile(); doLogout(); });
-
+$on('activeToggle', 'click', () => {
+  const act = $('activeTickets');
+  const arrow = $('activeArrow');
+  if (!act) return;
+  const isOpen = act.style.display !== 'none';
+  act.style.display = isOpen ? 'none' : 'flex';
+  if (arrow) arrow.classList.toggle('open', !isOpen);
+});
 $on('historyToggle', 'click', () => {
   const hist = $('historyTickets');
   const arrow = $('historyArrow');
