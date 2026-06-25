@@ -251,7 +251,10 @@ async function updateOdds(eventId) {
       }
       if (bestScore < 0.5 || !bestGame) continue;
 
-      const bm = bestGame.bookmakers?.[0];
+      const preferred = ['pinnacle','betonlineag','betsson','nordicbet','coolbet'];
+      let bm = null;
+      for (const key of preferred) { bm = bestGame.bookmakers.find(b => b.key === key); if (bm) break; }
+      if (!bm) bm = bestGame.bookmakers?.[0];
       const h2h = bm?.markets?.find(m => m.key === 'h2h');
       if (!h2h) continue;
 
