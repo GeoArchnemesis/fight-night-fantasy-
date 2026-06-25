@@ -245,7 +245,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .lb-rank{font-family:var(--display);font-size:1.3rem;color:var(--muted)}.lb-rank.top{color:var(--gold)}
 .lb-user{display:flex;align-items:center;gap:11px}
 .lb-ava{width:34px;height:34px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;font-family:var(--display);font-size:.9rem;color:var(--muted)}
-.lb-name{font-weight:700}.lb-tag{font-family:var(--mono);font-size:.68rem;color:var(--muted-2)}
+.lb-name{font-weight:700;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:inline-block}.lb-tag{font-family:var(--mono);font-size:.68rem;color:var(--muted-2)}
 .lb-roi{font-family:var(--mono);font-size:.82rem;color:var(--muted)}
 .lb-pts{font-family:var(--mono);font-weight:700;font-size:1.05rem;text-align:right;color:var(--gold)}
 .how-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
@@ -277,7 +277,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .btn-google{width:100%;justify-content:center;gap:10px;padding:13px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);border-radius:10px;color:#fff;font-weight:600;cursor:pointer;display:flex;align-items:center;transition:background .2s}
 .btn-google:hover{background:rgba(255,255,255,.13)}
 .nav-user{display:flex;align-items:center;gap:10px;cursor:pointer;position:relative}
-.nav-nick{color:var(--gold);font-weight:700;font-size:.9rem}
+.nav-nick{color:var(--gold);font-weight:700;font-size:.9rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .nav-ava{width:32px;height:32px;border-radius:50%;background:var(--surface-2);border:1.5px solid var(--line);display:grid;place-items:center;font-size:1rem;flex-shrink:0}
 .nav-dropdown{position:absolute;top:100%;right:0;margin-top:8px;background:var(--surface);border:1px solid var(--line);border-radius:8px;min-width:180px;z-index:60;box-shadow:0 12px 32px rgba(0,0,0,.5);display:none;overflow:hidden}
 .nav-dropdown.show{display:block;animation:rise .2s ease both}
