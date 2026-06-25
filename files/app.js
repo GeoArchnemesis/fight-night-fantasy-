@@ -693,27 +693,83 @@ function openLbPopup(fullSorted) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  LOAD LEADERBOARD FROM DB — score სვეტიდან (მხოლოდ მოგებები)
+//  LOAD LEADERBOARD FROM DB — პერიოდის მიხედვით score_history-დან
 // ─────────────────────────────────────────────────────────────
-async function loadLeaderboard() {
+let _currentLbPeriod = 'goat'; // default: G.O.A.T
+
+async function loadLeaderboard(period) {
+  if (period) _currentLbPeriod = period;
   try {
-    const { data: users, error } = await sb
-      .from('users').select('id,nick,icon,score')
-      .order('score', { ascending: false });
-    if (error || !users) return;
-    LEADERBOARD.length = 0;
-    users.forEach(u => {
-      LEADERBOARD.push({
-        id: u.id,
-        name: u.nick || '—',
-        pts: Number(u.score) || 0,
-        icon: u.icon || '🥊'
+    let rows;
+
+    if (_currentLbPeriod === 'goat') {
+      // G.O.A.T — users.score სვეტი (ყველა დროის ჯამი)
+      const { data, error } = await sb
+        .from('users').select('id,nick,icon,score')
+        .order('score', { ascending: false });
+      if (error || !data) return;
+      rows = data.map(u => ({
+        id: u.id, name: u.nick || '—', pts: Number(u.score) || 0, icon: u.icon || '🥊'
+      }));
+    } else {
+      // პერიოდი: score_history-დან ჯამი
+      const intervalMap = {
+        '1m': '1 month', '3m': '3 months', '6m': '6 months', '1y': '1 year'
+      };
+      const interval = intervalMap[_currentLbPeriod];
+      if (!interval) return;
+
+      const since = new Date(Date.now() - ms(interval)).toISOString();
+
+      const { data: hist, error: hErr } = await sb
+        .from('score_history')
+        .select('user_id, amount, users(id,nick,icon)')
+        .gte('created_at', since);
+
+      if (hErr || !hist) return;
+
+      // user_id-ის მიხედვით დავჯამოთ
+      const map = {};
+      hist.forEach(h => {
+        const uid = h.user_id;
+        if (!map[uid]) map[uid] = { id: uid, name: h.users?.nick || '—', icon: h.users?.icon || '🥊', pts: 0 };
+        map[uid].pts += Number(h.amount) || 0;
       });
-    });
+      rows = Object.values(map).sort((a, b) => b.pts - a.pts);
+    }
+
+    LEADERBOARD.length = 0;
+    rows.forEach(r => LEADERBOARD.push(r));
     renderLeaderboard();
+    renderLbTabs();
   } catch (e) {
     console.warn('loadLeaderboard failed:', e);
   }
+}
+
+// ms helper — interval string → milliseconds
+function ms(interval) {
+  const map = { '1 month': 30*24*3600*1000, '3 months': 90*24*3600*1000, '6 months': 180*24*3600*1000, '1 year': 365*24*3600*1000 };
+  return map[interval] || 30*24*3600*1000;
+}
+
+// ტაბების render
+function renderLbTabs() {
+  const tabs = document.getElementById('lbTabs');
+  if (!tabs) return;
+  const periods = [
+    { key: '1m',   label: '1 თვე' },
+    { key: '3m',   label: '3 თვე' },
+    { key: '6m',   label: '6 თვე' },
+    { key: '1y',   label: '1 წელი' },
+    { key: 'goat', label: 'G.O.A.T' },
+  ];
+  tabs.innerHTML = periods.map(p => `
+    <button class="lb-tab ${_currentLbPeriod === p.key ? 'on' : ''}" data-period="${p.key}">${p.label}</button>
+  `).join('');
+  tabs.querySelectorAll('.lb-tab').forEach(b => {
+    b.onclick = () => loadLeaderboard(b.dataset.period);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
