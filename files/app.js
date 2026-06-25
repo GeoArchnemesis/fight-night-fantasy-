@@ -717,6 +717,147 @@ async function loadLeaderboard() {
 }
 
 // ─────────────────────────────────────────────────────────────
+//  TICKET SETTLEMENT — ბილეთების ავტომატური შედეგების შემოწმება
+// ─────────────────────────────────────────────────────────────
+
+// მეთოდის შედარება (კაზინოს პრინციპი)
+function methodMatches(picked, result) {
+  if (!picked || !result) return false;
+  const r = result.toLowerCase();
+  if (picked === 'ნოკაუტი')        return r.includes('ko') || r.includes('tko');
+  if (picked === 'მტკივნეული')     return r.includes('sub');
+  if (picked === 'გადაწყვეტილება') return r.includes('dec') || r.includes('decision');
+  return false;
+}
+
+// ერთი სელექციის შემოწმება
+function selectionWon(sel, fight) {
+  if (!fight || !fight.result_winner) return null; // შედეგი ჯერ არ არის
+
+  // გამარჯვებულის მხარე
+  const winnerSide = fight.result_winner === fight.red_name ? 'red' : 'blue';
+  if (sel.picked_fighter && sel.picked_fighter !== winnerSide) return false;
+
+  // რაუნდი (თუ მითითებულია)
+  if (sel.picked_round) {
+    const resultRound = fight.result_round ? Number(fight.result_round) : null;
+    if (resultRound !== Number(sel.picked_round)) return false;
+  }
+
+  // მეთოდი (თუ მითითებულია)
+  if (sel.picked_method) {
+    if (!methodMatches(sel.picked_method, fight.result_method || '')) return false;
+  }
+
+  return true;
+}
+
+// მთლიანი settlement ლოგიკა — გაუშვი ივენთის დასრულების შემდეგ
+let _settlementDone = false;
+
+async function settleTickets(eventId) {
+  if (_settlementDone) return;
+
+  try {
+    // 1. ამოვიღოთ ყველა დასრულებული ბრძოლა ამ ივენთიდან
+    const { data: fights, error: fErr } = await sb
+      .from('fights')
+      .select('id,status,result_winner,result_method,result_round,red_fighter_id,blue_fighter_id,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
+      .eq('event_id', eventId)
+      .eq('status', 'completed');
+
+    if (fErr || !fights || fights.length === 0) return;
+
+    // fight map: fight_id → {result_winner, result_method, result_round, red_name, blue_name}
+    const fightMap = {};
+    fights.forEach(f => {
+      fightMap[f.id] = {
+        result_winner: f.result_winner || '',
+        result_method: f.result_method || '',
+        result_round:  f.result_round  || null,
+        red_name:      f.red?.name     || '',
+        blue_name:     f.blue?.name    || ''
+      };
+    });
+
+    const completedFightIds = Object.keys(fightMap);
+    if (completedFightIds.length === 0) return;
+
+    // 2. ამოვიღოთ pending ბილეთები ამ ივენთიდან
+    const { data: tickets, error: tErr } = await sb
+      .from('tickets')
+      .select('id,type,stake,total_odds,user_id,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds)')
+      .eq('event_id', eventId)
+      .eq('status', 'pending');
+
+    if (tErr || !tickets || tickets.length === 0) return;
+
+    // 3. თითო ბილეთისთვის შევამოწმოთ
+    for (const ticket of tickets) {
+      const sels = ticket.ticket_selections || [];
+
+      // სელექციების შედეგები — მხოლოდ იმ სელექციები რომელთა ბრძოლა დასრულდა
+      const results = sels.map(sel => {
+        const fight = fightMap[sel.fight_id];
+        if (!fight) return null; // ბრძოლა ჯერ არ დასრულებულა
+        return selectionWon(sel, fight);
+      });
+
+      // თუ რომელიმე ბრძოლა ჯერ არ დასრულდა → ბილეთი pending რჩება
+      if (results.some(r => r === null)) continue;
+
+      const allWon  = results.every(r => r === true);
+      const anyLost = results.some(r => r === false);
+
+      let newStatus = anyLost ? 'lost' : (allWon ? 'won' : 'pending');
+      if (newStatus === 'pending') continue;
+
+      // 4. DB-ში სტატუსი განვაახლოთ
+      await sb.from('tickets').update({ status: newStatus }).eq('id', ticket.id);
+
+      // 5. მოგებულ ბილეთებზე score დავარიცხოთ (stake × total_odds)
+      if (newStatus === 'won') {
+        const winnings = Math.round(Number(ticket.stake) * Number(ticket.total_odds));
+        const { data: ud } = await sb.from('users').select('score').eq('id', ticket.user_id).single();
+        const currentScore = Number(ud?.score) || 0;
+        await sb.from('users').update({ score: currentScore + winnings }).eq('id', ticket.user_id);
+
+        // თუ ეს ჩვენი currentUser-ია, განვაახლოთ ლოკალურადაც
+        if (currentUser && ticket.user_id === currentUser.id) {
+          currentUser.score = currentScore + winnings;
+        }
+      }
+    }
+
+    _settlementDone = true;
+
+    // 6. UI განახლება
+    if (currentUser) {
+      await loadUserTickets();
+      renderTickets();
+    }
+    await loadLeaderboard();
+
+  } catch (e) {
+    console.warn('settleTickets failed:', e);
+  }
+}
+
+// ავტომატური შემოწმება — ყოველ 5 წუთში
+// ივენთი დასრულდა? → settleTickets გაუშვებს
+async function autoSettle() {
+  const eventId = window.__currentEventId;
+  const eventDate = window.__eventDate;
+  if (!eventId || !eventDate) return;
+
+  // ივენთი უნდა გასულიყო (+ 30 წუთი buffer ბოლო ბრძოლისთვის)
+  const elapsed = Date.now() - eventDate.getTime();
+  if (elapsed < 30 * 60 * 1000) return; // ჯერ ვადაზე ადრეა
+
+  await settleTickets(eventId);
+}
+
+// ─────────────────────────────────────────────────────────────
 //  LOAD USER TICKETS FROM DB
 // ─────────────────────────────────────────────────────────────
 function rebuildSelName(i, s) {
@@ -992,6 +1133,10 @@ async function loadFightsAndRender() {
     try { await loadUserTickets(); } catch (e) { console.warn('loadUserTickets failed:', e); }
   }
   renderTickets();
+
+  // ავტომატური settlement — ყოველ 5 წუთში
+  autoSettle();
+  setInterval(autoSettle, 5 * 60 * 1000);
 }
 
 // სესიის მომხმარებლის გამოყენება — ცალკე, lock-ის გარეთ
