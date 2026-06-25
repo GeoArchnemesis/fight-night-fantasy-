@@ -1,10 +1,9 @@
 // ============================================================
-//  UFC Fantasy — app.js
+//  UFC Fantasy — app.js  (v12 — ყველა ბაგი გასწორებული)
 // ============================================================
 
 const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
-// navigator lock გათიშულია — ის იწვევდა deadlock-ს (queries იჭედებოდა როცა სესია არსებობდა)
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
     persistSession: true,
@@ -19,7 +18,6 @@ const r2  = x => Math.round(x * 100) / 100;
 const fmt = n => Math.round(n).toLocaleString('en-US');
 const METHODS = ['ნოკაუტი', 'მტკივნეული', 'გადაწყვეტილება'];
 
-// უსაფრთხო DOM helpers — არ ისვრის შეცდომას თუ ელემენტი არ არსებობს
 const $ = id => document.getElementById(id);
 function $on(id, ev, fn) { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); }
 
@@ -36,22 +34,18 @@ let currentUser = null;
 // ─────────────────────────────────────────────────────────────
 //  BETTING RULES
 // ─────────────────────────────────────────────────────────────
-
-// ბეთინგი იხურება ივენთამდე 10 წუთით ადრე
 function isBettingClosed() {
   const ed = window.__eventDate;
   if (!ed) return false;
   return (ed - Date.now()) < 10 * 60 * 1000;
 }
 
-// ქეშაუთი შეიძლება ივენთამდე 1 საათზე მეტი რომ დარჩეს
 function canCashout() {
   const ed = window.__eventDate;
   if (!ed) return true;
   return (ed - Date.now()) > 60 * 60 * 1000;
 }
 
-// 1 სთ-მდე — სრული თანხა, შემდეგ — 80%
 function cashoutAmount(t) {
   const age = Date.now() - (t.placedAt || Date.now());
   if (age <= 60 * 60 * 1000) return t.stake;
@@ -111,7 +105,6 @@ async function doCashout(idx) {
   updateBalance(state.balance);
   if (currentUser) {
     await sb.from('users').update({ balance: state.balance }).eq('id', currentUser.id);
-    // DB-შიც განაახლე ბილეთის სტატუსი
     if (t._dbId) {
       await sb.from('tickets').update({ status: 'cashout' }).eq('id', t._dbId);
     }
@@ -251,7 +244,6 @@ function refresh() { renderMarkets(); renderSlip(); renderBar(); }
 //  RENDER MARKETS
 // ─────────────────────────────────────────────────────────────
 function renderMarkets() {
-  // ბეთინგი დახურულია
   if (isBettingClosed()) {
     document.getElementById('betbar').classList.remove('show');
     document.getElementById('markets').innerHTML = `
@@ -348,7 +340,6 @@ function renderMarkets() {
   document.querySelectorAll('[data-method]').forEach(b  => { if (!b.disabled) b.onclick = () => setMethod(+b.dataset.method, b.dataset.val); });
   document.querySelectorAll('[data-more]').forEach(b    => b.onclick = () => toggleDetail(+b.dataset.more));
 
-  // სურათების fallback — მხოლოდ ნამდვილ შეცდომაზე (არა ჯერ-არ-ჩატვირთულზე)
   document.querySelectorAll('.stage-img img').forEach(img => {
     img.addEventListener('error', function onErr() {
       this.removeEventListener('error', onErr);
@@ -519,10 +510,9 @@ async function placeBets() {
 //  TICKETS
 // ─────────────────────────────────────────────────────────────
 function renderTickets() {
-  // index.html-ში შეიძლება იყოს ან activeTickets/historyTickets, ან ერთიანი ticketsList
   const activeList  = $('activeTickets');
   const historyList = $('historyTickets');
-  const singleList  = $('ticketsList'); // ერთიანი კონტეინერი (fallback)
+  const singleList  = $('ticketsList');
 
   const activeTickets = state.tickets.filter(t => t.status === 'open');
   const historyTickets = state.tickets.filter(t => t.status !== 'open').sort((a, b) => (b.placedAt || 0) - (a.placedAt || 0));
@@ -530,7 +520,7 @@ function renderTickets() {
   const summaryEl = $('tkSummary');
   if (summaryEl) summaryEl.textContent = state.tickets.length + ' ბილეთი';
 
-  const st = { open: 'ღია', won: 'მოგებული', lost: 'წაგებული', cashout: 'ქეშაუთი' };
+  const st = { open: 'ღია', won: 'მოგებული', lost: 'წაგებული', cashout: 'ქეშაუთი', pending: 'ღია' };
   const cashoutOk = canCashout();
 
   const renderTicketCard = (t) => {
@@ -563,7 +553,6 @@ function renderTickets() {
   };
 
   if (activeList && historyList) {
-    // ცალკე კონტეინერების ვარიანტი
     activeList.innerHTML = activeTickets.length === 0
       ? '<div class="tk-empty">აქტიური ბილეთი არ არის. აირჩიე კოეფიციენტი და დადე პირველი ფსონი.</div>'
       : activeTickets.map(renderTicketCard).join('');
@@ -571,7 +560,6 @@ function renderTickets() {
       ? '<div class="tk-empty">ისტორია ცარიელია.</div>'
       : historyTickets.map(renderTicketCard).join('');
   } else if (singleList) {
-    // ერთიანი კონტეინერის ვარიანტი (ticketsList) — ჯერ აქტიური, მერე ისტორია
     const all = [...activeTickets, ...historyTickets];
     singleList.innerHTML = all.length === 0
       ? '<div class="tk-empty">ბილეთი ჯერ არ გაქვს. აირჩიე კოეფიციენტი და დადე პირველი ფსონი.</div>'
@@ -603,20 +591,15 @@ const LEADERBOARD = [];
 const AVATAR_ICONS = ['🥊','🏆','🔥','⚡','💪','🦁','🐺','👊','💎','🎯','⭐','🦅'];
 
 function renderLeaderboard() {
-  // LEADERBOARD უკვე დასორტირებულია score-ით (DB-დან). ID-ით ვცნობთ current user-ს.
   const fullSorted = LEADERBOARD.map((r, i) => ({ ...r, rank: i + 1 }));
-
   const meIdx = currentUser ? fullSorted.findIndex(r => r.id === currentUser.id) : -1;
 
   let display;
   if (meIdx >= 0 && meIdx < 10) {
-    // ტოპ 10-ში ხარ — პირდაპირ ტოპ 10
     display = fullSorted.slice(0, 10);
   } else if (meIdx >= 10) {
-    // ტოპ 10-ში არ ხარ — ტოპ 9 + შენ მე-10 ადგილზე (რეალური ნომრით)
     display = fullSorted.slice(0, 9).concat([fullSorted[meIdx]]);
   } else {
-    // არ ხარ ჩალოგინებული ან ჯერ სიაში არ ხარ — ტოპ 10
     display = fullSorted.slice(0, 10);
   }
 
@@ -637,11 +620,9 @@ function renderLeaderboard() {
     </div>`;
   }).join('');
 
-  // "სრულად" ღილაკი — მხოლოდ თუ >10 მონაწილეა
   renderLbFullButton(fullSorted);
 }
 
-// "სრულად" ღილაკი + popup
 function renderLbFullButton(fullSorted) {
   const lbWrap = document.querySelector('#leaderboard .lb');
   if (!lbWrap) return;
@@ -652,11 +633,9 @@ function renderLbFullButton(fullSorted) {
       btn.id = 'lbFullBtn';
       btn.className = 'lb-full-btn';
       btn.textContent = 'სრულად';
-      btn.onclick = () => openLbPopup(fullSorted);
       lbWrap.parentNode.appendChild(btn);
-    } else {
-      btn.onclick = () => openLbPopup(fullSorted);
     }
+    btn.onclick = () => openLbPopup(fullSorted);
     btn.style.display = 'block';
   } else if (btn) {
     btn.style.display = 'none';
@@ -695,7 +674,13 @@ function openLbPopup(fullSorted) {
 // ─────────────────────────────────────────────────────────────
 //  LOAD LEADERBOARD FROM DB — პერიოდის მიხედვით score_history-დან
 // ─────────────────────────────────────────────────────────────
-let _currentLbPeriod = 'goat'; // default: G.O.A.T
+let _currentLbPeriod = 'goat';
+
+// ms helper
+function periodToMs(period) {
+  const map = { '1m': 30*24*3600*1000, '3m': 90*24*3600*1000, '6m': 180*24*3600*1000, '1y': 365*24*3600*1000 };
+  return map[period] || 30*24*3600*1000;
+}
 
 async function loadLeaderboard(period) {
   if (period) _currentLbPeriod = period;
@@ -703,7 +688,7 @@ async function loadLeaderboard(period) {
     let rows;
 
     if (_currentLbPeriod === 'goat') {
-      // G.O.A.T — users.score სვეტი (ყველა დროის ჯამი)
+      // G.O.A.T — users.score (ყველა დროის ჯამი)
       const { data, error } = await sb
         .from('users').select('id,nick,icon,score')
         .order('score', { ascending: false });
@@ -713,13 +698,7 @@ async function loadLeaderboard(period) {
       }));
     } else {
       // პერიოდი: score_history-დან ჯამი
-      const intervalMap = {
-        '1m': '1 month', '3m': '3 months', '6m': '6 months', '1y': '1 year'
-      };
-      const interval = intervalMap[_currentLbPeriod];
-      if (!interval) return;
-
-      const since = new Date(Date.now() - ms(interval)).toISOString();
+      const since = new Date(Date.now() - periodToMs(_currentLbPeriod)).toISOString();
 
       const { data: hist, error: hErr } = await sb
         .from('score_history')
@@ -728,7 +707,6 @@ async function loadLeaderboard(period) {
 
       if (hErr || !hist) return;
 
-      // user_id-ის მიხედვით დავჯამოთ
       const map = {};
       hist.forEach(h => {
         const uid = h.user_id;
@@ -747,13 +725,6 @@ async function loadLeaderboard(period) {
   }
 }
 
-// ms helper — interval string → milliseconds
-function ms(interval) {
-  const map = { '1 month': 30*24*3600*1000, '3 months': 90*24*3600*1000, '6 months': 180*24*3600*1000, '1 year': 365*24*3600*1000 };
-  return map[interval] || 30*24*3600*1000;
-}
-
-// ტაბების render
 function renderLbTabs() {
   const tabs = document.getElementById('lbTabs');
   if (!tabs) return;
@@ -773,10 +744,10 @@ function renderLbTabs() {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  TICKET SETTLEMENT — ბილეთების ავტომატური შედეგების შემოწმება
+//  TICKET SETTLEMENT — client-side ავტომატური (ივენთის შემდეგ)
 // ─────────────────────────────────────────────────────────────
 
-// მეთოდის შედარება (კაზინოს პრინციპი)
+// მეთოდის შედარება
 function methodMatches(picked, result) {
   if (!picked || !result) return false;
   const r = result.toLowerCase();
@@ -788,43 +759,31 @@ function methodMatches(picked, result) {
 
 // ერთი სელექციის შემოწმება
 function selectionWon(sel, fight) {
-  if (!fight || !fight.result_winner) return null; // შედეგი ჯერ არ არის
-
-  // გამარჯვებულის მხარე
+  if (!fight || !fight.result_winner) return null;
   const winnerSide = fight.result_winner === fight.red_name ? 'red' : 'blue';
   if (sel.picked_fighter && sel.picked_fighter !== winnerSide) return false;
-
-  // რაუნდი (თუ მითითებულია)
   if (sel.picked_round) {
     const resultRound = fight.result_round ? Number(fight.result_round) : null;
     if (resultRound !== Number(sel.picked_round)) return false;
   }
-
-  // მეთოდი (თუ მითითებულია)
   if (sel.picked_method) {
     if (!methodMatches(sel.picked_method, fight.result_method || '')) return false;
   }
-
   return true;
 }
 
-// მთლიანი settlement ლოგიკა — გაუშვი ივენთის დასრულების შემდეგ
-let _settlementDone = false;
-
+// Settlement ლოგიკა — settled_at-ით იცავს ორმაგი დამუშავებისგან
 async function settleTickets(eventId) {
-  if (_settlementDone) return;
-
   try {
-    // 1. ამოვიღოთ ყველა დასრულებული ბრძოლა ამ ივენთიდან
+    // 1. ყველა completed ბრძოლა
     const { data: fights, error: fErr } = await sb
       .from('fights')
-      .select('id,status,result_winner,result_method,result_round,red_fighter_id,blue_fighter_id,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
+      .select('id,status,result_winner,result_method,result_round,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
       .eq('event_id', eventId)
       .eq('status', 'completed');
 
     if (fErr || !fights || fights.length === 0) return;
 
-    // fight map: fight_id → {result_winner, result_method, result_round, red_name, blue_name}
     const fightMap = {};
     fights.forEach(f => {
       fightMap[f.id] = {
@@ -836,56 +795,60 @@ async function settleTickets(eventId) {
       };
     });
 
-    const completedFightIds = Object.keys(fightMap);
-    if (completedFightIds.length === 0) return;
-
-    // 2. ამოვიღოთ pending ბილეთები ამ ივენთიდან
+    // 2. pending ბილეთები — მხოლოდ settled_at IS NULL (ორმაგი დაცვა)
     const { data: tickets, error: tErr } = await sb
       .from('tickets')
       .select('id,type,stake,total_odds,user_id,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds)')
       .eq('event_id', eventId)
-      .eq('status', 'pending');
+      .eq('status', 'pending')
+      .is('settled_at', null);
 
     if (tErr || !tickets || tickets.length === 0) return;
 
-    // 3. თითო ბილეთისთვის შევამოწმოთ
+    // 3. თითო ბილეთისთვის
     for (const ticket of tickets) {
       const sels = ticket.ticket_selections || [];
 
-      // სელექციების შედეგები — მხოლოდ იმ სელექციები რომელთა ბრძოლა დასრულდა
       const results = sels.map(sel => {
         const fight = fightMap[sel.fight_id];
-        if (!fight) return null; // ბრძოლა ჯერ არ დასრულებულა
+        if (!fight) return null;
         return selectionWon(sel, fight);
       });
 
-      // თუ რომელიმე ბრძოლა ჯერ არ დასრულდა → ბილეთი pending რჩება
+      // ჯერ არ დასრულდა რომელიმე ბრძოლა
       if (results.some(r => r === null)) continue;
 
       const allWon  = results.every(r => r === true);
       const anyLost = results.some(r => r === false);
-
-      let newStatus = anyLost ? 'lost' : (allWon ? 'won' : 'pending');
+      const newStatus = anyLost ? 'lost' : (allWon ? 'won' : 'pending');
       if (newStatus === 'pending') continue;
 
-      // 4. DB-ში სტატუსი განვაახლოთ
-      await sb.from('tickets').update({ status: newStatus }).eq('id', ticket.id);
+      // 4. DB-ში სტატუსი + settled_at (ორმაგი დამუშავებას აარიდებს)
+      await sb.from('tickets').update({
+        status: newStatus,
+        settled_at: new Date().toISOString()
+      }).eq('id', ticket.id);
 
-      // 5. მოგებულ ბილეთებზე score დავარიცხოთ (stake × total_odds)
+      // 5. მოგება → score + score_history
       if (newStatus === 'won') {
         const winnings = Math.round(Number(ticket.stake) * Number(ticket.total_odds));
-        const { data: ud } = await sb.from('users').select('score').eq('id', ticket.user_id).single();
-        const currentScore = Number(ud?.score) || 0;
-        await sb.from('users').update({ score: currentScore + winnings }).eq('id', ticket.user_id);
 
-        // თუ ეს ჩვენი currentUser-ია, განვაახლოთ ლოკალურადაც
+        // ატომარული score increment (RPC)
+        await sb.rpc('increment_user_score', { p_user_id: ticket.user_id, p_amount: winnings });
+
+        // score_history ჩანაწერი
+        await sb.from('score_history').insert({
+          user_id: ticket.user_id,
+          amount: winnings,
+          ticket_id: ticket.id
+        });
+
+        // ლოკალური UI განახლება
         if (currentUser && ticket.user_id === currentUser.id) {
-          currentUser.score = currentScore + winnings;
+          currentUser.score = (Number(currentUser.score) || 0) + winnings;
         }
       }
     }
-
-    _settlementDone = true;
 
     // 6. UI განახლება
     if (currentUser) {
@@ -899,16 +862,15 @@ async function settleTickets(eventId) {
   }
 }
 
-// ავტომატური შემოწმება — ყოველ 5 წუთში
-// ივენთი დასრულდა? → settleTickets გაუშვებს
+// ავტომატური შემოწმება — ივენთის დასრულების შემდეგ
 async function autoSettle() {
   const eventId = window.__currentEventId;
   const eventDate = window.__eventDate;
   if (!eventId || !eventDate) return;
 
-  // ივენთი უნდა გასულიყო (+ 30 წუთი buffer ბოლო ბრძოლისთვის)
+  // ივენთი + 30 წუთი buffer
   const elapsed = Date.now() - eventDate.getTime();
-  if (elapsed < 30 * 60 * 1000) return; // ჯერ ვადაზე ადრეა
+  if (elapsed < 30 * 60 * 1000) return;
 
   await settleTickets(eventId);
 }
@@ -917,8 +879,16 @@ async function autoSettle() {
 //  LOAD USER TICKETS FROM DB
 // ─────────────────────────────────────────────────────────────
 function rebuildSelName(i, s) {
-  const f = FIGHTS[i];
-  if (!f) return s.picked_fighter || '—';
+  // FIX: i === -1 როცა fight ვერ მოიძებნა FIGHTS მასივში
+  const f = (i >= 0 && i < FIGHTS.length) ? FIGHTS[i] : null;
+  if (!f) {
+    // fallback: fighter name-ის გარეშე
+    const a = [];
+    if (s.picked_fighter) a.push(s.picked_fighter === 'red' ? 'Red მოგება' : 'Blue მოგება');
+    if (s.picked_round)   a.push(s.picked_round + '-ე რაუნდი');
+    if (s.picked_method)  a.push(s.picked_method);
+    return a.join(' · ') || '—';
+  }
   const a = [];
   if (s.picked_fighter) a.push((s.picked_fighter === 'red' ? f.red.name : f.blue.name) + ' მოგება');
   if (s.picked_round)   a.push(s.picked_round + '-ე რაუნდი');
@@ -1019,7 +989,7 @@ function openModal(mode) {
 function closeModal() { modal.classList.remove('show'); authError(''); }
 
 // ─────────────────────────────────────────────────────────────
-//  NAV UPDATE (გასწორებული — აღარ აქვს add/remove კონფლიქტი)
+//  NAV UPDATE
 // ─────────────────────────────────────────────────────────────
 function updateNavForUser(user) {
   const joinBtn     = document.getElementById('joinBtn');
@@ -1056,15 +1026,12 @@ function updateNavForUser(user) {
     navUser.style.display = 'flex';
     if (balancePill) balancePill.classList.add('visible');
 
-    // footer-ის "პროფილი/გამოსვლა" დამალული რჩება (მთავარი გვერდიდან მოშორებული)
     const navProfile = document.getElementById('navProfile');
     const navLogout  = document.getElementById('navLogout');
     if (navProfile) navProfile.style.display = 'none';
     if (navLogout)  navLogout.style.display  = 'none';
 
-    // მობილურის მენიუ (#navLinks): პროფილი — პირველი, გამოსვლა — ბოლო
     addMobileMenuLinks();
-
     updateBalance(user.balance || 1000);
   } else {
     if (joinBtn)   joinBtn.style.display = '';
@@ -1078,16 +1045,13 @@ function updateNavForUser(user) {
     if (navLogout)  navLogout.style.display  = 'none';
 
     removeMobileMenuLinks();
-
     updateBalance(1000);
   }
 }
 
-// მობილურის მენიუში პროფილი/გამოსვლა ღილაკები
 function addMobileMenuLinks() {
   const navLinks = document.getElementById('navLinks');
   if (!navLinks) return;
-  // პროფილი — პირველ ადგილზე
   if (!document.getElementById('mProfile')) {
     const p = document.createElement('a');
     p.href = '#'; p.id = 'mProfile'; p.className = 'nav-mobile-only';
@@ -1095,7 +1059,6 @@ function addMobileMenuLinks() {
     p.onclick = (e) => { e.preventDefault(); navLinks.classList.remove('open'); openProfile(); };
     navLinks.insertBefore(p, navLinks.firstChild);
   }
-  // გამოსვლა — ბოლო ადგილზე
   if (!document.getElementById('mLogout')) {
     const l = document.createElement('a');
     l.href = '#'; l.id = 'mLogout'; l.className = 'nav-mobile-only danger';
@@ -1110,7 +1073,6 @@ function removeMobileMenuLinks() {
   const l = document.getElementById('mLogout'); if (l) l.remove();
 }
 
-// Close dropdown when clicking outside
 document.addEventListener('click', e => {
   const dd = document.getElementById('navDropdown');
   if (dd && !e.target.closest('.nav-user')) dd.classList.remove('show');
@@ -1159,15 +1121,13 @@ async function handleGoogleAuth() {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  INIT ლოგიკა — მებრძოლები ცალკე, ავტორიზაცია ცალკე
+//  INIT — მებრძოლები ცალკე, ავტორიზაცია ცალკე
 // ─────────────────────────────────────────────────────────────
 let _fightsLoaded = false;
 
-// promise რომელიც resolve-დება როცა მებრძოლები ჩაიტვირთება
 let _resolveFights;
 const _fightsReady = new Promise(res => { _resolveFights = res; });
 
-// მებრძოლების ჩატვირთვა — ავტორიზაციისგან დამოუკიდებლად, ყოველთვის ეშვება
 async function loadFightsAndRender() {
   if (_fightsLoaded) return;
   _fightsLoaded = true;
@@ -1182,9 +1142,8 @@ async function loadFightsAndRender() {
   updateNavForUser(currentUser);
   try { await loadLeaderboard(); } catch (e) { console.warn('loadLeaderboard failed:', e); }
 
-  _resolveFights(); // ვამცნობთ რომ FIGHTS და __currentEventId მზადაა
+  _resolveFights();
 
-  // თუ user უკვე ჩატვირთულია, ბილეთები წამოვიღოთ
   if (currentUser) {
     try { await loadUserTickets(); } catch (e) { console.warn('loadUserTickets failed:', e); }
   }
@@ -1195,7 +1154,6 @@ async function loadFightsAndRender() {
   setInterval(autoSettle, 5 * 60 * 1000);
 }
 
-// სესიის მომხმარებლის გამოყენება — ცალკე, lock-ის გარეთ
 async function applySession(session) {
   if (!session || currentUser) return;
   try {
@@ -1210,7 +1168,6 @@ async function applySession(session) {
         icon: ud.icon || '🥊'
       };
       updateNavForUser(currentUser);
-      // ბილეთები დაელოდონ მებრძოლების ჩატვირთვას (FIGHTS + __currentEventId მზად იყოს)
       await _fightsReady;
       try { await loadUserTickets(); } catch (e) { console.warn('loadUserTickets failed:', e); }
       renderTickets();
@@ -1221,7 +1178,6 @@ async function applySession(session) {
   }
 }
 
-// onAuthStateChange — callback-ის შიგნით NULL await! ყველაფერი setTimeout-ით lock-ის გარეთ
 sb.auth.onAuthStateChange((event, session) => {
   setTimeout(() => {
     if (event === 'SIGNED_OUT') {
@@ -1230,7 +1186,6 @@ sb.auth.onAuthStateChange((event, session) => {
       renderTickets();
       updateNavForUser(null);
     } else {
-      // INITIAL_SESSION, SIGNED_IN, TOKEN_REFRESHED — ყველა შემთხვევაში
       applySession(session);
     }
   }, 0);
@@ -1248,7 +1203,6 @@ function openProfile() {
   document.getElementById('profNewPass').value = '';
   profileMsg('', '');
 
-  // Render icon picker
   const picker = document.getElementById('iconPicker');
   picker.innerHTML = AVATAR_ICONS.map(ic =>
     `<button class="icon-opt ${(currentUser.icon || '🥊') === ic ? 'active' : ''}" data-icon="${ic}">${ic}</button>`
@@ -1283,7 +1237,6 @@ async function saveProfile() {
   if (nick && !/^[a-zA-Z0-9_]{3,20}$/.test(nick)) { profileMsg('სახელი: 3-20 ლათინური სიმბოლო (a-z, 0-9, _)', 'var(--red)'); return; }
 
   try {
-    // ნიკნეიმის ცვლილება — ჯერ შევამოწმოთ დუბლიკატი
     const nickChanged = nick && nick !== currentUser.nick;
     if (nickChanged) {
       const { data: taken } = await sb.from('users')
@@ -1294,11 +1247,9 @@ async function saveProfile() {
       }
     }
 
-    // Update nickname and icon in users table
     if (nickChanged || icon !== currentUser.icon) {
       const { error: updErr } = await sb.from('users').update({ nick: nick || currentUser.nick, icon }).eq('id', currentUser.id);
       if (updErr) {
-        // unique constraint-მაც შეიძლება დააფიქსიროს დუბლიკატი
         if (String(updErr.message || '').toLowerCase().includes('duplicate') || updErr.code === '23505') {
           profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს', 'var(--red)');
         } else {
@@ -1310,14 +1261,12 @@ async function saveProfile() {
       currentUser.icon = icon;
     }
 
-    // Update email
     if (email && email !== currentUser.email) {
       const { error } = await sb.auth.updateUser({ email });
       if (error) { profileMsg('მეილის შეცვლა ვერ მოხერხდა: ' + error.message, 'var(--red)'); return; }
       currentUser.email = email;
     }
 
-    // Update password
     if (newPass) {
       if (newPass.length < 6) { profileMsg('ახალი პაროლი მინ. 6 სიმბოლო', 'var(--red)'); return; }
       if (!oldPass) { profileMsg('შეიყვანე ძველი პაროლი', 'var(--red)'); return; }
@@ -1383,7 +1332,7 @@ async function sendPasswordReset() {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  EVENT LISTENERS — ყველა უსაფრთხო ($on არ ისვრის შეცდომას თუ ელემენტი არ არსებობს)
+//  EVENT LISTENERS
 // ─────────────────────────────────────────────────────────────
 $on('openSlip', 'click', openSlip);
 $on('closeSlip', 'click', closeSlip);
@@ -1397,20 +1346,17 @@ if (modal) modal.onclick = e => { if (e.target === modal) closeModal(); };
 $on('modalSubmit', 'click', () => modalMode === 'join' ? doRegister() : doSignIn());
 $on('googleBtn', 'click', handleGoogleAuth);
 
-// Forgot password
 $on('forgotBtn', 'click', openForgotPassword);
 $on('forgotModalClose', 'click', closeForgotModal);
 $on('forgotModal', 'click', e => { if (e.target.id === 'forgotModal') closeForgotModal(); });
 $on('forgotSubmit', 'click', sendPasswordReset);
 $on('backToLogin', 'click', () => { closeForgotModal(); openModal('signin'); });
 
-// Profile
 $on('profileClose', 'click', closeProfile);
 $on('profileModal', 'click', e => { if (e.target.id === 'profileModal') closeProfile(); });
 $on('profileSave', 'click', saveProfile);
 $on('profileLogout', 'click', () => { closeProfile(); doLogout(); });
 
-// History toggle
 $on('historyToggle', 'click', () => {
   const hist = $('historyTickets');
   const arrow = $('historyArrow');
@@ -1430,13 +1376,11 @@ document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click
 }));
 
 // ─────────────────────────────────────────────────────────────
-//  INIT — მებრძოლები ეშვება მაშინვე (ავტორიზაციას არ ელოდება)
+//  INIT
 // ─────────────────────────────────────────────────────────────
 const loadingEl = document.getElementById('markets');
 if (loadingEl) loadingEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">იტვირთება ბრძოლები…</div>';
 
-// რეფრეშზე "სტუმრის ციმციმის" თავიდან აცილება:
-// თუ ლოკალურად სესიის ტოკენი არსებობს, ღილაკები დავმალოთ სანამ სესია აღდგება
 try {
   const hasSession = Object.keys(localStorage).some(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
   if (hasSession) {
@@ -1447,5 +1391,4 @@ try {
   }
 } catch (e) {}
 
-// მებრძოლები lock-ის გარეთ — setTimeout-ით
 setTimeout(loadFightsAndRender, 0);
