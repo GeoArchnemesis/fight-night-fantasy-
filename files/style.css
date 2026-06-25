@@ -313,3 +313,9 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .nav-mobile-only{display:none}
 .nav-mobile-only.danger{color:var(--red)}
 @media(max-width:920px){.nav-links.open .nav-mobile-only{display:block}}
+
+/* ── LEADERBOARD TABS ── */
+.lb-tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.lb-tab{padding:8px 16px;border-radius:20px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font-family:var(--mono);font-size:.76rem;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:all .15s}
+.lb-tab:hover{border-color:var(--muted);color:var(--text)}
+.lb-tab.on{background:var(--red);border-color:var(--red);color:#fff}
