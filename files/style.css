@@ -193,30 +193,43 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .tk-tools{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
 .tickets{display:flex;flex-direction:column;gap:12px}
 .tk-empty{border:1px dashed var(--line);border-radius:8px;padding:34px;text-align:center;color:var(--muted)}
-.ticket{border:1px solid var(--line);border-radius:8px;background:var(--surface);overflow:hidden}
-.tk-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--ink)}
-.tk-type{font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
-.tk-status{font-family:var(--mono);font-size:.66rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 10px;border-radius:20px}
+.ticket{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+.tk-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--ink)}
+.tk-head-left{display:flex;align-items:center;gap:14px}
+.tk-type{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.tk-status{font-family:var(--mono);font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 12px;border-radius:20px}
 .tk-status.open{color:var(--gold);background:rgba(245,196,81,.12)}
 .tk-status.won{color:var(--green);background:rgba(58,209,126,.12)}
 .tk-status.lost{color:var(--red-soft);background:rgba(243,29,37,.12)}
 .tk-status.cashout{color:var(--gold);background:rgba(245,196,81,.15);border:1px solid rgba(245,196,81,.3)}
-.tk-sels{padding:10px 16px}
-.tk-sel{display:flex;justify-content:space-between;gap:10px;padding:5px 0;font-size:.86rem;border-bottom:1px solid rgba(42,39,56,.4)}
+.tk-head-stats{display:flex;align-items:center;gap:18px;font-family:var(--mono);font-size:.82rem}
+.tk-stat{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.tk-stat-label{font-size:.6rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.06em}
+.tk-stat-value{font-weight:700;color:var(--text)}
+.tk-sels{padding:0}
+.tk-sel{display:flex;align-items:stretch;border-bottom:1px solid rgba(42,39,56,.5);transition:background .15s}
 .tk-sel:last-child{border-bottom:none}
-.tk-sel .tk-od{font-family:var(--mono);color:var(--muted)}
-.tk-sel .res{font-family:var(--mono);font-size:.78rem}
-.tk-sel .res.ok{color:var(--green)}.tk-sel .res.no{color:var(--red-soft)}
-.tk-foot{display:grid;grid-template-columns:1fr 1fr 1fr;padding:14px 16px;border-top:1px solid var(--line);font-family:var(--mono);font-size:.82rem;gap:4px}
-.tk-foot .tf-item{display:flex;flex-direction:column;gap:2px}
-.tk-foot .tf-item:last-child{text-align:right;align-items:flex-end}
-.tk-foot .tf-item:nth-child(2){text-align:center;align-items:center}
-.tf-label{font-size:.65rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.06em}
-.tf-value{font-weight:700;font-size:.9rem;color:var(--text)}
-.tf-value.gold{color:var(--gold)}
-.tf-value.green{color:var(--green)}
-.tf-value.red{color:var(--red-soft)}
-.cashout-btn{width:calc(100% - 32px);margin:0 16px 14px;padding:10px;border-radius:7px;border:1px solid rgba(245,196,81,.4);background:rgba(245,196,81,.07);color:var(--gold);font-family:var(--mono);font-size:.78rem;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:background .15s, border-color .15s;display:flex;align-items:center;justify-content:center;gap:6px}
+.tk-sel:hover{background:rgba(255,255,255,.02)}
+.tk-sel-main{flex:1;padding:12px 18px;display:flex;flex-direction:column;gap:4px}
+.tk-sel-fighters{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.9rem}
+.tk-sel-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.tk-sel-dot.red{background:var(--red)}
+.tk-sel-dot.blue{background:var(--blue)}
+.tk-sel-vs{color:var(--muted-2);font-size:.75rem;font-weight:400;margin:0 2px}
+.tk-sel-pick{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:2px}
+.tk-sel-right{display:flex;align-items:center;gap:10px;padding:12px 18px;border-left:1px solid rgba(42,39,56,.3)}
+.tk-sel-odds{font-family:var(--mono);font-weight:700;font-size:1rem;color:var(--gold)}
+.tk-sel-result{font-size:1.1rem}
+.tk-sel-result.ok{color:var(--green)}
+.tk-sel-result.no{color:var(--red-soft)}
+.tk-foot{display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-top:1px solid var(--line);background:var(--ink);font-family:var(--mono);font-size:.72rem;color:var(--muted-2)}
+.tk-foot-id{opacity:.6}
+.tk-foot-meta{display:flex;gap:12px;align-items:center}
+.tk-foot-pay{font-weight:700;font-size:.85rem}
+.tk-foot-pay.gold{color:var(--gold)}
+.tk-foot-pay.green{color:var(--green)}
+.tk-foot-pay.red{color:var(--red-soft)}
+.cashout-btn{width:calc(100% - 36px);margin:0 18px 14px;padding:10px;border-radius:7px;border:1px solid rgba(245,196,81,.4);background:rgba(245,196,81,.07);color:var(--gold);font-family:var(--mono);font-size:.78rem;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:background .15s,border-color .15s;display:flex;align-items:center;justify-content:center;gap:6px}
 .cashout-btn:hover{background:rgba(245,196,81,.15);border-color:var(--gold)}
 .cashout-btn:disabled{opacity:.35;cursor:not-allowed}
 .lb{border:1px solid var(--line);border-radius:8px;overflow:hidden}
@@ -326,11 +339,5 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .lb-tab:hover{border-color:var(--muted);color:var(--text)}
 .lb-tab.on{background:var(--red);border-color:var(--red);color:#fff}
 
+/* ── ბილეთის badge + toggle ── */
 .tk-badge{background:var(--red);color:#fff;font-family:var(--mono);font-size:.7rem;font-weight:700;min-width:22px;height:22px;border-radius:12px;display:inline-grid;place-items:center;margin-left:auto;margin-right:8px}
-.ticket{border-left:3px solid var(--line);transition:border-color .15s}
-.ticket:has(.tk-status.open){border-left-color:var(--gold)}
-.ticket:has(.tk-status.won){border-left-color:var(--green)}
-.ticket:has(.tk-status.lost){border-left-color:var(--red)}
-.ticket:has(.tk-status.cashout){border-left-color:var(--gold)}
-.tk-sel{transition:background .15s;border-radius:4px;padding:5px 8px}
-.tk-sel:hover{background:rgba(255,255,255,.03)}
