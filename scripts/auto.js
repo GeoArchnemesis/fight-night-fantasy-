@@ -1,3 +1,4 @@
+globalThis.WebSocket = require('ws');
 // ============================================================
 //  UFC Fantasy — Zero-Touch Automation Script
 //  GitHub Actions-ით ყოველ 30 წუთში ეშვება
