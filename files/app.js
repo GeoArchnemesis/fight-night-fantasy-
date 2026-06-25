@@ -562,12 +562,12 @@ function renderTickets() {
             <div class="tk-sel-main">
               <div class="tk-sel-fighters">
                 <span class="tk-sel-dot red"></span>
-                <span>${redName || 'Red'}</span>
+                <span class="tk-sel-red">${redName || 'Red'}</span>
                 <span class="tk-sel-vs">vs</span>
-                <span>${blueName || 'Blue'}</span>
+                <span class="tk-sel-blue">${blueName || 'Blue'}</span>
                 <span class="tk-sel-dot blue"></span>
               </div>
-              <div class="tk-sel-pick">▸ ${fighterName} — ${pickLabel}</div>
+              <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}">▸ ${fighterName} — ${pickLabel}</div>
             </div>
             <div class="tk-sel-right">
               <span class="tk-sel-odds">${s.odds.toFixed(2)}</span>
@@ -577,13 +577,10 @@ function renderTickets() {
         }).join('')}
       </div>
       <div class="tk-foot">
-        <span class="tk-foot-id">ბილეთი #${t._dbId || '—'}</span>
-        <div class="tk-foot-meta">
-          <span>${t.type === 'express' ? 'ექსპრესი' : 'სინგლი'} | ${placedDate}</span>
-          <span class="tk-foot-pay ${t.status === 'won' ? 'green' : t.status === 'lost' ? 'red' : 'gold'}">
-            ${t.status === 'won' ? '+' + fmt(potentialWin) : t.status === 'lost' ? '0' : t.status === 'cashout' ? 'ქეშაუთი' : 'შესაძლო ' + fmt(potentialWin)}
-          </span>
-        </div>
+        <span class="tk-foot-type">${t.type === 'express' ? 'ექსპრესი' : 'სინგლი'}</span>
+        <span class="tk-foot-pay ${t.status === 'won' ? 'green' : t.status === 'lost' ? 'red' : 'gold'}">
+          ${t.status === 'won' ? '+' + fmt(potentialWin) : t.status === 'lost' ? '0' : t.status === 'cashout' ? 'ქეშაუთი' : 'შესაძლო ' + fmt(potentialWin)}
+        </span>
       </div>
       ${showCashout ? `<button class="cashout-btn" data-co="${realIdx}">${cashoutLabel(t)}</button>` : ''}
     </div>`;
