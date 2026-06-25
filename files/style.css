@@ -207,9 +207,15 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .tk-sel .tk-od{font-family:var(--mono);color:var(--muted)}
 .tk-sel .res{font-family:var(--mono);font-size:.78rem}
 .tk-sel .res.ok{color:var(--green)}.tk-sel .res.no{color:var(--red-soft)}
-.tk-foot{display:flex;justify-content:space-between;padding:11px 16px;border-top:1px solid var(--line);font-family:var(--mono);font-size:.82rem}
-.tk-foot .lbl{color:var(--muted-2)}
-.tk-foot .pay{color:var(--gold);font-weight:700}.tk-foot .pay.won{color:var(--green)}
+.tk-foot{display:grid;grid-template-columns:1fr 1fr 1fr;padding:14px 16px;border-top:1px solid var(--line);font-family:var(--mono);font-size:.82rem;gap:4px}
+.tk-foot .tf-item{display:flex;flex-direction:column;gap:2px}
+.tk-foot .tf-item:last-child{text-align:right;align-items:flex-end}
+.tk-foot .tf-item:nth-child(2){text-align:center;align-items:center}
+.tf-label{font-size:.65rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.06em}
+.tf-value{font-weight:700;font-size:.9rem;color:var(--text)}
+.tf-value.gold{color:var(--gold)}
+.tf-value.green{color:var(--green)}
+.tf-value.red{color:var(--red-soft)}
 .cashout-btn{width:calc(100% - 32px);margin:0 16px 14px;padding:10px;border-radius:7px;border:1px solid rgba(245,196,81,.4);background:rgba(245,196,81,.07);color:var(--gold);font-family:var(--mono);font-size:.78rem;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:background .15s, border-color .15s;display:flex;align-items:center;justify-content:center;gap:6px}
 .cashout-btn:hover{background:rgba(245,196,81,.15);border-color:var(--gold)}
 .cashout-btn:disabled{opacity:.35;cursor:not-allowed}
