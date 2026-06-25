@@ -2,10 +2,8 @@ name: UFC Fantasy Auto
 
 on:
   schedule:
-    # ყოველ 30 წუთში ამოწმებს
     - cron: '*/30 * * * *'
   workflow_dispatch:
-    # ხელით გაშვებაც შეიძლება (Actions tab → Run workflow)
 
 jobs:
   auto:
@@ -15,10 +13,10 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
       - name: Install dependencies
-        run: npm install @supabase/supabase-js
+        run: npm install @supabase/supabase-js ws
 
       - name: Run automation
         run: node scripts/auto.js
