@@ -299,7 +299,7 @@ function renderMarkets() {
       </div>
       <div class="bout-stage">
         <div class="stage-img left">
-          <img src="${f.red.img || noImg}" alt="${f.red.name}" loading="lazy">
+          <img src="${f.red.img || noImg}" alt="${f.red.name}" decoding="async">
         </div>
         <div class="stage-mid">
           <div class="tale-wrap">
@@ -310,7 +310,7 @@ function renderMarkets() {
           </div>
         </div>
         <div class="stage-img right">
-          <img src="${f.blue.img || noImg}" alt="${f.blue.name}" loading="lazy">
+          <img src="${f.blue.img || noImg}" alt="${f.blue.name}" decoding="async">
         </div>
       </div>
       <div class="picks-wrap">
@@ -347,6 +347,14 @@ function renderMarkets() {
   document.querySelectorAll('[data-round]').forEach(b   => { if (!b.disabled) b.onclick = () => setRound(+b.dataset.round, +b.dataset.val); });
   document.querySelectorAll('[data-method]').forEach(b  => { if (!b.disabled) b.onclick = () => setMethod(+b.dataset.method, b.dataset.val); });
   document.querySelectorAll('[data-more]').forEach(b    => b.onclick = () => toggleDetail(+b.dataset.more));
+
+  // სურათების fallback — მხოლოდ ნამდვილ შეცდომაზე (არა ჯერ-არ-ჩატვირთულზე)
+  document.querySelectorAll('.stage-img img').forEach(img => {
+    img.addEventListener('error', function onErr() {
+      this.removeEventListener('error', onErr);
+      this.src = noImg;
+    });
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -595,46 +603,111 @@ const LEADERBOARD = [];
 const AVATAR_ICONS = ['🥊','🏆','🔥','⚡','💪','🦁','🐺','👊','💎','🎯','⭐','🦅'];
 
 function renderLeaderboard() {
-  // LEADERBOARD-დან ამოვიღოთ current user (თუ არის), რომ დუბლიკატი არ იყოს
-  const rows = currentUser
-    ? LEADERBOARD.filter(r => r.name !== currentUser.nick)
-    : [...LEADERBOARD];
+  // LEADERBOARD უკვე დასორტირებულია score-ით (DB-დან). ID-ით ვცნობთ current user-ს.
+  const fullSorted = LEADERBOARD.map((r, i) => ({ ...r, rank: i + 1 }));
 
-  if (currentUser) {
-    const profit = state.balance - 1000;
-    rows.push({ name: currentUser.nick, tag: 'შენ', pts: profit, bets: state.tickets.length, you: true, icon: currentUser.icon || '🥊' });
+  const meIdx = currentUser ? fullSorted.findIndex(r => r.id === currentUser.id) : -1;
+
+  let display;
+  if (meIdx >= 0 && meIdx < 10) {
+    // ტოპ 10-ში ხარ — პირდაპირ ტოპ 10
+    display = fullSorted.slice(0, 10);
+  } else if (meIdx >= 10) {
+    // ტოპ 10-ში არ ხარ — ტოპ 9 + შენ მე-10 ადგილზე (რეალური ნომრით)
+    display = fullSorted.slice(0, 9).concat([fullSorted[meIdx]]);
+  } else {
+    // არ ხარ ჩალოგინებული ან ჯერ სიაში არ ხარ — ტოპ 10
+    display = fullSorted.slice(0, 10);
   }
-  rows.sort((a, b) => b.pts - a.pts);
-  document.getElementById('lbRows').innerHTML = rows.map((r, idx) => {
-    const rank = idx + 1;
+
+  const lbRows = document.getElementById('lbRows');
+  if (!lbRows) return;
+  lbRows.innerHTML = display.map(r => {
+    const you = currentUser && r.id === currentUser.id;
     const icon = r.icon || '🥊';
     const sign = r.pts > 0 ? '+' : '';
-    return `<div class="lb-row ${r.you ? 'you' : ''}">
-      <span class="lb-rank ${rank <= 3 ? 'top' : ''}">${rank}</span>
+    return `<div class="lb-row ${you ? 'you' : ''}">
+      <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
       <span class="lb-user">
         <span class="lb-ava-glove">${icon}</span>
-        <span><span class="lb-name">${r.name}</span><br><span class="lb-tag">${r.tag || ''}</span></span>
+        <span><span class="lb-name">${r.name}</span><br><span class="lb-tag">${you ? 'შენ' : ''}</span></span>
       </span>
-      <span class="lb-roi">${r.bets} ბილეთი</span>
+      <span class="lb-roi"></span>
       <span class="lb-pts">${sign}${fmt(r.pts)}</span>
     </div>`;
   }).join('');
+
+  // "სრულად" ღილაკი — მხოლოდ თუ >10 მონაწილეა
+  renderLbFullButton(fullSorted);
+}
+
+// "სრულად" ღილაკი + popup
+function renderLbFullButton(fullSorted) {
+  const lbWrap = document.querySelector('#leaderboard .lb');
+  if (!lbWrap) return;
+  let btn = document.getElementById('lbFullBtn');
+  if (fullSorted.length > 10) {
+    if (!btn) {
+      btn = document.createElement('button');
+      btn.id = 'lbFullBtn';
+      btn.className = 'lb-full-btn';
+      btn.textContent = 'სრულად';
+      btn.onclick = () => openLbPopup(fullSorted);
+      lbWrap.parentNode.appendChild(btn);
+    } else {
+      btn.onclick = () => openLbPopup(fullSorted);
+    }
+    btn.style.display = 'block';
+  } else if (btn) {
+    btn.style.display = 'none';
+  }
+}
+
+function openLbPopup(fullSorted) {
+  const overlay = document.createElement('div');
+  overlay.className = 'lb-popup-bg';
+  const rowsHtml = fullSorted.map(r => {
+    const you = currentUser && r.id === currentUser.id;
+    const sign = r.pts > 0 ? '+' : '';
+    return `<div class="lb-row ${you ? 'you' : ''}">
+      <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
+      <span class="lb-user">
+        <span class="lb-ava-glove">${r.icon || '🥊'}</span>
+        <span><span class="lb-name">${r.name}</span><br><span class="lb-tag">${you ? 'შენ' : ''}</span></span>
+      </span>
+      <span class="lb-pts">${sign}${fmt(r.pts)}</span>
+    </div>`;
+  }).join('');
+  overlay.innerHTML = `
+    <div class="lb-popup">
+      <div class="lb-popup-head">
+        <h3>სრული ლიდერბორდი</h3>
+        <button class="x" id="lbPopupClose" aria-label="დახურვა">&times;</button>
+      </div>
+      <div class="lb-popup-body">${rowsHtml}</div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const close = () => document.body.removeChild(overlay);
+  document.getElementById('lbPopupClose').onclick = close;
+  overlay.onclick = e => { if (e.target === overlay) close(); };
 }
 
 // ─────────────────────────────────────────────────────────────
-//  LOAD LEADERBOARD FROM DB
+//  LOAD LEADERBOARD FROM DB — score სვეტიდან (მხოლოდ მოგებები)
 // ─────────────────────────────────────────────────────────────
 async function loadLeaderboard() {
   try {
     const { data: users, error } = await sb
-      .from('users').select('nick,icon,balance')
-      .order('balance', { ascending: false }).limit(20);
+      .from('users').select('id,nick,icon,score')
+      .order('score', { ascending: false });
     if (error || !users) return;
     LEADERBOARD.length = 0;
     users.forEach(u => {
-      const profit = (u.balance || 0) - 1000; // მოგება = ბალანსი - საწყისი 1000
       LEADERBOARD.push({
-        name: u.nick || '—', tag: '', pts: profit, bets: 0, icon: u.icon || '🥊'
+        id: u.id,
+        name: u.nick || '—',
+        pts: Number(u.score) || 0,
+        icon: u.icon || '🥊'
       });
     });
     renderLeaderboard();
@@ -786,10 +859,14 @@ function updateNavForUser(user) {
     navUser.style.display = 'flex';
     if (balancePill) balancePill.classList.add('visible');
 
+    // footer-ის "პროფილი/გამოსვლა" დამალული რჩება (მთავარი გვერდიდან მოშორებული)
     const navProfile = document.getElementById('navProfile');
     const navLogout  = document.getElementById('navLogout');
-    if (navProfile) { navProfile.style.display = 'block'; navProfile.onclick = (e) => { e.preventDefault(); openProfile(); }; }
-    if (navLogout)  { navLogout.style.display  = 'block'; navLogout.onclick  = (e) => { e.preventDefault(); doLogout(); }; }
+    if (navProfile) navProfile.style.display = 'none';
+    if (navLogout)  navLogout.style.display  = 'none';
+
+    // მობილურის მენიუ (#navLinks): პროფილი — პირველი, გამოსვლა — ბოლო
+    addMobileMenuLinks();
 
     updateBalance(user.balance || 1000);
   } else {
@@ -803,8 +880,37 @@ function updateNavForUser(user) {
     if (navProfile) navProfile.style.display = 'none';
     if (navLogout)  navLogout.style.display  = 'none';
 
+    removeMobileMenuLinks();
+
     updateBalance(1000);
   }
+}
+
+// მობილურის მენიუში პროფილი/გამოსვლა ღილაკები
+function addMobileMenuLinks() {
+  const navLinks = document.getElementById('navLinks');
+  if (!navLinks) return;
+  // პროფილი — პირველ ადგილზე
+  if (!document.getElementById('mProfile')) {
+    const p = document.createElement('a');
+    p.href = '#'; p.id = 'mProfile'; p.className = 'nav-mobile-only';
+    p.textContent = 'პროფილი';
+    p.onclick = (e) => { e.preventDefault(); navLinks.classList.remove('open'); openProfile(); };
+    navLinks.insertBefore(p, navLinks.firstChild);
+  }
+  // გამოსვლა — ბოლო ადგილზე
+  if (!document.getElementById('mLogout')) {
+    const l = document.createElement('a');
+    l.href = '#'; l.id = 'mLogout'; l.className = 'nav-mobile-only danger';
+    l.textContent = 'გამოსვლა';
+    l.onclick = (e) => { e.preventDefault(); navLinks.classList.remove('open'); doLogout(); };
+    navLinks.appendChild(l);
+  }
+}
+
+function removeMobileMenuLinks() {
+  const p = document.getElementById('mProfile'); if (p) p.remove();
+  const l = document.getElementById('mLogout'); if (l) l.remove();
 }
 
 // Close dropdown when clicking outside
@@ -826,7 +932,7 @@ async function doRegister() {
   if (error) { authError(error.message); return; }
   await new Promise(r => setTimeout(r, 1000));
   const { data: ud } = await sb.from('users').select('*').eq('id', data.user.id).single();
-  currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: ud?.balance || 1000, icon: ud?.icon || '🥊' };
+  currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: ud?.balance || 1000, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊' };
   closeModal(); updateNavForUser(currentUser);
 }
 
@@ -839,7 +945,7 @@ async function doSignIn() {
   btn.disabled = false; btn.textContent = 'შესვლა';
   if (error) { authError('არასწორი მეილი ან პაროლი'); return; }
   const { data: ud } = await sb.from('users').select('*').eq('id', data.user.id).single();
-  currentUser = { id: data.user.id, email, nick: ud?.nick || email, balance: ud?.balance || 1000, icon: ud?.icon || '🥊' };
+  currentUser = { id: data.user.id, email, nick: ud?.nick || email, balance: ud?.balance || 1000, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊' };
   closeModal(); updateNavForUser(currentUser);
 }
 
@@ -859,7 +965,10 @@ async function handleGoogleAuth() {
 //  INIT ლოგიკა — მებრძოლები ცალკე, ავტორიზაცია ცალკე
 // ─────────────────────────────────────────────────────────────
 let _fightsLoaded = false;
-let _userApplied = false;
+
+// promise რომელიც resolve-დება როცა მებრძოლები ჩაიტვირთება
+let _resolveFights;
+const _fightsReady = new Promise(res => { _resolveFights = res; });
 
 // მებრძოლების ჩატვირთვა — ავტორიზაციისგან დამოუკიდებლად, ყოველთვის ეშვება
 async function loadFightsAndRender() {
@@ -875,20 +984,19 @@ async function loadFightsAndRender() {
   renderBar();
   updateNavForUser(currentUser);
   try { await loadLeaderboard(); } catch (e) { console.warn('loadLeaderboard failed:', e); }
-  renderTickets();
 
-  setInterval(() => {
-    const fallback = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%230E0D14'/%3E%3Ccircle cx='100' cy='85' r='42' fill='%23F31D25' opacity='.9'/%3E%3Ccircle cx='78' cy='75' r='16' fill='%23ff4040'/%3E%3Ccircle cx='100' cy='68' r='16' fill='%23ff4040'/%3E%3Ccircle cx='122' cy='75' r='16' fill='%23ff4040'/%3E%3Crect x='75' y='110' width='50' height='40' rx='8' fill='%23F31D25' opacity='.85'/%3E%3Crect x='82' y='145' width='36' height='18' rx='5' fill='%23cc1018'/%3E%3C/svg%3E";
-    document.querySelectorAll('.stage-img img').forEach(img => {
-      if (!img.naturalWidth) img.src = fallback;
-    });
-  }, 3000);
+  _resolveFights(); // ვამცნობთ რომ FIGHTS და __currentEventId მზადაა
+
+  // თუ user უკვე ჩატვირთულია, ბილეთები წამოვიღოთ
+  if (currentUser) {
+    try { await loadUserTickets(); } catch (e) { console.warn('loadUserTickets failed:', e); }
+  }
+  renderTickets();
 }
 
 // სესიის მომხმარებლის გამოყენება — ცალკე, lock-ის გარეთ
 async function applySession(session) {
   if (!session || currentUser) return;
-  _userApplied = true;
   try {
     const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
     if (ud) {
@@ -897,9 +1005,12 @@ async function applySession(session) {
         email: session.user.email,
         nick: ud.nick,
         balance: ud.balance || 1000,
+        score: Number(ud.score) || 0,
         icon: ud.icon || '🥊'
       };
       updateNavForUser(currentUser);
+      // ბილეთები დაელოდონ მებრძოლების ჩატვირთვას (FIGHTS + __currentEventId მზად იყოს)
+      await _fightsReady;
       try { await loadUserTickets(); } catch (e) { console.warn('loadUserTickets failed:', e); }
       renderTickets();
       renderLeaderboard();
@@ -971,10 +1082,30 @@ async function saveProfile() {
   if (nick && !/^[a-zA-Z0-9_]{3,20}$/.test(nick)) { profileMsg('სახელი: 3-20 ლათინური სიმბოლო (a-z, 0-9, _)', 'var(--red)'); return; }
 
   try {
+    // ნიკნეიმის ცვლილება — ჯერ შევამოწმოთ დუბლიკატი
+    const nickChanged = nick && nick !== currentUser.nick;
+    if (nickChanged) {
+      const { data: taken } = await sb.from('users')
+        .select('id').eq('nick', nick).neq('id', currentUser.id).maybeSingle();
+      if (taken) {
+        profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს', 'var(--red)');
+        return;
+      }
+    }
+
     // Update nickname and icon in users table
-    if (nick && nick !== currentUser.nick || icon !== currentUser.icon) {
-      await sb.from('users').update({ nick, icon }).eq('id', currentUser.id);
-      currentUser.nick = nick;
+    if (nickChanged || icon !== currentUser.icon) {
+      const { error: updErr } = await sb.from('users').update({ nick: nick || currentUser.nick, icon }).eq('id', currentUser.id);
+      if (updErr) {
+        // unique constraint-მაც შეიძლება დააფიქსიროს დუბლიკატი
+        if (String(updErr.message || '').toLowerCase().includes('duplicate') || updErr.code === '23505') {
+          profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს', 'var(--red)');
+        } else {
+          profileMsg('შენახვა ვერ მოხერხდა: ' + updErr.message, 'var(--red)');
+        }
+        return;
+      }
+      if (nickChanged) currentUser.nick = nick;
       currentUser.icon = icon;
     }
 
@@ -990,7 +1121,12 @@ async function saveProfile() {
       if (newPass.length < 6) { profileMsg('ახალი პაროლი მინ. 6 სიმბოლო', 'var(--red)'); return; }
       if (!oldPass) { profileMsg('შეიყვანე ძველი პაროლი', 'var(--red)'); return; }
       const { error: signErr } = await sb.auth.signInWithPassword({ email: currentUser.email, password: oldPass });
-      if (signErr) { profileMsg('ძველი პაროლი არასწორია', 'var(--red)'); return; }
+      if (signErr) {
+        profileMsg('ძველი პაროლი არასწორია', 'var(--red)');
+        document.getElementById('profOldPass').value = '';
+        document.getElementById('profNewPass').value = '';
+        return;
+      }
       const { error: upErr } = await sb.auth.updateUser({ password: newPass });
       if (upErr) { profileMsg('პაროლის შეცვლა ვერ მოხერხდა', 'var(--red)'); return; }
     }
@@ -1097,6 +1233,18 @@ document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click
 // ─────────────────────────────────────────────────────────────
 const loadingEl = document.getElementById('markets');
 if (loadingEl) loadingEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">იტვირთება ბრძოლები…</div>';
+
+// რეფრეშზე "სტუმრის ციმციმის" თავიდან აცილება:
+// თუ ლოკალურად სესიის ტოკენი არსებობს, ღილაკები დავმალოთ სანამ სესია აღდგება
+try {
+  const hasSession = Object.keys(localStorage).some(k => k.startsWith('sb-') && k.endsWith('-auth-token'));
+  if (hasSession) {
+    const jb = document.getElementById('joinBtn');
+    const sb2 = document.getElementById('signinBtn');
+    if (jb) jb.style.display = 'none';
+    if (sb2) sb2.style.display = 'none';
+  }
+} catch (e) {}
 
 // მებრძოლები lock-ის გარეთ — setTimeout-ით
 setTimeout(loadFightsAndRender, 0);
