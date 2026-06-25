@@ -202,7 +202,7 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .tk-status.won{color:var(--green);background:rgba(58,209,126,.12)}
 .tk-status.lost{color:var(--red-soft);background:rgba(243,29,37,.12)}
 .tk-status.cashout{color:var(--gold);background:rgba(245,196,81,.15);border:1px solid rgba(245,196,81,.3)}
-.tk-head-stats{display:flex;align-items:center;gap:28px;font-family:var(--mono);font-size:.82rem;margin-left:auto}
+.tk-head-stats{display:flex;align-items:center;gap:18px;font-family:var(--mono);font-size:.82rem}
 .tk-stat{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
 .tk-stat-label{font-size:.6rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.06em}
 .tk-stat-value{font-weight:700;color:var(--text)}
@@ -212,11 +212,6 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .tk-sel:hover{background:rgba(255,255,255,.02)}
 .tk-sel-main{flex:1;padding:12px 18px;display:flex;flex-direction:column;gap:4px}
 .tk-sel-fighters{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.9rem}
-.tk-sel-red{color:var(--red-soft)}
-.tk-sel-blue{color:var(--blue-soft)}
-.tk-sel-pick{font-family:var(--mono);font-size:.72rem;margin-top:2px}
-.tk-sel-pick.pick-red{color:var(--red-soft)}
-.tk-sel-pick.pick-blue{color:var(--blue-soft)}
 .tk-sel-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .tk-sel-dot.red{background:var(--red)}
 .tk-sel-dot.blue{background:var(--blue)}
@@ -227,13 +222,14 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .tk-sel-result{font-size:1.1rem}
 .tk-sel-result.ok{color:var(--green)}
 .tk-sel-result.no{color:var(--red-soft)}
-.tk-foot{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-top:1px solid var(--line);background:var(--ink);font-family:var(--mono);font-size:.78rem;color:var(--muted-2)}
-.tk-foot-type{color:var(--muted)}
-.tk-foot-pay{font-weight:700;font-size:1.05rem}
+.tk-foot{display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-top:1px solid var(--line);background:var(--ink);font-family:var(--mono);font-size:.72rem;color:var(--muted-2)}
+.tk-foot-id{opacity:.6}
+.tk-foot-meta{display:flex;gap:12px;align-items:center}
+.tk-foot-pay{font-weight:700;font-size:.85rem}
 .tk-foot-pay.gold{color:var(--gold)}
 .tk-foot-pay.green{color:var(--green)}
 .tk-foot-pay.red{color:var(--red-soft)}
-.cashout-btn{width:auto;margin:0 18px 14px;padding:10px 28px;padding:10px;border-radius:7px;border:1px solid rgba(245,196,81,.4);background:rgba(245,196,81,.07);color:var(--gold);font-family:var(--mono);font-size:.78rem;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:background .15s,border-color .15s;display:flex;align-items:center;justify-content:center;gap:6px}
+.cashout-btn{width:calc(100% - 36px);margin:0 18px 14px;padding:10px;border-radius:7px;border:1px solid rgba(245,196,81,.4);background:rgba(245,196,81,.07);color:var(--gold);font-family:var(--mono);font-size:.78rem;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:background .15s,border-color .15s;display:flex;align-items:center;justify-content:center;gap:6px}
 .cashout-btn:hover{background:rgba(245,196,81,.15);border-color:var(--gold)}
 .cashout-btn:disabled{opacity:.35;cursor:not-allowed}
 .lb{border:1px solid var(--line);border-radius:8px;overflow:hidden}
@@ -345,3 +341,10 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 
 /* ── ბილეთის badge + toggle ── */
 .tk-badge{background:var(--red);color:#fff;font-family:var(--mono);font-size:.7rem;font-weight:700;min-width:22px;height:22px;border-radius:12px;display:inline-grid;place-items:center;margin-left:auto;margin-right:8px}
+
+/* ── password + eye toggle ── */
+.eye-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;opacity:.5;padding:4px;z-index:2}
+.eye-toggle:hover{opacity:1}
+.field div[style*="relative"] input{padding-right:40px}
+.pass-hint{font-size:.72rem;color:var(--muted);margin-top:6px;line-height:1.5}
+.cd-unit{color:#fff !important;font-size:.75rem !important}
