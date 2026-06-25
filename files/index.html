@@ -179,7 +179,17 @@
 </div>
 <div class="field">
   <label>პასვორდი</label>
-  <input type="password" id="inPass" placeholder="მინ. 8 სიმბოლო" autocomplete="off" />
+  <div style="position:relative">
+    <input type="password" id="inPass" placeholder="მინ. 6 სიმბოლო" autocomplete="off" />
+    <button type="button" class="eye-toggle" onclick="toggleEye('inPass')" aria-label="პაროლის ჩვენება">👁</button>
+  </div>
+</div>
+<div class="field" id="confirmField" style="display:none">
+  <label>გაიმეორე პასვორდი</label>
+  <div style="position:relative">
+    <input type="password" id="inPassConfirm" placeholder="გაიმეორე პასვორდი ხელახლა" autocomplete="off" />
+    <button type="button" class="eye-toggle" onclick="toggleEye('inPassConfirm')" aria-label="პაროლის ჩვენება">👁</button>
+  </div>
 </div>
 <div id="authError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
 <button class="btn btn-primary" id="modalSubmit">რეგისტრაცია</button>
