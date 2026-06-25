@@ -930,9 +930,9 @@ async function loadUserTickets() {
   if (!currentUser) return;
   try {
     let q = sb.from('tickets')
-      .select('id,type,stake,total_odds,status,created_at,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds)')
+      .select('id,type,stake,total_odds,status,placed_at,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds)')
       .eq('user_id', currentUser.id)
-      .order('created_at', { ascending: false });
+      .order('placed_at', { ascending: false });
 
     if (window.__currentEventId) {
       q = q.eq('event_id', window.__currentEventId);
@@ -959,7 +959,7 @@ async function loadUserTickets() {
       stake: Number(tk.stake),
       odds: Number(tk.total_odds),
       status: statusMap[tk.status] || tk.status,
-      placedAt: tk.created_at ? new Date(tk.created_at).getTime() : Date.now()
+      placedAt: tk.placed_at ? new Date(tk.placed_at).getTime() : Date.now()
     }));
   } catch (e) {
     console.warn('loadUserTickets failed:', e);
