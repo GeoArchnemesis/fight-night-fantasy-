@@ -67,12 +67,17 @@
 <section id="tickets"><div class="wrap">
 <div class="sec-head"><h2>ჩემი ბილეთები</h2><span class="side" id="tkSummary">0 ბილეთი</span></div>
 <div class="tk-section">
-  <div class="tk-section-title">აქტიური ბილეთები</div>
-  <div class="tickets" id="activeTickets"></div>
+  <button class="tk-history-toggle" id="activeToggle">
+    <span>აქტიური ბილეთები</span>
+    <span class="tk-badge" id="activeBadge">0</span>
+    <span class="tk-arrow" id="activeArrow">▾</span>
+  </button>
+  <div class="tickets" id="activeTickets" style="display:none"></div>
 </div>
-<div class="tk-section" style="margin-top:24px">
+<div class="tk-section" style="margin-top:12px">
   <button class="tk-history-toggle" id="historyToggle">
     <span>ბილეთების ისტორია</span>
+    <span class="tk-badge" id="historyBadge">0</span>
     <span class="tk-arrow" id="historyArrow">▾</span>
   </button>
   <div class="tickets tk-history" id="historyTickets" style="display:none"></div>
