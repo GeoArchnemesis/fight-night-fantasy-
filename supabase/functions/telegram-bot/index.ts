@@ -344,12 +344,23 @@ async function cmdStatus(chatId: number): Promise<string> {
 // ── MAIN HANDLER ─────────────────────────────────────────────
 
 Deno.serve(async (req) => {
+  // CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('OK', { status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } })
+  }
   if (req.method !== 'POST') {
     return new Response('OK', { status: 200 })
   }
 
   try {
     const body = await req.json()
+
+    // ── Admin Panel notification ──
+    if (body.notify) {
+      if (ADMIN_CHAT_ID) await sendMsg(ADMIN_CHAT_ID, body.notify)
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { ...corsHeaders, 'Access-Control-Allow-Origin': '*' } })
+    }
+
     const msg = body.message
     if (!msg || !msg.text) return new Response('OK', { status: 200 })
 
