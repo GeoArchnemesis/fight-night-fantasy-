@@ -352,3 +352,5 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 
 /* ── mobile name truncation ── */
 @media(max-width:520px){.nav-nick{max-width:70px;font-size:.78rem}.lb-name{max-width:100px}.tk-sel-fighters span{max-width:90px}}
+.tk-foot-label{color:var(--text);font-weight:400;font-size:.75rem;margin-right:6px}
+
