@@ -205,7 +205,11 @@ let currentEventData = null;
 let fightsData = [];
 let oddsData = [];
 let oddsLocked = false;
-let autoTimer = null;
+// ── Telegram Notification ──
+const TG_NOTIFY_URL = 'https://qxfcwsiysnjxhxljqigl.supabase.co/functions/v1/telegram-bot';
+async function notifyTelegram(msg) {
+  try { await fetch(TG_NOTIFY_URL, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ notify: msg }) }); } catch(e) {}
+}
 
 // ─────────────────────────────────────────────────────────────
 //  LOCAL STORAGE
