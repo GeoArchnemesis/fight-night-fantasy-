@@ -14,8 +14,11 @@ const { createClient } = require('@supabase/supabase-js');
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;
-const ODDS_API_KEY = process.env.ODDS_API_KEY || '';
-const ESPN_BASE    = 'https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard';
+const ODDS_API_KEY      = process.env.ODDS_API_KEY || '';
+const BACKUP_SHEET_URL  = process.env.BACKUP_SHEET_URL || '';
+const TG_TOKEN          = process.env.TELEGRAM_BOT_TOKEN || '';
+const TG_CHAT           = process.env.TELEGRAM_CHAT_ID || '';
+const ESPN_BASE         = 'https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard';
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('❌ SUPABASE_URL და SUPABASE_KEY აუცილებელია');
@@ -96,6 +99,17 @@ async function fetchJSON(url) {
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
   return res.json();
+}
+
+async function sendTelegram(msg) {
+  if (!TG_TOKEN || !TG_CHAT) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TG_CHAT, text: msg, parse_mode: 'HTML' })
+    });
+  } catch (e) { log('⚠ Telegram შეცდომა: ' + e.message); }
 }
 
 async function fetchAthleteDetails(espnId) {
@@ -219,6 +233,7 @@ async function createEventFromESPN(espnData) {
   }
 
   log(`✅ ${saved} ბრძოლა შეიქმნა`);
+  await sendTelegram(`🆕 <b>ახალი ივენთი შეიქმნა</b>\n\n${event.name}\n📍 ${location}\n🥊 ${saved} ბრძოლა\n💰 ბალანსები → 1,000`);
   return evData.id;
 }
 
@@ -270,6 +285,7 @@ async function updateOdds(eventId) {
     }
 
     log(`✅ ${updated}/${fights.length} კოეფიციენტი განახლდა`);
+    if (updated > 0) await sendTelegram(`📊 <b>კოეფიციენტები განახლდა</b>\n\n${updated}/${fights.length} ბრძოლა`);
   } catch (e) {
     log(`⚠ Odds API შეცდომა: ${e.message}`);
   }
@@ -393,6 +409,7 @@ async function fetchResultsAndSettle(eventId, eventDate) {
     }
 
     log(`✅ Settlement: ${wonCount} მოგებული | ${lostCount} წაგებული | ${skipped} გამოტოვებული`);
+    await sendTelegram(`🏁 <b>Settlement დასრულდა</b>\n\n✅ ${wonCount} მოგებული\n❌ ${lostCount} წაგებული\n⏭ ${skipped} გამოტოვებული`);
   }
 
   // ივენთის სტატუსი → completed (თუ ყველა ბრძოლა დასრულდა)
@@ -402,6 +419,86 @@ async function fetchResultsAndSettle(eventId, eventDate) {
   if (!remaining || remaining.length === 0) {
     await sb.from('events').update({ status: 'completed' }).eq('id', eventId);
     log('✅ ივენთის სტატუსი → completed');
+  }
+}
+
+// ── STEP 4: Google Sheets Backup ─────────────────────────────
+
+function getBackupSlot() {
+  const days = ['კვ', 'ორშ', 'სამ', 'ოთხ', 'ხუთ', 'პარ', 'შაბ'];
+  const now = new Date();
+  const day = days[now.getUTCDay()];
+  const half = now.getUTCHours() < 12 ? '00' : '12';
+  return `${day}_${half}`;  // მაგ: "ორშ_00", "პარ_12"
+}
+
+function shouldRunBackup() {
+  const hour = new Date().getUTCHours();
+  const minute = new Date().getUTCMinutes();
+  // ყოველ 12 საათში: 0:00 და 12:00 UTC
+  return (hour === 0 || hour === 12) && minute < 30;
+}
+
+async function backupToSheets(eventName) {
+  if (!BACKUP_SHEET_URL) { log('⏭ Backup URL არ არის — გამოტოვება'); return; }
+  log('📋 Google Sheets backup...');
+
+  try {
+    const slot = getBackupSlot();
+
+    // მომხმარებლები
+    const { data: users } = await sb.from('users').select('nick,email,balance,score,icon,created_at');
+
+    // ბილეთები + nick + event name
+    const { data: tickets } = await sb.from('tickets')
+      .select('id,type,stake,total_odds,potential_win,status,placed_at,settled_at,user:users!user_id(nick),event:events!event_id(name)');
+
+    // სელექციები
+    const { data: selections } = await sb.from('ticket_selections')
+      .select('ticket_id,fight_id,picked_fighter,picked_round,picked_method,odds,result,fight:fights!fight_id(red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name))');
+
+    // ივენთები
+    const { data: events } = await sb.from('events').select('id,name,location,event_date,status');
+
+    // ბრძოლები
+    const { data: fights } = await sb.from('fights')
+      .select('id,weight_class,red_odds,blue_odds,result_winner,result_method,result_round,status,event:events!event_id(name),red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)');
+
+    // ლიდერბორდი
+    const { data: leaderboard } = await sb.from('score_history')
+      .select('amount,ticket_id,created_at,user:users!user_id(nick)');
+
+    const payload = {
+      slot,
+      event_name: eventName || '',
+      users: users || [],
+      tickets: (tickets || []).map(t => ({
+        ...t, nick: t.user?.nick || '', event_name: t.event?.name || ''
+      })),
+      selections: (selections || []).map(s => ({
+        ...s, fight_name: `${s.fight?.red?.name || '?'} vs ${s.fight?.blue?.name || '?'}`
+      })),
+      events: events || [],
+      fights: (fights || []).map(f => ({
+        ...f, event_name: f.event?.name || '', red_name: f.red?.name || '', blue_name: f.blue?.name || ''
+      })),
+      leaderboard: (leaderboard || []).map(l => ({
+        ...l, nick: l.user?.nick || ''
+      })),
+    };
+
+    const res = await fetch(BACKUP_SHEET_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await res.json();
+    if (result.success) log(`✅ Backup შენახულია (slot: ${slot})`);
+    else log(`⚠ Backup შეცდომა: ${result.error || 'unknown'}`);
+
+  } catch (e) {
+    log(`⚠ Backup failed: ${e.message}`);
   }
 }
 
@@ -455,6 +552,12 @@ async function main() {
     } else {
       log(`⏳ ველოდებით (კოეფ. შემდეგი განახლება: ${[0,6,12,18].find(h => h > hour) || 0}:00 UTC)`);
     }
+
+    // 12-საათიანი backup (0:00 და 12:00 UTC)
+    if (shouldRunBackup()) {
+      await backupToSheets(upcoming.name);
+    }
+
     return;
   }
 
@@ -467,6 +570,9 @@ async function main() {
   // 3. ივენთი დასრულდა → შედეგები + settlement
   log('🏁 ივენთი დასრულდა — შედეგების წამოღება + settlement...');
   await fetchResultsAndSettle(upcoming.id, upcoming.event_date);
+
+  // 3.5. Backup → Google Sheets
+  await backupToSheets(upcoming.name);
 
   // 4. Settlement-ის შემდეგ მაშინვე ვეძებთ მომდევნო ივენთს
   log('');
