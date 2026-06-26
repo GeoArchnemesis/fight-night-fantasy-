@@ -520,33 +520,26 @@ function startAutoOdds() {
 }
 
 // ── ავტომატიზაციის ტაიმერები ──
-function secsUntilHour(hours) {
-  const now = new Date();
-  const nowSecs = now.getUTCHours() * 3600 + now.getUTCMinutes() * 60 + now.getUTCSeconds();
-  for (const h of hours) {
-    const target = h * 3600;
-    if (target > nowSecs) return target - nowSecs;
-  }
-  return (hours[0] + 24) * 3600 - nowSecs;
-}
-function fmtTimer(secs) {
-  if (secs < 0) secs += 86400;
-  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
-  return h > 0
-    ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
-    : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-}
 function updateTimers() {
-  // Cron — ყოველ 30 წუთში
   const now = new Date();
+  const utcNow = now.getUTCHours() * 3600 + now.getUTCMinutes() * 60 + now.getUTCSeconds();
+
+  function secsUntil(targets) {
+    for (const h of targets) { if (h * 3600 > utcNow) return h * 3600 - utcNow; }
+    return 86400 - utcNow + targets[0] * 3600;
+  }
+
+  function fmt(s) {
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
+    const pad = n => String(n).padStart(2, '0');
+    return h > 0 ? `${pad(h)}:${pad(m)}:${pad(ss)}` : `${pad(m)}:${pad(ss)}`;
+  }
+
   const m = now.getUTCMinutes(), s = now.getUTCSeconds();
-  const cronSecs = ((m < 30 ? 30 : 60) - m - 1) * 60 + (60 - s);
-  document.getElementById('tmCron').textContent = fmtTimer(cronSecs);
-  // კოეფიციენტები — 0, 6, 12, 18 UTC
-  document.getElementById('tmOdds').textContent = fmtTimer(secsUntilHour([0, 6, 12, 18]));
-  // Backup — 0, 12 UTC
-  document.getElementById('tmBackup').textContent = fmtTimer(secsUntilHour([0, 12]));
-  // ბოლო cron
+  document.getElementById('tmCron').textContent = fmt(((m < 30 ? 30 : 60) - m - 1) * 60 + (60 - s));
+  document.getElementById('tmOdds').textContent = fmt(secsUntil([0, 6, 12, 18]));
+  document.getElementById('tmBackup').textContent = fmt(secsUntil([0, 12]));
+
   const lastRun = localStorage.getItem('ufc_last_cron');
   if (lastRun) {
     const ago = Math.round((Date.now() - new Date(lastRun).getTime()) / 60000);
