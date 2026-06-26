@@ -94,6 +94,35 @@
 </style>
 </head>
 <body>
+<!-- ADMIN AUTH GATE -->
+<div id="adminGate" style="position:fixed;inset:0;background:#0B0A0F;z-index:99999;display:flex;align-items:center;justify-content:center">
+  <div style="background:#16141E;border:1px solid #2A2738;border-radius:12px;padding:40px;max-width:360px;width:90%;text-align:center">
+    <h2 style="color:#F31D25;margin-bottom:8px;font-size:1.4rem">🔒 Admin Panel</h2>
+    <p style="color:#8C8899;font-size:.85rem;margin-bottom:24px">ავტორიზაცია</p>
+    <input type="text" id="adminUser" placeholder="ლოგინი" style="width:100%;background:#0E0D14;border:1px solid #2A2738;border-radius:6px;padding:12px;color:#EDEBF2;font-size:1rem;margin-bottom:10px">
+    <input type="password" id="adminPass" placeholder="პაროლი" style="width:100%;background:#0E0D14;border:1px solid #2A2738;border-radius:6px;padding:12px;color:#EDEBF2;font-size:1rem;margin-bottom:12px" onkeydown="if(event.key==='Enter')checkAdmin()">
+    <button onclick="checkAdmin()" style="width:100%;padding:12px;background:#F31D25;color:#fff;border:none;border-radius:6px;font-weight:700;font-size:.9rem;cursor:pointer">შესვლა</button>
+    <div id="adminErr" style="color:#ff5247;font-size:.82rem;margin-top:10px;display:none">არასწორი ლოგინი ან პაროლი</div>
+  </div>
+</div>
+<script>
+async function hashPass(p){const e=new TextEncoder().encode(p);const h=await crypto.subtle.digest('SHA-256',e);return Array.from(new Uint8Array(h)).map(b=>b.toString(16).padStart(2,'0')).join('')}
+async function checkAdmin(){
+  const user=document.getElementById('adminUser').value;
+  const pass=document.getElementById('adminPass').value;
+  const uh=await hashPass(user);
+  const ph=await hashPass(pass);
+  if(uh==='08f6d0ad0a10eb571adc910552cebd0d68b843797c5e1b06b757df040db47552'&&ph==='05f6d039a3b8fb15798116c19074b5f3502878b0213348b166ff9da7e7b4e029'){
+    document.getElementById('adminGate').style.display='none';
+    sessionStorage.setItem('adminOk','1');
+  }else{
+    document.getElementById('adminErr').style.display='block';
+    document.getElementById('adminPass').value='';
+  }
+}
+if(sessionStorage.getItem('adminOk')==='1') document.getElementById('adminGate').style.display='none';
+</script>
+<!-- END ADMIN AUTH GATE -->
 
 <h1>⚙️ UFC Fantasy — Admin</h1>
 <div class="warn">⚠️ ეს გვერდი მხოლოდ ადმინისთვისაა.</div>
