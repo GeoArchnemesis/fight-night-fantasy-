@@ -322,6 +322,7 @@ async function cmdFull(chatId: number): Promise<string> {
   await sendMsg(chatId, '⏳ 4/4 — Settlement...')
   const settleResult = await cmdSettle(chatId)
   lines.push('\n' + settleResult)
+  lines.push('\n✅ <b>მონაცემები სრულად ატვირთულია ბაზაში</b>')
 
   return lines.join('\n')
 }
