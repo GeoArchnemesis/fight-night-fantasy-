@@ -1014,7 +1014,7 @@ function openModal(mode) {
   document.getElementById('modalTitle').textContent  = mode === 'join' ? 'რეგისტრაცია' : 'კეთილი იყოს შენი დაბრუნება';
   document.getElementById('modalSub').textContent    = mode === 'join' ? ' ' : ' ';
   document.getElementById('nameField').style.display = mode === 'join' ? 'block' : 'none';
-  document.getElementById('confirmField').style.display = mode === 'join' ? 'block' : 'none';
+  const ph = document.getElementById('passHint'); if (ph) ph.style.display = mode === 'join' ? 'block' : 'none';
   document.getElementById('modalSubmit').textContent = mode === 'join' ? 'რეგისტრაცია' : 'შესვლა';
   document.getElementById('modalSwitch').innerHTML   = mode === 'join'
     ? 'უკვე გაქვს ანგარიში? <button id="switchMode">შესვლა</button>'
