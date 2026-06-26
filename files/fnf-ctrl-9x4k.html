@@ -689,6 +689,7 @@ async function saveToSupabase() {
         await sb.from('events').update({ location: eventLocation, event_date: eventDate }).eq('id', existing.id);
         // ბრძოლების UPDATE (შედეგები + კოეფიციენტები)
         await updateExistingFights(existing.id);
+        await notifyTelegram(`💾 <b>Admin: ბაზა განახლდა</b>\n\n${eventName}\n🔄 UPDATE რეჟიმი`);
         if (btn) { btn.disabled = false; btn.textContent = '🚀 ბაზაში შენახვა'; }
         return;
       }
@@ -799,7 +800,9 @@ async function updateExistingFights(eventId) {
     log('ივენთის სტატუსი: completed', 'ok');
   }
 
-  log(`✅ ${updated} ბრძოლა განახლდა`, 'ok');
+await notifyTelegram(`🔄 <b>Admin: ბრძოლები განახლდა</b>
+
+${updated} ბრძოლა`);
 }
 
 async function upsertFighter(f) {
