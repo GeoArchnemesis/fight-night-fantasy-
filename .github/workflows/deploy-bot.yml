@@ -1,0 +1,33 @@
+name: Deploy Telegram Bot
+
+on:
+  push:
+    paths:
+      - 'supabase/functions/telegram-bot/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy Edge Function
+        run: |
+          supabase functions deploy telegram-bot \
+            --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} \
+            --no-verify-jwt
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Set up Telegram Webhook
+        run: |
+          FUNCTION_URL="https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co/functions/v1/telegram-bot"
+          curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/setWebhook" \
+            -H "Content-Type: application/json" \
+            -d "{\"url\": \"${FUNCTION_URL}\"}"
+          echo "Webhook set to: ${FUNCTION_URL}"
