@@ -520,35 +520,33 @@ function startAutoOdds() {
 }
 
 // ── ავტომატიზაციის ტაიმერები ──
-function updateTimers() {
+function secsUntilHour(hours) {
   const now = new Date();
-  const utcH = now.getUTCHours(), utcM = now.getUTCMinutes(), utcS = now.getUTCSeconds();
-
-  // Cron — ყოველ 30 წუთში (:00 და :30)
-  const nextCronMin = utcM < 30 ? 30 - utcM : 60 - utcM;
-  const cronSec = (nextCronMin - 1) * 60 + (60 - utcS);
-  const cronM = Math.floor(cronSec / 60), cronS = cronSec % 60;
-  document.getElementById('tmCron').textContent = `${String(cronM).padStart(2,'0')}:${String(cronS).padStart(2,'0')}`;
-
+  const nowSecs = now.getUTCHours() * 3600 + now.getUTCMinutes() * 60 + now.getUTCSeconds();
+  for (const h of hours) {
+    const target = h * 3600;
+    if (target > nowSecs) return target - nowSecs;
+  }
+  return (hours[0] + 24) * 3600 - nowSecs;
+}
+function fmtTimer(secs) {
+  if (secs < 0) secs += 86400;
+  const h = Math.floor(secs / 3600), m = Math.floor((secs % 3600) / 60), s = secs % 60;
+  return h > 0
+    ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+    : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+}
+function updateTimers() {
+  // Cron — ყოველ 30 წუთში
+  const now = new Date();
+  const m = now.getUTCMinutes(), s = now.getUTCSeconds();
+  const cronSecs = ((m < 30 ? 30 : 60) - m - 1) * 60 + (60 - s);
+  document.getElementById('tmCron').textContent = fmtTimer(cronSecs);
   // კოეფიციენტები — 0, 6, 12, 18 UTC
-  const oddsHours = [0, 6, 12, 18];
-  let nextOddsH = oddsHours.find(h => h > utcH) ?? oddsHours[0] + 24;
-  if (utcH === oddsHours.find(h => h === utcH) && utcM < 30) nextOddsH = utcH;
-  else if (nextOddsH <= utcH) nextOddsH += 24;
-  const oddsTotal = ((nextOddsH - utcH) * 3600) - (utcM * 60) - utcS;
-  const oddsHH = Math.floor(oddsTotal / 3600), oddsMM = Math.floor((oddsTotal % 3600) / 60), oddsSS = oddsTotal % 60;
-  document.getElementById('tmOdds').textContent = `${String(oddsHH).padStart(2,'0')}:${String(oddsMM).padStart(2,'0')}:${String(oddsSS).padStart(2,'0')}`;
-
+  document.getElementById('tmOdds').textContent = fmtTimer(secsUntilHour([0, 6, 12, 18]));
   // Backup — 0, 12 UTC
-  const backupHours = [0, 12];
-  let nextBackH = backupHours.find(h => h > utcH) ?? backupHours[0] + 24;
-  if (utcH === backupHours.find(h => h === utcH) && utcM < 30) nextBackH = utcH;
-  else if (nextBackH <= utcH) nextBackH += 24;
-  const backTotal = ((nextBackH - utcH) * 3600) - (utcM * 60) - utcS;
-  const backHH = Math.floor(backTotal / 3600), backMM = Math.floor((backTotal % 3600) / 60), backSS = backTotal % 60;
-  document.getElementById('tmBackup').textContent = `${String(backHH).padStart(2,'0')}:${String(backMM).padStart(2,'0')}:${String(backSS).padStart(2,'0')}`;
-
-  // ბოლო cron run — GitHub Actions API-დან ვერ წამოვიღებთ, ამიტომ localStorage
+  document.getElementById('tmBackup').textContent = fmtTimer(secsUntilHour([0, 12]));
+  // ბოლო cron
   const lastRun = localStorage.getItem('ufc_last_cron');
   if (lastRun) {
     const ago = Math.round((Date.now() - new Date(lastRun).getTime()) / 60000);
