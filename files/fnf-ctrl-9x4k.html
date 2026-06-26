@@ -490,7 +490,7 @@ async function fetchOdds(auto = false) {
       }
     }
     log(`✅ ${matched}/${fightsData.length} კოეფიციენტი განახლდა${used ? ` (${used} credits)` : ''}`, 'ok');
-    if (!auto && matched > 0) await notifyTelegram(`📊 <b>Admin: კოეფიციენტები</b>\n\n${matched}/${fightsData.length} განახლდა`);
+    await notifyTelegram(`📊 <b>Admin: კოეფიციენტები</b>\n\n${matched}/${fightsData.length} განახლდა`);
     renderFights();
     saveToLocal();
   } catch(e) { log('Odds API შეცდომა: ' + e.message, 'err'); }
