@@ -92,6 +92,10 @@
   .settle-section { margin-top:14px; padding-top:14px; border-top:2px solid var(--green); }
   .settle-section h3 { color:var(--green); font-size:.95rem; margin-bottom:10px; }
 </style>
+<link rel="manifest" href="admin-manifest.json">
+<meta name="theme-color" content="#F31D25">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
 
@@ -1127,6 +1131,11 @@ async function saveResultsToDB() {
 setInterval(updateCountdown, 60000);
 loadFromLocal();
 startAutoOdds();
+</script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('admin-sw.js');
+}
 </script>
 </body>
 </html>
