@@ -105,7 +105,12 @@
   <div class="status-item"><span class="status-label">კოეფ. სტატუსი</span><span class="status-value" id="statusOddsStatus">—</span></div>
   <div class="status-item"><span class="status-label">Odds API credits</span><span class="status-value credits-badge" id="creditsLeft">?</span></div>
 </div>
-
+<div class="status-bar" id="timerBar" style="background:var(--ink);border-color:rgba(245,196,81,.2)">
+  <div class="status-item"><span class="status-label">⏱ Cron (30წთ)</span><span class="status-value" id="tmCron" style="color:var(--green)">--:--</span></div>
+  <div class="status-item"><span class="status-label">📊 კოეფიციენტები (6სთ)</span><span class="status-value" id="tmOdds" style="color:var(--gold)">--:--:--</span></div>
+  <div class="status-item"><span class="status-label">💾 Backup (12სთ)</span><span class="status-value" id="tmBackup" style="color:var(--blue-soft, #5b9bff)">--:--:--</span></div>
+  <div class="status-item"><span class="status-label">🏁 ბოლო Cron</span><span class="status-value" id="tmLastRun" style="color:var(--muted)">—</span></div>
+</div>
 <div class="card">
   <h2>📡 ნაბიჯი 1 — ივენთი</h2>
   <div class="grid-2">
