@@ -450,7 +450,7 @@ async function processESPNData(data) {
     }
   }
   log(`✅ ანთროპომეტრია: ${detailCount} მებრძოლის დეტალები წამოღებულია`, 'ok');
-
+  await notifyTelegram(`📥 <b>Admin: ESPN ივენთი ჩაიტვირთა</b>\n\n${event.name}\n🥊 ${fightsData.length} ბრძოლა`);
   renderFights();
   updateCountdown();
   saveToLocal();
