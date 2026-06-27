@@ -226,7 +226,7 @@ async function cmdSettle(chatId: number): Promise<string> {
   const fightMap: Record<string, any> = {}
   fights.forEach((f: any) => { fightMap[f.id] = { result_winner: f.result_winner || '', result_method: f.result_method || '', result_round: f.result_round || null, red_name: f.red?.name || '', blue_name: f.blue?.name || '' } })
 
-  const { data: tickets } = await sb.from('tickets').select('id,type,stake,total_odds,user_id,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds)').eq('event_id', targetEvent.id).eq('status', 'pending').is('settled_at', null)
+  const { data: tickets } = await sb.from('tickets').select('id,type,stake,total_odds,user_id,ticket_selections(id,fight_id,picked_fighter,picked_round,picked_method,odds)').eq('event_id', targetEvent.id).eq('status', 'pending').is('settled_at', null)
   if (!tickets || tickets.length === 0) return 'ℹ️ pending ბილეთი ვერ მოიძებნა'
 
   let wonCount = 0, lostCount = 0, skipped = 0
@@ -252,6 +252,14 @@ async function cmdSettle(chatId: number): Promise<string> {
     const anyLost = results.some((r: any) => r === false)
     const newStatus = anyLost ? 'lost' : (allWon ? 'won' : 'pending')
     if (newStatus === 'pending') { skipped++; continue }
+
+    // თითო selection-ის result ჩაწერა (✅/❌)
+    for (let si = 0; si < sels.length; si++) {
+      const r = results[si]
+      if (r === true || r === false) {
+        await sb.from('ticket_selections').update({ result: r ? 'ok' : 'no' }).eq('id', sels[si].id)
+      }
+    }
 
     await sb.from('tickets').update({ status: newStatus, settled_at: new Date().toISOString() }).eq('id', ticket.id)
     if (newStatus === 'won') {
@@ -322,7 +330,6 @@ async function cmdFull(chatId: number): Promise<string> {
   await sendMsg(chatId, '⏳ 4/4 — Settlement...')
   const settleResult = await cmdSettle(chatId)
   lines.push('\n' + settleResult)
-  lines.push('\n✅ <b>მონაცემები სრულად ატვირთულია ბაზაში</b>')
 
   return lines.join('\n')
 }
