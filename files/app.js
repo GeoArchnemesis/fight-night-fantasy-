@@ -37,7 +37,13 @@ let currentUser = null;
 function isBettingClosed() {
   const ed = window.__eventDate;
   if (!ed) return false;
-  return (ed - Date.now()) < 10 * 60 * 1000;
+  const diff = ed - Date.now(); return diff < 1 * 60 * 1000;
+}
+
+function isEventInProgress() {
+  const ed = window.__eventDate;
+  if (!ed) return false;
+  return (ed - Date.now()) < 0;
 }
 
 function canCashout() {
@@ -116,46 +122,62 @@ async function doCashout(idx) {
 //  DB LOAD
 // ─────────────────────────────────────────────────────────────
 async function loadEventFromDB() {
+  // upcoming ან ბოლო 24 საათში completed (ივენთი მიმდინარეობს)
   const { data: events, error: eErr } = await sb
     .from('events').select('*')
-    .eq('status', 'upcoming')
-    .order('event_date', { ascending: true })
+    .in('status', ['upcoming', 'completed'])
+    .order('event_date', { ascending: false })
     .limit(1);
   if (eErr || !events || events.length === 0) return null;
+  // მხოლოდ 24 საათში completed გამოვიყენოთ
+  const ev0 = events[0];
+  const hoursSince = (Date.now() - new Date(ev0.event_date).getTime()) / 3600000;
+  if (ev0.status === 'completed' && hoursSince > 48) return null;
 
-  const ev = events[0];
+  const ev = ev0;
   window.__currentEventId = ev.id;
 
   const { data: fights, error: fErr } = await sb
     .from('fights')
-    .select(`id,bout_order,weight_class,max_rounds,is_title_bout,red_odds,blue_odds,show_details,
+    .select(`id,bout_order,weight_class,max_rounds,is_title_bout,red_odds,blue_odds,show_details,status,result_winner,result_method,result_round,
              red:fighters!red_fighter_id(name,flag,rank,record,age,height_cm,weight_kg,reach_cm,ufc_slug,ko_pct,sub_pct,dec_pct,image_url),
              blue:fighters!blue_fighter_id(name,flag,rank,record,age,height_cm,weight_kg,reach_cm,ufc_slug,ko_pct,sub_pct,dec_pct,image_url)`)
     .eq('event_id', ev.id)
     .order('bout_order', { ascending: true });
   if (fErr) return null;
 
-  FIGHTS = fights.map(f => ({
-    _dbId: f.id,
-    wc: f.weight_class,
-    rounds: f.max_rounds + ' Rounds',
-    maxRound: f.max_rounds,
-    showDetails: f.show_details !== false,
-    red: {
-      name: f.red.name, flag: f.red.flag || '🏳️', odds: Number(f.red_odds),
-      img: f.red.image_url || null,
-      record: f.red.record || '-', age: String(f.red.age || '-'),
-      ht: (f.red.height_cm || '-') + ' სმ', wt: (f.red.weight_kg || '-') + ' კგ',
-      reach: (f.red.reach_cm || '-') + ' სმ'
-    },
-    blue: {
-      name: f.blue.name, flag: f.blue.flag || '🏳️', odds: Number(f.blue_odds),
-      img: f.blue.image_url || null,
-      record: f.blue.record || '-', age: String(f.blue.age || '-'),
-      ht: (f.blue.height_cm || '-') + ' სმ', wt: (f.blue.weight_kg || '-') + ' კგ',
-      reach: (f.blue.reach_cm || '-') + ' სმ'
+  FIGHTS = fights.map(f => {
+    // გამარჯვებული მხარე: 'red' | 'blue' | null
+    let resultWinner = null;
+    if (f.result_winner) {
+      resultWinner = f.result_winner === f.red.name ? 'red' : 'blue';
     }
-  }));
+    return {
+      _dbId: f.id,
+      wc: f.weight_class,
+      rounds: f.max_rounds + ' Rounds',
+      maxRound: f.max_rounds,
+      showDetails: f.show_details !== false,
+      status: f.status || 'upcoming',
+      resultWinner,
+      resultMethod: f.result_method || null,
+      resultRound: f.result_round || null,
+      red: {
+        name: f.red.name, flag: f.red.flag || '🏳️', odds: Number(f.red_odds),
+        img: f.red.image_url || null,
+        record: f.red.record || '-', age: String(f.red.age || '-'),
+        ht: (f.red.height_cm || '-') + ' სმ', wt: (f.red.weight_kg || '-') + ' კგ',
+        reach: (f.red.reach_cm || '-') + ' სმ'
+      },
+      blue: {
+        name: f.blue.name, flag: f.blue.flag || '🏳️', odds: Number(f.blue_odds),
+        img: f.blue.image_url || null,
+        record: f.blue.record || '-', age: String(f.blue.age || '-'),
+        ht: (f.blue.height_cm || '-') + ' სმ', wt: (f.blue.weight_kg || '-') + ' კგ',
+        reach: (f.blue.reach_cm || '-') + ' სმ'
+      }
+    };
+  });
 
   const tagEl = document.querySelector('.event-tag');
   if (tagEl) {
@@ -204,7 +226,7 @@ function selMk(i) {
   return (p.round && p.method) ? 'რაუნდი + მეთოდი'
     : p.method ? 'გამარჯვების მეთოდი'
     : p.round  ? 'დასრულების რაუნდი'
-    : 'ბრძოლის გამარჯვებული';
+    : 'მატჩის გამარჯვებული';
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -244,15 +266,16 @@ function refresh() { renderMarkets(); renderSlip(); renderBar(); }
 //  RENDER MARKETS
 // ─────────────────────────────────────────────────────────────
 function renderMarkets() {
-  if (isBettingClosed()) {
-    document.getElementById('betbar').classList.remove('show');
-    document.getElementById('markets').innerHTML = `
-      <div class="betting-closed-banner">
-        <div class="bc-title">ფსონების მიღება დასრულებულია</div>
-        <div class="bc-sub">ივენთის დაწყებამდე 10 წუთზე ნაკლებია</div>
-      </div>`;
+  if (FIGHTS.length === 0) {
+    document.getElementById('markets').innerHTML = '';
     return;
   }
+
+  const inProgress = isEventInProgress();
+  const betting = !isBettingClosed();
+
+  // betbar მხოლოდ ფსონის დასადებად
+  if (!betting) document.getElementById('betbar').classList.remove('show');
 
   const noImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%230E0D14'/%3E%3Ccircle cx='100' cy='85' r='42' fill='%23F31D25' opacity='.9'/%3E%3Ccircle cx='78' cy='75' r='16' fill='%23ff4040'/%3E%3Ccircle cx='100' cy='68' r='16' fill='%23ff4040'/%3E%3Ccircle cx='122' cy='75' r='16' fill='%23ff4040'/%3E%3Crect x='75' y='110' width='50' height='40' rx='8' fill='%23F31D25' opacity='.85'/%3E%3Crect x='82' y='145' width='36' height='18' rx='5' fill='%23cc1018'/%3E%3Ctext x='100' y='185' text-anchor='middle' font-size='14' fill='%23555'%3EMMA%3C/text%3E%3C/svg%3E";
 
@@ -261,13 +284,17 @@ function renderMarkets() {
     const mainOn = p && p.fighter && !p.round && !p.method;
     const fcls = fr || '';
 
+    // ცოცხალი შედეგები — winner glow
+    const winner = f.resultWinner; // 'red' | 'blue' | null
+    const isCompleted = !!winner;
+
     const roundChips = Array.from({ length: f.maxRound }, (_, k) => k + 1).map(r =>
-      `<button class="mkt-chip ${fcls} ${p && p.round === r ? 'on' : ''}" data-round="${i}" data-val="${r}">
+      `<button class="mkt-chip ${fcls} ${p && p.round === r ? 'on' : ''}" data-round="${i}" data-val="${r}" ${!betting ? 'disabled' : ''}>
         <span class="ml">${r}</span><span class="mo">${roundOdds(i, r).toFixed(2)}</span>
       </button>`).join('');
 
     const methodChips = METHODS.map(m =>
-      `<button class="mkt-chip ${fcls} ${p && p.method === m ? 'on' : ''}" data-method="${i}" data-val="${m}">
+      `<button class="mkt-chip ${fcls} ${p && p.method === m ? 'on' : ''}" data-method="${i}" data-val="${m}" ${!betting ? 'disabled' : ''}>
         <span class="ml">${m}</span><span class="mo">${methodOdds(i, m).toFixed(2)}</span>
       </button>`).join('');
 
@@ -279,7 +306,11 @@ function renderMarkets() {
       const name  = `<span class="p-name">${d.name}</span>`;
       const od    = `<span class="p-od">${d.odds.toFixed(2)}</span>`;
       const inner = side === 'red' ? flag + name + od : od + name + flag;
-      return `<button class="pick ${side} ${mainOn && fr === side ? 'on' : ''}" data-winner="${i}" data-fr="${side}">${inner}</button>`;
+      // winner glow: მოგებული მებრძოლი მწვანე ველში
+      const winnerCls = isCompleted && winner === side ? ' winner' : '';
+      const onCls = betting && mainOn && fr === side ? ' on' : '';
+      const disabledAttr = !betting ? ' disabled' : '';
+      return `<button class="pick ${side}${onCls}${winnerCls}" ${betting ? `data-winner="${i}" data-fr="${side}"` : ''} ${disabledAttr}>${inner}</button>`;
     };
 
     return `
@@ -519,12 +550,9 @@ function renderTickets() {
 
   const summaryEl = $('tkSummary');
   if (summaryEl) summaryEl.textContent = state.tickets.length + ' ბილეთი';
-  const activeBadge = $('activeBadge');
-  if (activeBadge) activeBadge.textContent = activeTickets.length;
-  const historyBadge = $('historyBadge');
-  if (historyBadge) historyBadge.textContent = historyTickets.length;
 
-  const st = { open: 'ღია', won: 'მოგებული', lost: 'წაგებული', cashout: 'ქეშაუთი', pending: 'ღია' };
+  const stLabel = { open: 'მიმდინარე', won: 'მოგებული', lost: 'წაგებული', cashout: 'ქეშაუთი', pending: 'მიმდინარე' };
+  const stColor = { open: '#ff9d3c', won: 'var(--green)', lost: 'var(--red-soft)', cashout: 'var(--gold)', pending: '#ff9d3c' };
   const cashoutOk = canCashout();
 
   const renderTicketCard = (t) => {
@@ -532,13 +560,13 @@ function renderTickets() {
     const showCashout = t.status === 'open' && cashoutOk;
     const totalOdds = t.odds.toFixed(2);
     const potentialWin = Math.round(t.stake * t.odds);
-    const placedDate = t.placedAt ? new Date(t.placedAt).toLocaleDateString('ka-GE', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+    const isOpen = $(`tk-open-${realIdx}`) ? $(`tk-open-${realIdx}`).dataset.open === '1' : false;
 
     return `
     <div class="ticket">
       <div class="tk-head">
         <div class="tk-head-left">
-          <span class="tk-status ${t.status}">${st[t.status] || t.status}</span>
+          <span class="tk-status ${t.status}">${stLabel[t.status] || t.status}</span>
           <span class="tk-type">${t.type === 'express' ? 'ექსპრესი · ' + t.sels.length + ' მოვლენა' : 'სინგლი'}</span>
         </div>
         <div class="tk-head-stats">
@@ -557,6 +585,7 @@ function renderTickets() {
           const redName = f ? f.red.name : '';
           const blueName = f ? f.blue.name : '';
           const pickLabel = extras || 'გამარჯვებული';
+          const resIcon = s.res === 'ok' ? ' ✅' : s.res === 'no' ? ' ❌' : '';
 
           return `<div class="tk-sel">
             <div class="tk-sel-main">
@@ -567,11 +596,10 @@ function renderTickets() {
                 <span class="tk-sel-blue">${blueName || 'Blue'}</span>
                 <span class="tk-sel-dot blue"></span>
               </div>
-              <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}">▸ ${fighterName} — ${pickLabel}</div>
+              <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}">▸ ${fighterName} — ${pickLabel}${resIcon}</div>
             </div>
             <div class="tk-sel-right">
               <span class="tk-sel-odds">${s.odds.toFixed(2)}</span>
-              ${s.res ? `<span class="tk-sel-result ${s.res}">${s.res === 'ok' ? '✓' : '✗'}</span>` : ''}
             </div>
           </div>`;
         }).join('')}
@@ -579,10 +607,10 @@ function renderTickets() {
       <div class="tk-foot">
         <span class="tk-foot-type">${t.type === 'express' ? 'ექსპრესი' : 'სინგლი'}</span>
         <span class="tk-foot-pay">
-          ${t.status === 'won' ? '<span class="green">+' + fmt(potentialWin) + '</span>'
-            : t.status === 'lost' ? '<span class="red">0</span>'
-            : t.status === 'cashout' ? '<span class="gold">ქეშაუთი</span>'
-            : '<span class="tk-foot-label">შესაძლო მოგება</span> <span class="gold">' + fmt(potentialWin) + '</span>'}
+          ${t.status === 'won' ? '<span style="color:var(--green)">+' + fmt(potentialWin) + '</span>'
+            : t.status === 'lost' ? '<span style="color:var(--red-soft)">0</span>'
+            : t.status === 'cashout' ? '<span style="color:var(--gold)">ქეშაუთი</span>'
+            : '<span class="tk-foot-label">შესაძლო მოგება</span> <span style="color:var(--gold)">' + fmt(potentialWin) + '</span>'}
         </span>
       </div>
       ${showCashout ? `<button class="cashout-btn" data-co="${realIdx}">${cashoutLabel(t)}</button>` : ''}
@@ -912,6 +940,36 @@ async function autoSettle() {
   await settleTickets(eventId);
 }
 
+
+// ─────────────────────────────────────────────────────────────
+//  LIVE RESULTS — ყოველ 2 წუთში DB-დან შედეგების წამოღება
+// ─────────────────────────────────────────────────────────────
+async function loadLiveResults() {
+  const eventId = window.__currentEventId;
+  if (!eventId) return;
+  if (!isEventInProgress()) return; // მხოლოდ ივენთის მიმდინარეობისას
+  try {
+    const { data: fights } = await sb
+      .from('fights')
+      .select('id,status,result_winner,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
+      .eq('event_id', eventId);
+    if (!fights) return;
+    let changed = false;
+    fights.forEach(f => {
+      const idx = FIGHTS.findIndex(x => x._dbId === f.id);
+      if (idx < 0) return;
+      let rw = null;
+      if (f.result_winner) rw = f.result_winner === f.red?.name ? 'red' : 'blue';
+      if (FIGHTS[idx].resultWinner !== rw || FIGHTS[idx].status !== f.status) {
+        FIGHTS[idx].resultWinner = rw;
+        FIGHTS[idx].status = f.status || 'upcoming';
+        changed = true;
+      }
+    });
+    if (changed) renderMarkets();
+  } catch(e) { console.warn('loadLiveResults failed:', e); }
+}
+
 // ─────────────────────────────────────────────────────────────
 //  LOAD USER TICKETS FROM DB
 // ─────────────────────────────────────────────────────────────
@@ -937,7 +995,7 @@ async function loadUserTickets() {
   if (!currentUser) return;
   try {
     let q = sb.from('tickets')
-      .select('id,type,stake,total_odds,status,placed_at,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds)')
+      .select('id,type,stake,total_odds,status,placed_at,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds,result)')
       .eq('user_id', currentUser.id)
       .order('placed_at', { ascending: false });
 
@@ -960,7 +1018,8 @@ async function loadUserTickets() {
           round: s.picked_round,
           method: s.picked_method,
           odds: Number(s.odds),
-          name: rebuildSelName(i, s)
+          name: rebuildSelName(i, s),
+          res: s.result || null  // 'ok' | 'no' | null
         };
       }),
       stake: Number(tk.stake),
@@ -989,7 +1048,7 @@ const cd_d = document.getElementById('cd-d'), cd_h = document.getElementById('cd
       cd_m = document.getElementById('cd-m'), cd_s = document.getElementById('cd-s');
 function tick() {
   const ed = window.__eventDate || eventDate;
-  const diff = ed - Date.now(); if (diff <= 0) return;
+  const diff = ed - Date.now(); if (diff <= 0) { cd_d.textContent = "--"; cd_h.textContent = "--"; cd_m.textContent = "--"; cd_s.textContent = "--"; return; }
   const d = Math.floor(diff / 864e5), h = Math.floor(diff % 864e5 / 36e5),
         m = Math.floor(diff % 36e5 / 6e4), s = Math.floor(diff % 6e4 / 1e3);
   const p = n => String(n).padStart(2, '0');
@@ -1011,21 +1070,35 @@ function authError(msg) {
 function openModal(mode) {
   modalMode = mode; authError('');
   const passEl = document.getElementById('inPass'); if (passEl) passEl.value = '';
-  document.getElementById('modalTitle').textContent  = mode === 'join' ? 'რეგისტრაცია' : 'კეთილი იყოს შენი დაბრუნება';
+  document.getElementById('modalTitle').textContent  = mode === 'join' ? 'შემოუერთდი ლიგას' : 'კეთილი იყოს დაბრუნება';
   document.getElementById('modalSub').textContent    = mode === 'join' ? ' ' : ' ';
   document.getElementById('nameField').style.display = mode === 'join' ? 'block' : 'none';
   document.getElementById('confirmField').style.display = mode === 'join' ? 'block' : 'none';
-  const ph = document.getElementById('passHint'); if (ph) ph.style.display = mode === 'join' ? 'block' : 'none';
   document.getElementById('modalSubmit').textContent = mode === 'join' ? 'რეგისტრაცია' : 'შესვლა';
   document.getElementById('modalSwitch').innerHTML   = mode === 'join'
     ? 'უკვე გაქვს ანგარიში? <button id="switchMode">შესვლა</button>'
-    : 'არ გაქვს ანგარიში? <button id="switchMode">რეგისტრაცია</button>';
+    : 'ახალი ხარ აქ? <button id="switchMode">რეგისტრაცია</button>';
   document.getElementById('switchMode').onclick = () => openModal(mode === 'join' ? 'signin' : 'join');
   const forgotWrap = $('forgotWrap');
   if (forgotWrap) forgotWrap.style.display = mode === 'signin' ? 'block' : 'none';
   modal.classList.add('show');
 }
 function closeModal() { modal.classList.remove('show'); authError(''); }
+
+
+// ─────────────────────────────────────────────────────────────
+//  SEC-HEAD VISIBILITY — სათაურის დამალვა
+// ─────────────────────────────────────────────────────────────
+function updateSecHead() {
+  const secHead = document.querySelector('#card .sec-head');
+  if (!secHead) return;
+  // სტუმარს ან ივენთ მიმდინარეობისას — დამალე
+  if (!currentUser || isEventInProgress()) {
+    secHead.style.display = 'none';
+  } else {
+    secHead.style.display = '';
+  }
+}
 
 // ─────────────────────────────────────────────────────────────
 //  NAV UPDATE
@@ -1072,6 +1145,7 @@ function updateNavForUser(user) {
 
     addMobileMenuLinks();
     updateBalance(user.balance || 1000);
+    updateSecHead();
   } else {
     if (joinBtn)   joinBtn.style.display = '';
     if (signinBtn) signinBtn.style.display = '';
@@ -1197,6 +1271,13 @@ async function loadFightsAndRender() {
   // ავტომატური settlement — ყოველ 5 წუთში
   autoSettle();
   setInterval(autoSettle, 5 * 60 * 1000);
+
+  // ცოცხალი შედეგები — ყოველ 2 წუთში
+  loadLiveResults();
+  setInterval(loadLiveResults, 2 * 60 * 1000);
+
+  // sec-head სათაური: სტუმარს და ივენთ მიმდინარეობისას დამალე
+  updateSecHead();
 }
 
 async function applySession(session) {
@@ -1385,9 +1466,7 @@ function toggleEye(inputId) {
   const isPass = inp.type === 'password';
   inp.type = isPass ? 'text' : 'password';
   const btn = inp.parentElement.querySelector('.eye-toggle');
-  if (btn) btn.innerHTML = isPass
-    ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
-    : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+  if (btn) btn.textContent = isPass ? '🙈' : '👁';
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1415,14 +1494,7 @@ $on('profileClose', 'click', closeProfile);
 $on('profileModal', 'click', e => { if (e.target.id === 'profileModal') closeProfile(); });
 $on('profileSave', 'click', saveProfile);
 $on('profileLogout', 'click', () => { closeProfile(); doLogout(); });
-$on('activeToggle', 'click', () => {
-  const act = $('activeTickets');
-  const arrow = $('activeArrow');
-  if (!act) return;
-  const isOpen = act.style.display !== 'none';
-  act.style.display = isOpen ? 'none' : 'flex';
-  if (arrow) arrow.classList.toggle('open', !isOpen);
-});
+
 $on('historyToggle', 'click', () => {
   const hist = $('historyTickets');
   const arrow = $('historyArrow');
