@@ -275,9 +275,18 @@ async function cmdSettle(chatId: number): Promise<string> {
 }
 
 async function cmdFetchResults(chatId: number): Promise<string> {
-  const { data: upcomingEvents } = await sb.from('events').select('id,name,event_date').eq('status', 'upcoming').limit(1)
-  if (!upcomingEvents || upcomingEvents.length === 0) return '❌ upcoming ივენთი ვერ მოიძებნა'
-  const ev = upcomingEvents[0]
+  // იპოვე ივენთი რომელსაც აქვს ჯერ დაუსრულებელი (upcoming) ბრძოლები — ივენთის სტატუსის მიუხედავად
+  const { data: allEvents } = await sb.from('events').select('id,name,event_date').in('status', ['upcoming', 'completed']).order('event_date', { ascending: false })
+  if (!allEvents || allEvents.length === 0) return '❌ ივენთი ვერ მოიძებნა'
+
+  let ev: any = null
+  for (const e of allEvents) {
+    const { data: upFights } = await sb.from('fights').select('id').eq('event_id', e.id).eq('status', 'upcoming').limit(1)
+    if (upFights && upFights.length > 0) { ev = e; break }
+  }
+  // თუ ყველა ბრძოლა დასრულებულია, აიღე უახლესი ივენთი მაინც (ხელახლა გადასამოწმებლად)
+  if (!ev) ev = allEvents[0]
+
   const dateStr = new Date(ev.event_date).toISOString().slice(0, 10).replace(/-/g, '')
 
   const res = await fetch(`${ESPN_BASE}?dates=${dateStr}`)
@@ -287,7 +296,7 @@ async function cmdFetchResults(chatId: number): Promise<string> {
   const espnEvent = data.events[0]
   if (espnEvent.status?.type?.state === 'pre') return 'ℹ️ ივენთი ჯერ არ დაწყებულა'
 
-  const { data: dbFights } = await sb.from('fights').select('id,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)').eq('event_id', ev.id)
+  const { data: dbFights } = await sb.from('fights').select('id,status,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)').eq('event_id', ev.id)
   if (!dbFights) return '❌ ბრძოლები ვერ მოიძებნა DB-ში'
 
   let updated = 0
