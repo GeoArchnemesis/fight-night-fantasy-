@@ -551,7 +551,7 @@ function renderTickets() {
   const singleList  = $('ticketsList');
 
   const activeTickets = state.tickets.filter(t => t.status === 'open');
-  const historyTickets = state.tickets.filter(t => t.status !== 'open').sort((a, b) => (b.placedAt || 0) - (a.placedAt || 0));
+  const historyTickets = state.tickets.filter(t => t.status === 'won' || t.status === 'lost').sort((a, b) => (b.placedAt || 0) - (a.placedAt || 0));
 
   const summaryEl = $('tkSummary');
   if (summaryEl) summaryEl.textContent = state.tickets.length + ' ბილეთი';
