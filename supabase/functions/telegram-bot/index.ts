@@ -69,7 +69,7 @@ function parseESPNMethod(comp: any): string {
     if (s.includes('no contest')) return 'No Contest'
     if (s.includes('dq')) return 'DQ'
   }
-  return sources[2] || ''
+  return ''
 }
 
 // ── upsert fighter ──────────────────────────────────────────
@@ -303,8 +303,14 @@ async function cmdFetchResults(chatId: number): Promise<string> {
     const match = dbFights.find((f: any) => nameSimilarity(f.red?.name || '', winnerName) > 0.4 || nameSimilarity(f.blue?.name || '', winnerName) > 0.4)
     if (!match) continue
 
-    await sb.from('fights').update({ status: 'completed', result_winner: winnerName, result_method: method, result_round: round ? parseInt(round) : null }).eq('id', match.id)
-    lines.push(`🏆 ${winnerName} (${method}, R${round})`)
+    // მკაცრი შემოწმება — winner ნამდვილად ერთ-ერთი მებრძოლია
+    const mRed = nameSimilarity(match.red?.name || '', winnerName)
+    const mBlue = nameSimilarity(match.blue?.name || '', winnerName)
+    if (mRed < 0.5 && mBlue < 0.5) continue
+    const exactWinner = mRed >= mBlue ? match.red.name : match.blue.name
+
+    await sb.from('fights').update({ status: 'completed', result_winner: exactWinner, result_method: method, result_round: round ? parseInt(round) : null }).eq('id', match.id)
+    lines.push(`🏆 ${exactWinner} (${method}, R${round})`)
     updated++
   }
 
