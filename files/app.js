@@ -950,8 +950,7 @@ async function settleTickets(eventId) {
         // score_history ჩანაწერი
         await sb.from('score_history').insert({
           user_id: ticket.user_id,
-          amount: winnings,
-          ticket_id: ticket.id
+          amount: winnings
         });
 
         // ლოკალური UI განახლება
