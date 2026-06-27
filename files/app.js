@@ -596,7 +596,7 @@ function renderTickets() {
       <div class="tk-head" data-tktoggle="${realIdx}" style="cursor:pointer">
         <div class="tk-head-left">
           <span class="tk-status ${t.status}" style="color:${statusColor}">${stLabel[t.status] || t.status}</span>
-          <span class="tk-type">${t.type === 'express' ? 'ექსპრესი · ' + t.sels.length + ' მოვლენა' : 'სინგლი'}</span>
+          <span class="tk-type">${t.type === 'express' ? 'ექსპრესი · ' + t.sels.length + ' ბრძოლა' : 'სინგლი'}</span>
         </div>
         <span class="tk-arrow ${isCollapsed ? '' : 'open'}">▾</span>
       </div>
