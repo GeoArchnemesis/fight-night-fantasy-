@@ -147,9 +147,9 @@ async function loadEventFromDB() {
   if (fErr) return null;
 
   FIGHTS = fights.map(f => {
-    // გამარჯვებული მხარე: 'red' | 'blue' | null
+    // გამარჯვებული მხარე — მხოლოდ დასრულებულ ბრძოლაზე
     let resultWinner = null;
-    if (f.result_winner) {
+    if (f.status === 'completed' && f.result_winner) {
       resultWinner = f.result_winner === f.red.name ? 'red' : 'blue';
     }
     return {
@@ -288,8 +288,8 @@ function renderMarkets() {
     const mainOn = p && p.fighter && !p.round && !p.method;
     const fcls = fr || '';
 
-    // ცოცხალი შედეგები — winner glow
-    const winner = f.resultWinner; // 'red' | 'blue' | null
+    // ცოცხალი შედეგები — winner glow (მხოლოდ დასრულებულ ბრძოლაზე)
+    const winner = (f.status === 'completed') ? f.resultWinner : null;
     const isCompleted = !!winner;
 
     const roundChips = Array.from({ length: f.maxRound }, (_, k) => k + 1).map(r =>
@@ -566,9 +566,9 @@ function renderTickets() {
   // selection-ის შედეგი — DB res ან FIGHTS-დან გამოთვლა
   const selResult = (s) => {
     if (s.res === 'ok' || s.res === 'no') return s.res;
-    // FIGHTS-დან ცოცხალი გამოთვლა
+    // FIGHTS-დან ცოცხალი გამოთვლა — მხოლოდ დასრულებულ ბრძოლაზე
     const f = (s.i >= 0 && s.i < FIGHTS.length) ? FIGHTS[s.i] : null;
-    if (!f || !f.resultWinner) return null;
+    if (!f || f.status !== 'completed' || !f.resultWinner) return null;
     return f.resultWinner === s.fighter ? 'ok' : 'no';
   };
 
@@ -798,20 +798,31 @@ async function loadLeaderboard(period) {
       // პერიოდი: score_history-დან ჯამი
       const since = new Date(Date.now() - periodToMs(_currentLbPeriod)).toISOString();
 
-      const { data: hist, error: hErr } = await sb
+      // ჯერ score_history (created_at ფილტრით)
+      let { data: hist, error: hErr } = await sb
         .from('score_history')
-        .select('user_id, amount, users(id,nick,icon)')
+        .select('user_id, amount, created_at')
         .gte('created_at', since);
 
-      if (hErr || !hist) return;
+      // თუ created_at ფილტრმა ვერ იმუშავა, ყველა ავიღოთ
+      if (hErr) {
+        const r2 = await sb.from('score_history').select('user_id, amount, created_at');
+        hist = r2.data; hErr = r2.error;
+      }
+      if (hErr || !hist) { LEADERBOARD.length = 0; renderLeaderboard(); renderLbTabs(); return; }
+
+      // users ცალკე (nick + icon)
+      const { data: usersData } = await sb.from('users').select('id,nick,icon');
+      const userMap = {};
+      (usersData || []).forEach(u => { userMap[u.id] = { nick: u.nick || '—', icon: u.icon || '🥊' }; });
 
       const map = {};
       hist.forEach(h => {
         const uid = h.user_id;
-        if (!map[uid]) map[uid] = { id: uid, name: h.users?.nick || '—', icon: h.users?.icon || '🥊', pts: 0 };
+        if (!map[uid]) map[uid] = { id: uid, name: userMap[uid]?.nick || '—', icon: userMap[uid]?.icon || '🥊', pts: 0 };
         map[uid].pts += Number(h.amount) || 0;
       });
-      rows = Object.values(map).sort((a, b) => b.pts - a.pts);
+      rows = Object.values(map).filter(r => r.pts > 0).sort((a, b) => b.pts - a.pts);
     }
 
     LEADERBOARD.length = 0;
@@ -991,8 +1002,11 @@ async function loadLiveResults() {
     fights.forEach(f => {
       const idx = FIGHTS.findIndex(x => x._dbId === f.id);
       if (idx < 0) return;
+      // winner მხოლოდ დასრულებულ ბრძოლაზე
       let rw = null;
-      if (f.result_winner) rw = f.result_winner === f.red?.name ? 'red' : 'blue';
+      if (f.status === 'completed' && f.result_winner) {
+        rw = f.result_winner === f.red?.name ? 'red' : 'blue';
+      }
       if (FIGHTS[idx].resultWinner !== rw || FIGHTS[idx].status !== f.status) {
         FIGHTS[idx].resultWinner = rw;
         FIGHTS[idx].status = f.status || 'upcoming';
