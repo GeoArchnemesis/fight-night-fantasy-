@@ -369,7 +369,7 @@ async function fetchResultsAndSettle(eventId, eventDate) {
   });
 
   const { data: tickets } = await sb.from('tickets')
-    .select('id,type,stake,total_odds,user_id,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds)')
+    .select('id,type,stake,total_odds,user_id,ticket_selections(id,fight_id,picked_fighter,picked_round,picked_method,odds)')
     .eq('event_id', eventId).eq('status', 'pending').is('settled_at', null);
 
   if (!tickets || tickets.length === 0) { log('pending ბილეთი ვერ მოიძებნა'); }
@@ -390,6 +390,14 @@ async function fetchResultsAndSettle(eventId, eventDate) {
       const anyLost = results.some(r => r === false);
       const newStatus = anyLost ? 'lost' : (allWon ? 'won' : 'pending');
       if (newStatus === 'pending') { skipped++; continue; }
+
+      // თითო selection-ის result ჩაწერა (✅/❌-ისთვის)
+      for (let si = 0; si < sels.length; si++) {
+        const r = results[si];
+        if (r === true || r === false) {
+          await sb.from('ticket_selections').update({ result: r ? 'ok' : 'no' }).eq('id', sels[si].id);
+        }
+      }
 
       await sb.from('tickets').update({
         status: newStatus, settled_at: new Date().toISOString()
