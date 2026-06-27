@@ -92,10 +92,6 @@
   .settle-section { margin-top:14px; padding-top:14px; border-top:2px solid var(--green); }
   .settle-section h3 { color:var(--green); font-size:.95rem; margin-bottom:10px; }
 </style>
-<link rel="manifest" href="admin-manifest.json">
-<meta name="theme-color" content="#F31D25">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
 
@@ -109,12 +105,7 @@
   <div class="status-item"><span class="status-label">კოეფ. სტატუსი</span><span class="status-value" id="statusOddsStatus">—</span></div>
   <div class="status-item"><span class="status-label">Odds API credits</span><span class="status-value credits-badge" id="creditsLeft">?</span></div>
 </div>
-<div class="status-bar" id="timerBar" style="background:var(--ink);border-color:rgba(245,196,81,.2)">
-  <div class="status-item"><span class="status-label">⏱ Cron (30წთ)</span><span class="status-value" id="tmCron" style="color:var(--green)">--:--</span></div>
-  <div class="status-item"><span class="status-label">📊 კოეფიციენტები (6სთ)</span><span class="status-value" id="tmOdds" style="color:var(--gold)">--:--:--</span></div>
-  <div class="status-item"><span class="status-label">💾 Backup (12სთ)</span><span class="status-value" id="tmBackup" style="color:var(--blue-soft, #5b9bff)">--:--:--</span></div>
-  <div class="status-item"><span class="status-label">🏁 ბოლო Cron</span><span class="status-value" id="tmLastRun" style="color:var(--muted)">—</span></div>
-</div>
+
 <div class="card">
   <h2>📡 ნაბიჯი 1 — ივენთი</h2>
   <div class="grid-2">
@@ -459,7 +450,7 @@ async function processESPNData(data) {
     }
   }
   log(`✅ ანთროპომეტრია: ${detailCount} მებრძოლის დეტალები წამოღებულია`, 'ok');
-  await notifyTelegram(`📥 <b>Admin: ESPN ივენთი ჩაიტვირთა</b>\n\n${event.name}\n🥊 ${fightsData.length} ბრძოლა`);
+
   renderFights();
   updateCountdown();
   saveToLocal();
@@ -499,7 +490,7 @@ async function fetchOdds(auto = false) {
       }
     }
     log(`✅ ${matched}/${fightsData.length} კოეფიციენტი განახლდა${used ? ` (${used} credits)` : ''}`, 'ok');
-    await notifyTelegram(`📊 <b>Admin: კოეფიციენტები</b>\n\n${matched}/${fightsData.length} განახლდა`);
+    if (!auto && matched > 0) await notifyTelegram(`📊 <b>Admin: კოეფიციენტები</b>\n\n${matched}/${fightsData.length} განახლდა`);
     renderFights();
     saveToLocal();
   } catch(e) { log('Odds API შეცდომა: ' + e.message, 'err'); }
@@ -522,36 +513,6 @@ function startAutoOdds() {
   fetchOdds(true);
   autoTimer = setInterval(() => { if (!oddsLocked) fetchOdds(true); }, 12 * 60 * 60 * 1000);
 }
-
-// ── ავტომატიზაციის ტაიმერები ──
-function updateTimers() {
-  const now = new Date();
-  const utcNow = now.getUTCHours() * 3600 + now.getUTCMinutes() * 60 + now.getUTCSeconds();
-
-  function secsUntil(targets) {
-    for (const h of targets) { if (h * 3600 > utcNow) return h * 3600 - utcNow; }
-    return 86400 - utcNow + targets[0] * 3600;
-  }
-
-  function fmt(s) {
-    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = s % 60;
-    const pad = n => String(n).padStart(2, '0');
-    return h > 0 ? `${pad(h)}:${pad(m)}:${pad(ss)}` : `${pad(m)}:${pad(ss)}`;
-  }
-
-  const m = now.getUTCMinutes(), s = now.getUTCSeconds();
-  document.getElementById('tmCron').textContent = fmt(((m < 30 ? 30 : 60) - m - 1) * 60 + (60 - s));
-  document.getElementById('tmOdds').textContent = fmt(secsUntil([0, 6, 12, 18]));
-  document.getElementById('tmBackup').textContent = fmt(secsUntil([0, 12]));
-
-  const lastRun = localStorage.getItem('ufc_last_cron');
-  if (lastRun) {
-    const ago = Math.round((Date.now() - new Date(lastRun).getTime()) / 60000);
-    document.getElementById('tmLastRun').textContent = ago < 1 ? 'ახლახან' : `${ago} წუთის წინ`;
-  }
-}
-updateTimers();
-setInterval(updateTimers, 1000);
 
 // ─────────────────────────────────────────────────────────────
 //  CHECK RESULTS — ESPN-დან შედეგების წამოღება (ლოკალურად)
@@ -728,7 +689,6 @@ async function saveToSupabase() {
         await sb.from('events').update({ location: eventLocation, event_date: eventDate }).eq('id', existing.id);
         // ბრძოლების UPDATE (შედეგები + კოეფიციენტები)
         await updateExistingFights(existing.id);
-        await notifyTelegram(`💾 <b>Admin: ბაზა განახლდა</b>\n\n${eventName}\n🔄 UPDATE რეჟიმი`);
         if (btn) { btn.disabled = false; btn.textContent = '🚀 ბაზაში შენახვა'; }
         return;
       }
@@ -839,9 +799,7 @@ async function updateExistingFights(eventId) {
     log('ივენთის სტატუსი: completed', 'ok');
   }
 
-await notifyTelegram(`🔄 <b>Admin: ბრძოლები განახლდა</b>
-
-${updated} ბრძოლა`);
+  log(`✅ ${updated} ბრძოლა განახლდა`, 'ok');
 }
 
 async function upsertFighter(f) {
@@ -948,7 +906,7 @@ async function settleAllTickets() {
   // 3. pending ბილეთები — settled_at IS NULL (ორმაგი დამუშავებას თავიდან ავიცილებთ)
   const { data: tickets } = await sb
     .from('tickets')
-    .select('id,type,stake,total_odds,user_id,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds)')
+    .select('id,type,stake,total_odds,user_id,ticket_selections(id,fight_id,picked_fighter,picked_round,picked_method,odds)')
     .eq('event_id', targetEventId)
     .eq('status', 'pending')
     .is('settled_at', null);
@@ -972,6 +930,14 @@ async function settleAllTickets() {
     const anyLost = results.some(r => r === false);
     const newStatus = anyLost ? 'lost' : (allWon ? 'won' : 'pending');
     if (newStatus === 'pending') { skippedCount++; continue; }
+
+    // თითო selection-ის result ჩაწერა (✅/❌-ისთვის)
+    for (let si = 0; si < sels.length; si++) {
+      const r = results[si];
+      if (r === true || r === false) {
+        await sb.from('ticket_selections').update({ result: r ? 'ok' : 'no' }).eq('id', sels[si].id);
+      }
+    }
 
     // სტატუსი + settled_at
     await sb.from('tickets').update({
@@ -1131,11 +1097,6 @@ async function saveResultsToDB() {
 setInterval(updateCountdown, 60000);
 loadFromLocal();
 startAutoOdds();
-</script>
-<script>
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('admin-sw.js');
-}
 </script>
 </body>
 </html>
