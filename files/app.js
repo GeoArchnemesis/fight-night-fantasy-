@@ -550,6 +550,10 @@ function renderTickets() {
 
   const summaryEl = $('tkSummary');
   if (summaryEl) summaryEl.textContent = state.tickets.length + ' ბილეთი';
+  const activeBadge = $('activeBadge');
+  if (activeBadge) activeBadge.textContent = activeTickets.length;
+  const historyBadge = $('historyBadge');
+  if (historyBadge) historyBadge.textContent = historyTickets.length;
 
   const stLabel = { open: 'მიმდინარე', won: 'მოგებული', lost: 'წაგებული', cashout: 'ქეშაუთი', pending: 'მიმდინარე' };
   const stColor = { open: '#ff9d3c', won: 'var(--green)', lost: 'var(--red-soft)', cashout: 'var(--gold)', pending: '#ff9d3c' };
@@ -999,9 +1003,8 @@ async function loadUserTickets() {
       .eq('user_id', currentUser.id)
       .order('placed_at', { ascending: false });
 
-    if (window.__currentEventId) {
-      q = q.eq('event_id', window.__currentEventId);
-    }
+    // ყველა ბილეთი — არ გავფილტროთ event_id-ით
+    // (ისტორიაში სხვა ივენთების ბილეთებიც ჩანდეს)
 
     const { data: rows, error } = await q;
     if (error || !rows) return;
