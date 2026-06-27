@@ -183,7 +183,11 @@ async function loadEventFromDB() {
   if (tagEl) {
     const dt = new Date(ev.event_date);
     const EN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-    tagEl.innerHTML = 'UPCOMING EVENT<br>' + ev.location.toUpperCase() + '<br>' + EN[dt.getMonth()].toUpperCase() + ' ' + dt.getDate();
+    const diff = dt - Date.now();
+    let label = 'UPCOMING EVENT';
+    if (ev.status === 'completed') label = 'EVENT FINISHED';
+    else if (diff <= 0) label = '🔴 LIVE NOW';
+    tagEl.innerHTML = label + '<br>' + ev.location.toUpperCase() + '<br>' + EN[dt.getMonth()].toUpperCase() + ' ' + dt.getDate();
     window.__eventDate = dt;
   }
   return ev;
@@ -337,14 +341,14 @@ function renderMarkets() {
         </div>
       </div>
       <div class="picks-wrap">
-        <div class="picks-hint">აირჩიე ფავორიტი მებრძოლი</div>
+        ${betting ? '<div class="picks-hint">აირჩიე ფავორიტი მებრძოლი</div>' : (isCompleted ? '<div class="picks-hint" style="color:var(--green)">დასრულდა</div>' : '<div class="picks-hint">ფსონები დაკეტილია</div>')}
         <div class="bout-picks">
           ${pickBtn('red',  f.red)}
           ${pickBtn('blue', f.blue)}
         </div>
       </div>
-      ${f.showDetails ? `<button class="more-btn" data-more="${i}">${open ? 'ნაკლები დეტალი ▲' : 'მეტი დეტალი ▾'}</button>` : ''}
-      <div class="extra ${open ? 'show' : ''}">
+      ${betting && f.showDetails ? `<button class="more-btn" data-more="${i}">${open ? 'ნაკლები დეტალი ▲' : 'მეტი დეტალი ▾'}</button>` : ''}
+      <div class="extra ${open && betting ? 'show' : ''}">
         <div class="extra-group">
           <div class="extra-title">აირჩიე მებრძოლი</div>
           <div class="fighter-pick">
@@ -478,6 +482,7 @@ function updateTotals() {
 // ─────────────────────────────────────────────────────────────
 async function placeBets() {
   if (!currentUser) { closeSlip(); openModal('join'); return; }
+  if (isBettingClosed()) { closeSlip(); alert('ფსონების მიღება დასრულებულია'); return; }
   const arr = picksArr(); if (arr.length === 0) return;
   const eventId = window.__currentEventId || null;
 
@@ -650,7 +655,8 @@ function renderBar() {
   document.getElementById('bbCoef').textContent  = (n ? comboOdds() : 1).toFixed(2);
   document.getElementById('balNav').textContent  = fmt(state.balance);
   document.getElementById('bbCount').textContent = n;
-  document.getElementById('betbar').classList.toggle('show', n > 0);
+  // betbar მხოლოდ მაშინ თუ picks არის და ფსონი ღიაა
+  document.getElementById('betbar').classList.toggle('show', n > 0 && !isBettingClosed());
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -970,7 +976,13 @@ async function loadLiveResults() {
         changed = true;
       }
     });
-    if (changed) renderMarkets();
+    if (changed) {
+      renderMarkets();
+      // ბილეთების ✅/❌ განახლება — settlement შესაძლოა მოხდა
+      if (currentUser) {
+        try { await loadUserTickets(); renderTickets(); } catch(e) {}
+      }
+    }
   } catch(e) { console.warn('loadLiveResults failed:', e); }
 }
 
@@ -1301,6 +1313,7 @@ async function applySession(session) {
       try { await loadUserTickets(); } catch (e) { console.warn('loadUserTickets failed:', e); }
       renderTickets();
       renderLeaderboard();
+      updateSecHead();
     }
   } catch (e) {
     console.warn('applySession failed:', e);
@@ -1498,6 +1511,14 @@ $on('profileModal', 'click', e => { if (e.target.id === 'profileModal') closePro
 $on('profileSave', 'click', saveProfile);
 $on('profileLogout', 'click', () => { closeProfile(); doLogout(); });
 
+$on('activeToggle', 'click', () => {
+  const act = $('activeTickets');
+  const arrow = $('activeArrow');
+  if (!act) return;
+  const isOpen = act.style.display !== 'none';
+  act.style.display = isOpen ? 'none' : 'flex';
+  if (arrow) arrow.classList.toggle('open', !isOpen);
+});
 $on('historyToggle', 'click', () => {
   const hist = $('historyTickets');
   const arrow = $('historyArrow');
