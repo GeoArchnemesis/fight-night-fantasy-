@@ -69,7 +69,7 @@ function parseESPNMethod(comp) {
     if (s.includes('no contest')) return 'No Contest';
     if (s.includes('dq') || s.includes('disqualif')) return 'DQ';
   }
-  return sources[2] || '';
+  return ''; // მეთოდი ვერ ამოიცნო — არ დავაბრუნოთ "Final"
 }
 
 function methodMatches(picked, result) {
@@ -338,12 +338,22 @@ async function fetchResultsAndSettle(eventId, eventDate) {
     );
     if (!match) continue;
 
+    // მკაცრი შემოწმება — winner ნამდვილად ერთ-ერთი მებრძოლია
+    const matchRed = nameSimilarity(match.red?.name || '', winnerName);
+    const matchBlue = nameSimilarity(match.blue?.name || '', winnerName);
+    if (matchRed < 0.5 && matchBlue < 0.5) {
+      log(`  ⚠ winner "${winnerName}" ვერ დაემთხვა ვერც ერთ მებრძოლს — გამოტოვება`);
+      continue;
+    }
+    // ზუსტი სახელი DB-დან (ESPN-ის ვარიაციის ნაცვლად)
+    const exactWinner = matchRed >= matchBlue ? match.red.name : match.blue.name;
+
     await sb.from('fights').update({
-      status: 'completed', result_winner: winnerName, result_method: method,
+      status: 'completed', result_winner: exactWinner, result_method: method,
       result_round: round ? parseInt(round) : null, result_time: time || null,
     }).eq('id', match.id);
 
-    log(`  🏆 ${match.red?.name} vs ${match.blue?.name} → ${winnerName} (${method} R${round})`);
+    log(`  🏆 ${match.red?.name} vs ${match.blue?.name} → ${exactWinner} (${method} R${round})`);
     resultsUpdated++;
   }
 
