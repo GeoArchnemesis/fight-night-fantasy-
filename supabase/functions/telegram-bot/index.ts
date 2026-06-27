@@ -266,7 +266,7 @@ async function cmdSettle(chatId: number): Promise<string> {
       wonCount++
       const winnings = Math.round(Number(ticket.stake) * Number(ticket.total_odds))
       await sb.rpc('increment_user_score', { p_user_id: ticket.user_id, p_amount: winnings })
-      await sb.from('score_history').insert({ user_id: ticket.user_id, amount: winnings, ticket_id: ticket.id })
+      await sb.from('score_history').insert({ user_id: ticket.user_id, amount: winnings })
     } else { lostCount++ }
   }
 
