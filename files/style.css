@@ -368,3 +368,13 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .tk-foot-type{color:var(--muted)}
 .tk-foot-pay{font-weight:700;font-size:.95rem}
 @media(max-width:520px){.tk-sel-fighters span{max-width:90px}.tk-sel-right{padding:8px 10px}.tk-sel-odds{font-size:.95rem}.tk-sel-fighters{font-size:.85rem;gap:5px}.tk-sel-main{padding:10px 12px}.tk-sel-pick{font-size:.7rem}}
+
+/* ── ბილეთის accordion (v50) ── */
+.ticket .tk-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.ticket .tk-arrow{transition:transform .2s;color:var(--muted);font-size:.9rem;flex-shrink:0}
+.ticket .tk-arrow.open{transform:rotate(180deg)}
+.tk-collapsed-info{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:14px 18px}
+.tkc-col{display:flex;flex-direction:column;gap:3px;text-align:center}
+.tkc-lbl{font-family:var(--mono);font-size:.6rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.04em;line-height:1.2}
+.tkc-val{font-family:var(--mono);font-weight:700;font-size:.95rem;color:var(--text)}
+@media(max-width:520px){.tk-collapsed-info{gap:4px;padding:12px 10px}.tkc-lbl{font-size:.52rem}.tkc-val{font-size:.82rem}}
