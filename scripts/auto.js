@@ -408,7 +408,7 @@ async function fetchResultsAndSettle(eventId, eventDate) {
         const winnings = Math.round(Number(ticket.stake) * Number(ticket.total_odds));
         await sb.rpc('increment_user_score', { p_user_id: ticket.user_id, p_amount: winnings });
         await sb.from('score_history').insert({
-          user_id: ticket.user_id, amount: winnings, ticket_id: ticket.id
+          user_id: ticket.user_id, amount: winnings
         });
         log(`  ✓ მოგება: ${winnings} ქულა (user: ${String(ticket.user_id).slice(0, 8)}...)`);
       } else {
@@ -474,7 +474,7 @@ async function backupToSheets(eventName) {
 
     // ლიდერბორდი
     const { data: leaderboard } = await sb.from('score_history')
-      .select('amount,ticket_id,created_at,user:users!user_id(nick)');
+      .select('amount,created_at,user:users!user_id(nick)');
 
     const payload = {
       slot,
