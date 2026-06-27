@@ -27,7 +27,7 @@ const START = 1000;
 const state = {
   balance: START, score: 0,
   picks: {}, mode: 'express', expressStake: 0,
-  tickets: [], user: null, openDetail: {}
+  tickets: [], user: null, openDetail: {}, tkCollapsed: {}
 };
 let currentUser = null;
 
@@ -561,28 +561,44 @@ function renderTickets() {
   if (historyBadge) historyBadge.textContent = historyTickets.length;
 
   const stLabel = { open: 'მიმდინარე', won: 'მოგებული', lost: 'წაგებული', cashout: 'ქეშაუთი', pending: 'მიმდინარე' };
-  const stColor = { open: '#ff9d3c', won: 'var(--green)', lost: 'var(--red-soft)', cashout: 'var(--gold)', pending: '#ff9d3c' };
   const cashoutOk = canCashout();
+
+  // selection-ის შედეგი — DB res ან FIGHTS-დან გამოთვლა
+  const selResult = (s) => {
+    if (s.res === 'ok' || s.res === 'no') return s.res;
+    // FIGHTS-დან ცოცხალი გამოთვლა
+    const f = (s.i >= 0 && s.i < FIGHTS.length) ? FIGHTS[s.i] : null;
+    if (!f || !f.resultWinner) return null;
+    return f.resultWinner === s.fighter ? 'ok' : 'no';
+  };
 
   const renderTicketCard = (t) => {
     const realIdx = state.tickets.indexOf(t);
     const showCashout = t.status === 'open' && cashoutOk;
     const totalOdds = t.odds.toFixed(2);
     const potentialWin = Math.round(t.stake * t.odds);
-    const isOpen = $(`tk-open-${realIdx}`) ? $(`tk-open-${realIdx}`).dataset.open === '1' : false;
+    const isCollapsed = state.tkCollapsed[realIdx] !== false; // ნაგულისხმევად დაკეცილი
+    const statusColor = t.status === 'won' ? 'var(--green)' : (t.status === 'lost' ? 'var(--red-soft)' : (t.status === 'cashout' ? 'var(--gold)' : '#ff9d3c'));
+
+    // დაკეცილი ხედი — სტატუსი + 4 მაჩვენებელი ორ ხაზად
+    const collapsedView = `
+      <div class="tk-collapsed-info">
+        <div class="tkc-col"><span class="tkc-lbl">პოზიცია</span><span class="tkc-val">${t.sels.length}</span></div>
+        <div class="tkc-col"><span class="tkc-lbl">ფსონი</span><span class="tkc-val">${fmt(t.stake)}</span></div>
+        <div class="tkc-col"><span class="tkc-lbl">კოეფ.</span><span class="tkc-val">${totalOdds}</span></div>
+        <div class="tkc-col"><span class="tkc-lbl">შესაძლო მოგება</span><span class="tkc-val" style="color:var(--gold)">${fmt(potentialWin)}</span></div>
+      </div>`;
 
     return `
-    <div class="ticket">
-      <div class="tk-head">
+    <div class="ticket ${isCollapsed ? 'collapsed' : ''}">
+      <div class="tk-head" data-tktoggle="${realIdx}" style="cursor:pointer">
         <div class="tk-head-left">
-          <span class="tk-status ${t.status}">${stLabel[t.status] || t.status}</span>
+          <span class="tk-status ${t.status}" style="color:${statusColor}">${stLabel[t.status] || t.status}</span>
           <span class="tk-type">${t.type === 'express' ? 'ექსპრესი · ' + t.sels.length + ' მოვლენა' : 'სინგლი'}</span>
         </div>
-        <div class="tk-head-stats">
-          <div class="tk-stat"><span class="tk-stat-label">კოეფ.</span><span class="tk-stat-value">${totalOdds}</span></div>
-          <div class="tk-stat"><span class="tk-stat-label">ფსონი</span><span class="tk-stat-value">${fmt(t.stake)}</span></div>
-        </div>
+        <span class="tk-arrow ${isCollapsed ? '' : 'open'}">▾</span>
       </div>
+      ${isCollapsed ? collapsedView : `
       <div class="tk-sels">
         ${t.sels.map(s => {
           const parts = s.name.split(' · ');
@@ -594,7 +610,8 @@ function renderTickets() {
           const redName = f ? f.red.name : '';
           const blueName = f ? f.blue.name : '';
           const pickLabel = extras || 'გამარჯვებული';
-          const resIcon = s.res === 'ok' ? ' ✅' : s.res === 'no' ? ' ❌' : '';
+          const res = selResult(s);
+          const resIcon = res === 'ok' ? ' ✅' : res === 'no' ? ' ❌' : '';
 
           return `<div class="tk-sel">
             <div class="tk-sel-main">
@@ -623,6 +640,7 @@ function renderTickets() {
         </span>
       </div>
       ${showCashout ? `<button class="cashout-btn" data-co="${realIdx}">${cashoutLabel(t)}</button>` : ''}
+      `}
     </div>`;
   };
 
@@ -640,7 +658,12 @@ function renderTickets() {
       : all.map(renderTicketCard).join('');
   }
 
-  document.querySelectorAll('[data-co]').forEach(b => b.onclick = () => doCashout(+b.dataset.co));
+  document.querySelectorAll('[data-co]').forEach(b => b.onclick = (e) => { e.stopPropagation(); doCashout(+b.dataset.co); });
+  document.querySelectorAll('[data-tktoggle]').forEach(b => b.onclick = () => {
+    const idx = +b.dataset.tktoggle;
+    state.tkCollapsed[idx] = state.tkCollapsed[idx] === false ? true : false;
+    renderTickets();
+  });
 }
 
 // ─────────────────────────────────────────────────────────────
