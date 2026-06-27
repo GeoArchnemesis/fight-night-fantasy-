@@ -193,16 +193,16 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .tk-tools{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
 .tickets{display:flex;flex-direction:column;gap:12px}
 .tk-empty{border:1px dashed var(--line);border-radius:8px;padding:34px;text-align:center;color:var(--muted)}
-.ticket{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden}
+.ticket{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden;border-left:4px solid var(--line);transition:border-color .2s}
+/* სტატუსის მიხედვით მარცხენა ბორდერი + ფონი */
+.ticket.tk-open,.ticket.tk-pending{border-left-color:#ff9d3c}
+.ticket.tk-won{border-left-color:var(--green);background:linear-gradient(90deg,rgba(58,209,126,.04),transparent 40%)}
+.ticket.tk-lost{border-left-color:var(--red-soft);background:linear-gradient(90deg,rgba(243,29,37,.04),transparent 40%)}
+.ticket.tk-cashout{border-left-color:var(--gold)}
 .tk-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--ink)}
 .tk-head-left{display:flex;align-items:center;gap:14px}
 .tk-type{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
-.tk-status{font-family:var(--mono);font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 12px;border-radius:20px}
-.tk-status.open{color:#ff9d3c;background:rgba(255,157,60,.12)}
-.tk-status.pending{color:#ff9d3c;background:rgba(255,157,60,.12)}
-.tk-status.won{color:var(--green);background:rgba(58,209,126,.12)}
-.tk-status.lost{color:var(--red-soft);background:rgba(243,29,37,.12)}
-.tk-status.cashout{color:var(--gold);background:rgba(245,196,81,.15);border:1px solid rgba(245,196,81,.3)}
+/* tk-status — ახალი სტილები ქვემოთ accordion სექციაში */
 .tk-head-stats{display:flex;align-items:center;gap:18px;font-family:var(--mono);font-size:.82rem}
 .tk-stat{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
 .tk-stat-label{font-size:.6rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.06em}
@@ -373,8 +373,14 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .ticket .tk-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .ticket .tk-arrow{transition:transform .2s;color:var(--muted);font-size:.9rem;flex-shrink:0}
 .ticket .tk-arrow.open{transform:rotate(180deg)}
-.tk-collapsed-info{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:14px 18px}
-.tkc-col{display:flex;flex-direction:column;gap:3px;text-align:center}
-.tkc-lbl{font-family:var(--mono);font-size:.6rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.04em;line-height:1.2}
-.tkc-val{font-family:var(--mono);font-weight:700;font-size:.95rem;color:var(--text)}
-@media(max-width:520px){.tk-collapsed-info{gap:4px;padding:12px 10px}.tkc-lbl{font-size:.52rem}.tkc-val{font-size:.82rem}}
+.tk-collapsed-info{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:16px 18px;border-top:1px solid rgba(42,39,56,.3)}
+.tkc-col{display:flex;flex-direction:column;gap:4px;text-align:center}
+.tkc-lbl{font-family:var(--mono);font-size:.58rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.06em;line-height:1.2}
+.tkc-val{font-family:var(--mono);font-weight:700;font-size:1.1rem;color:var(--text)}
+/* სტატუსის badge უფრო თვალსაჩინო */
+.tk-status{font-family:var(--mono);font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:5px 14px;border-radius:20px;border:1px solid}
+.tk-status.open,.tk-status.pending{color:#ff9d3c;background:rgba(255,157,60,.12);border-color:rgba(255,157,60,.3)}
+.tk-status.won{color:var(--green);background:rgba(58,209,126,.12);border-color:rgba(58,209,126,.3)}
+.tk-status.lost{color:var(--red-soft);background:rgba(243,29,37,.12);border-color:rgba(243,29,37,.3)}
+.tk-status.cashout{color:var(--gold);background:rgba(245,196,81,.12);border-color:rgba(245,196,81,.3)}
+@media(max-width:520px){.tk-collapsed-info{gap:4px;padding:12px 10px}.tkc-lbl{font-size:.52rem}.tkc-val{font-size:.92rem}}
