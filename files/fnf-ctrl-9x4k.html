@@ -350,7 +350,7 @@ function parseESPNMethod(comp) {
     if (s.includes('no contest') || s.includes('nc')) return 'No Contest';
     if (s.includes('dq') || s.includes('disqualif')) return 'DQ';
   }
-  return statusDesc || '';
+  return ''; // მეთოდი ვერ ამოიცნო — არ დავაბრუნოთ statusDesc ("Final")
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -544,11 +544,15 @@ async function checkResults() {
         f.espn_comp_id === comp.id
       );
       if (idx >= 0) {
-        fightsData[idx].result_winner = winnerName;
+        // ზუსტი მებრძოლის სახელი (ESPN ვარიაციის ნაცვლად)
+        const mRed = nameSimilarity(fightsData[idx].red.name, winnerName);
+        const mBlue = nameSimilarity(fightsData[idx].blue.name, winnerName);
+        const exactWinner = mRed >= mBlue ? fightsData[idx].red.name : fightsData[idx].blue.name;
+        fightsData[idx].result_winner = exactWinner;
         fightsData[idx].result_method = method;
         fightsData[idx].result_round  = String(round);
         fightsData[idx].result_time   = time;
-        log(`🏆 ${fightsData[idx].red.name} vs ${fightsData[idx].blue.name}: ${winnerName} (${method}, R${round} ${time})`, 'ok');
+        log(`🏆 ${fightsData[idx].red.name} vs ${fightsData[idx].blue.name}: ${exactWinner} (${method}, R${round} ${time})`, 'ok');
         updated++;
       }
     }
@@ -1014,7 +1018,10 @@ async function fetchAndSettle() {
         f.espn_comp_id === comp.id
       );
       if (idx >= 0) {
-        fightsData[idx].result_winner = winnerName;
+        const mRed = nameSimilarity(fightsData[idx].red.name, winnerName);
+        const mBlue = nameSimilarity(fightsData[idx].blue.name, winnerName);
+        const exactWinner = mRed >= mBlue ? fightsData[idx].red.name : fightsData[idx].blue.name;
+        fightsData[idx].result_winner = exactWinner;
         fightsData[idx].result_method = method;
         fightsData[idx].result_round  = String(round);
         fightsData[idx].result_time   = time;
