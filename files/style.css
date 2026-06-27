@@ -198,7 +198,8 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .tk-head-left{display:flex;align-items:center;gap:14px}
 .tk-type{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
 .tk-status{font-family:var(--mono);font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;padding:4px 12px;border-radius:20px}
-.tk-status.open{color:var(--gold);background:rgba(245,196,81,.12)}
+.tk-status.open{color:#ff9d3c;background:rgba(255,157,60,.12)}
+.tk-status.pending{color:#ff9d3c;background:rgba(255,157,60,.12)}
 .tk-status.won{color:var(--green);background:rgba(58,209,126,.12)}
 .tk-status.lost{color:var(--red-soft);background:rgba(243,29,37,.12)}
 .tk-status.cashout{color:var(--gold);background:rgba(245,196,81,.15);border:1px solid rgba(245,196,81,.3)}
@@ -350,6 +351,20 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .cd-unit{color:#fff !important;font-size:.75rem !important}
 
 /* ── winner glow (ივენთ მიმდინარეობისას გამარჯვებული) ── */
-.pick.winner{background:rgba(58,209,126,.15)!important;border-color:var(--green)!important;box-shadow:0 0 14px rgba(58,209,126,.5)!important}
+.pick.winner{background:rgba(58,209,126,.15)!important;border-color:var(--green)!important;box-shadow:0 0 14px rgba(58,209,126,.5)!important;opacity:1!important}
 .pick.winner .p-od{color:var(--green)!important}
-.pick.winner .p-name{color:#fff}
+.pick.winner .p-name{color:#fff!important}
+.pick.winner.red .p-flag,.pick.winner.blue .p-flag{opacity:1}
+/* დამარცხებული მებრძოლი ნაკლებად ჩანს როცა ბრძოლა დასრულდა */
+.bout-picks:has(.pick.winner) .pick:not(.winner){opacity:.45}
+
+/* ── ბილეთის ნაკლული კლასები (v50) ── */
+.tk-sel-red{color:#fff}
+.tk-sel-blue{color:#fff}
+.tk-sel-fighters span{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tk-sel-pick.pick-red{color:#ff5247}
+.tk-sel-pick.pick-blue{color:#5b9bff}
+.tk-foot-label{color:var(--text);font-weight:400;font-size:.75rem;margin-right:6px}
+.tk-foot-type{color:var(--muted)}
+.tk-foot-pay{font-weight:700;font-size:.95rem}
+@media(max-width:520px){.tk-sel-fighters span{max-width:90px}.tk-sel-right{padding:8px 10px}.tk-sel-odds{font-size:.95rem}.tk-sel-fighters{font-size:.85rem;gap:5px}.tk-sel-main{padding:10px 12px}.tk-sel-pick{font-size:.7rem}}
