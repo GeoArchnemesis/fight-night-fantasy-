@@ -95,8 +95,31 @@
 </head>
 <body>
 
+<!-- ── KEY SCREEN ── -->
+<div id="keyScreen" style="display:none;position:fixed;inset:0;background:var(--canvas);z-index:9999;align-items:center;justify-content:center;padding:24px">
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:32px;max-width:480px;width:100%">
+    <h2 style="color:var(--gold);margin-bottom:6px;font-size:1.2rem">🔑 Admin — Service Role Key</h2>
+    <p style="color:var(--muted);font-size:.85rem;margin-bottom:20px;line-height:1.6">
+      Supabase → Settings → API → <b style="color:var(--text)">service_role</b> key<br>
+      პირველ ჯერს ხელით შეიყვანე — შემდეგ ავტომატურად ჩაიტვირთება
+    </p>
+    <label>Service Role Key</label>
+    <input type="password" id="srKeyInput" placeholder="eyJhbGci..." autocomplete="off"
+      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-family:monospace;font-size:.82rem;margin-bottom:8px"
+      onkeydown="if(event.key==='Enter')submitKey()" />
+    <div id="keyError" style="color:#ff7070;font-size:.8rem;min-height:18px;margin-bottom:12px"></div>
+    <button onclick="submitKey()" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:4px;padding:12px;font-weight:700;font-size:.95rem;cursor:pointer">შესვლა →</button>
+  </div>
+</div>
+
+<!-- ── ADMIN CONTENT ── -->
+<div id="adminContent">
+
 <h1>⚙️ UFC Fantasy — Admin</h1>
-<div class="warn">⚠️ ეს გვერდი მხოლოდ ადმინისთვისაა.</div>
+<div class="warn" style="display:flex;justify-content:space-between;align-items:center">
+  <span>⚠️ ეს გვერდი მხოლოდ ადმინისთვისაა.</span>
+  <button onclick="clearKey()" style="background:rgba(243,29,37,.15);color:var(--red);border:1px solid var(--red);border-radius:4px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:.78rem">🔑 Key გასუფთავება</button>
+</div>
 
 <div class="status-bar" id="statusBar">
   <div class="status-item"><span class="status-label">მომდევნო ივენთი</span><span class="status-value" id="statusEvent">—</span></div>
@@ -168,9 +191,53 @@
 
 <script>
 const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard";
+
+// ── Service Role Key — localStorage-ში ინახება ──
+let SUPABASE_KEY = localStorage.getItem('fnf_admin_srkey') || '';
+let sb = null;
+
+function initSupabase(key) {
+  sb = window.supabase.createClient(SUPABASE_URL, key, {
+    auth: { persistSession: false }
+  });
+}
+
+function showKeyScreen() {
+  document.getElementById('adminContent').style.display = 'none';
+  document.getElementById('keyScreen').style.display = 'flex';
+}
+
+function submitKey() {
+  const key = document.getElementById('srKeyInput').value.trim();
+  if (!key || !key.startsWith('eyJ')) {
+    document.getElementById('keyError').textContent = 'სწორი service_role key შეიყვანე';
+    return;
+  }
+  localStorage.setItem('fnf_admin_srkey', key);
+  SUPABASE_KEY = key;
+  initSupabase(key);
+  document.getElementById('keyScreen').style.display = 'none';
+  document.getElementById('adminContent').style.display = 'block';
+  loadFromLocal();
+  startAutoOdds();
+  log('✅ service_role key დაყენდა და შეინახა', 'ok');
+}
+
+function clearKey() {
+  if (!confirm('service_role key წაიშლება. დარწმუნებული ხარ?')) return;
+  localStorage.removeItem('fnf_admin_srkey');
+  SUPABASE_KEY = '';
+  sb = null;
+  showKeyScreen();
+}
+
+// init
+if (SUPABASE_KEY) {
+  initSupabase(SUPABASE_KEY);
+} else {
+  document.addEventListener('DOMContentLoaded', showKeyScreen);
+}
 
 let currentEventData = null;
 let fightsData = [];
@@ -1101,8 +1168,11 @@ async function saveResultsToDB() {
 //  INIT
 // ─────────────────────────────────────────────────────────────
 setInterval(updateCountdown, 60000);
-loadFromLocal();
-startAutoOdds();
+if (SUPABASE_KEY) {
+  loadFromLocal();
+  startAutoOdds();
+}
 </script>
+</div><!-- /adminContent -->
 </body>
 </html>
