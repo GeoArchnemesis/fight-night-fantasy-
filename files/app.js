@@ -106,15 +106,18 @@ async function doCashout(idx) {
   const amt = cashoutAmount(t);
   const confirmed = await showCashoutPopup(amt, t.stake, false);
   if (!confirmed) return;
-  t.status = 'cashout';
-  state.balance += amt;
-  updateBalance(state.balance);
-  if (currentUser) {
-    await sb.from('users').update({ balance: state.balance }).eq('id', currentUser.id);
-    if (t._dbId) {
-      await sb.from('tickets').update({ status: 'cashout' }).eq('id', t._dbId);
-    }
+
+  if (!t._dbId) { alert('ბილეთის ID ვერ მოიძებნა'); return; }
+
+  // cashout_ticket RPC — server-side ლოგიკა (balance ვერ გაყალბდება)
+  const { data: res, error } = await sb.rpc('cashout_ticket', { p_ticket_id: t._dbId });
+  if (error || !res || !res.ok) {
+    alert('ქეშაუთი ვერ შესრულდა: ' + (res?.error || error?.message || 'უცნობი შეცდომა'));
+    return;
   }
+
+  t.status = 'cashout';
+  updateBalance(res.balance);
   renderTickets();
 }
 
@@ -485,57 +488,62 @@ async function placeBets() {
   if (isBettingClosed()) { closeSlip(); alert('ფსონების მიღება დასრულებულია'); return; }
   const arr = picksArr(); if (arr.length === 0) return;
   const eventId = window.__currentEventId || null;
+  if (!eventId) { closeSlip(); alert('ივენთი ვერ მოიძებნა'); return; }
 
   if (state.mode === 'express') {
     const st = state.expressStake; if (st <= 0 || st > state.balance) return;
-    const odds = comboOdds(), pw = Math.round(st * odds);
+    const odds = comboOdds();
+    const selections = arr.map(s => ({
+      fight_id: FIGHTS[s.i]?._dbId,
+      picked_fighter: s.fighter,
+      picked_round: s.round || null,
+      picked_method: s.method || null,
+      odds: s.odds
+    }));
+
+    // place_bet RPC — server-side ლოგიკა (balance ვერ გაყალბდება)
+    const { data: res, error } = await sb.rpc('place_bet', {
+      p_event_id: eventId, p_type: 'express', p_stake: st, p_total_odds: odds, p_selections: selections
+    });
+    if (error || !res || !res.ok) {
+      alert('ფსონი ვერ დაიდო: ' + (res?.error || error?.message || 'უცნობი შეცდომა'));
+      return;
+    }
+    // ბალანსი server-დან
+    updateBalance(res.balance);
     const ticket = {
-      type: 'express',
+      _dbId: res.ticket_id, type: 'express',
       sels: arr.map(s => ({ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name })),
       stake: st, odds, status: 'open', placedAt: Date.now()
     };
-    state.balance -= st; updateBalance(state.balance);
-    if (eventId) {
-      const { data: tk } = await sb.from('tickets')
-        .insert({ user_id: currentUser.id, event_id: eventId, type: 'express', stake: st, total_odds: odds, potential_win: pw, status: 'pending' })
-        .select().single();
-      if (tk) {
-        ticket._dbId = tk.id;
-        await sb.from('ticket_selections').insert(arr.map(s => ({
-          ticket_id: tk.id, fight_id: FIGHTS[s.i]?._dbId,
-          picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds
-        })));
-        await sb.from('users').update({ balance: state.balance }).eq('id', currentUser.id);
-      }
-    }
     state.tickets.unshift(ticket);
   } else {
     const ts = totalStakeSingle(); if (ts <= 0 || ts > state.balance) return;
     for (const s of arr) {
       if (s.stake > 0) {
-        const pw = Math.round(s.stake * s.odds);
+        const selections = [{
+          fight_id: FIGHTS[s.i]?._dbId,
+          picked_fighter: s.fighter,
+          picked_round: s.round || null,
+          picked_method: s.method || null,
+          odds: s.odds
+        }];
+        const { data: res, error } = await sb.rpc('place_bet', {
+          p_event_id: eventId, p_type: 'single', p_stake: s.stake, p_total_odds: s.odds, p_selections: selections
+        });
+        if (error || !res || !res.ok) {
+          alert('ფსონი ვერ დაიდო: ' + (res?.error || error?.message || 'უცნობი შეცდომა'));
+          continue;
+        }
+        updateBalance(res.balance);
         const ticket = {
-          type: 'single',
+          _dbId: res.ticket_id, type: 'single',
           sels: [{ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name }],
           stake: s.stake, odds: s.odds, status: 'open', placedAt: Date.now()
         };
-        if (eventId) {
-          const { data: tk } = await sb.from('tickets')
-            .insert({ user_id: currentUser.id, event_id: eventId, type: 'single', stake: s.stake, total_odds: s.odds, potential_win: pw, status: 'pending' })
-            .select().single();
-          if (tk) {
-            ticket._dbId = tk.id;
-            await sb.from('ticket_selections').insert({
-              ticket_id: tk.id, fight_id: FIGHTS[s.i]?._dbId,
-              picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds
-            });
-          }
-        }
         state.tickets.unshift(ticket);
       }
     }
-    state.balance -= ts; updateBalance(state.balance);
-    if (eventId) await sb.from('users').update({ balance: state.balance }).eq('id', currentUser.id);
   }
 
   state.picks = {}; state.expressStake = 0;
