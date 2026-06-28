@@ -648,7 +648,7 @@ function renderTickets() {
 
   if (activeList && historyList) {
     activeList.innerHTML = activeTickets.length === 0
-      ? '<div class="tk-empty">აქტიური ბილეთი არ არის. აირჩიე კოეფიციენტი და დადე პირველი ფსონი.</div>'
+      ? '<div class="tk-empty">აქტიური ბილეთი არ არის. შეადგინე ბილეთი და დადე ფსონი.</div>'
       : activeTickets.map(renderTicketCard).join('');
     historyList.innerHTML = historyTickets.length === 0
       ? '<div class="tk-empty">ისტორია ცარიელია.</div>'
