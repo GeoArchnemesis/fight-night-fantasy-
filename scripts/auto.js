@@ -225,7 +225,7 @@ async function createEventFromESPN(espnData) {
       event_id: evData.id, red_fighter_id: redId, blue_fighter_id: blueId,
       weight_class: c.type?.abbreviation || 'Unknown',
       max_rounds: rounds, bout_order: idx + 1,
-      is_title_bout: rounds === 5, red_odds: 1.80, blue_odds: 2.00,
+      is_title_bout: rounds === 5, red_odds: null, blue_odds: null,
       show_details: false, status: 'upcoming',
     });
 
@@ -357,8 +357,11 @@ async function fetchResultsAndSettle(eventId, eventDate) {
     resultsUpdated++;
   }
 
-  if (resultsUpdated === 0) { log('დასრულებული ბრძოლა ვერ მოიძებნა'); return; }
-  log(`${resultsUpdated} შედეგი განახლდა — settlement იწყება...`);
+  if (resultsUpdated === 0) {
+    log('ახალი შედეგი ვერ მოიძებნა — მაგრამ settlement მაინც ვცადოთ (pending ბილეთებისთვის)');
+  } else {
+    log(`${resultsUpdated} შედეგი განახლდა — settlement იწყება...`);
+  }
 
   // SETTLEMENT
   const { data: fights } = await sb.from('fights')
@@ -522,10 +525,50 @@ async function backupToSheets(eventName) {
 
 // ── MAIN ─────────────────────────────────────────────────────
 
+// ── SETTLEMENT SWEEP — orphaned pending ბილეთების დამუშავება ──
+// ნებისმიერი ივენთი რომელსაც აქვს completed ბრძოლები + pending ბილეთი
+async function settlementSweep() {
+  try {
+    // ყველა ივენთი ბოლო 7 დღეში (upcoming ან completed)
+    const weekAgo = new Date(Date.now() - 7 * 24 * 3600000).toISOString();
+    const { data: events } = await sb.from('events')
+      .select('id,name,event_date,status')
+      .gte('event_date', weekAgo)
+      .order('event_date', { ascending: false });
+
+    if (!events || events.length === 0) return;
+
+    for (const ev of events) {
+      // აქვს თუ არა pending ბილეთი?
+      const { data: pendingTickets } = await sb.from('tickets')
+        .select('id').eq('event_id', ev.id).eq('status', 'pending').is('settled_at', null).limit(1);
+      if (!pendingTickets || pendingTickets.length === 0) continue;
+
+      // აქვს თუ არა completed ბრძოლა?
+      const { data: completedFights } = await sb.from('fights')
+        .select('id').eq('event_id', ev.id).eq('status', 'completed').limit(1);
+      if (!completedFights || completedFights.length === 0) continue;
+
+      // settlement ვცადოთ ამ ივენთზე
+      log(`🧹 Settlement sweep: ${ev.name} (pending ბილეთები ნაპოვნია)`);
+      await fetchResultsAndSettle(ev.id, ev.event_date);
+    }
+  } catch (e) {
+    log(`⚠ settlementSweep შეცდომა: ${e.message}`);
+  }
+}
+
 async function main() {
   log('========================================');
   log('UFC Fantasy — Auto Script Started');
   log('========================================');
+
+  // 0. SETTLEMENT SWEEP — ნებისმიერი ივენთი (upcoming ან completed)
+  //    რომელსაც აქვს pending ბილეთი + completed ბრძოლები →
+  //    settlement ხელახლა ვცადოთ. ეს იცავს "შედეგი არ მაქვს" პრობლემისგან:
+  //    თუ ერთი ბრძოლა ვერ ჩაიწერა და ივენთი completed ვერ გახდა,
+  //    ან თუ ბილეთი settlement-მა გამოტოვა.
+  await settlementSweep();
 
   // 1. მიმდინარე upcoming ივენთის შემოწმება
   const { data: upcomingEvents } = await sb.from('events')
