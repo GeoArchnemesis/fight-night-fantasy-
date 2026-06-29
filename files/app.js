@@ -621,13 +621,14 @@ function renderTickets() {
           const extras = parts.slice(1).join(' · ');
           const fighterName = fighterPart.replace(' მოგება', '');
           const isRed = s.fighter === 'red';
-          // სახელები — ჯერ ბილეთიდან (DB), მერე FIGHTS fallback
           const f = (s.i >= 0 && s.i < FIGHTS.length) ? FIGHTS[s.i] : null;
           const redName = s.redName || (f ? f.red.name : '');
           const blueName = s.blueName || (f ? f.blue.name : '');
           const pickLabel = extras || 'გამარჯვებული';
           const res = selResult(s);
-          const resIcon = res === 'ok' ? ' ✅' : res === 'no' ? ' ❌' : '';
+          // სუფთა შედეგი — span-ით, emoji-ს გარეშე
+          const resCls = res === 'ok' ? 'ok' : res === 'no' ? 'no' : '';
+          const resTxt = res === 'ok' ? '✓' : res === 'no' ? '✗' : '';
 
           return `<div class="tk-sel">
             <div class="tk-sel-main">
@@ -638,9 +639,10 @@ function renderTickets() {
                 <span class="tk-sel-blue">${blueName || 'Blue'}</span>
                 <span class="tk-sel-dot blue"></span>
               </div>
-              <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}">▸ ${fighterName} — ${pickLabel}${resIcon}</div>
+              <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}">${fighterName} — ${pickLabel}</div>
             </div>
             <div class="tk-sel-right">
+              ${resTxt ? `<span class="tk-sel-result ${resCls}">${resTxt}</span>` : ''}
               <span class="tk-sel-odds">${s.odds.toFixed(2)}</span>
             </div>
           </div>`;
@@ -649,10 +651,13 @@ function renderTickets() {
       <div class="tk-foot">
         <span class="tk-foot-type">${t.type === 'express' ? 'ექსპრესი' : 'სინგლი'}</span>
         <span class="tk-foot-pay">
-          ${t.status === 'won' ? '<span style="color:var(--green)">+' + fmt(potentialWin) + '</span>'
-            : t.status === 'lost' ? '<span style="color:var(--red-soft)">0</span>'
-            : t.status === 'cashout' ? '<span style="color:var(--gold)">ქეშაუთი</span>'
-            : '<span class="tk-foot-label">შესაძლო მოგება</span> <span style="color:var(--gold)">' + fmt(potentialWin) + '</span>'}
+          ${t.status === 'won'
+            ? '<span style="color:var(--green)">+' + fmt(potentialWin) + ' ქულა</span>'
+            : t.status === 'lost'
+            ? '<span style="color:var(--muted)">0 ქულა</span>'
+            : t.status === 'cashout'
+            ? '<span style="color:var(--gold)">ქეშაუთი</span>'
+            : '<span class="tk-foot-label">შეს. მოგება</span><span style="color:var(--gold)">' + fmt(potentialWin) + '</span>'}
         </span>
       </div>
       ${showCashout ? `<button class="cashout-btn" data-co="${realIdx}">${cashoutLabel(t)}</button>` : ''}
