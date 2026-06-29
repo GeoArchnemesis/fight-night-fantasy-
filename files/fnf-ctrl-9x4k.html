@@ -343,15 +343,28 @@ function updateCountdown() {
 // ─────────────────────────────────────────────────────────────
 function countryToFlag(alt) {
   const map = {
-    'Azerbaijan':'🇦🇿','Brazil':'🇧🇷','Russia':'🇷🇺','USA':'🇺🇸','Kazakhstan':'🇰🇿',
-    'Georgia':'🇬🇪','Armenia':'🇦🇲','Ukraine':'🇺🇦','Mexico':'🇲🇽','Germany':'🇩🇪',
-    'Poland':'🇵🇱','Sweden':'🇸🇪','Australia':'🇦🇺','Colombia':'🇨🇴','Uzbekistan':'🇺🇿',
-    'France':'🇫🇷','Ireland':'🇮🇪','Canada':'🇨🇦','Netherlands':'🇳🇱','China':'🇨🇳',
-    'Japan':'🇯🇵','South Korea':'🇰🇷','New Zealand':'🇳🇿','Türkiye':'🇹🇷','Turkey':'🇹🇷',
-    'Serbia':'🇷🇸','Czech Republic':'🇨🇿','Hungary':'🇭🇺','Romania':'🇷🇴','Morocco':'🇲🇦',
-    'United Kingdom':'🇬🇧','England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿',
-    'Argentina':'🇦🇷','Peru':'🇵🇪','Chile':'🇨🇱','Italy':'🇮🇹','Spain':'🇪🇸',
-    'Thailand':'🇹🇭','Philippines':'🇵🇭','South Africa':'🇿🇦','Nigeria':'🇳🇬',
+    'USA':'🇺🇸','Canada':'🇨🇦','Mexico':'🇲🇽','Brazil':'🇧🇷','Argentina':'🇦🇷',
+    'Colombia':'🇨🇴','Peru':'🇵🇪','Chile':'🇨🇱','Ecuador':'🇪🇨','Venezuela':'🇻🇪',
+    'Uruguay':'🇺🇾','Jamaica':'🇯🇲','Trinidad and Tobago':'🇹🇹','Dominican Republic':'🇩🇴',
+    'Puerto Rico':'🇵🇷','Guyana':'🇬🇾','Cuba':'🇨🇺','Aruba':'🇦🇼','Panama':'🇵🇦',
+    'United Kingdom':'🇬🇧','England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','Wales':'🏴󠁧󠁢󠁷󠁬󠁳󠁿',
+    'Ireland':'🇮🇪','France':'🇫🇷','Germany':'🇩🇪','Italy':'🇮🇹','Spain':'🇪🇸',
+    'Netherlands':'🇳🇱','Poland':'🇵🇱','Sweden':'🇸🇪','Norway':'🇳🇴','Denmark':'🇩🇰',
+    'Finland':'🇫🇮','Belgium':'🇧🇪','Austria':'🇦🇹','Switzerland':'🇨🇭',
+    'Portugal':'🇵🇹','Czech Republic':'🇨🇿','Czechia':'🇨🇿','Hungary':'🇭🇺',
+    'Romania':'🇷🇴','Serbia':'🇷🇸','Croatia':'🇭🇷','Bosnia and Herzegovina':'🇧🇦',
+    'Bulgaria':'🇧🇬','Greece':'🇬🇷','Lithuania':'🇱🇹','Latvia':'🇱🇻','Estonia':'🇪🇪',
+    'Moldova':'🇲🇩','Albania':'🇦🇱','Slovakia':'🇸🇰','Slovenia':'🇸🇮','Iceland':'🇮🇸',
+    'Russia':'🇷🇺','Ukraine':'🇺🇦','Georgia':'🇬🇪','Armenia':'🇦🇲','Azerbaijan':'🇦🇿',
+    'Kazakhstan':'🇰🇿','Uzbekistan':'🇺🇿','Kyrgyzstan':'🇰🇬','Tajikistan':'🇹🇯','Belarus':'🇧🇾',
+    'China':'🇨🇳','Japan':'🇯🇵','South Korea':'🇰🇷','Thailand':'🇹🇭','Philippines':'🇵🇭',
+    'Indonesia':'🇮🇩','India':'🇮🇳','Mongolia':'🇲🇳','Pakistan':'🇵🇰',
+    'Afghanistan':'🇦🇫','Iraq':'🇮🇶','Iran':'🇮🇷','Israel':'🇮🇱',
+    'Australia':'🇦🇺','New Zealand':'🇳🇿','Fiji':'🇫🇯','Samoa':'🇼🇸',
+    'Turkey':'🇹🇷','Türkiye':'🇹🇷','Saudi Arabia':'🇸🇦','UAE':'🇦🇪',
+    'Bahrain':'🇧🇭','Jordan':'🇯🇴','Lebanon':'🇱🇧',
+    'South Africa':'🇿🇦','Nigeria':'🇳🇬','Cameroon':'🇨🇲','Ghana':'🇬🇭',
+    'Morocco':'🇲🇦','Egypt':'🇪🇬','Tunisia':'🇹🇳','Algeria':'🇩🇿','Kenya':'🇰🇪',
   };
   return map[alt] || '🏳️';
 }
