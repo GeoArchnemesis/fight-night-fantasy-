@@ -191,46 +191,86 @@ section{padding:clamp(34px,5vw,64px) 0}
 input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 .slip-foot .btn-primary{width:100%;justify-content:center;padding:14px;display:block;text-align:center;margin-top:6px}
 .tk-tools{display:flex;gap:10px;margin-bottom:18px;flex-wrap:wrap}
-.tickets{display:flex;flex-direction:column;gap:12px}
+.tickets{display:flex;flex-direction:column;gap:10px}
 .tk-empty{border:1px dashed var(--line);border-radius:8px;padding:34px;text-align:center;color:var(--muted)}
-.ticket{border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden;border-left:4px solid var(--line);border-right:4px solid var(--line);transition:border-color .2s}
+
+/* ── ბილეთი — სუფთა, whalegames სტილი ── */
+.ticket{
+  border:1px solid var(--line);
+  border-left:3px solid var(--line);
+  border-right:none;
+  border-radius:8px;
+  background:var(--surface);
+  overflow:hidden;
+  transition:border-color .2s
+}
+.ticket.tk-open,.ticket.tk-pending{border-left-color:#ff9d3c}
+.ticket.tk-won{border-left-color:var(--green)}
+.ticket.tk-lost{border-left-color:var(--red-soft)}
+.ticket.tk-cashout{border-left-color:var(--gold)}
+
+/* head */
+.tk-head{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;cursor:pointer;gap:10px}
+.tk-head-left{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.tk-type{font-size:.72rem;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+
+/* status — პატარა, მინიმალური */
+.tk-status{display:flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;letter-spacing:.04em;white-space:nowrap;flex-shrink:0}
+.tk-status::before{content:'';display:inline-block;width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.tk-status.open::before,.tk-status.pending::before{background:#ff9d3c}
+.tk-status.won::before{background:var(--green)}
+.tk-status.lost::before{background:var(--red-soft)}
+.tk-status.cashout::before{background:var(--gold)}
+.tk-status.open,.tk-status.pending{color:#ff9d3c}
+.tk-status.won{color:var(--green)}
+.tk-status.lost{color:var(--red-soft)}
+.tk-status.cashout{color:var(--gold)}
+
+/* collapsed info */
+.tk-collapsed-info{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;padding:10px 16px 14px;border-top:1px solid rgba(42,39,56,.4)}
+.tkc-col{display:flex;flex-direction:column;gap:3px;text-align:center;min-width:0}
+.tkc-lbl{font-size:.58rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.05em;line-height:1.2}
+.tkc-val{font-family:var(--mono);font-weight:700;font-size:.95rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* selections */
+.tk-sels{padding:0}
+.tk-sel{display:flex;align-items:stretch;border-bottom:1px solid rgba(42,39,56,.4);transition:background .15s;min-width:0}
+.tk-sel:last-child{border-bottom:none}
+.tk-sel:hover{background:rgba(255,255,255,.02)}
+.tk-sel-main{flex:1;min-width:0;padding:11px 16px;display:flex;flex-direction:column;gap:3px}
+
+/* მებრძოლები — მქრქალი კონტექსტი */
+.tk-sel-fighters{display:flex;align-items:center;gap:6px;font-size:.78rem;color:var(--muted);min-width:0;overflow:hidden}
+.tk-sel-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.tk-sel-dot.red{background:var(--red)}
+.tk-sel-dot.blue{background:#5b9bff}
+.tk-sel-vs{color:var(--muted-2);font-size:.7rem;margin:0 1px}
+.tk-sel-red{color:var(--text)}
+.tk-sel-blue{color:var(--text)}
+
+/* არჩეული მებრძოლი — თამამი, თეთრი */
+.tk-sel-pick{font-size:.88rem;font-weight:700;color:var(--text);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.tk-sel-pick.pick-red{color:#fff}
+.tk-sel-pick.pick-blue{color:#fff}
+
+/* კოეფიციენტი + შედეგი */
+.tk-sel-right{display:flex;align-items:center;gap:8px;padding:11px 16px;border-left:1px solid rgba(42,39,56,.3);flex-shrink:0}
+.tk-sel-odds{font-family:var(--mono);font-weight:700;font-size:.95rem;color:var(--gold)}
+.tk-sel-result{font-size:.85rem;font-weight:700}
+.tk-sel-result.ok{color:var(--green)}
+.tk-sel-result.no{color:var(--red-soft)}
+
+/* footer */
+.tk-foot{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-top:1px solid rgba(42,39,56,.4);font-size:.75rem;color:var(--muted)}
+.tk-foot-type{color:var(--muted-2);font-size:.7rem}
+.tk-foot-label{color:var(--muted);font-weight:400;font-size:.75rem;margin-right:4px}
+.tk-foot-pay{font-weight:700;font-size:.9rem}
 /* სტატუსის მიხედვით მარცხენა + მარჯვენა ბორდერი + ფონი */
-.ticket.tk-open,.ticket.tk-pending{border-left-color:#ff9d3c;border-right-color:#ff9d3c}
-.ticket.tk-won{border-left-color:var(--green);border-right-color:var(--green);background:linear-gradient(90deg,rgba(58,209,126,.04),transparent 40%)}
-.ticket.tk-lost{border-left-color:var(--red-soft);border-right-color:var(--red-soft);background:linear-gradient(90deg,rgba(243,29,37,.04),transparent 40%)}
-.ticket.tk-cashout{border-left-color:var(--gold);border-right-color:var(--gold)}
-.tk-head{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line);background:var(--ink)}
-.tk-head-left{display:flex;align-items:center;gap:14px;min-width:0;flex:1}
-.tk-type{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-/* tk-status — ახალი სტილები ქვემოთ accordion სექციაში */
+/* tk-status — accordion სექციაში */
 .tk-head-stats{display:flex;align-items:center;gap:18px;font-family:var(--mono);font-size:.82rem}
 .tk-stat{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
 .tk-stat-label{font-size:.6rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.06em}
 .tk-stat-value{font-weight:700;color:var(--text)}
-.tk-sels{padding:0}
-.tk-sel{display:flex;align-items:stretch;border-bottom:1px solid rgba(42,39,56,.5);transition:background .15s;min-width:0}
-.tk-sel-right{flex-shrink:0}
-.tk-sel:last-child{border-bottom:none}
-.tk-sel:hover{background:rgba(255,255,255,.02)}
-.tk-sel-main{flex:1;min-width:0;padding:12px 18px;display:flex;flex-direction:column;gap:4px}
-.tk-sel-fighters{display:flex;align-items:center;gap:8px;font-weight:700;font-size:.9rem;min-width:0;max-width:100%;overflow:hidden}
-.tk-sel-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
-.tk-sel-dot.red{background:var(--red)}
-.tk-sel-dot.blue{background:var(--blue)}
-.tk-sel-vs{color:var(--muted-2);font-size:.75rem;font-weight:400;margin:0 2px}
-.tk-sel-pick{font-family:var(--mono);font-size:.72rem;color:var(--muted);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
-.tk-sel-right{display:flex;align-items:center;gap:10px;padding:12px 18px;border-left:1px solid rgba(42,39,56,.3)}
-.tk-sel-odds{font-family:var(--mono);font-weight:700;font-size:1rem;color:var(--gold)}
-.tk-sel-result{font-size:1.1rem}
-.tk-sel-result.ok{color:var(--green)}
-.tk-sel-result.no{color:var(--red-soft)}
-.tk-foot{display:flex;justify-content:space-between;align-items:center;padding:10px 18px;border-top:1px solid var(--line);background:var(--ink);font-family:var(--mono);font-size:.72rem;color:var(--muted-2)}
-.tk-foot-id{opacity:.6}
-.tk-foot-meta{display:flex;gap:12px;align-items:center}
-.tk-foot-pay{font-weight:700;font-size:.85rem}
-.tk-foot-pay.gold{color:var(--gold)}
-.tk-foot-pay.green{color:var(--green)}
-.tk-foot-pay.red{color:var(--red-soft)}
 .cashout-btn{width:calc(100% - 36px);margin:0 18px 14px;padding:10px;border-radius:7px;border:1px solid rgba(245,196,81,.4);background:rgba(245,196,81,.07);color:var(--gold);font-family:var(--mono);font-size:.78rem;font-weight:700;letter-spacing:.04em;cursor:pointer;transition:background .15s,border-color .15s;display:flex;align-items:center;justify-content:center;gap:6px}
 .cashout-btn:hover{background:rgba(245,196,81,.15);border-color:var(--gold)}
 .cashout-btn:disabled{opacity:.35;cursor:not-allowed}
@@ -374,14 +414,3 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .ticket .tk-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .ticket .tk-arrow{transition:transform .2s;color:var(--muted);font-size:.9rem;flex-shrink:0}
 .ticket .tk-arrow.open{transform:rotate(180deg)}
-.tk-collapsed-info{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;padding:16px 18px;border-top:1px solid rgba(42,39,56,.3)}
-.tkc-col{display:flex;flex-direction:column;gap:4px;text-align:center;min-width:0}
-.tkc-lbl{font-family:var(--mono);font-size:.58rem;color:var(--muted-2);text-transform:uppercase;letter-spacing:.06em;line-height:1.2;overflow:hidden;text-overflow:ellipsis}
-.tkc-val{font-family:var(--mono);font-weight:700;font-size:1.1rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-/* სტატუსის badge უფრო თვალსაჩინო */
-.tk-status{font-family:var(--mono);font-size:.72rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;padding:5px 14px;border-radius:20px;border:1px solid;flex-shrink:0;white-space:nowrap}
-.tk-status.open,.tk-status.pending{color:#ff9d3c;background:rgba(255,157,60,.12);border-color:rgba(255,157,60,.3)}
-.tk-status.won{color:var(--green);background:rgba(58,209,126,.12);border-color:rgba(58,209,126,.3)}
-.tk-status.lost{color:var(--red-soft);background:rgba(243,29,37,.12);border-color:rgba(243,29,37,.3)}
-.tk-status.cashout{color:var(--gold);background:rgba(245,196,81,.12);border-color:rgba(245,196,81,.3)}
-@media(max-width:520px){.tk-collapsed-info{gap:4px;padding:12px 10px}.tkc-lbl{font-size:.52rem}.tkc-val{font-size:.92rem}}
