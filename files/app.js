@@ -235,7 +235,7 @@ function selMk(i) {
   return (p.round && p.method) ? 'რაუნდი + მეთოდი'
     : p.method ? 'გამარჯვების მეთოდი'
     : p.round  ? 'დასრულების რაუნდი'
-    : 'მატჩის გამარჯვებული';
+    : 'ბრძოლის გამარჯვებული';
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1029,14 +1029,14 @@ function authError(msg) {
 function openModal(mode) {
   modalMode = mode; authError('');
   const passEl = document.getElementById('inPass'); if (passEl) passEl.value = '';
-  document.getElementById('modalTitle').textContent  = mode === 'join' ? 'შემოუერთდი ლიგას' : 'კეთილი იყოს დაბრუნება';
+  document.getElementById('modalTitle').textContent  = mode === 'join' ? 'შემოუერთდი ფენტეზის' : 'კეთილი იყოს შენი დაბრუნება';
   document.getElementById('modalSub').textContent    = mode === 'join' ? ' ' : ' ';
   document.getElementById('nameField').style.display = mode === 'join' ? 'block' : 'none';
   document.getElementById('confirmField').style.display = mode === 'join' ? 'block' : 'none';
   document.getElementById('modalSubmit').textContent = mode === 'join' ? 'რეგისტრაცია' : 'შესვლა';
   document.getElementById('modalSwitch').innerHTML   = mode === 'join'
     ? 'უკვე გაქვს ანგარიში? <button id="switchMode">შესვლა</button>'
-    : 'ახალი ხარ აქ? <button id="switchMode">რეგისტრაცია</button>';
+    : 'არ გაქვს ანგარიში? <button id="switchMode">რეგისტრაცია</button>';
   document.getElementById('switchMode').onclick = () => openModal(mode === 'join' ? 'signin' : 'join');
   const forgotWrap = $('forgotWrap');
   if (forgotWrap) forgotWrap.style.display = mode === 'signin' ? 'block' : 'none';
