@@ -33,13 +33,38 @@ function log(msg) { console.log(`[${new Date().toISOString()}] ${msg}`); }
 
 function countryToFlag(alt) {
   const map = {
-    'Azerbaijan':'🇦🇿','Brazil':'🇧🇷','Russia':'🇷🇺','USA':'🇺🇸','Kazakhstan':'🇰🇿',
-    'Georgia':'🇬🇪','Armenia':'🇦🇲','Ukraine':'🇺🇦','Mexico':'🇲🇽','Germany':'🇩🇪',
-    'Poland':'🇵🇱','Sweden':'🇸🇪','Australia':'🇦🇺','Colombia':'🇨🇴','Uzbekistan':'🇺🇿',
-    'France':'🇫🇷','Ireland':'🇮🇪','Canada':'🇨🇦','Netherlands':'🇳🇱','China':'🇨🇳',
-    'Japan':'🇯🇵','South Korea':'🇰🇷','New Zealand':'🇳🇿','Turkey':'🇹🇷',
-    'Serbia':'🇷🇸','United Kingdom':'🇬🇧','Argentina':'🇦🇷','Italy':'🇮🇹','Spain':'🇪🇸',
-    'Thailand':'🇹🇭','Philippines':'🇵🇭','South Africa':'🇿🇦','Nigeria':'🇳🇬',
+    // ჩრდილოეთ/სამხრეთ ამერიკა
+    'USA':'🇺🇸','Canada':'🇨🇦','Mexico':'🇲🇽','Brazil':'🇧🇷','Argentina':'🇦🇷',
+    'Colombia':'🇨🇴','Peru':'🇵🇪','Chile':'🇨🇱','Ecuador':'🇪🇨','Venezuela':'🇻🇪',
+    'Uruguay':'🇺🇾','Jamaica':'🇯🇲','Trinidad and Tobago':'🇹🇹','Dominican Republic':'🇩🇴',
+    'Puerto Rico':'🇵🇷','Guyana':'🇬🇾','Cuba':'🇨🇺','Aruba':'🇦🇼','Panama':'🇵🇦',
+    // ევროპა
+    'United Kingdom':'🇬🇧','England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','Wales':'🏴󠁧󠁢󠁷󠁬󠁳󠁿',
+    'Ireland':'🇮🇪','France':'🇫🇷','Germany':'🇩🇪','Italy':'🇮🇹','Spain':'🇪🇸',
+    'Netherlands':'🇳🇱','Poland':'🇵🇱','Sweden':'🇸🇪','Norway':'🇳🇴','Denmark':'🇩🇰',
+    'Finland':'🇫🇮','Belgium':'🇧🇪','Austria':'🇦🇹','Switzerland':'🇨🇭',
+    'Portugal':'🇵🇹','Czech Republic':'🇨🇿','Czechia':'🇨🇿','Hungary':'🇭🇺',
+    'Romania':'🇷🇴','Serbia':'🇷🇸','Croatia':'🇭🇷','Bosnia and Herzegovina':'🇧🇦',
+    'Bulgaria':'🇧🇬','Greece':'🇬🇷','Lithuania':'🇱🇹','Latvia':'🇱🇻','Estonia':'🇪🇪',
+    'Moldova':'🇲🇩','Albania':'🇦🇱','North Macedonia':'🇲🇰','Montenegro':'🇲🇪',
+    'Slovakia':'🇸🇰','Slovenia':'🇸🇮','Iceland':'🇮🇸','Kosovo':'🇽🇰',
+    // СНГ / ცენტრალური აზია
+    'Russia':'🇷🇺','Ukraine':'🇺🇦','Georgia':'🇬🇪','Armenia':'🇦🇲','Azerbaijan':'🇦🇿',
+    'Kazakhstan':'🇰🇿','Uzbekistan':'🇺🇿','Kyrgyzstan':'🇰🇬','Tajikistan':'🇹🇯',
+    'Turkmenistan':'🇹🇲','Belarus':'🇧🇾',
+    // აზია / ოკეანეთი
+    'China':'🇨🇳','Japan':'🇯🇵','South Korea':'🇰🇷','Thailand':'🇹🇭','Philippines':'🇵🇭',
+    'Indonesia':'🇮🇩','India':'🇮🇳','Mongolia':'🇲🇳','Myanmar':'🇲🇲','Vietnam':'🇻🇳',
+    'Malaysia':'🇲🇾','Singapore':'🇸🇬','Taiwan':'🇹🇼','Pakistan':'🇵🇰',
+    'Afghanistan':'🇦🇫','Iraq':'🇮🇶','Iran':'🇮🇷','Israel':'🇮🇱',
+    'Australia':'🇦🇺','New Zealand':'🇳🇿','Fiji':'🇫🇯','Samoa':'🇼🇸',
+    // ახლო აღმოსავლეთი / თურქეთი
+    'Turkey':'🇹🇷','Türkiye':'🇹🇷','Saudi Arabia':'🇸🇦','UAE':'🇦🇪',
+    'Bahrain':'🇧🇭','Jordan':'🇯🇴','Lebanon':'🇱🇧','Syria':'🇸🇾',
+    // აფრიკა
+    'South Africa':'🇿🇦','Nigeria':'🇳🇬','Cameroon':'🇨🇲','Ghana':'🇬🇭',
+    'Morocco':'🇲🇦','Egypt':'🇪🇬','Tunisia':'🇹🇳','Algeria':'🇩🇿',
+    'Kenya':'🇰🇪','DR Congo':'🇨🇩','Senegal':'🇸🇳','Angola':'🇦🇴',
   };
   return map[alt] || '🏳️';
 }
