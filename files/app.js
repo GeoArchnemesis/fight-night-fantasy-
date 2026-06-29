@@ -166,14 +166,14 @@ async function loadEventFromDB() {
       resultMethod: f.result_method || null,
       resultRound: f.result_round || null,
       red: {
-        name: f.red.name, flag: f.red.flag || '🏳️', odds: Number(f.red_odds),
+        name: f.red.name, flag: f.red.flag || '🏳️', odds: f.red_odds == null ? null : Number(f.red_odds),
         img: f.red.image_url || null,
         record: f.red.record || '-', age: String(f.red.age || '-'),
         ht: (f.red.height_cm || '-') + ' სმ', wt: (f.red.weight_kg || '-') + ' კგ',
         reach: (f.red.reach_cm || '-') + ' სმ'
       },
       blue: {
-        name: f.blue.name, flag: f.blue.flag || '🏳️', odds: Number(f.blue_odds),
+        name: f.blue.name, flag: f.blue.flag || '🏳️', odds: f.blue_odds == null ? null : Number(f.blue_odds),
         img: f.blue.image_url || null,
         record: f.blue.record || '-', age: String(f.blue.age || '-'),
         ht: (f.blue.height_cm || '-') + ' სმ', wt: (f.blue.weight_kg || '-') + ' კგ',
@@ -201,11 +201,13 @@ async function loadEventFromDB() {
 // ─────────────────────────────────────────────────────────────
 function roundOdds(i, r) {
   const f = FIGHTS[i];
+  if (f.red.odds == null || f.blue.odds == null) return 0;
   const base = (f.red.odds + f.blue.odds) / 2;
   return r2(base * (1 + r * 0.15));
 }
 function methodOdds(i, m) {
   const f    = FIGHTS[i];
+  if (f.red.odds == null || f.blue.odds == null) return 0;
   const base = (f.red.odds + f.blue.odds) / 2;
   if (m === 'გადაწყვეტილება') return r2(base * 0.9);
   if (m === 'ნოკაუტი')        return r2(base * 1.4);
@@ -309,15 +311,18 @@ function renderMarkets() {
       `<div class="tale-row"><span class="tv l">${a}</span><span class="tl">${lab}</span><span class="tv r">${b}</span></div>`;
 
     const pickBtn = (side, d) => {
+      const hasOdds = d.odds != null && d.odds > 0;
       const flag  = `<span class="p-flag">${d.flag}</span>`;
       const name  = `<span class="p-name">${d.name}</span>`;
-      const od    = `<span class="p-od">${d.odds.toFixed(2)}</span>`;
+      const od    = `<span class="p-od">${hasOdds ? d.odds.toFixed(2) : '—'}</span>`;
       const inner = side === 'red' ? flag + name + od : od + name + flag;
       // winner glow: მოგებული მებრძოლი მწვანე ველში
       const winnerCls = isCompleted && winner === side ? ' winner' : '';
       const onCls = betting && mainOn && fr === side ? ' on' : '';
-      const disabledAttr = !betting ? ' disabled' : '';
-      return `<button class="pick ${side}${onCls}${winnerCls}" ${betting ? `data-winner="${i}" data-fr="${side}"` : ''} ${disabledAttr}>${inner}</button>`;
+      // კოეფიციენტი არ არის → ფსონის დადება დაბლოკილია
+      const disabledAttr = (!betting || !hasOdds) ? ' disabled' : '';
+      const canPick = betting && hasOdds;
+      return `<button class="pick ${side}${onCls}${winnerCls}" ${canPick ? `data-winner="${i}" data-fr="${side}"` : ''} ${disabledAttr}>${inner}</button>`;
     };
 
     return `
@@ -616,9 +621,10 @@ function renderTickets() {
           const extras = parts.slice(1).join(' · ');
           const fighterName = fighterPart.replace(' მოგება', '');
           const isRed = s.fighter === 'red';
+          // სახელები — ჯერ ბილეთიდან (DB), მერე FIGHTS fallback
           const f = (s.i >= 0 && s.i < FIGHTS.length) ? FIGHTS[s.i] : null;
-          const redName = f ? f.red.name : '';
-          const blueName = f ? f.blue.name : '';
+          const redName = s.redName || (f ? f.red.name : '');
+          const blueName = s.blueName || (f ? f.blue.name : '');
           const pickLabel = extras || 'გამარჯვებული';
           const res = selResult(s);
           const resIcon = res === 'ok' ? ' ✅' : res === 'no' ? ' ❌' : '';
@@ -918,29 +924,11 @@ async function loadLiveResults() {
 // ─────────────────────────────────────────────────────────────
 //  LOAD USER TICKETS FROM DB
 // ─────────────────────────────────────────────────────────────
-function rebuildSelName(i, s) {
-  // FIX: i === -1 როცა fight ვერ მოიძებნა FIGHTS მასივში
-  const f = (i >= 0 && i < FIGHTS.length) ? FIGHTS[i] : null;
-  if (!f) {
-    // fallback: fighter name-ის გარეშე
-    const a = [];
-    if (s.picked_fighter) a.push(s.picked_fighter === 'red' ? 'Red მოგება' : 'Blue მოგება');
-    if (s.picked_round)   a.push(s.picked_round + '-ე რაუნდი');
-    if (s.picked_method)  a.push(s.picked_method);
-    return a.join(' · ') || '—';
-  }
-  const a = [];
-  if (s.picked_fighter) a.push((s.picked_fighter === 'red' ? f.red.name : f.blue.name) + ' მოგება');
-  if (s.picked_round)   a.push(s.picked_round + '-ე რაუნდი');
-  if (s.picked_method)  a.push(s.picked_method);
-  return a.join(' · ');
-}
-
 async function loadUserTickets() {
   if (!currentUser) return;
   try {
     let q = sb.from('tickets')
-      .select('id,type,stake,total_odds,status,placed_at,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds,result)')
+      .select(`id,type,stake,total_odds,status,placed_at,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds,result,fight:fights!fight_id(id,status,result_winner,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)))`)
       .eq('user_id', currentUser.id)
       .order('placed_at', { ascending: false });
 
@@ -956,14 +944,26 @@ async function loadUserTickets() {
       type: tk.type,
       sels: (tk.ticket_selections || []).map(s => {
         const i = FIGHTS.findIndex(f => f._dbId === s.fight_id);
+        // მებრძოლების სახელები პირდაპირ DB-დან (ისტორიული ბილეთებისთვისაც)
+        const ffight = s.fight || null;
+        const redName = ffight?.red?.name || '';
+        const blueName = ffight?.blue?.name || '';
+        const fighterName = s.picked_fighter === 'red' ? redName : blueName;
+        // res — DB-ში ან fight-ის შედეგიდან გამოთვლა
+        let res = s.result || null;
+        if (!res && ffight && ffight.status === 'completed' && ffight.result_winner) {
+          const winSide = ffight.result_winner === redName ? 'red' : 'blue';
+          res = s.picked_fighter === winSide ? 'ok' : 'no';
+        }
         return {
           i,
           fighter: s.picked_fighter,
           round: s.picked_round,
           method: s.picked_method,
           odds: Number(s.odds),
-          name: rebuildSelName(i, s),
-          res: s.result || null  // 'ok' | 'no' | null
+          name: rebuildSelNameDB(fighterName, s),
+          redName, blueName,
+          res
         };
       }),
       stake: Number(tk.stake),
@@ -974,6 +974,16 @@ async function loadUserTickets() {
   } catch (e) {
     console.warn('loadUserTickets failed:', e);
   }
+}
+
+// მებრძოლის სახელი + extras (DB-დან წამოღებული სახელით)
+function rebuildSelNameDB(fighterName, s) {
+  const a = [];
+  if (fighterName) a.push(fighterName + ' მოგება');
+  else if (s.picked_fighter) a.push((s.picked_fighter === 'red' ? 'Red' : 'Blue') + ' მოგება');
+  if (s.picked_round)  a.push(s.picked_round + '-ე რაუნდი');
+  if (s.picked_method) a.push(s.picked_method);
+  return a.join(' · ') || '—';
 }
 
 // ─────────────────────────────────────────────────────────────
