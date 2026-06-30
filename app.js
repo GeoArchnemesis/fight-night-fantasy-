@@ -1,5 +1,5 @@
 // ============================================================
-//  UFC Fantasy — app.js  (v12 — ყველა ბაგი გასწორებული)
+//  UFC Fantasy — app.js  (v13 — security fix v3: server-side odds, leaderboard_view)
 // ============================================================
 
 const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
@@ -516,10 +516,11 @@ async function placeBets() {
     }
     // ბალანსი server-დან
     updateBalance(res.balance);
+    const finalOdds = res.total_odds != null ? Number(res.total_odds) : odds;
     const ticket = {
       _dbId: res.ticket_id, type: 'express',
       sels: arr.map(s => ({ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name })),
-      stake: st, odds, status: 'open', placedAt: Date.now()
+      stake: st, odds: finalOdds, status: 'open', placedAt: Date.now()
     };
     state.tickets.unshift(ticket);
   } else {
@@ -541,10 +542,11 @@ async function placeBets() {
           continue;
         }
         updateBalance(res.balance);
+        const finalOdds = res.total_odds != null ? Number(res.total_odds) : s.odds;
         const ticket = {
           _dbId: res.ticket_id, type: 'single',
           sels: [{ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name }],
-          stake: s.stake, odds: s.odds, status: 'open', placedAt: Date.now()
+          stake: s.stake, odds: finalOdds, status: 'open', placedAt: Date.now()
         };
         state.tickets.unshift(ticket);
       }
@@ -809,7 +811,7 @@ async function loadLeaderboard(period) {
     if (_currentLbPeriod === 'goat') {
       // G.O.A.T — users.score (ყველა დროის ჯამი)
       const { data, error } = await sb
-        .from('users').select('id,nick,icon,score')
+        .from('leaderboard_view').select('id,nick,icon,score')
         .order('score', { ascending: false });
       if (error || !data) return;
       rows = data.map(u => ({
@@ -833,7 +835,7 @@ async function loadLeaderboard(period) {
       if (hErr || !hist) { LEADERBOARD.length = 0; renderLeaderboard(); renderLbTabs(); return; }
 
       // users ცალკე (nick + icon)
-      const { data: usersData } = await sb.from('users').select('id,nick,icon');
+      const { data: usersData } = await sb.from('leaderboard_view').select('id,nick,icon');
       const userMap = {};
       (usersData || []).forEach(u => { userMap[u.id] = { nick: u.nick || '—', icon: u.icon || '🥊' }; });
 
@@ -1323,7 +1325,7 @@ async function saveProfile() {
   try {
     const nickChanged = nick && nick !== currentUser.nick;
     if (nickChanged) {
-      const { data: taken } = await sb.from('users')
+      const { data: taken } = await sb.from('leaderboard_view')
         .select('id').eq('nick', nick).neq('id', currentUser.id).maybeSingle();
       if (taken) {
         profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს', 'var(--red)');
