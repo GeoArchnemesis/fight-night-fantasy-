@@ -1,5 +1,5 @@
 // ============================================================
-//  UFC Fantasy — app.js  (v14 — password recovery flow fixed)
+//  UFC Fantasy — app.js  (v15 — registration handles pending email confirmation)
 // ============================================================
 
 const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
@@ -1030,6 +1030,7 @@ function authError(msg) {
 
 function openModal(mode) {
   modalMode = mode; authError('');
+  const authErrEl = document.getElementById('authError'); if (authErrEl) authErrEl.style.color = 'var(--red)';
   const passEl = document.getElementById('inPass'); if (passEl) passEl.value = '';
   document.getElementById('modalTitle').textContent  = mode === 'join' ? 'შემოუერთდი ლიგას' : 'კეთილი იყოს დაბრუნება';
   document.getElementById('modalSub').textContent    = mode === 'join' ? ' ' : ' ';
@@ -1171,6 +1172,20 @@ async function doRegister() {
   const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick } } });
   btn.disabled = false; btn.textContent = 'რეგისტრაცია';
   if (error) { authError(error.message); return; }
+
+  // თუ Confirm Email ჩართულია პროექტში, signUp სესიას არ აბრუნებს,
+  // სანამ მომხმარებელი მეილში ბმულზე არ დააჭერს — ამ დროს currentUser-ის
+  // გამოგონება (ნაცვლად namely null session-ის პატივისცემისა) მომხმარებელს
+  // "თითქოს შესულს" უჩვენებდა ისე, რომ რეალური auth session არ ჰქონდა,
+  // რის გამოც ნებისმიერი RPC (place_bet და სხვ.) "not authenticated"-ით ჩაიშლებოდა.
+  if (!data.session) {
+    const el = document.getElementById('authError');
+    el.style.color = 'var(--green)';
+    el.textContent = 'რეგისტრაცია წარმატებულია! ანგარიშის გასააქტიურებლად დაადასტურე ელ.ფოსტა — შეამოწმე საფოსტო ყუთი (ასევე spam/junk).';
+    el.style.display = 'block';
+    return;
+  }
+
   await new Promise(r => setTimeout(r, 1000));
   const { data: ud } = await sb.from('users').select('*').eq('id', data.user.id).single();
   currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: ud?.balance || 1000, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊' };
