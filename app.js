@@ -1,5 +1,5 @@
 // ============================================================
-//  UFC Fantasy — app.js  (v13 — security fix v3: server-side odds, leaderboard_view)
+//  UFC Fantasy — app.js  (v14 — password recovery flow fixed)
 // ============================================================
 
 const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
@@ -1273,6 +1273,7 @@ sb.auth.onAuthStateChange((event, session) => {
       updateNavForUser(null);
     } else {
       applySession(session);
+      if (event === 'PASSWORD_RECOVERY') openResetPasswordModal();
     }
   }, 0);
 });
@@ -1393,6 +1394,44 @@ function closeForgotModal() {
   document.getElementById('forgotModal').classList.remove('show');
 }
 
+// ─────────────────────────────────────────────────────────────
+//  PASSWORD RECOVERY — მეილის ბმულზე დაჭერის შემდეგ
+//  (Supabase თვითონ ავტორიზებს ამ სესიას — ძველი პაროლი აქ არ სჭირდება)
+// ─────────────────────────────────────────────────────────────
+function openResetPasswordModal() {
+  closeModal();
+  closeForgotModal();
+  document.getElementById('recoveryNewPass').value = '';
+  document.getElementById('recoveryNewPassConfirm').value = '';
+  document.getElementById('recoveryError').style.display = 'none';
+  document.getElementById('recoverySuccess').style.display = 'none';
+  document.querySelectorAll('#resetPasswordModal .field').forEach(f => f.style.display = 'block');
+  document.getElementById('recoverySubmit').style.display = 'block';
+  document.getElementById('resetPasswordModal').classList.add('show');
+}
+
+async function submitNewPassword() {
+  const p1 = document.getElementById('recoveryNewPass').value;
+  const p2 = document.getElementById('recoveryNewPassConfirm').value;
+  const errEl = document.getElementById('recoveryError');
+  errEl.style.display = 'none';
+
+  if (!p1 || p1.length < 6) { errEl.textContent = 'პაროლი მინ. 6 სიმბოლო'; errEl.style.display = 'block'; return; }
+  if (p1 !== p2) { errEl.textContent = 'პაროლები არ ემთხვევა'; errEl.style.display = 'block'; return; }
+
+  const btn = document.getElementById('recoverySubmit');
+  btn.disabled = true; btn.textContent = '…';
+  const { error } = await sb.auth.updateUser({ password: p1 });
+  btn.disabled = false; btn.textContent = 'პასვორდის დაყენება';
+
+  if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
+
+  document.querySelectorAll('#resetPasswordModal .field').forEach(f => f.style.display = 'none');
+  btn.style.display = 'none';
+  document.getElementById('recoverySuccess').style.display = 'block';
+  setTimeout(() => { document.getElementById('resetPasswordModal').classList.remove('show'); }, 2500);
+}
+
 async function sendPasswordReset() {
   const email = (document.getElementById('forgotEmail').value || '').trim();
   const errEl = document.getElementById('forgotError');
@@ -1450,6 +1489,7 @@ $on('forgotBtn', 'click', openForgotPassword);
 $on('forgotModalClose', 'click', closeForgotModal);
 $on('forgotModal', 'click', e => { if (e.target.id === 'forgotModal') closeForgotModal(); });
 $on('forgotSubmit', 'click', sendPasswordReset);
+$on('recoverySubmit', 'click', submitNewPassword);
 $on('backToLogin', 'click', () => { closeForgotModal(); openModal('signin'); });
 
 $on('profileClose', 'click', closeProfile);
