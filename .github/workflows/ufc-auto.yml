@@ -16,7 +16,7 @@ jobs:
           node-version: 22
 
       - name: Install dependencies
-        run: npm install @supabase/supabase-js ws
+        run: npm install @supabase/supabase-js@2.49.1 ws@8.18.0
 
       - name: Run automation
         run: node scripts/auto.js
