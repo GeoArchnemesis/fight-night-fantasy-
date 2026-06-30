@@ -1,7 +1,7 @@
 // supabase/functions/telegram-bot/index.ts
 // Fight Night Fantasy — Telegram Bot (Supabase Edge Function)
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
 const corsHeaders = { 'Content-Type': 'application/json' }
 
@@ -17,6 +17,18 @@ const sb = createClient(
 const TG_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN')!
 const ODDS_API_KEY = Deno.env.get('ODDS_API_KEY') || ''
 const ADMIN_CHAT_ID = Deno.env.get('TELEGRAM_CHAT_ID') || ''
+
+// ── უსაფრთხოება ─────────────────────────────────────────────
+// TELEGRAM_WEBHOOK_SECRET — მხოლოდ Telegram-ის setWebhook-ში secret_token-ად
+//   უნდა გადაეცეს (იხ. deploy-bot.yml). ფუნქცია უარყოფს ნებისმიერ მოთხოვნას,
+//   რომელსაც ეს header არ ახლავს ან არასწორია — ვინც პირდაპირ URL-ზე
+//   POST-ს გააგზავნის Telegram-ის გვერდის ავლით, ვეღარ შეძლებს ბოტის
+//   კომანდების გაშვებას, თუნდაც chat.id-ში ADMIN_CHAT_ID-ს ჩაწეროს.
+const TG_WEBHOOK_SECRET = Deno.env.get('TELEGRAM_WEBHOOK_SECRET') || ''
+// ADMIN_NOTIFY_SECRET — fnf-ctrl-9x4k.html (ადმინ პანელი) უგზავნის ამ
+//   ფუნქციას notify-მოთხოვნებს ამ secret-ით, რომ გარეშე პირმა ბოტში
+//   spam ვერ გააგზავნოს public URL-ის გამოყენებით.
+const ADMIN_NOTIFY_SECRET = Deno.env.get('ADMIN_NOTIFY_SECRET') || ''
 
 // ── Telegram helpers ─────────────────────────────────────────
 
@@ -153,7 +165,7 @@ async function cmdUpdateEvent(chatId: number): Promise<string> {
     const { error } = await sb.from('fights').insert({
       event_id: evData!.id, red_fighter_id: redId, blue_fighter_id: blueId,
       weight_class: c.type?.abbreviation || 'Unknown', max_rounds: rounds,
-      bout_order: idx + 1, red_odds: 1.80, blue_odds: 2.00, show_details: false, status: 'upcoming',
+      bout_order: idx + 1, red_odds: null, blue_odds: null, show_details: false, status: 'upcoming',
     })
     if (!error) saved++
   }
@@ -369,7 +381,7 @@ async function cmdStatus(chatId: number): Promise<string> {
 Deno.serve(async (req) => {
   // CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('OK', { status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' } })
+    return new Response('OK', { status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Telegram-Bot-Api-Secret-Token, X-Admin-Secret' } })
   }
   if (req.method !== 'POST') {
     return new Response('OK', { status: 200 })
@@ -378,10 +390,22 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json()
 
-    // ── Admin Panel notification ──
+    // ── Admin Panel notification — secret header სავალდებულოა ──
     if (body.notify) {
+      const providedSecret = req.headers.get('X-Admin-Secret') || ''
+      if (!ADMIN_NOTIFY_SECRET || providedSecret !== ADMIN_NOTIFY_SECRET) {
+        return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Access-Control-Allow-Origin': '*' } })
+      }
       if (ADMIN_CHAT_ID) await sendMsg(ADMIN_CHAT_ID, body.notify)
       return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { ...corsHeaders, 'Access-Control-Allow-Origin': '*' } })
+    }
+
+    // ── Telegram webhook — secret_token სავალდებულოა ──
+    // (აცილებს ვინმეს, ვინც პირდაპირ ამ URL-ზე ყალბ "Telegram update"-ს
+    //  გააგზავნის chat.id=ADMIN_CHAT_ID-ით, ბოტის ადმინ-კომანდების გაშვებას)
+    const tgSecret = req.headers.get('X-Telegram-Bot-Api-Secret-Token') || ''
+    if (!TG_WEBHOOK_SECRET || tgSecret !== TG_WEBHOOK_SECRET) {
+      return new Response('OK', { status: 200 }) // ჩუმად ვუარყოფთ, Telegram-ისთვის OK საკმარისია
     }
 
     const msg = body.message
@@ -390,8 +414,9 @@ Deno.serve(async (req) => {
     const chatId = msg.chat.id
     const text = msg.text.toLowerCase().trim()
 
-    // უსაფრთხოება — მხოლოდ ადმინის chat_id
-    if (ADMIN_CHAT_ID && String(chatId) !== String(ADMIN_CHAT_ID)) {
+    // უსაფრთხოება — მხოლოდ ადმინის chat_id (fail-closed: თუ ADMIN_CHAT_ID
+    // არ არის კონფიგურირებული, არავის არ ეძლევა წვდომა)
+    if (!ADMIN_CHAT_ID || String(chatId) !== String(ADMIN_CHAT_ID)) {
       await sendMsg(chatId, '⛔ არ გაქვს წვდომა')
       return new Response('OK', { status: 200 })
     }
