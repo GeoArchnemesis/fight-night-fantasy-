@@ -99,21 +99,23 @@
 
 <!-- ── KEY SCREEN ── -->
 <div id="keyScreen" style="display:none;position:fixed;inset:0;background:var(--canvas);z-index:9999;align-items:center;justify-content:center;padding:24px">
-  <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:32px;max-width:480px;width:100%">
-    <h2 style="color:var(--gold);margin-bottom:6px;font-size:1.2rem">🔑 Admin — Service Role Key</h2>
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:32px;max-width:420px;width:100%">
+    <h2 style="color:var(--gold);margin-bottom:6px;font-size:1.2rem">🔑 Admin Login</h2>
     <p style="color:var(--muted);font-size:.85rem;margin-bottom:20px;line-height:1.6">
-      Supabase → Settings → API → <b style="color:var(--text)">service_role</b> key<br>
-      პირველ ჯერს ხელით შეიყვანე — შემდეგ ავტომატურად ჩაიტვირთება
+      შედი იმავე email/password-ით, რომლითაც საიტზე ხარ რეგისტრირებული
     </p>
-    <label>Service Role Key</label>
-    <input type="password" id="srKeyInput" placeholder="eyJhbGci..." autocomplete="off"
-      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-family:monospace;font-size:.82rem;margin-bottom:8px"
-      onkeydown="if(event.key==='Enter')submitKey()" />
-    <label>Admin Notify Secret <span style="color:var(--muted);text-transform:none;font-weight:400">(Edge Function-ის ADMIN_NOTIFY_SECRET, Telegram-ში შეტყობინებების გასაგზავნად)</span></label>
+    <label>Email</label>
+    <input type="email" id="adminEmail" placeholder="admin@example.com" autocomplete="username"
+      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;margin-bottom:8px" />
+    <label>Password</label>
+    <input type="password" id="adminPassword" placeholder="••••••••" autocomplete="current-password"
+      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;margin-bottom:8px"
+      onkeydown="if(event.key==='Enter')submitLogin()" />
+    <label>Admin Notify Secret <span style="color:var(--muted);text-transform:none;font-weight:400">(Telegram შეტყობინებებისთვის — ერთხელ შეჰყავთ)</span></label>
     <input type="password" id="notifySecretInput" placeholder="..." autocomplete="off"
       style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-family:monospace;font-size:.82rem;margin-bottom:8px" />
     <div id="keyError" style="color:#ff7070;font-size:.8rem;min-height:18px;margin-bottom:12px"></div>
-    <button onclick="submitKey()" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:4px;padding:12px;font-weight:700;font-size:.95rem;cursor:pointer">შესვლა →</button>
+    <button onclick="submitLogin()" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:4px;padding:12px;font-weight:700;font-size:.95rem;cursor:pointer">შესვლა →</button>
   </div>
 </div>
 
@@ -123,7 +125,7 @@
 <h1>⚙️ UFC Fantasy — Admin</h1>
 <div class="warn" style="display:flex;justify-content:space-between;align-items:center">
   <span>⚠️ ეს გვერდი მხოლოდ ადმინისთვისაა.</span>
-  <button onclick="clearKey()" style="background:rgba(243,29,37,.15);color:var(--red);border:1px solid var(--red);border-radius:4px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:.78rem">🔑 Key გასუფთავება</button>
+  <button onclick="adminLogout()" style="background:rgba(243,29,37,.15);color:var(--red);border:1px solid var(--red);border-radius:4px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:.78rem">🚪 გამოსვლა</button>
 </div>
 
 <div class="status-bar" id="statusBar">
@@ -196,59 +198,85 @@
 
 <script>
 const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
+// ეს anon key საჯაროა და უსაფრთხოა ბრაუზერში — ისეთივეა, რასაც app.js იყენებს.
+// წვდომას არეგულირებს RLS + is_admin, არა ეს key.
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
 const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard";
 
-// ── Service Role Key — localStorage-ში ინახება ──
-let SUPABASE_KEY = localStorage.getItem('fnf_admin_srkey') || '';
 let ADMIN_NOTIFY_SECRET = localStorage.getItem('fnf_admin_notify_secret') || '';
-let sb = null;
 
-function initSupabase(key) {
-  sb = window.supabase.createClient(SUPABASE_URL, key, {
-    auth: { persistSession: false }
-  });
-}
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
+});
 
-function showKeyScreen() {
+function showLoginScreen(errMsg) {
   document.getElementById('adminContent').style.display = 'none';
   document.getElementById('keyScreen').style.display = 'flex';
+  if (errMsg) document.getElementById('keyError').textContent = errMsg;
 }
 
-function submitKey() {
-  const key = document.getElementById('srKeyInput').value.trim();
+async function submitLogin() {
+  const email = document.getElementById('adminEmail').value.trim();
+  const password = document.getElementById('adminPassword').value;
   const notifySecret = document.getElementById('notifySecretInput').value.trim();
-  if (!key || !key.startsWith('eyJ')) {
-    document.getElementById('keyError').textContent = 'სწორი service_role key შეიყვანე';
+  document.getElementById('keyError').textContent = '';
+
+  if (!email || !password) {
+    document.getElementById('keyError').textContent = 'შეიყვანე email და password';
     return;
   }
-  localStorage.setItem('fnf_admin_srkey', key);
-  if (notifySecret) localStorage.setItem('fnf_admin_notify_secret', notifySecret);
-  SUPABASE_KEY = key;
-  ADMIN_NOTIFY_SECRET = notifySecret;
-  initSupabase(key);
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error || !data?.user) {
+    document.getElementById('keyError').textContent = 'არასწორი email ან password';
+    return;
+  }
+
+  // ── is_admin შემოწმება ──
+  const { data: profile, error: profErr } = await sb.from('users').select('is_admin').eq('id', data.user.id).single();
+  if (profErr || !profile?.is_admin) {
+    await sb.auth.signOut();
+    document.getElementById('keyError').textContent = 'ეს ანგარიში ადმინი არ არის';
+    return;
+  }
+
+  if (notifySecret) {
+    localStorage.setItem('fnf_admin_notify_secret', notifySecret);
+    ADMIN_NOTIFY_SECRET = notifySecret;
+  }
+
   document.getElementById('keyScreen').style.display = 'none';
   document.getElementById('adminContent').style.display = 'block';
   loadFromLocal();
   startAutoOdds();
-  log('✅ service_role key დაყენდა და შეინახა', 'ok');
+  log('✅ ადმინად შესვლა წარმატებულია', 'ok');
 }
 
-function clearKey() {
-  if (!confirm('service_role key წაიშლება. დარწმუნებული ხარ?')) return;
-  localStorage.removeItem('fnf_admin_srkey');
-  localStorage.removeItem('fnf_admin_notify_secret');
-  SUPABASE_KEY = '';
-  ADMIN_NOTIFY_SECRET = '';
-  sb = null;
-  showKeyScreen();
+async function adminLogout() {
+  if (!confirm('გსურს გამოსვლა?')) return;
+  await sb.auth.signOut();
+  showLoginScreen();
 }
 
-// init
-if (SUPABASE_KEY) {
-  initSupabase(SUPABASE_KEY);
-} else {
-  document.addEventListener('DOMContentLoaded', showKeyScreen);
+// ── init: სესია უკვე არსებობს? ──
+async function initAdminSession() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { showLoginScreen(); return; }
+
+  const { data: profile, error: profErr } = await sb.from('users').select('is_admin').eq('id', session.user.id).single();
+  if (profErr || !profile?.is_admin) {
+    await sb.auth.signOut();
+    showLoginScreen('ეს ანგარიში ადმინი არ არის');
+    return;
+  }
+
+  document.getElementById('keyScreen').style.display = 'none';
+  document.getElementById('adminContent').style.display = 'block';
+  loadFromLocal();
+  startAutoOdds();
 }
+
+document.addEventListener('DOMContentLoaded', initAdminSession);
 
 let currentEventData = null;
 let fightsData = [];
@@ -970,103 +998,24 @@ async function settleAllTickets() {
   const { data: events } = await sb.from('events').select('id,name').in('status', ['upcoming', 'completed']);
   if (!events || events.length === 0) { log('ივენთი ვერ მოიძებნა', 'err'); return; }
 
-  let targetEventId = null;
+  let targetEventId = null, targetEventName = '';
   for (const ev of events) {
     const { data: fights } = await sb.from('fights').select('id').eq('event_id', ev.id).eq('status', 'completed').limit(1);
-    if (fights && fights.length > 0) { targetEventId = ev.id; log(`ივენთი: ${ev.name}`, 'info'); break; }
+    if (fights && fights.length > 0) { targetEventId = ev.id; targetEventName = ev.name; log(`ივენთი: ${ev.name}`, 'info'); break; }
   }
   if (!targetEventId) { log('completed სტატუსის ბრძოლა ვერ მოიძებნა — ჯერ შეიყვანე შედეგები', 'err'); return; }
 
-  // 2. ყველა completed ბრძოლა
-  const { data: fights } = await sb
-    .from('fights')
-    .select('id,result_winner,result_method,result_round,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
-    .eq('event_id', targetEventId)
-    .eq('status', 'completed');
-
-  if (!fights || fights.length === 0) { log('completed ბრძოლა არ გვაქვს', 'err'); return; }
-
-  const fightMap = {};
-  fights.forEach(f => {
-    fightMap[f.id] = {
-      result_winner: f.result_winner || '',
-      result_method: f.result_method || '',
-      result_round:  f.result_round  || null,
-      red_name:      f.red?.name     || '',
-      blue_name:     f.blue?.name    || ''
-    };
-  });
-  log(`${fights.length} completed ბრძოლა ნაპოვნია`, 'ok');
-
-  // 3. pending ბილეთები — settled_at IS NULL (ორმაგი დამუშავებას თავიდან ავიცილებთ)
-  const { data: tickets } = await sb
-    .from('tickets')
-    .select('id,type,stake,total_odds,user_id,ticket_selections(id,fight_id,picked_fighter,picked_round,picked_method,odds)')
-    .eq('event_id', targetEventId)
-    .eq('status', 'pending')
-    .is('settled_at', null);
-
-  if (!tickets || tickets.length === 0) { log('pending ბილეთი ვერ მოიძებნა (ან უკვე დამუშავებულია)', 'info'); return; }
-  log(`${tickets.length} pending ბილეთი ნაპოვნია`, 'info');
-
-  let wonCount = 0, lostCount = 0, skippedCount = 0;
-
-  for (const ticket of tickets) {
-    const sels = ticket.ticket_selections || [];
-    const results = sels.map(sel => {
-      const fight = fightMap[sel.fight_id];
-      if (!fight) return null;
-      return selectionWon(sel, fight);
-    });
-
-    if (results.some(r => r === null)) { skippedCount++; continue; }
-
-    const allWon  = results.every(r => r === true);
-    const anyLost = results.some(r => r === false);
-    const newStatus = anyLost ? 'lost' : (allWon ? 'won' : 'pending');
-    if (newStatus === 'pending') { skippedCount++; continue; }
-
-    // თითო selection-ის result ჩაწერა (✅/❌-ისთვის)
-    for (let si = 0; si < sels.length; si++) {
-      const r = results[si];
-      if (r === true || r === false) {
-        await sb.from('ticket_selections').update({ result: r ? 'ok' : 'no' }).eq('id', sels[si].id);
-      }
-    }
-
-    // სტატუსი + settled_at
-    await sb.from('tickets').update({
-      status: newStatus,
-      settled_at: new Date().toISOString()
-    }).eq('id', ticket.id);
-
-    if (newStatus === 'won') {
-      wonCount++;
-      const winnings = Math.round(Number(ticket.stake) * Number(ticket.total_odds));
-
-      // ატომარული score increment (RPC)
-      await sb.rpc('increment_user_score', { p_user_id: ticket.user_id, p_amount: winnings });
-
-      // score_history ჩანაწერი
-      await sb.from('score_history').insert({
-        user_id: ticket.user_id,
-        amount: winnings
-      });
-
-      // FIX: ticket.id არის bigint — String() გამოვიყენოთ
-      log(`✓ მოგება: user ${String(ticket.user_id).slice(0,8)}... — ${winnings} ქულა (${ticket.type})`, 'ok');
-    } else {
-      lostCount++;
-      log(`✗ წაგება: ბილეთი #${ticket.id} (${ticket.type})`, 'info');
-    }
+  // 2. ბალანსზე/ქულაზე გავლენის მქონე settlement-ი მთლიანად სერვერზე ხდება
+  //    (admin_settle_event — SECURITY DEFINER RPC, is_admin შემოწმებით)
+  const { data: res, error } = await sb.rpc('admin_settle_event', { p_event_id: targetEventId });
+  if (error || !res?.ok) {
+    log('❌ Settlement ვერ მოხერხდა: ' + (res?.error || error?.message || 'უცნობი შეცდომა'), 'err');
+    return;
   }
 
-  // ივენთის სტატუსი → completed
-  await sb.from('events').update({ status: 'completed' }).eq('id', targetEventId);
-
   log(`─────────────────────────────`, 'info');
-  log(`✅ დასრულდა: ${wonCount} მოგებული | ${lostCount} წაგებული | ${skippedCount} გამოტოვებული`, 'ok');
-  await notifyTelegram(`🏁 <b>Admin: Settlement</b>\n\n✅ ${wonCount} მოგებული\n❌ ${lostCount} წაგებული`);
+  log(`✅ დასრულდა: ${res.won} მოგებული | ${res.lost} წაგებული | ${res.skipped} გამოტოვებული`, 'ok');
+  await notifyTelegram(`🏁 <b>Admin: Settlement</b>\n${targetEventName}\n\n✅ ${res.won} მოგებული\n❌ ${res.lost} წაგებული`);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1192,10 +1141,6 @@ async function saveResultsToDB() {
 //  INIT
 // ─────────────────────────────────────────────────────────────
 setInterval(updateCountdown, 60000);
-if (SUPABASE_KEY) {
-  loadFromLocal();
-  startAutoOdds();
-}
 
 // PWA — service worker რეგისტრაცია (offline shell + installability)
 if ('serviceWorker' in navigator) {
