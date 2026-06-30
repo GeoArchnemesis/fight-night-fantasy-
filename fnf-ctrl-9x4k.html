@@ -570,7 +570,7 @@ async function processESPNData(data) {
       active: true, show_details: false,
       red:  { name: red?.athlete?.fullName||'',  flag: countryToFlag(red?.athlete?.flag?.alt||''),  country: red?.athlete?.flag?.alt||'',  record: red?.records?.[0]?.summary||'',  espn_id: red?.id||'', age:null, height_cm:null, weight_kg:null, reach_cm:null },
       blue: { name: blue?.athlete?.fullName||'', flag: countryToFlag(blue?.athlete?.flag?.alt||''), country: blue?.athlete?.flag?.alt||'', record: blue?.records?.[0]?.summary||'', espn_id: blue?.id||'', age:null, height_cm:null, weight_kg:null, reach_cm:null },
-      red_odds:1.80, blue_odds:2.00, odds_source:null,
+      red_odds:null, blue_odds:null, odds_source:null,
       ko_red:2.00, ko_blue:2.00, sub_red:3.00, sub_blue:3.00, dec_red:2.50, dec_blue:2.50,
       r1_odds:5.00, r2_odds:4.50, r3_odds:3.50, r4_odds:6.00, r5_odds:7.00,
       result_winner: '', result_method: '', result_round: '', result_time: '',
@@ -748,8 +748,8 @@ function renderFights() {
           </div>
         </div>
         <input class="odds-input${f.odds_source?' odds-auto':''}${oddsLocked?' odds-locked':''}"
-          type="number" step="0.01" min="1.01" value="${f.red_odds}" ${oddsLocked?'readonly':''}
-          onchange="fightsData[${i}].red_odds=parseFloat(this.value)||1.8;fightsData[${i}].odds_source=null;saveToLocal()">
+          type="number" step="0.01" min="1.01" value="${f.red_odds ?? ''}" placeholder="ჯერ უცნობია" ${oddsLocked?'readonly':''}
+          onchange="fightsData[${i}].red_odds=this.value===''?null:(parseFloat(this.value)||null);fightsData[${i}].odds_source=null;saveToLocal()">
       </div>
       <div class="vs">VS</div>
       <div class="fighter-row">
@@ -763,8 +763,8 @@ function renderFights() {
           </div>
         </div>
         <input class="odds-input${f.odds_source?' odds-auto':''}${oddsLocked?' odds-locked':''}"
-          type="number" step="0.01" min="1.01" value="${f.blue_odds}" ${oddsLocked?'readonly':''}
-          onchange="fightsData[${i}].blue_odds=parseFloat(this.value)||2.0;fightsData[${i}].odds_source=null;saveToLocal()">
+          type="number" step="0.01" min="1.01" value="${f.blue_odds ?? ''}" placeholder="ჯერ უცნობია" ${oddsLocked?'readonly':''}
+          onchange="fightsData[${i}].blue_odds=this.value===''?null:(parseFloat(this.value)||null);fightsData[${i}].odds_source=null;saveToLocal()">
       </div>
       ${f.show_details ? `
       <div class="method-section">
