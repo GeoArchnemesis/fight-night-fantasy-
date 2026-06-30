@@ -16,6 +16,18 @@ jobs:
         with:
           version: latest
 
+      - name: Set Edge Function secrets
+        run: |
+          supabase secrets set \
+            TELEGRAM_BOT_TOKEN="${{ secrets.TELEGRAM_BOT_TOKEN }}" \
+            TELEGRAM_CHAT_ID="${{ secrets.TELEGRAM_CHAT_ID }}" \
+            TELEGRAM_WEBHOOK_SECRET="${{ secrets.TELEGRAM_WEBHOOK_SECRET }}" \
+            ADMIN_NOTIFY_SECRET="${{ secrets.ADMIN_NOTIFY_SECRET }}" \
+            ODDS_API_KEY="${{ secrets.ODDS_API_KEY }}" \
+            --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
       - name: Deploy Edge Function
         run: |
           supabase functions deploy telegram-bot \
@@ -29,5 +41,5 @@ jobs:
           FUNCTION_URL="https://${{ secrets.SUPABASE_PROJECT_REF }}.supabase.co/functions/v1/telegram-bot"
           curl -s -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/setWebhook" \
             -H "Content-Type: application/json" \
-            -d "{\"url\": \"${FUNCTION_URL}\"}"
+            -d "{\"url\": \"${FUNCTION_URL}\", \"secret_token\": \"${{ secrets.TELEGRAM_WEBHOOK_SECRET }}\"}"
           echo "Webhook set to: ${FUNCTION_URL}"
