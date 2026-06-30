@@ -1,22 +1,51 @@
-{
-  "name": "FNF Admin Panel",
-  "short_name": "FNF Admin",
-  "description": "Fight Night Fantasy — Admin Panel",
-  "start_url": "./fnf-ctrl-9x4k.html",
-  "display": "standalone",
-  "background_color": "#0B0A0F",
-  "theme_color": "#F31D25",
-  "orientation": "any",
-  "icons": [
-    {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' rx='32' fill='%230E0D14'/%3E%3Ctext x='96' y='120' text-anchor='middle' font-size='100'%3E⚙️%3C/text%3E%3C/svg%3E",
-      "sizes": "192x192",
-      "type": "image/svg+xml"
-    },
-    {
-      "src": "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Crect width='512' height='512' rx='64' fill='%230E0D14'/%3E%3Ctext x='256' y='320' text-anchor='middle' font-size='260'%3E⚙️%3C/text%3E%3C/svg%3E",
-      "sizes": "512x512",
-      "type": "image/svg+xml"
-    }
-  ]
-}
+// admin-sw.js — FNF Admin Panel Service Worker
+// მიზანი: მხოლოდ "shell"-ის (HTML/JS/CSS) ქეშირება offline/PWA install-ისთვის.
+// Supabase API მოთხოვნები (სხვა origin-ია) აქ არასდროს არ ქეშირდება —
+// ადმინ მონაცემები ყოველთვის ცოცხალი/network-დან მოდის.
+
+const CACHE_NAME = 'fnf-admin-shell-v1';
+const SHELL_FILES = [
+  './fnf-ctrl-9x4k.html',
+  './admin-manifest.json'
+];
+
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_FILES))
+  );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
+});
+
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+
+  // მხოლოდ საკუთარი origin-ის GET მოთხოვნები — Supabase/ESPN/Telegram
+  // API calls (სხვა origin) ხელუხლებელი რჩება, ყოველთვის network-ზე მიდის.
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin) {
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      const network = fetch(event.request)
+        .then((res) => {
+          if (res && res.ok) {
+            const copy = res.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return res;
+        })
+        .catch(() => cached);
+      return cached || network;
+    })
+  );
+});
