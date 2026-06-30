@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=77">
+<link rel="stylesheet" href="style.css?v=78">
 <style>
 .cd-unit { color: #fff !important; font-size: .75rem !important; }
 .eye-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;opacity:.5;padding:4px}
@@ -238,6 +238,27 @@
 <p class="modal-foot"><button id="backToLogin">უკან შესვლაზე</button></p>
 </div></div>
 
+<!-- ── RESET PASSWORD (recovery link landing) ── -->
+<div class="modal-bg" id="resetPasswordModal"><div class="modal">
+<h3>ახალი პასვორდის დაყენება</h3>
+<p class="sub">შენი იდენტობა უკვე დადასტურებულია მეილის ბმულით — დააყენე ახალი პასვორდი.</p>
+<div class="field">
+  <label>ახალი პასვორდი</label>
+  <input type="password" id="recoveryNewPass" placeholder="მინ. 6 სიმბოლო" autocomplete="new-password" />
+</div>
+<div class="field">
+  <label>გაიმეორე პასვორდი</label>
+  <input type="password" id="recoveryNewPassConfirm" placeholder="გაიმეორე ახალი პასვორდი" autocomplete="new-password" />
+</div>
+<div id="recoveryError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
+<div id="recoverySuccess" style="display:none" class="forgot-success">
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+  <div class="forgot-success-title">პასვორდი განახლდა!</div>
+  <div class="forgot-success-text">შეგიძლია გააგრძელო საიტით სარგებლობა.</div>
+</div>
+<button class="btn btn-primary" id="recoverySubmit">პასვორდის დაყენება</button>
+</div></div>
+
 <!-- ── PROFILE MODAL ── -->
 <div class="modal-bg" id="profileModal"><div class="modal modal-profile">
 <button class="modal-close" id="profileClose" aria-label="დახურვა">&times;</button>
@@ -285,6 +306,6 @@
 </div></div>
 
 <!-- ── SCRIPTS ── -->
-<script src="app.js?v=79"></script>
+<script src="app.js?v=80"></script>
 </body>
 </html>
