@@ -235,7 +235,7 @@ function selMk(i) {
   return (p.round && p.method) ? 'რაუნდი + მეთოდი'
     : p.method ? 'გამარჯვების მეთოდი'
     : p.round  ? 'დასრულების რაუნდი'
-    : 'ბრძოლის გამარჯვებული';
+    : 'მატჩის გამარჯვებული';
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1029,14 +1029,16 @@ function authError(msg) {
 function openModal(mode) {
   modalMode = mode; authError('');
   const passEl = document.getElementById('inPass'); if (passEl) passEl.value = '';
-  document.getElementById('modalTitle').textContent  = mode === 'join' ? 'შემოუერთდი ფენტეზის' : 'კეთილი იყოს შენი დაბრუნება';
+  document.getElementById('modalTitle').textContent  = mode === 'join' ? 'შემოუერთდი ლიგას' : 'კეთილი იყოს დაბრუნება';
   document.getElementById('modalSub').textContent    = mode === 'join' ? ' ' : ' ';
   document.getElementById('nameField').style.display = mode === 'join' ? 'block' : 'none';
   document.getElementById('confirmField').style.display = mode === 'join' ? 'block' : 'none';
+  const passHintEl = document.getElementById('passHint');
+  if (passHintEl) passHintEl.style.display = mode === 'join' ? 'block' : 'none';
   document.getElementById('modalSubmit').textContent = mode === 'join' ? 'რეგისტრაცია' : 'შესვლა';
   document.getElementById('modalSwitch').innerHTML   = mode === 'join'
     ? 'უკვე გაქვს ანგარიში? <button id="switchMode">შესვლა</button>'
-    : 'არ გაქვს ანგარიში? <button id="switchMode">რეგისტრაცია</button>';
+    : 'ახალი ხარ აქ? <button id="switchMode">რეგისტრაცია</button>';
   document.getElementById('switchMode').onclick = () => openModal(mode === 'join' ? 'signin' : 'join');
   const forgotWrap = $('forgotWrap');
   if (forgotWrap) forgotWrap.style.display = mode === 'signin' ? 'block' : 'none';
@@ -1422,7 +1424,9 @@ function toggleEye(inputId) {
   const isPass = inp.type === 'password';
   inp.type = isPass ? 'text' : 'password';
   const btn = inp.parentElement.querySelector('.eye-toggle');
-  if (btn) btn.textContent = isPass ? '🙈' : '👁';
+  if (btn) btn.innerHTML = isPass
+    ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+    : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
 }
 
 // ─────────────────────────────────────────────────────────────
