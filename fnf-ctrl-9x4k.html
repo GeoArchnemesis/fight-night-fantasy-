@@ -4,7 +4,9 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>UFC Fantasy — Admin</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="manifest" href="./admin-manifest.json" />
+<meta name="theme-color" content="#F31D25" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <style>
   :root {
     --ink:#0B0A0F; --canvas:#0E0D14; --surface:#16141E; --surface-2:#1F1C2B;
@@ -107,6 +109,9 @@
     <input type="password" id="srKeyInput" placeholder="eyJhbGci..." autocomplete="off"
       style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-family:monospace;font-size:.82rem;margin-bottom:8px"
       onkeydown="if(event.key==='Enter')submitKey()" />
+    <label>Admin Notify Secret <span style="color:var(--muted);text-transform:none;font-weight:400">(Edge Function-ის ADMIN_NOTIFY_SECRET, Telegram-ში შეტყობინებების გასაგზავნად)</span></label>
+    <input type="password" id="notifySecretInput" placeholder="..." autocomplete="off"
+      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-family:monospace;font-size:.82rem;margin-bottom:8px" />
     <div id="keyError" style="color:#ff7070;font-size:.8rem;min-height:18px;margin-bottom:12px"></div>
     <button onclick="submitKey()" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:4px;padding:12px;font-weight:700;font-size:.95rem;cursor:pointer">შესვლა →</button>
   </div>
@@ -195,6 +200,7 @@ const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scorebo
 
 // ── Service Role Key — localStorage-ში ინახება ──
 let SUPABASE_KEY = localStorage.getItem('fnf_admin_srkey') || '';
+let ADMIN_NOTIFY_SECRET = localStorage.getItem('fnf_admin_notify_secret') || '';
 let sb = null;
 
 function initSupabase(key) {
@@ -210,12 +216,15 @@ function showKeyScreen() {
 
 function submitKey() {
   const key = document.getElementById('srKeyInput').value.trim();
+  const notifySecret = document.getElementById('notifySecretInput').value.trim();
   if (!key || !key.startsWith('eyJ')) {
     document.getElementById('keyError').textContent = 'სწორი service_role key შეიყვანე';
     return;
   }
   localStorage.setItem('fnf_admin_srkey', key);
+  if (notifySecret) localStorage.setItem('fnf_admin_notify_secret', notifySecret);
   SUPABASE_KEY = key;
+  ADMIN_NOTIFY_SECRET = notifySecret;
   initSupabase(key);
   document.getElementById('keyScreen').style.display = 'none';
   document.getElementById('adminContent').style.display = 'block';
@@ -227,7 +236,9 @@ function submitKey() {
 function clearKey() {
   if (!confirm('service_role key წაიშლება. დარწმუნებული ხარ?')) return;
   localStorage.removeItem('fnf_admin_srkey');
+  localStorage.removeItem('fnf_admin_notify_secret');
   SUPABASE_KEY = '';
+  ADMIN_NOTIFY_SECRET = '';
   sb = null;
   showKeyScreen();
 }
@@ -248,7 +259,7 @@ let autoTimer = null;
 // ── Telegram Notification ──
 const TG_NOTIFY_URL = 'https://qxfcwsiysnjxhxljqigl.supabase.co/functions/v1/telegram-bot';
 async function notifyTelegram(msg) {
-  try { await fetch(TG_NOTIFY_URL, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ notify: msg }) }); } catch(e) {}
+  try { await fetch(TG_NOTIFY_URL, { method: 'POST', headers: {'Content-Type':'application/json','X-Admin-Secret': ADMIN_NOTIFY_SECRET}, body: JSON.stringify({ notify: msg }) }); } catch(e) {}
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1184,6 +1195,13 @@ setInterval(updateCountdown, 60000);
 if (SUPABASE_KEY) {
   loadFromLocal();
   startAutoOdds();
+}
+
+// PWA — service worker რეგისტრაცია (offline shell + installability)
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./admin-sw.js').catch(err => console.warn('SW რეგისტრაცია ვერ მოხერხდა:', err));
+  });
 }
 </script>
 </div><!-- /adminContent -->
