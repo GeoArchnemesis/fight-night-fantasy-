@@ -1,13 +1,6 @@
 <!DOCTYPE html>
 <html lang="ka">
 <head>
-<!-- Google Tag Manager -->
-<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
-new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
-j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
-'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
-})(window,document,'script','dataLayer','GTM-TLSVRK7V');</script>
-<!-- End Google Tag Manager -->
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Fight Night Fantasy</title>
@@ -35,9 +28,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://a.espncdn.com" />
+<link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=81">
+<link rel="stylesheet" href="style.css?v=83">
 <style>
 .cd-unit { color: #fff !important; font-size: .75rem !important; }
 .eye-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;opacity:.5;padding:4px}
@@ -46,10 +41,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 </style>
 </head>
 <body>
-<!-- Google Tag Manager (noscript) -->
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TLSVRK7V"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-<!-- End Google Tag Manager (noscript) -->
 
 <!-- ── NAV ── -->
 <nav><div class="wrap nav-in">
@@ -320,6 +311,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 
+<!-- ID Verification -->
+<div class="profile-section">
+  <div class="field-label" style="margin-bottom:8px">ვერიფიკაცია</div>
+  <p style="font-size:.8rem;color:var(--muted);line-height:1.6;margin:0 0 10px">
+    პრიზის მისაღებად საჭიროა ვერიფიკაცია — ატვირთე სელფი, სადაც ჩანხარ პირადობის მოწმობასთან ერთად (ორივე — სახე და მოწმობა — გარკვევით უნდა იკითხებოდეს). <b>ლიდერბორდზეც მხოლოდ ვერიფიცირებული მომხმარებლები ჩანან</b> — შენი ქულა მანამდეც ერიცხება, უბრალოდ საჯარო სიაში არ გამოჩნდება.
+  </p>
+  <div id="verifStatus" style="font-size:.85rem;margin-bottom:10px"></div>
+  <div id="verifUploadWrap">
+    <input type="file" id="verifPhotoInput" accept="image/*" capture="environment" style="display:none" />
+    <button type="button" class="btn btn-ghost" id="verifPickBtn" style="width:100%">📷 ფოტოს არჩევა</button>
+    <img id="verifPreview" style="display:none;max-width:100%;border-radius:8px;margin-top:10px" />
+    <button type="button" class="btn btn-primary" id="verifSubmitBtn" style="width:100%;margin-top:10px;display:none">ვერიფიკაციის გაგზავნა</button>
+  </div>
+</div>
+
 <!-- Password Change -->
 <div class="profile-section">
   <div class="field-label" style="margin-bottom:12px">პასვორდის შეცვლა</div>
@@ -339,6 +345,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div></div>
 
 <!-- ── SCRIPTS ── -->
-<script src="app.js?v=81"></script>
+<script src="app.js?v=83"></script>
 </body>
 </html>
