@@ -1,5 +1,5 @@
 // ============================================================
-//  UFC Fantasy — app.js  (v15 — registration handles pending email confirmation)
+//  UFC Fantasy — app.js  (v16 — ID verification upload added)
 // ============================================================
 
 const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
@@ -334,7 +334,7 @@ function renderMarkets() {
       </div>
       <div class="bout-stage">
         <div class="stage-img left">
-          <img src="${f.red.img || noImg}" alt="${f.red.name}" decoding="async">
+          <img src="${f.red.img || noImg}" alt="${f.red.name}" decoding="async" width="323" height="235" ${i === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}>
         </div>
         <div class="stage-mid">
           <div class="tale-wrap">
@@ -345,7 +345,7 @@ function renderMarkets() {
           </div>
         </div>
         <div class="stage-img right">
-          <img src="${f.blue.img || noImg}" alt="${f.blue.name}" decoding="async">
+          <img src="${f.blue.img || noImg}" alt="${f.blue.name}" decoding="async" width="323" height="235" ${i === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}>
         </div>
       </div>
       <div class="picks-wrap">
@@ -1315,11 +1315,128 @@ function openProfile() {
   });
 
   pm.classList.add('show');
+  loadVerificationStatus();
 }
 
 function closeProfile() {
   document.getElementById('profileModal').classList.remove('show');
 }
+
+// ─────────────────────────────────────────────────────────────
+//  ID VERIFICATION — selfie + პირადობის მოწმობის ატვირთვა
+// ─────────────────────────────────────────────────────────────
+let verifSelectedFile = null;
+
+async function loadVerificationStatus() {
+  const statusEl = document.getElementById('verifStatus');
+  const wrap = document.getElementById('verifUploadWrap');
+  verifSelectedFile = null;
+  document.getElementById('verifPreview').style.display = 'none';
+  document.getElementById('verifSubmitBtn').style.display = 'none';
+  document.getElementById('verifPhotoInput').value = '';
+
+  const { data: rows, error } = await sb.from('verifications')
+    .select('status,admin_note,submitted_at')
+    .eq('user_id', currentUser.id)
+    .order('submitted_at', { ascending: false })
+    .limit(1);
+
+  // თუ verifications ცხრილი არ არსებობს (v6 SQL ჯერ არ გაშვებული) — სექცია ჩუმად
+  // დაიმალოს, არ დააფუჭოს profile modal
+  if (error) {
+    const profSection = document.querySelector('#verifStatus')?.closest('.profile-section');
+    if (profSection) profSection.style.display = 'none';
+    return;
+  }
+
+  const last = rows && rows[0];
+
+  if (!last) {
+    statusEl.textContent = '';
+    wrap.style.display = 'block';
+    return;
+  }
+
+  if (last.status === 'pending') {
+    statusEl.textContent = '⏳ შენი ვერიფიკაცია განხილვის პროცესშია — ჩვეულებრივ 24 საათში მოგივა პასუხი.';
+    statusEl.style.color = 'var(--gold)';
+    wrap.style.display = 'none';
+  } else if (last.status === 'approved') {
+    statusEl.textContent = '✅ ვერიფიცირებული ხარ — პრიზის მიღება შესაძლებელია.';
+    statusEl.style.color = 'var(--green)';
+    wrap.style.display = 'none';
+  } else if (last.status === 'rejected') {
+    statusEl.textContent = '❌ წინა მცდელობა უარყოფილია' + (last.admin_note ? (': ' + last.admin_note) : '') + ' — სცადე ხელახლა, უფრო გარკვევით ფოტოთი.';
+    statusEl.style.color = 'var(--red)';
+    wrap.style.display = 'block';
+  }
+}
+
+function pickVerificationPhoto() {
+  document.getElementById('verifPhotoInput').click();
+}
+
+function onVerificationFileSelected() {
+  const input = document.getElementById('verifPhotoInput');
+  const file = input.files && input.files[0];
+  if (!file) return;
+
+  if (file.size > 8 * 1024 * 1024) {
+    alert('ფაილი ძალიან დიდია (მაქს. 8MB)');
+    input.value = '';
+    return;
+  }
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+    alert('მხოლოდ JPG/PNG/WEBP ფორმატია დაშვებული');
+    input.value = '';
+    return;
+  }
+
+  verifSelectedFile = file;
+  const preview = document.getElementById('verifPreview');
+  preview.src = URL.createObjectURL(file);
+  preview.style.display = 'block';
+  document.getElementById('verifSubmitBtn').style.display = 'block';
+}
+
+async function submitVerificationPhoto() {
+  if (!verifSelectedFile || !currentUser) return;
+  const btn = document.getElementById('verifSubmitBtn');
+  btn.disabled = true; btn.textContent = 'იტვირთება...';
+
+  const ext = (verifSelectedFile.name.split('.').pop() || 'jpg').toLowerCase();
+  const path = `${currentUser.id}/${Date.now()}.${ext}`;
+
+  const { error: upErr } = await sb.storage.from('id-verification').upload(path, verifSelectedFile, {
+    contentType: verifSelectedFile.type,
+    upsert: false
+  });
+
+  if (upErr) {
+    btn.disabled = false; btn.textContent = 'ვერიფიკაციის გაგზავნა';
+    alert('ატვირთვა ვერ მოხერხდა: ' + upErr.message);
+    return;
+  }
+
+  const { error: insErr } = await sb.from('verifications').insert({
+    user_id: currentUser.id,
+    photo_path: path,
+    status: 'pending'
+  });
+
+  btn.disabled = false; btn.textContent = 'ვერიფიკაციის გაგზავნა';
+
+  if (insErr) {
+    alert('ვერიფიკაციის გაგზავნა ვერ მოხერხდა: ' + insErr.message);
+    return;
+  }
+
+  await loadVerificationStatus();
+}
+
+$on('verifPickBtn', 'click', pickVerificationPhoto);
+$on('verifPhotoInput', 'change', onVerificationFileSelected);
+$on('verifSubmitBtn', 'click', submitVerificationPhoto);
 
 function profileMsg(msg, color) {
   const el = document.getElementById('profileMsg');
@@ -1341,8 +1458,18 @@ async function saveProfile() {
   try {
     const nickChanged = nick && nick !== currentUser.nick;
     if (nickChanged) {
-      const { data: taken } = await sb.from('leaderboard_view')
-        .select('id').eq('nick', nick).neq('id', currentUser.id).maybeSingle();
+      // v8 SQL გაუშვია → RPC მუშაობს. თუ არა → fallback leaderboard_view-ზე
+      let taken = false;
+      const rpcRes = await sb.rpc('is_nick_taken', {
+        p_nick: nick, p_exclude_user_id: currentUser.id
+      });
+      if (rpcRes.error) {
+        const { data: fb } = await sb.from('leaderboard_view')
+          .select('id').eq('nick', nick).neq('id', currentUser.id).maybeSingle();
+        taken = !!fb;
+      } else {
+        taken = !!rpcRes.data;
+      }
       if (taken) {
         profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს', 'var(--red)');
         return;
