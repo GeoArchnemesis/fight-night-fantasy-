@@ -189,6 +189,7 @@
   <h2>💾 ნაბიჯი 4 — Supabase-ში შენახვა</h2>
   <div class="flex-gap" style="margin-bottom:14px;">
     <button class="btn btn-primary" onclick="saveToSupabase()">🚀 ბაზაში შენახვა</button>
+    <button class="btn btn-settle" onclick="syncOddsToDB()" style="margin-left:8px">📊 ოდსების სინქრონიზაცია DB-ში</button>
     <button class="btn btn-ghost" onclick="checkResults()">🏆 შედეგების შემოწმება (ESPN)</button>
     <button class="btn btn-ghost" onclick="clearLog()">🗑️ ლოგის გასუფთავება</button>
   </div>
@@ -203,6 +204,18 @@
       <button class="btn btn-settle" onclick="fetchAndSettle()">⚡ ESPN შედეგები + Settlement</button>
       <button class="btn btn-settle" onclick="settleAllTickets()">🏆 მხოლოდ Settlement (შედეგები DB-შია)</button>
     </div>
+  </div>
+
+  <!-- VERIFICATION SECTION -->
+  <div class="settle-section">
+    <h3>🪪 ვერიფიკაციები — მომლოდინე მოთხოვნები</h3>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">
+      მომხმარებლის ფოტო ჩანს მხოლოდ შენთვის (admin), დახურული storage-დან, დროებითი ბმულით.
+    </div>
+    <div class="flex-gap">
+      <button class="btn btn-ghost" onclick="loadPendingVerifications()">🔄 სიის განახლება</button>
+    </div>
+    <div id="verifQueue" style="margin-top:14px;display:flex;flex-direction:column;gap:14px;"></div>
   </div>
 
   <div class="log" id="log" style="margin-top:14px;"></div>
@@ -949,6 +962,64 @@ async function updateExistingFights(eventId) {
   log(`✅ ${updated} ბრძოლა განახლდა`, 'ok');
 }
 
+// ── ოდსების პირდაპირი სინქრონიზაცია DB-ში ──────────────────
+// DOM-ის odds input ველებიდან კითხულობს და ბაზაში პირდაპირ წერს
+// (არ ეყრდნობა სახელების მეტჩინგს ან ივენთის სახელს)
+async function syncOddsToDB() {
+  log('📊 ოდსების სინქრონიზაცია...', 'info');
+
+  // 1. მიმდინარე upcoming ივენთი DB-დან
+  const { data: events } = await sb.from('events')
+    .select('id,name').eq('status', 'upcoming')
+    .order('event_date', { ascending: true }).limit(1);
+  if (!events || events.length === 0) {
+    log('❌ upcoming ივენთი ვერ მოიძებნა DB-ში', 'err');
+    return;
+  }
+  const eventId = events[0].id;
+  log(`ივენთი: ${events[0].name} (id: ${eventId})`, 'info');
+
+  // 2. ამ ივენთის ბრძოლები DB-დან (bout_order-ით)
+  const { data: dbFights } = await sb.from('fights')
+    .select('id,bout_order').eq('event_id', eventId)
+    .order('bout_order', { ascending: true });
+  if (!dbFights || dbFights.length === 0) {
+    log('❌ ბრძოლები ვერ მოიძებნა DB-ში', 'err');
+    return;
+  }
+
+  // 3. DOM-ის odds input-ები (წყვილ-წყვილი: red, blue)
+  const inputs = document.querySelectorAll('.odds-input');
+  let synced = 0, skipped = 0;
+
+  for (let i = 0; i < dbFights.length; i++) {
+    const redInput  = inputs[i * 2];
+    const blueInput = inputs[i * 2 + 1];
+    if (!redInput || !blueInput) { skipped++; continue; }
+
+    const redOdds  = redInput.value === '' ? null : (parseFloat(redInput.value) || null);
+    const blueOdds = blueInput.value === '' ? null : (parseFloat(blueInput.value) || null);
+
+    if (redOdds && blueOdds) {
+      const { error } = await sb.from('fights').update({
+        red_odds: redOdds, blue_odds: blueOdds
+      }).eq('id', dbFights[i].id);
+
+      if (error) {
+        log(`❌ fight #${dbFights[i].id}: ${error.message}`, 'err');
+      } else {
+        log(`✓ fight #${dbFights[i].id}: ${redOdds} / ${blueOdds}`, 'ok');
+        synced++;
+      }
+    } else {
+      skipped++;
+    }
+  }
+
+  log(`✅ ${synced}/${dbFights.length} ოდსი ჩაიწერა DB-ში (${skipped} გამოტოვდა — ოდსი ცარიელია)`, synced > 0 ? 'ok' : 'err');
+  if (synced > 0) await notifyTelegram(`📊 <b>Admin: ოდსები სინქრონიზებულია</b>\n\n${synced}/${dbFights.length} ბრძოლა`);
+}
+
 async function upsertFighter(f) {
   const slug = f.name.toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-');
   const imageUrl = f.espn_id ? `https://a.espncdn.com/i/headshots/mma/players/full/${f.espn_id}.png` : null;
@@ -1040,6 +1111,56 @@ async function settleAllTickets() {
   log(`─────────────────────────────`, 'info');
   log(`✅ დასრულდა: ${res.won} მოგებული | ${res.lost} წაგებული | ${res.skipped} გამოტოვებული`, 'ok');
   await notifyTelegram(`🏁 <b>Admin: Settlement</b>\n${targetEventName}\n\n✅ ${res.won} მოგებული\n❌ ${res.lost} წაგებული`);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  ID VERIFICATION — admin review queue
+// ─────────────────────────────────────────────────────────────
+async function loadPendingVerifications() {
+  const box = document.getElementById('verifQueue');
+  box.innerHTML = '<div style="color:var(--muted);font-size:.85rem">იტვირთება...</div>';
+
+  const { data: rows, error } = await sb
+    .from('verifications')
+    .select('id,user_id,photo_path,submitted_at,users(nick,email)')
+    .eq('status', 'pending')
+    .order('submitted_at', { ascending: true });
+
+  if (error) { box.innerHTML = `<div style="color:var(--red)">შეცდომა: ${error.message}</div>`; return; }
+  if (!rows || rows.length === 0) { box.innerHTML = '<div style="color:var(--muted);font-size:.85rem">მომლოდინე ვერიფიკაცია არ არის</div>'; return; }
+
+  box.innerHTML = '';
+  for (const r of rows) {
+    const { data: signed } = await sb.storage.from('id-verification').createSignedUrl(r.photo_path, 300);
+    const card = document.createElement('div');
+    card.style.cssText = 'border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--surface)';
+    card.innerHTML = `
+      <div style="font-size:.85rem;margin-bottom:8px"><b>${r.users?.nick || '?'}</b> — ${r.users?.email || ''}</div>
+      <img src="${signed?.signedUrl || ''}" style="max-width:100%;max-height:340px;border-radius:6px;display:block;margin-bottom:10px" />
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:10px">გაგზავნილია: ${new Date(r.submitted_at).toLocaleString('ka-GE')}</div>
+      <div class="flex-gap">
+        <button class="btn btn-settle" data-verif-id="${r.id}" data-action="approve">✅ დადასტურება</button>
+        <button class="btn btn-ghost" data-verif-id="${r.id}" data-action="reject" style="color:var(--red);border-color:var(--red)">❌ უარყოფა</button>
+      </div>`;
+    card.querySelector('[data-action="approve"]').onclick = () => reviewVerification(r.id, true, r.photo_path);
+    card.querySelector('[data-action="reject"]').onclick = () => reviewVerification(r.id, false, r.photo_path);
+    box.appendChild(card);
+  }
+}
+
+async function reviewVerification(verificationId, approve, photoPath) {
+  const note = approve ? null : (prompt('უარყოფის მიზეზი (არასავალდებულო):') || null);
+  const { data: res, error } = await sb.rpc('admin_review_verification', {
+    p_verification_id: verificationId, p_approve: approve, p_note: note
+  });
+  if (error || !res?.ok) { log('❌ ვერიფიკაციის დამუშავება ვერ მოხერხდა: ' + (res?.error || error?.message), 'err'); return; }
+
+  log(approve ? '✅ ვერიფიკაცია დადასტურდა' : '❌ ვერიფიკაცია უარყოფილია', approve ? 'ok' : 'info');
+
+  // ფოტოს წაშლა storage-დან განხილვის შემდეგ (მგრძნობიარე მონაცემია)
+  await sb.storage.from('id-verification').remove([photoPath]);
+
+  loadPendingVerifications();
 }
 
 // ─────────────────────────────────────────────────────────────
