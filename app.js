@@ -597,13 +597,13 @@ function renderTickets() {
 
     // დაკეცილი ხედი — სტატუსი + 4 მაჩვენებელი ორ ხაზად
     const winColor = t.status === 'won' ? 'var(--green)' : t.status === 'lost' ? 'var(--red-soft)' : 'var(--gold)';
-    const winText = t.status === 'won' ? '+' + fmt(potentialWin) : t.status === 'lost' ? '0' : fmt(potentialWin);
+    const winText = t.status === 'won' ? '+' + fmt(potentialWin) : fmt(potentialWin);
     const collapsedView = `
       <div class="tk-collapsed-info">
         <div class="tkc-col"><span class="tkc-lbl">პოზიცია</span><span class="tkc-val">${t.sels.length}</span></div>
         <div class="tkc-col"><span class="tkc-lbl">ფსონი</span><span class="tkc-val">${fmt(t.stake)}</span></div>
         <div class="tkc-col"><span class="tkc-lbl">კოეფ.</span><span class="tkc-val">${totalOdds}</span></div>
-        <div class="tkc-col"><span class="tkc-lbl">${t.status === 'won' ? 'მოგება' : t.status === 'lost' ? 'შედეგი' : 'შესაძლო მოგება'}</span><span class="tkc-val" style="color:${winColor}">${winText}</span></div>
+        <div class="tkc-col"><span class="tkc-lbl">შესაძლო მოგება</span><span class="tkc-val" style="color:${winColor}">${winText}</span></div>
       </div>`;
 
     return `
@@ -656,7 +656,7 @@ function renderTickets() {
           ${t.status === 'won'
             ? '<span style="color:var(--green)">+' + fmt(potentialWin) + ' ქულა</span>'
             : t.status === 'lost'
-            ? '<span style="color:var(--muted)">0 ქულა</span>'
+            ? '<span style="color:var(--red-soft)">' + fmt(potentialWin) + ' ქულა</span>'
             : t.status === 'cashout'
             ? '<span style="color:var(--gold)">ქეშაუთი</span>'
             : '<span class="tk-foot-label">შეს. მოგება</span><span style="color:var(--gold)">' + fmt(potentialWin) + '</span>'}
