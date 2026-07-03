@@ -414,3 +414,5 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .ticket .tk-head{display:flex;justify-content:space-between;align-items:center;gap:10px}
 .ticket .tk-arrow{transition:transform .2s;color:var(--muted);font-size:.9rem;flex-shrink:0}
 .ticket .tk-arrow.open{transform:rotate(180deg)}
+.foot-contact-btn{font-family:var(--head);font-weight:700;font-size:.85rem;color:var(--text);border:1px solid var(--gold);background:rgba(245,196,81,.08);border-radius:6px;padding:11px 18px;text-align:center;transition:all .15s;cursor:pointer}
+.foot-contact-btn:hover{border-color:var(--gold);background:rgba(245,196,81,.18);transform:translateY(-1px)}
