@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=86">
+<link rel="stylesheet" href="style.css?v=87">
 <style>
 .cd-unit { color: #fff !important; font-size: .75rem !important; }
 .eye-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;opacity:.5;padding:4px}
@@ -82,6 +82,19 @@
 <section id="card" style="padding-top:clamp(16px,2vw,24px)"><div class="wrap">
 <div class="sec-head">
   <h2>აირჩიე ფავორიტი მებრძოლები</h2>
+</div>
+<div id="prizeGuide" style="display:none;margin-bottom:16px">
+  <button class="tk-history-toggle" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'; this.querySelector('.tk-arrow').classList.toggle('open')">
+    <span>🏆 როგორ მოვიგო ფულადი პრიზები?</span>
+    <span class="tk-arrow">▾</span>
+  </button>
+  <div style="display:none;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:20px;margin-top:-8px">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:1.3rem">1️⃣</span><span>დარეგისტრირდი და მიიღე <b style="color:var(--gold)">1,000 ქულა</b> ყოველი ივენთის წინ.</span></div>
+      <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:1.3rem">2️⃣</span><span>აირჩიე სასურველი მებრძოლები და შეადგინე მომგებიანი ბილეთი.</span></div>
+      <div style="display:flex;gap:12px;align-items:flex-start"><span style="font-size:1.3rem">3️⃣</span><span>გალიდერდი ლიდერბორდში და მიიღე <b style="color:var(--green)">ფულადი პრიზები</b>.</span></div>
+    </div>
+  </div>
 </div>
 <div class="markets" id="markets"></div>
 </div></section>
@@ -354,6 +367,6 @@
 </div></div>
 
 <!-- ── SCRIPTS ── -->
-<script src="app.js?v=86"></script>
+<script src="app.js?v=87"></script>
 </body>
 </html>
