@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=89">
+<link rel="stylesheet" href="style.css?v=90">
 <style>
 .cd-unit { color: #fff !important; font-size: .75rem !important; }
 .eye-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;opacity:.5;padding:4px}
@@ -84,9 +84,9 @@
   <h2>აირჩიე ფავორიტი მებრძოლები</h2>
 </div>
 <div id="prizeGuide" style="display:none;margin-bottom:16px">
-  <button class="tk-history-toggle" style="justify-content:center;gap:12px" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'; this.querySelector('.tk-arrow').classList.toggle('open')">
-    <span> 💸 როგორ მოვიგო ფულადი პრიზები? 🎁 </span>
-    <span class="tk-arrow">▾</span>
+  <button class="tk-history-toggle" style="justify-content:center;gap:12px;font-size:.95rem;position:relative" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'; this.querySelector('.tk-arrow').classList.toggle('open')">
+    <span>💸 როგორ მოვიგო ფულადი პრიზები? 🎁</span>
+    <span class="tk-arrow" style="position:absolute;right:18px;font-size:1.3rem">▾</span>
   </button>
   <div style="display:none;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:28px 32px;margin-top:-8px;max-width:640px;margin-left:auto;margin-right:auto;text-align:center">
     <div style="display:flex;flex-direction:column;gap:16px;font-size:1.05rem">
@@ -369,6 +369,6 @@
 </div></div>
 
 <!-- ── SCRIPTS ── -->
-<script src="app.js?v=89"></script>
+<script src="app.js?v=90"></script>
 </body>
 </html>
