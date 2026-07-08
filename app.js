@@ -523,6 +523,7 @@ async function placeBets() {
       stake: st, odds: finalOdds, status: 'open', placedAt: Date.now()
     };
     state.tickets.unshift(ticket);
+    window.dataLayer = window.dataLayer || []; window.dataLayer.push({event: 'ticket_placed', ticket_type: 'express', event_name: state.eventName || '', num_picks: ticket.sels.length});
   } else {
     const ts = totalStakeSingle(); if (ts <= 0 || ts > state.balance) return;
     for (const s of arr) {
@@ -549,6 +550,7 @@ async function placeBets() {
           stake: s.stake, odds: finalOdds, status: 'open', placedAt: Date.now()
         };
         state.tickets.unshift(ticket);
+        window.dataLayer = window.dataLayer || []; window.dataLayer.push({event: 'ticket_placed', ticket_type: 'single', event_name: state.eventName || '', num_picks: 1});
       }
     }
   }
@@ -1190,6 +1192,7 @@ async function doRegister() {
   await new Promise(r => setTimeout(r, 1000));
   const { data: ud } = await sb.from('users').select('*').eq('id', data.user.id).single();
   currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: ud?.balance || 1000, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊' };
+  window.dataLayer = window.dataLayer || []; window.dataLayer.push({event: 'user_registration', method: 'email'});
   closeModal(); updateNavForUser(currentUser);
 }
 
