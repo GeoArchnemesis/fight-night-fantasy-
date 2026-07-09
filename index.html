@@ -241,15 +241,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <h3 id="modalTitle">შემოუერთდი ლიგას</h3>
 <p class="sub" id="modalSub">შექმენი მებრძოლის სახელი და მიიღე 1,000 ქულა ამ ივენთისთვის.</p>
 <div class="field" id="nameField">
-  <label>შენი სახელი ფენტეზიში</label>
+  <label for="inName">შენი სახელი ფენტეზიში</label>
   <input type="text" id="inName" placeholder="მაგ. UFC.King" autocomplete="off" maxlength="20" />
 </div>
 <div class="field">
-  <label>ელ. ფოსტა</label>
+  <label for="inEmail">ელ. ფოსტა</label>
   <input type="email" id="inEmail" placeholder="შეიყვანე შენი მეილი" autocomplete="off" />
 </div>
 <div class="field">
-  <label>პასვორდი</label>
+  <label for="inPass">პასვორდი</label>
   <div style="position:relative">
     <input type="password" id="inPass" placeholder="მინ. 6 სიმბოლო" autocomplete="off" />
     <button type="button" class="eye-toggle" onclick="toggleEye('inPass')" aria-label="პაროლის ჩვენება"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
@@ -288,7 +288,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <h3>პასვორდის აღდგენა</h3>
 <p class="sub" id="forgotSub">შეიყვანე ელ. ფოსტა და გამოგიგზავნით აღდგენის ლინკს.</p>
 <div class="field">
-  <label>ელ. ფოსტა</label>
+  <label for="forgotEmail">ელ. ფოსტა</label>
   <input type="email" id="forgotEmail" placeholder="შეიყვანე შენი მეილი" autocomplete="off" />
 </div>
 <div id="forgotError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
@@ -306,11 +306,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <h3>ახალი პასვორდის დაყენება</h3>
 <p class="sub">შენი იდენტობა უკვე დადასტურებულია მეილის ბმულით — დააყენე ახალი პასვორდი.</p>
 <div class="field">
-  <label>ახალი პასვორდი</label>
+  <label for="recoveryNewPass">ახალი პასვორდი</label>
   <input type="password" id="recoveryNewPass" placeholder="მინ. 6 სიმბოლო" autocomplete="new-password" />
 </div>
 <div class="field">
-  <label>გაიმეორე პასვორდი</label>
+  <label for="recoveryNewPassConfirm">გაიმეორე პასვორდი</label>
   <input type="password" id="recoveryNewPassConfirm" placeholder="გაიმეორე ახალი პასვორდი" autocomplete="new-password" />
 </div>
 <div id="recoveryError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
@@ -337,7 +337,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- Nickname -->
 <div class="profile-section">
   <div class="field">
-    <label>სახელი (ნიქნეიმი)</label>
+    <label for="profNick">სახელი (ნიქნეიმი)</label>
     <input type="text" id="profNick" placeholder="მაგ. UFC.King" maxlength="20" />
   </div>
 </div>
@@ -369,7 +369,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div class="profile-section">
   <div class="field-label" style="margin-bottom:12px">პასვორდის შეცვლა</div>
   <div class="field">
-    <label>ძველი პასვორდი</label>
+    <label for="profOldPass">ძველი პასვორდი</label>
     <input type="password" id="profOldPass" placeholder="შეიყვანე ძველი პასვორდი" />
   </div>
   <div class="field">
