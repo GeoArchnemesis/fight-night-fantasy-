@@ -1191,6 +1191,7 @@ async function doRegister() {
 
   await new Promise(r => setTimeout(r, 1000));
   const { data: ud } = await sb.from('users').select('*').eq('id', data.user.id).single();
+  try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({registration_ip: ipData.ip, last_login_ip: ipData.ip}).eq('id', data.user.id); } catch(e) {}
   currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: ud?.balance || 1000, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊' };
   window.dataLayer = window.dataLayer || []; window.dataLayer.push({event: 'user_registration', method: 'email'});
   closeModal(); updateNavForUser(currentUser);
@@ -1263,6 +1264,7 @@ async function applySession(session) {
   try {
     const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
     if (ud) {
+      try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({last_login_ip: ipData.ip}).eq('id', session.user.id); } catch(e) {}
       currentUser = {
         id: session.user.id,
         email: session.user.email,
