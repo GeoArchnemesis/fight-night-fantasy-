@@ -1074,7 +1074,6 @@ function updateNavForUser(user) {
   const signinBtn   = document.getElementById('signinBtn');
   const balancePill = document.querySelector('.balance-pill');
   let navUser       = document.getElementById('navUser');
-  
 
   if (user) {
     if (joinBtn)   joinBtn.style.display = 'none';
