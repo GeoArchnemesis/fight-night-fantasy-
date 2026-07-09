@@ -800,9 +800,15 @@ function openLbPopup(fullSorted) {
 let _currentLbPeriod = 'goat';
 
 // ms helper
-function periodToMs(period) {
-  const map = { '1m': 30*24*3600*1000, '3m': 90*24*3600*1000, '6m': 180*24*3600*1000, '1y': 365*24*3600*1000 };
-  return map[period] || 30*24*3600*1000;
+function periodStartDate(period) {
+  const now = new Date();
+  const y = now.getFullYear(), m = now.getMonth();
+  if (period === '1m') return new Date(y, m, 1);
+  if (period === '3m') return new Date(y, m - 2, 1);
+  if (period === '6m') return new Date(y, m - 5, 1);
+  if (period === '1y') return new Date(y - 1, m, 1);
+  return new Date(2020, 0, 1);
+}
 }
 
 async function loadLeaderboard(period) {
@@ -821,7 +827,7 @@ async function loadLeaderboard(period) {
       }));
     } else {
       // პერიოდი: score_history-დან ჯამი
-      const since = new Date(Date.now() - periodToMs(_currentLbPeriod)).toISOString();
+      const since = periodStartDate(_currentLbPeriod).toISOString();
 
       // ჯერ score_history (created_at ფილტრით)
       let { data: hist, error: hErr } = await sb
