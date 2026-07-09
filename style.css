@@ -416,3 +416,5 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .ticket .tk-arrow.open{transform:rotate(180deg)}
 .foot-contact-btn{font-family:var(--head);font-weight:700;font-size:.85rem;color:var(--text);border:1px solid var(--line);background:var(--surface);border-radius:6px;padding:11px 18px;text-align:center;transition:all .15s;cursor:pointer}
 .foot-contact-btn:hover{border-color:var(--red);background:var(--surface-2);transform:translateY(-1px)}
+#markets{min-height:600px}
+
