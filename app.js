@@ -809,7 +809,7 @@ function periodStartDate(period) {
   if (period === '1y') return new Date(y - 1, m, 1);
   return new Date(2020, 0, 1);
 }
-}
+
 
 async function loadLeaderboard(period) {
   if (period) _currentLbPeriod = period;
