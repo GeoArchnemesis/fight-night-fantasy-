@@ -1163,6 +1163,8 @@ async function doRegister() {
   const pass  = document.getElementById('inPass').value   || '';
   const passConfirm = document.getElementById('inPassConfirm').value || '';
   if (!nick || !/^[a-zA-Z0-9_]{3,20}$/.test(nick)) { authError('სახელი: 3-20 ლათინური სიმბოლო (a-z, 0-9, _)'); return; }
+  const {data:nickExists} = await sb.from('users').select('id').eq('nick', nick).maybeSingle(); if (nickExists) { authError('ეს სახელი უკვე დაკავებულია — სცადე სხვა'); return; }
+  const {data:emailExists} = await sb.rpc('check_email_exists', {p_email: email}).catch(()=>({})); void emailExists;
   if (!email) { authError('შეიყვანე ელ. ფოსტა'); return; }
   if (pass.length < 6) { authError('პაროლი მინ. 6 სიმბოლო'); return; }
   if (!/[A-Z]/.test(pass)) { authError('პაროლში მინ. 1 დიდი ასო (A-Z)'); return; }
@@ -1173,7 +1175,7 @@ async function doRegister() {
   const btn = document.getElementById('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
   const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick } } });
   btn.disabled = false; btn.textContent = 'რეგისტრაცია';
-  if (error) { authError(error.message); return; }
+  if (error) { const msg = error.message || ''; if (msg.includes('already registered') || msg.includes('already been registered')) authError('ეს ელ. ფოსტა უკვე რეგისტრირებულია — სცადე შესვლა'); else if (msg.includes('Database error')) authError('ეს სახელი უკვე დაკავებულია — სცადე სხვა'); else authError(msg); return; }
 
   // თუ Confirm Email ჩართულია პროექტში, signUp სესიას არ აბრუნებს,
   // სანამ მომხმარებელი მეილში ბმულზე არ დააჭერს — ამ დროს currentUser-ის
