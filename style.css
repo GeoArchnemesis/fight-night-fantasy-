@@ -445,8 +445,21 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .modal-bg{align-items:flex-start}
 .modal{max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 
-/* ── ლიდერბორდი: სახელი იჭრება, ქულა ყოველთვის ჩანს ერთ ხაზზე ── */
-.lb-user{min-width:0}
-.lb-user>span:last-child{min-width:0;overflow:hidden}
-.lb-name{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
-.lb-pts{white-space:nowrap;flex-shrink:0}
+/* ── ლიდერბორდი — badge ჩანს, ქულა ყოველთვის ეტევა, სახელი იჭრება ── */
+.lb-row{gap:8px}
+.lb-user{min-width:0;gap:10px}
+.lb-userinfo{display:flex;flex-direction:column;gap:2px;min-width:0}
+.lb-verified{display:flex;align-items:center;gap:5px;min-width:0;max-width:100%}
+.lb-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:0 1 auto;line-height:1.2}
+.lb-verified-badge{flex-shrink:0}          /* badge აღარ იჭრება */
+.lb-tag{font-family:var(--mono);font-size:.62rem;color:var(--gold)}
+.lb-pts{white-space:nowrap;flex-shrink:0;font-variant-numeric:tabular-nums;text-align:right}
+
+
+
+/* მობილური — 3 სვეტი, ქულა content-ის ზომაზე (დიდი რიცხვიც ეტევა) */
+@media(max-width:920px){
+  .lb-head,.lb-row{grid-template-columns:36px minmax(0,1fr) auto;padding:12px 12px;gap:8px}
+  .lb-roi{display:none}
+  .lb-ava-glove{width:30px;height:30px;font-size:1rem}
+}
