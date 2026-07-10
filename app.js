@@ -762,11 +762,16 @@ async function saveContactInfo() {
   if (telegram) updates.telegram = telegram.replace(/^@/, '');
 
   try {
-    const { error } = await sb.from('users').update(updates).eq('id', currentUser.id);
+    // .select() — რომ დავრწმუნდეთ რომ row ნამდვილად განახლდა.
+    // RLS-ის დროს update შეიძლება 0 row-ს შეეხოს და error მაინც null იყოს —
+    // ამიტომ ვამოწმებთ დაბრუნებულ მონაცემს.
+    const { data, error } = await sb.from('users')
+      .update(updates).eq('id', currentUser.id)
+      .select('id,phone,telegram');
+
     if (error) {
-      // თუ სვეტები ჯერ არ არსებობს DB-ში
-      if (error.message && error.message.includes('column')) {
-        errEl.textContent = 'კონტაქტის შენახვა დროებით შეუძლებელია — დაუკავშირდი ადმინს';
+      if (error.message && error.message.toLowerCase().includes('column')) {
+        errEl.textContent = 'სვეტები DB-ში ჯერ არ არსებობს — გაუშვი migration Supabase-ში';
       } else {
         errEl.textContent = 'შენახვა ვერ მოხერხდა: ' + error.message;
       }
@@ -774,8 +779,16 @@ async function saveContactInfo() {
       return;
     }
 
-    if (phone) currentUser.phone = phone;
-    if (telegram) currentUser.telegram = telegram.replace(/^@/, '');
+    if (!data || data.length === 0) {
+      // update-მა 0 row შეეხო → RLS ბლოკავს UPDATE-ს
+      errEl.textContent = 'შენახვა დაბლოკილია (RLS). გაუშვი migration_rls.sql Supabase-ში.';
+      errEl.style.display = 'block';
+      return;
+    }
+
+    // წარმატება — DB-დან დაბრუნებული მნიშვნელობებით
+    currentUser.phone = data[0].phone || null;
+    currentUser.telegram = data[0].telegram || null;
   } catch (e) {
     errEl.textContent = 'შეცდომა: ' + e.message;
     errEl.style.display = 'block';
@@ -1608,16 +1621,17 @@ async function saveProfile() {
       const upd = { nick: nick || currentUser.nick, icon };
       if (phoneChanged) upd.phone = phone || null;
       if (telegramChanged) upd.telegram = telegram || null;
-      const { error: updErr } = await sb.from('users').update(upd).eq('id', currentUser.id);
+      let { data: updData, error: updErr } = await sb.from('users').update(upd).eq('id', currentUser.id).select('id');
       if (updErr) {
         // თუ phone/telegram სვეტი ჯერ არ არსებობს — retry სვეტების გარეშე
         if (updErr.message && updErr.message.includes('column') && (phoneChanged || telegramChanged)) {
           const upd2 = { nick: nick || currentUser.nick, icon };
-          const { error: updErr2 } = await sb.from('users').update(upd2).eq('id', currentUser.id);
-          if (updErr2) {
-            profileMsg('შენახვა ვერ მოხერხდა: ' + updErr2.message, 'var(--red)');
+          const retry = await sb.from('users').update(upd2).eq('id', currentUser.id).select('id');
+          if (retry.error) {
+            profileMsg('შენახვა ვერ მოხერხდა: ' + retry.error.message, 'var(--red)');
             return;
           }
+          updData = retry.data;
           // retry წარმატებულია — nick/icon შეინახა, phone/telegram-ის გარეშე
         } else if (String(updErr.message || '').toLowerCase().includes('duplicate') || updErr.code === '23505') {
           profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს', 'var(--red)');
@@ -1626,6 +1640,11 @@ async function saveProfile() {
           profileMsg('შენახვა ვერ მოხერხდა: ' + updErr.message, 'var(--red)');
           return;
         }
+      }
+      // 0 row → RLS ბლოკავს UPDATE-ს
+      if (!updData || updData.length === 0) {
+        profileMsg('შენახვა დაბლოკილია (RLS). გაუშვი migration_rls.sql Supabase-ში.', 'var(--red)');
+        return;
       }
       if (nickChanged) currentUser.nick = nick;
       currentUser.icon = icon;
