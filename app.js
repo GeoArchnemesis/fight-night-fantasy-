@@ -707,27 +707,30 @@ function openModal(mode) {
   modalMode = mode; authError('');
   const authErrEl = document.getElementById('authError'); if (authErrEl) authErrEl.style.color = 'var(--red)';
   const passEl = document.getElementById('inPass'); if (passEl) passEl.value = '';
-  document.getElementById('modalTitle').textContent = mode === 'join' ? 'შემოუერთდი ლიგას' : 'კეთილი იყოს დაბრუნება';
-  document.getElementById('modalSub').textContent = ' ';
-  document.getElementById('nameField').style.display = mode === 'join' ? 'block' : 'none';
-  document.getElementById('confirmField').style.display = mode === 'join' ? 'block' : 'none';
+  const titleEl = document.getElementById('modalTitle'); if (titleEl) titleEl.textContent = mode === 'join' ? 'შემოუერთდი ლიგას' : 'კეთილი იყოს დაბრუნება';
+  const subEl = document.getElementById('modalSub'); if (subEl) subEl.textContent = ' ';
+  const nameFieldEl = document.getElementById('nameField'); if (nameFieldEl) nameFieldEl.style.display = mode === 'join' ? 'block' : 'none';
+  const confirmFieldEl = document.getElementById('confirmField'); if (confirmFieldEl) confirmFieldEl.style.display = mode === 'join' ? 'block' : 'none';
   const phoneFieldEl = document.getElementById('phoneField'); if (phoneFieldEl) phoneFieldEl.style.display = mode === 'join' ? 'block' : 'none';
+  const birthYearFieldEl = document.getElementById('birthYearField'); if (birthYearFieldEl) birthYearFieldEl.style.display = mode === 'join' ? 'block' : 'none';
+  const genderFieldEl = document.getElementById('genderField'); if (genderFieldEl) genderFieldEl.style.display = mode === 'join' ? 'block' : 'none';
+  const nameEl = document.getElementById('inName'); if (nameEl) nameEl.value = '';
   const regPhoneEl = document.getElementById('inRegPhone'); if (regPhoneEl) regPhoneEl.value = '';
+  const birthYearEl = document.getElementById('inBirthYear'); if (birthYearEl) birthYearEl.value = '';
+  document.querySelectorAll('input[name="gender"]').forEach(r => r.checked = false);
   updatePassChecklist();
   const passHintEl = document.getElementById('passHint'); if (passHintEl) passHintEl.style.display = mode === 'join' ? 'block' : 'none';
-  document.getElementById('modalSubmit').textContent = mode === 'join' ? 'რეგისტრაცია' : 'შესვლა';
-  document.getElementById('modalSwitch').innerHTML = mode === 'join' ? 'უკვე გაქვს ანგარიში? <button id="switchMode">შესვლა</button>' : 'ახალი ხარ აქ? <button id="switchMode">რეგისტრაცია</button>';
-  document.getElementById('switchMode').onclick = () => openModal(mode === 'join' ? 'signin' : 'join');
+  const submitEl = document.getElementById('modalSubmit'); if (submitEl) submitEl.textContent = mode === 'join' ? 'რეგისტრაცია' : 'შესვლა';
+  const switchWrap = document.getElementById('modalSwitch'); if (switchWrap) switchWrap.innerHTML = mode === 'join' ? 'უკვე გაქვს ანგარიში? <button id="switchMode">შესვლა</button>' : 'ახალი ხარ აქ? <button id="switchMode">რეგისტრაცია</button>';
+  const switchBtn = document.getElementById('switchMode'); if (switchBtn) switchBtn.onclick = () => openModal(mode === 'join' ? 'signin' : 'join');
   const forgotWrap = $('forgotWrap'); if (forgotWrap) forgotWrap.style.display = mode === 'signin' ? 'block' : 'none';
-  modal.classList.add('show');
+  if (modal) modal.classList.add('show');
 }
 function closeModal() { modal.classList.remove('show'); authError(''); }
-
 function updateSecHead() {
   const secHead = document.querySelector('#card .sec-head'); if (!secHead) return;
   secHead.style.display = (!currentUser || isEventInProgress()) ? 'none' : '';
 }
-
 function updateNavForUser(user) {
   const joinBtn = document.getElementById('joinBtn'), signinBtn = document.getElementById('signinBtn'), balancePill = document.querySelector('.balance-pill');
   let navUser = document.getElementById('navUser');
