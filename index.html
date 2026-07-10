@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=121">
+<link rel="stylesheet" href="style.css?v=122">
 <style>
 .cd-unit { color: #fff !important; font-size: .75rem !important; }
 .eye-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;opacity:.5;padding:4px}
@@ -133,7 +133,50 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="tickets tk-history" id="historyTickets" style="display:none"></div>
 </div>
 </div></section>
+<!-- ── SOCIAL JOIN (ჩამოსაშლელი, ლიდერბორდის თავზე) ── -->
+<section id="socialJoin" style="padding-top:clamp(16px,2vw,24px)"><div class="wrap">
+  <details class="social-drop">
+    <summary class="social-drop-head">
+      <span> გაწევრიანდი ჩვენს სოციალურ ქსელებში 👥 </span>
+      <span class="social-chev" aria-hidden="true">▾</span>
+    </summary>
+    <div class="social-drop-body">
 
+      <!-- Facebook გვერდი -->
+      <button class="social-link social-fb" onclick="openSocial('fbPage')">
+        <span class="social-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></span>
+        <span>Facebook — ესტუმრე</span>
+      </button>
+
+      <!-- Facebook ჯგუფი -->
+      <button class="social-link social-fb" onclick="openSocial('fbGroup')">
+        <span class="social-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg></span>
+        <span>Facebook — გაწევრიანდი ჯგუფში</span>
+      </button>
+
+      <!-- Telegram ჯგუფი -->
+      <button class="social-link social-tg" onclick="openSocial('telegram')">
+        <span class="social-ico"><svg width="22" height="22" viewBox="0 0 24 24" fill="#fff"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg></span>
+        <span>Telegram — გაწევრიანდი ჯგუფში</span>
+      </button>
+
+    </div>
+  </details>
+</div></section>
+
+<style>
+  .social-drop { max-width:480px; margin:0 auto; background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .social-drop-head { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; cursor:pointer; font-weight:700; font-size:1rem; list-style:none; user-select:none; }
+  .social-drop-head::-webkit-details-marker { display:none; }
+  .social-chev { transition:transform .25s ease; opacity:.6; font-size:1.2rem; }
+  .social-drop[open] .social-chev { transform:rotate(180deg); }
+  .social-drop-body { display:flex; flex-direction:column; gap:10px; padding:0 16px 18px; }
+  .social-link { display:flex; align-items:center; gap:12px; width:100%; border:none; border-radius:10px; padding:13px 16px; font-size:.95rem; font-weight:700; font-family:inherit; color:#fff; cursor:pointer; transition:.15s; text-align:left; }
+  .social-link:hover { opacity:.9; transform:translateY(-1px); }
+  .social-ico { display:inline-flex; width:22px; height:22px; flex-shrink:0; }
+  .social-fb { background:#1877F2; }
+  .social-tg { background:#229ED9; }
+</style>
 <!-- ── LEADERBOARD ── -->
 <section id="leaderboard"><div class="wrap">
 <div class="sec-head"><h2>Leaderboard</h2></div>
@@ -425,8 +468,40 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <button class="btn btn-primary" id="ciSave">შენახვა</button>
 <button class="btn btn-ghost" id="ciSkip" style="width:100%;margin-top:8px;text-align:center;display:block;font-size:.85rem;color:var(--muted)">მოგვიანებით</button>
 </div></div>
+<!-- სოც ქსელების deep link — აპში ხსნის, არა ბრაუზერში -->
+<script>
+function openSocial(type){
+  var ua = navigator.userAgent || '';
+  var android = /android/i.test(ua);
+  var ios = /iphone|ipad|ipod/i.test(ua);
+  var mobile = android || ios;
 
+  function tryApp(appUrl, webUrl){
+    if(!mobile){ window.open(webUrl, '_blank'); return; }
+    var start = Date.now();
+    window.location.href = appUrl;
+    setTimeout(function(){ if(Date.now() - start < 1600) window.location.href = webUrl; }, 1300);
+  }
+
+  if(type === 'fbPage'){
+    var webPage = 'https://www.facebook.com/FNF.GE';
+    tryApp('fb://facewebmodal/f?href=' + encodeURIComponent(webPage), webPage);
+  }
+  else if(type === 'fbGroup'){
+    var id = '2100981624101979';
+    var webGroup = 'https://www.facebook.com/groups/' + id;
+    if(android){
+      window.location.href = 'intent://group/' + id + '#Intent;scheme=fb;package=com.facebook.katana;S.browser_fallback_url=' + encodeURIComponent(webGroup) + ';end';
+    } else {
+      tryApp('fb://group/' + id, webGroup);
+    }
+  }
+  else if(type === 'telegram'){
+    tryApp('tg://join?invite=u7a0imzuwDhlM2Y0', 'https://t.me/+u7a0imzuwDhlM2Y0');
+  }
+}
+</script>
 <!-- ── SCRIPTS ── -->
-<script src="app.js?v=121"></script>
+<script src="app.js?v=122"></script>
 </body>
 </html>
