@@ -4,9 +4,9 @@ globalThis.WebSocket = require('ws');
 //  GitHub Actions-ით ყოველ 30 წუთში ეშვება
 //
 //  რას აკეთებს:
-//  1. upcoming ივენთი არ არსებობს? → ESPN-დან მომდევნოს ქმნის
+//  1. upcoming ივენთი არ არსებობს + ორშაბათია? → ESPN-დან მომდევნოს ქმნის
 //  2. ივენთი დასრულდა? → ESPN შედეგები + settlement
-//  3. ივენთამდე დრო არის? → კოეფიციენტების განახლება
+//  3. ივენთამდე დრო არის? → კოეფიციენტების განახლება (11:00 და 23:00 თბილისის დრო)
 //  4. Settlement-ის შემდეგ → ბალანსების რესტარტი
 // ============================================================
 
@@ -608,8 +608,15 @@ async function main() {
   const upcoming = upcomingEvents?.[0];
 
   if (!upcoming) {
-    // არ გვაქვს upcoming ივენთი → ვეძებთ ახალს
-    log('📭 upcoming ივენთი არ არსებობს — ვეძებთ ახალს...');
+    // არ გვაქვს upcoming ივენთი → ახალი ივენთი მხოლოდ ორშაბათს შეიქმნება.
+    // ორშაბათი განისაზღვრება საქართველოს დროით (UTC+4).
+    const georgianDay = new Date(Date.now() + 4 * 3600000).getUTCDay(); // 0=კვ, 1=ორშ ...
+    if (georgianDay !== 1) {
+      log('📭 upcoming ივენთი არ არსებობს — ახალი მხოლოდ ორშაბათს შეიქმნება (ველოდებით)');
+      return;
+    }
+
+    log('📭 ორშაბათია და upcoming ივენთი არ არსებობს — ვეძებთ ახალს...');
     const espnData = await findNextESPNEvent();
     if (espnData) {
       const eventId = await createEventFromESPN(espnData);
@@ -630,16 +637,17 @@ async function main() {
   log(`⏰ ${hoursUntil > 0 ? Math.round(hoursUntil) + ' საათი დარჩა' : 'ივენთი დასრულდა ' + Math.abs(Math.round(hoursUntil)) + ' საათის წინ'}`);
 
   if (hoursUntil > 1) {
-    // ივენთამდე 1+ საათი — კოეფიციენტების განახლება დღეში 4-ჯერ
-    // გაეშვება მხოლოდ 00, 06, 12, 18 საათზე (UTC)
+    // ივენთამდე 1+ საათი — კოეფიციენტების განახლება დღეში 2-ჯერ
+    // გაეშვება მხოლოდ 07:00 და 19:00 UTC-ზე = 11:00 და 23:00 თბილისის დროით
     const hour = new Date().getUTCHours();
-    const isOddsHour = [0, 6, 12, 18].includes(hour);
+    const isOddsHour = [7, 19].includes(hour);
     const minute = new Date().getUTCMinutes();
     if (ODDS_API_KEY && isOddsHour && minute < 30) {
-      log(`📊 კოეფიციენტების განახლება (${hour}:00 UTC — დღეში 4-ჯერ)...`);
+      log(`📊 კოეფიციენტების განახლება (${hour}:00 UTC / ${(hour + 4) % 24}:00 თბილისი — დღეში 2-ჯერ)...`);
       await updateOdds(upcoming.id);
     } else {
-      log(`⏳ ველოდებით (კოეფ. შემდეგი განახლება: ${[0,6,12,18].find(h => h > hour) || 0}:00 UTC)`);
+      const nextUtc = [7, 19].find(h => h > hour) ?? 7;
+      log(`⏳ ველოდებით (კოეფ. შემდეგი განახლება: ${nextUtc}:00 UTC / ${(nextUtc + 4) % 24}:00 თბილისი)`);
     }
 
     // 12-საათიანი backup (0:00 და 12:00 UTC)
@@ -663,19 +671,10 @@ async function main() {
   // 3.5. Backup → Google Sheets
   await backupToSheets(upcoming.name);
 
-  // 4. Settlement-ის შემდეგ მაშინვე ვეძებთ მომდევნო ივენთს
-  log('');
-  log('🔄 მომდევნო ივენთის ძებნა...');
-  const nextESPN = await findNextESPNEvent();
-  if (nextESPN) {
-    const nextId = await createEventFromESPN(nextESPN);
-    if (nextId && ODDS_API_KEY) {
-      log('📊 ახალი ივენთის კოეფიციენტები...');
-      await updateOdds(nextId);
-    }
-  } else {
-    log('📭 მომდევნო ივენთი ჯერ არ არის (30 დღეში)');
-  }
+  // 4. მომდევნო ივენთი ავტომატურად ორშაბათს შეიქმნება.
+  //    settlement-ის შემდეგ ძველი ივენთი რჩება completed-ად (თავისი შედეგებით),
+  //    ხოლო ახალ ივენთს სკრიპტი ორშაბათს დაამატებს (იხ. ზემოთ !upcoming ბლოკი).
+  log('✅ Settlement დასრულდა — ძველი ივენთი რჩება შედეგებით. ახალი ივენთი ორშაბათს შეიქმნება.');
 }
 
 main()
