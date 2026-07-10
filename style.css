@@ -418,3 +418,19 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .foot-contact-btn:hover{border-color:var(--red);background:var(--surface-2);transform:translateY(-1px)}
 #markets{min-height:600px}
 
+
+/* ── CONTACT INFO POPUP ── */
+.modal-contact{max-width:380px}
+.contact-or{text-align:center;color:var(--muted);font-size:.8rem;margin:4px 0 8px;position:relative}
+.contact-or span{background:var(--surface);padding:0 12px;position:relative;z-index:1}
+.contact-or::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--line)}
+
+/* ── LEADERBOARD VERIFIED BADGE ── */
+.lb-verified{display:inline-flex;align-items:center;gap:4px}
+.lb-verified-badge{width:16px;height:16px;border-radius:50%;background:var(--green);display:inline-grid;place-items:center;flex-shrink:0}
+.lb-verified-badge svg{width:10px;height:10px}
+.lb-contact-icons{display:inline-flex;gap:4px;margin-left:4px;align-items:center}
+.lb-contact-icon{width:16px;height:16px;color:var(--muted);opacity:.7;display:inline-grid;place-items:center;flex-shrink:0}
+.lb-contact-icon svg{width:14px;height:14px}
+.lb-row.verified-row{box-shadow:inset 3px 0 0 var(--green)}
+.lb-row.verified-row.you{box-shadow:inset 3px 0 0 var(--green)}
