@@ -803,8 +803,6 @@ function renderLeaderboard() {
     display = fullSorted.slice(0, 10);
   }
 
-  const phoneSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>';
-  const tgSvg = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>';
   const checkSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M6 12l4 4 8-8"/></svg>';
 
   const lbRows = document.getElementById('lbRows');
@@ -813,16 +811,14 @@ function renderLeaderboard() {
     const you = currentUser && r.id === currentUser.id;
     const icon = r.icon || '🥊';
     const sign = r.pts > 0 ? '+' : '';
-    const verified = !!(r.phone || r.telegram);
+    const verified = (r.verified !== undefined) ? !!r.verified : !!(r.phone || r.telegram);
     const verifiedCls = verified ? ' verified-row' : '';
-    const contactIcons = (r.phone ? '<span class="lb-contact-icon" title="ტელეფონი">' + phoneSvg + '</span>' : '')
-                       + (r.telegram ? '<span class="lb-contact-icon" title="ტელეგრამი">' + tgSvg + '</span>' : '');
     const badge = verified ? '<span class="lb-verified-badge" title="ვერიფიცირებული">' + checkSvg + '</span>' : '';
     return `<div class="lb-row ${you ? 'you' : ''}${verifiedCls}">
       <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
       <span class="lb-user">
         <span class="lb-ava-glove">${icon}</span>
-        <span><span class="lb-verified"><span class="lb-name">${r.name}</span>${badge}</span>${contactIcons}<br><span class="lb-tag">${you ? 'შენ' : ''}</span></span>
+        <span><span class="lb-verified"><span class="lb-name">${r.name}</span>${badge}</span><br><span class="lb-tag">${you ? 'შენ' : ''}</span></span>
       </span>
       <span class="lb-roi"></span>
       <span class="lb-pts">${sign}${fmt(r.pts)}</span>
@@ -855,23 +851,19 @@ function openLbPopup(fullSorted) {
   const overlay = document.createElement('div');
   overlay.className = 'lb-popup-bg';
 
-  const phoneSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.362 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>';
-  const tgSvg = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>';
   const checkSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M6 12l4 4 8-8"/></svg>';
 
   const rowsHtml = fullSorted.map(r => {
     const you = currentUser && r.id === currentUser.id;
     const sign = r.pts > 0 ? '+' : '';
-    const verified = !!(r.phone || r.telegram);
+    const verified = (r.verified !== undefined) ? !!r.verified : !!(r.phone || r.telegram);
     const verifiedCls = verified ? ' verified-row' : '';
-    const contactIcons = (r.phone ? '<span class="lb-contact-icon" title="ტელეფონი">' + phoneSvg + '</span>' : '')
-                       + (r.telegram ? '<span class="lb-contact-icon" title="ტელეგრამი">' + tgSvg + '</span>' : '');
     const badge = verified ? '<span class="lb-verified-badge" title="ვერიფიცირებული">' + checkSvg + '</span>' : '';
     return `<div class="lb-row ${you ? 'you' : ''}${verifiedCls}">
       <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
       <span class="lb-user">
         <span class="lb-ava-glove">${r.icon || '🥊'}</span>
-        <span><span class="lb-verified"><span class="lb-name">${r.name}</span>${badge}</span>${contactIcons}<br><span class="lb-tag">${you ? 'შენ' : ''}</span></span>
+        <span><span class="lb-verified"><span class="lb-name">${r.name}</span>${badge}</span><br><span class="lb-tag">${you ? 'შენ' : ''}</span></span>
       </span>
       <span class="lb-pts">${sign}${fmt(r.pts)}</span>
     </div>`;
@@ -920,7 +912,7 @@ async function loadLeaderboard(period) {
       if (error || !data) return;
       rows = data.map(u => ({
         id: u.id, name: u.nick || '—', pts: Number(u.score) || 0, icon: u.icon || '🥊',
-        phone: u.phone || null, telegram: u.telegram || null
+        verified: (u.verified !== undefined) ? !!u.verified : !!(u.phone || u.telegram)
       }));
     } else {
       // პერიოდი: score_history-დან ჯამი
@@ -939,15 +931,15 @@ async function loadLeaderboard(period) {
       }
       if (hErr || !hist) { LEADERBOARD.length = 0; renderLeaderboard(); renderLbTabs(); return; }
 
-      // users ცალკე (nick + icon + phone + telegram)
+      // users ცალკე (nick + icon + verified)
       const { data: usersData } = await sb.from('leaderboard_view').select('*');
       const userMap = {};
-      (usersData || []).forEach(u => { userMap[u.id] = { nick: u.nick || '—', icon: u.icon || '🥊', phone: u.phone || null, telegram: u.telegram || null }; });
+      (usersData || []).forEach(u => { userMap[u.id] = { nick: u.nick || '—', icon: u.icon || '🥊', verified: (u.verified !== undefined) ? !!u.verified : !!(u.phone || u.telegram) }; });
 
       const map = {};
       hist.forEach(h => {
         const uid = h.user_id;
-        if (!map[uid]) map[uid] = { id: uid, name: userMap[uid]?.nick || '—', icon: userMap[uid]?.icon || '🥊', pts: 0, phone: userMap[uid]?.phone || null, telegram: userMap[uid]?.telegram || null };
+        if (!map[uid]) map[uid] = { id: uid, name: userMap[uid]?.nick || '—', icon: userMap[uid]?.icon || '🥊', pts: 0, verified: userMap[uid]?.verified || false };
         map[uid].pts += Number(h.amount) || 0;
       });
       rows = Object.values(map).filter(r => r.pts > 0).sort((a, b) => b.pts - a.pts);
@@ -1294,7 +1286,8 @@ async function doRegister() {
   }
 
   await new Promise(r => setTimeout(r, 1000));
-  const { data: ud } = await sb.from('users').select('*').eq('id', data.user.id).single();
+  let ud = null;
+  try { const res = await sb.from('users').select('*').eq('id', data.user.id).maybeSingle(); ud = res.data; } catch (e) { console.warn('users select failed:', e); }
   try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({registration_ip: ipData.ip, last_login_ip: ipData.ip}).eq('id', data.user.id); } catch(e) {}
   currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: ud?.balance || 1000, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null };
   window.dataLayer = window.dataLayer || []; window.dataLayer.push({event: 'user_registration', method: 'email'});
@@ -1310,7 +1303,8 @@ async function doSignIn() {
   const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
   btn.disabled = false; btn.textContent = 'შესვლა';
   if (error) { authError('არასწორი მეილი ან პაროლი'); return; }
-  const { data: ud } = await sb.from('users').select('*').eq('id', data.user.id).single();
+  let ud = null;
+  try { const res = await sb.from('users').select('*').eq('id', data.user.id).maybeSingle(); ud = res.data; } catch (e) { console.warn('users select failed:', e); }
   currentUser = { id: data.user.id, email, nick: ud?.nick || email, balance: ud?.balance || 1000, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null };
   closeModal(); updateNavForUser(currentUser);
   if (!hasContact(currentUser)) setTimeout(showContactInfoPopup, 1500);
@@ -1368,27 +1362,39 @@ async function loadFightsAndRender() {
 async function applySession(session) {
   if (!session || currentUser) return;
   try {
-    const { data: ud } = await sb.from('users').select('*').eq('id', session.user.id).single();
-    if (ud) {
-      try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({last_login_ip: ipData.ip}).eq('id', session.user.id); } catch(e) {}
-      currentUser = {
-        id: session.user.id,
-        email: session.user.email,
-        nick: ud.nick,
-        balance: ud.balance || 1000,
-        score: Number(ud.score) || 0,
-        icon: ud.icon || '🥊',
-        phone: ud.phone || null,
-        telegram: ud.telegram || null
-      };
-      updateNavForUser(currentUser);
-      await _fightsReady;
-      try { await loadUserTickets(); } catch (e) { console.warn('loadUserTickets failed:', e); }
-      renderTickets();
-      renderLeaderboard();
-      updateSecHead();
-      if (!hasContact(currentUser)) setTimeout(showContactInfoPopup, 1500);
+    // users row-ის წამოღება — maybeSingle() არ აგდებს შეცდომას თუ row არ არსებობს
+    let ud = null;
+    try {
+      const res = await sb.from('users').select('*').eq('id', session.user.id).maybeSingle();
+      ud = res.data;
+    } catch (e) {
+      console.warn('users select failed — session fallback-ს ვიყენებთ:', e);
     }
+
+    // მთავარი: currentUser ყოველთვის დაყენდეს როცა session არსებობს.
+    // თუ users row ვერ წამოვიდა (RLS/network), session-ის მონაცემებით მაინც
+    // ჩავთვალოთ მომხმარებელი შესულად — თორემ auth მოქმედია, UI კი "გამოსული".
+    currentUser = {
+      id: session.user.id,
+      email: session.user.email,
+      nick: ud?.nick || session.user.user_metadata?.nick || (session.user.email || '').split('@')[0],
+      balance: (ud && ud.balance != null) ? ud.balance : 1000,
+      score: Number(ud?.score) || 0,
+      icon: ud?.icon || '🥊',
+      phone: ud?.phone || null,
+      telegram: ud?.telegram || null
+    };
+
+    // last_login_ip განახლება — არასავალდებულო, ვერ ჩაშლის login-ს
+    try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({last_login_ip: ipData.ip}).eq('id', session.user.id); } catch(e) {}
+
+    updateNavForUser(currentUser);
+    await _fightsReady;
+    try { await loadUserTickets(); } catch (e) { console.warn('loadUserTickets failed:', e); }
+    renderTickets();
+    renderLeaderboard();
+    updateSecHead();
+    if (!hasContact(currentUser)) setTimeout(showContactInfoPopup, 1500);
   } catch (e) {
     console.warn('applySession failed:', e);
   }
