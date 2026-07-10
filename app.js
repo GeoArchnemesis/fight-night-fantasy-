@@ -480,29 +480,66 @@ const LEADERBOARD = [];
 const AVATAR_ICONS = ['🥊','🏆','🔥','⚡','💪','🦁','🐺','👊','💎','🎯','⭐','🦅'];
 let _contactPopupShown = false;
 function hasContact(user) { return !!(user && (user.phone || user.telegram)); }
+// ინდივიდუალურად ამოწმებს რა აკლია იუზერს — რომელიმე თუ აკლია, popup ამოხტება
+function needsProfileInfo(user) {
+  if (!user) return false;
+  return !(user.phone || user.telegram) || !user.birth_year || !user.gender;
+}
 
 function showContactInfoPopup() {
   if (_contactPopupShown || !currentUser) return; _contactPopupShown = true;
   const m = document.getElementById('contactInfoModal'); if (!m) return;
-  document.getElementById('ciPhone').value = currentUser.phone || '';
-  document.getElementById('ciTelegram').value = currentUser.telegram || '';
-  document.getElementById('ciError').style.display = 'none';
+  const ciPhoneEl = document.getElementById('ciPhone'); if (ciPhoneEl) ciPhoneEl.value = currentUser.phone || '';
+  const ciTgEl = document.getElementById('ciTelegram'); if (ciTgEl) ciTgEl.value = currentUser.telegram || '';
+  const ciByEl = document.getElementById('ciBirthYear'); if (ciByEl) ciByEl.value = currentUser.birth_year || '';
+  document.querySelectorAll('input[name="ciGender"]').forEach(r => { r.checked = (currentUser.gender === r.value); });
+
+  // მხოლოდ ის ვაჩვენოთ, რაც აკლია
+  const contactWrap = document.getElementById('ciContactWrap');
+  if (contactWrap) contactWrap.style.display = hasContact(currentUser) ? 'none' : 'block';
+  const byField = document.getElementById('ciBirthYearField'); if (byField) byField.style.display = currentUser.birth_year ? 'none' : 'block';
+  const gField = document.getElementById('ciGenderField'); if (gField) gField.style.display = currentUser.gender ? 'none' : 'block';
+
+  const ciErr = document.getElementById('ciError'); if (ciErr) ciErr.style.display = 'none';
   m.classList.add('show');
 }
 function closeContactInfoPopup() { const m = document.getElementById('contactInfoModal'); if (m) m.classList.remove('show'); }
 
 async function saveContactInfo() {
-  const phone = (document.getElementById('ciPhone').value || '').trim();
-  const telegram = (document.getElementById('ciTelegram').value || '').trim();
+  const phone = (document.getElementById('ciPhone') && document.getElementById('ciPhone').value || '').trim();
+  const telegram = (document.getElementById('ciTelegram') && document.getElementById('ciTelegram').value || '').trim();
+  const birthYearRaw = (document.getElementById('ciBirthYear') && document.getElementById('ciBirthYear').value || '').trim();
+  const genderEl = document.querySelector('input[name="ciGender"]:checked');
+  const gender = genderEl ? genderEl.value : '';
   const errEl = document.getElementById('ciError');
-  if (!phone && !telegram) { errEl.textContent = 'შეიყვანე მინიმუმ ერთი: ნომერი ან ტელეგრამი'; errEl.style.display = 'block'; return; }
-  const updates = {}; if (phone) updates.phone = phone; if (telegram) updates.telegram = telegram.replace(/^@/, '');
+  const showErr = msg => { if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; } };
+
+  // ვამოწმებთ მხოლოდ იმას, რაც აკლია (ანუ რაც ჩანს popup-ში)
+  if (!hasContact(currentUser)) {
+    if (!phone && !telegram) { showErr('შეიყვანე მინიმუმ ერთი: ნომერი ან ტელეგრამი'); return; }
+  }
+  if (!currentUser.birth_year) {
+    if (!birthYearRaw || !/^\d{4}$/.test(birthYearRaw) || +birthYearRaw < 1900 || +birthYearRaw > 2015) { showErr('შეიყვანე სწორი დაბადების წელი (მაგ. 1998)'); return; }
+  }
+  if (!currentUser.gender && !gender) { showErr('აირჩიე სქესი'); return; }
+
+  const updates = {};
+  if (phone) updates.phone = phone;
+  if (telegram) updates.telegram = telegram.replace(/^@/, '');
+  if (!currentUser.birth_year && birthYearRaw) updates.birth_year = +birthYearRaw;
+  if (!currentUser.gender && gender) updates.gender = gender;
+
+  if (Object.keys(updates).length === 0) { closeContactInfoPopup(); return; }
+
   try {
-    const { data, error } = await sb.from('users').update(updates).eq('id', currentUser.id).select('id,phone,telegram');
-    if (error) { errEl.textContent = (error.message && error.message.toLowerCase().includes('column')) ? 'სვეტები DB-ში ჯერ არ არსებობს — გაუშვი migration' : ('შენახვა ვერ მოხერხდა: ' + error.message); errEl.style.display = 'block'; return; }
-    if (!data || data.length === 0) { errEl.textContent = 'შენახვა დაბლოკილია (RLS). გაუშვი კონსოლიდირებული SQL Supabase-ში.'; errEl.style.display = 'block'; return; }
-    currentUser.phone = data[0].phone || null; currentUser.telegram = data[0].telegram || null;
-  } catch (e) { errEl.textContent = 'შეცდომა: ' + e.message; errEl.style.display = 'block'; return; }
+    const { data, error } = await sb.from('users').update(updates).eq('id', currentUser.id).select('id,phone,telegram,birth_year,gender');
+    if (error) { showErr((error.message && error.message.toLowerCase().includes('column')) ? 'სვეტები DB-ში ჯერ არ არსებობს — გაუშვი migration' : ('შენახვა ვერ მოხერხდა: ' + error.message)); return; }
+    if (!data || data.length === 0) { showErr('შენახვა დაბლოკილია (RLS).'); return; }
+    currentUser.phone = data[0].phone || null;
+    currentUser.telegram = data[0].telegram || null;
+    currentUser.birth_year = data[0].birth_year || null;
+    currentUser.gender = data[0].gender || null;
+  } catch (e) { showErr('შეცდომა: ' + e.message); return; }
   closeContactInfoPopup(); renderLeaderboard();
 }
 $on('ciSave', 'click', saveContactInfo);
@@ -774,7 +811,7 @@ async function hydrateUserData() {
   renderTickets();
   try { renderLeaderboard(); } catch (e) {}
   updateSecHead();
-  if (!hasContact(currentUser)) setTimeout(showContactInfoPopup, 1500);
+  if (needsProfileInfo(currentUser)) setTimeout(showContactInfoPopup, 1500);
 }
 
 async function doRegister() {
@@ -803,8 +840,9 @@ async function doRegister() {
   await new Promise(r => setTimeout(r, 1000));
   let ud = null;
   try { const res = await sb.from('users').select('*').eq('id', data.user.id).maybeSingle(); ud = res.data; } catch (e) {}
-  try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({ registration_ip: ipData.ip, last_login_ip: ipData.ip, phone: phone || null }).eq('id', data.user.id); } catch (e) {}   try { await sb.from('users').update({ birth_year: +birthYear, gender }).eq('id', data.user.id); } catch (e) {}
-  currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: (ud && ud.balance != null) ? ud.balance : 1000, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: phone || ud?.phone || null, telegram: ud?.telegram || null };
+  try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({ registration_ip: ipData.ip, last_login_ip: ipData.ip, phone: phone || null }).eq('id', data.user.id); } catch (e) {}
+  try { await sb.from('users').update({ birth_year: +birthYear, gender }).eq('id', data.user.id); } catch (e) {}
+  currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: (ud && ud.balance != null) ? ud.balance : 1000, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: phone || ud?.phone || null, telegram: ud?.telegram || null, birth_year: +birthYear || ud?.birth_year || null, gender: gender || ud?.gender || null };
   window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'user_registration', method: 'email' });
   closeModal(); updateNavForUser(currentUser); await hydrateUserData();
 }
@@ -819,7 +857,7 @@ async function doSignIn() {
   if (error) { authError('არასწორი მეილი ან პაროლი'); return; }
   let ud = null;
   try { const res = await sb.from('users').select('*').eq('id', data.user.id).maybeSingle(); ud = res.data; } catch (e) {}
-  currentUser = { id: data.user.id, email, nick: ud?.nick || email, balance: (ud && ud.balance != null) ? ud.balance : 1000, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null };
+  currentUser = { id: data.user.id, email, nick: ud?.nick || email, balance: (ud && ud.balance != null) ? ud.balance : 1000, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null, birth_year: ud?.birth_year || null, gender: ud?.gender || null };
   closeModal(); updateNavForUser(currentUser); await hydrateUserData();
 }
 
@@ -856,7 +894,7 @@ async function applySession(session) {
     currentUser = { id: session.user.id, email: session.user.email,
       nick: ud?.nick || session.user.user_metadata?.nick || (session.user.email || '').split('@')[0],
       balance: (ud && ud.balance != null) ? ud.balance : 1000, score: Number(ud?.score) || 0,
-      icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null };
+      icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null, birth_year: ud?.birth_year || null, gender: ud?.gender || null };
     try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({ last_login_ip: ipData.ip }).eq('id', session.user.id); } catch (e) {}
     updateNavForUser(currentUser);
     await hydrateUserData();
@@ -893,10 +931,11 @@ function closeProfile() { document.getElementById('profileModal').classList.remo
 let verifSelectedFile = null;
 async function loadVerificationStatus() {
   const statusEl = document.getElementById('verifStatus'); const wrap = document.getElementById('verifUploadWrap');
+  if (!statusEl || !wrap) return;
   verifSelectedFile = null;
-  document.getElementById('verifPreview').style.display = 'none';
-  document.getElementById('verifSubmitBtn').style.display = 'none';
-  document.getElementById('verifPhotoInput').value = '';
+  const preview = document.getElementById('verifPreview'); if (preview) preview.style.display = 'none';
+  const submitBtn = document.getElementById('verifSubmitBtn'); if (submitBtn) submitBtn.style.display = 'none';
+  const photoInput = document.getElementById('verifPhotoInput'); if (photoInput) photoInput.value = '';
   const { data: rows, error } = await sb.from('verifications').select('status,admin_note,submitted_at').eq('user_id', currentUser.id).order('submitted_at', { ascending: false }).limit(1);
   if (error) { const ps = document.querySelector('#verifStatus')?.closest('.profile-section'); if (ps) ps.style.display = 'none'; return; }
   const last = rows && rows[0];
@@ -905,7 +944,7 @@ async function loadVerificationStatus() {
   else if (last.status === 'approved') { statusEl.textContent = '✅ ვერიფიცირებული ხარ — პრიზის მიღება შესაძლებელია.'; statusEl.style.color = 'var(--green)'; wrap.style.display = 'none'; }
   else if (last.status === 'rejected') { statusEl.textContent = '❌ წინა მცდელობა უარყოფილია' + (last.admin_note ? (': ' + last.admin_note) : '') + ' — სცადე ხელახლა, უფრო გარკვევით ფოტოთი.'; statusEl.style.color = 'var(--red)'; wrap.style.display = 'block'; }
 }
-function pickVerificationPhoto() { document.getElementById('verifPhotoInput').click(); }
+function pickVerificationPhoto() { const el = document.getElementById('verifPhotoInput'); if (el) el.click(); }
 function onVerificationFileSelected() {
   const input = document.getElementById('verifPhotoInput'); const file = input.files && input.files[0]; if (!file) return;
   if (file.size > 8 * 1024 * 1024) { alert('ფაილი ძალიან დიდია (მაქს. 8MB)'); input.value = ''; return; }
