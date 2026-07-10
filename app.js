@@ -1,6 +1,18 @@
 // ============================================================
-//  UFC Fantasy — app.js  (v16 — ID verification upload added)
+//  UFC Fantasy — app.js  (v17 — contacts + double-load guard)
 // ============================================================
+
+// ── DOUBLE-LOAD GUARD + SCOPE ISOLATION ──
+// თუ app.js შემთხვევით ორჯერ ჩაიტვირთა (duplicate <script> tag ან service-worker cache),
+// მეორე გაშვება უსაფრთხოდ ჩერდება. ეს თავიდან აიცილებს
+// "Identifier 'SUPABASE_URL' has already been declared" შეცდომას და
+// დუბლიკატ event listener-ებს / setInterval-ებს / API გამოძახებებს.
+(function () {
+if (window.__FNF_APP_LOADED__) {
+  console.warn('[FNF] app.js უკვე ჩატვირთულია — დუბლიკატი გაშვება იგნორირდება');
+  return;
+}
+window.__FNF_APP_LOADED__ = true;
 
 const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
@@ -1807,3 +1819,8 @@ try {
 } catch (e) {}
 
 setTimeout(loadFightsAndRender, 0);
+
+// ── inline onclick handler-ებისთვის (HTML-ში onclick="toggleEye(...)" გამოიყენება) ──
+window.toggleEye = toggleEye;
+
+})(); // ── END DOUBLE-LOAD GUARD IIFE ──
