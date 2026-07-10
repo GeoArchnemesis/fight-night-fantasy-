@@ -32,7 +32,7 @@
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=103">
+<link rel="stylesheet" href="style.css?v=104">
 <style>
 .cd-unit { color: #fff !important; font-size: .75rem !important; }
 .eye-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;opacity:.5;padding:4px}
@@ -350,6 +350,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 
+<!-- Contact Info -->
+<div class="profile-section">
+  <div class="field-label" style="margin-bottom:8px">საკონტაქტო ინფორმაცია</div>
+  <div class="field">
+    <label for="profPhone">მობილურის ნომერი</label>
+    <input type="tel" id="profPhone" placeholder="მაგ. 555123456" />
+  </div>
+  <div class="field">
+    <label for="profTelegram">ტელეგრამი</label>
+    <input type="text" id="profTelegram" placeholder="მაგ. @username" />
+  </div>
+</div>
+
 <!-- ID Verification -->
 <div class="profile-section">
   <div class="field-label" style="margin-bottom:8px">ვერიფიკაცია</div>
@@ -383,7 +396,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <button class="btn btn-ghost" id="profileLogout" style="width:100%;margin-top:10px;text-align:center;display:block">გამოსვლა</button>
 </div></div>
 
+<!-- ── CONTACT INFO POPUP ── -->
+<div class="modal-bg" id="contactInfoModal"><div class="modal modal-contact">
+<h3>დაამატე კონტაქტი</h3>
+<p class="sub">პრიზის მისაღებად საჭიროა მინიმუმ ერთი საკონტაქტო ინფორმაცია.</p>
+<div class="field">
+  <label for="ciPhone">მობილურის ნომერი</label>
+  <input type="tel" id="ciPhone" placeholder="მაგ. 555123456" autocomplete="tel" />
+</div>
+<div class="contact-or"><span>ან / და</span></div>
+<div class="field">
+  <label for="ciTelegram">ტელეგრამი</label>
+  <input type="text" id="ciTelegram" placeholder="მაგ. @username" autocomplete="off" />
+</div>
+<div id="ciError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
+<button class="btn btn-primary" id="ciSave">შენახვა</button>
+<button class="btn btn-ghost" id="ciSkip" style="width:100%;margin-top:8px;text-align:center;display:block;font-size:.85rem;color:var(--muted)">მოგვიანებით</button>
+</div></div>
+
 <!-- ── SCRIPTS ── -->
-<script src="app.js?v=103"></script>
+<script src="app.js?v=104"></script>
 </body>
 </html>
