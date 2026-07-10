@@ -523,10 +523,14 @@ function renderLeaderboard() {
     const sign = r.pts > 0 ? '+' : '';
     const verified = (r.verified !== undefined) ? !!r.verified : !!(r.phone || r.telegram);
     const badge = verified ? '<span class="lb-verified-badge" title="ვერიფიცირებული">' + checkSvg + '</span>' : '';
+    const nm = r.name || '—';
+    const nmSize = nm.length > 16 ? '.78rem' : nm.length > 12 ? '.88rem' : '1rem';
+    const ptsStr = sign + fmt(r.pts);
+    const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
     return `<div class="lb-row ${you ? 'you' : ''}${verified ? ' verified-row' : ''}">
       <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
-      <span class="lb-user"><span class="lb-ava-glove">${r.icon || '🥊'}</span><span><span class="lb-verified"><span class="lb-name">${r.name}</span>${badge}</span><br><span class="lb-tag">${you ? 'შენ' : ''}</span></span></span>
-      <span class="lb-roi"></span><span class="lb-pts">${sign}${fmt(r.pts)}</span></div>`;
+      <span class="lb-user"><span class="lb-ava-glove">${r.icon || '🥊'}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name" style="font-size:${nmSize}">${nm}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
+      <span class="lb-roi"></span><span class="lb-pts" style="font-size:${ptsSize}">${ptsStr}</span></div>`;
   }).join('');
   renderLbFullButton(fullSorted);
 }
@@ -547,10 +551,14 @@ function openLbPopup(fullSorted) {
     const you = currentUser && r.id === currentUser.id; const sign = r.pts > 0 ? '+' : '';
     const verified = (r.verified !== undefined) ? !!r.verified : !!(r.phone || r.telegram);
     const badge = verified ? '<span class="lb-verified-badge" title="ვერიფიცირებული">' + checkSvg + '</span>' : '';
+    const nm = r.name || '—';
+    const nmSize = nm.length > 16 ? '.78rem' : nm.length > 12 ? '.88rem' : '1rem';
+    const ptsStr = sign + fmt(r.pts);
+    const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
     return `<div class="lb-row ${you ? 'you' : ''}${verified ? ' verified-row' : ''}">
       <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
-      <span class="lb-user"><span class="lb-ava-glove">${r.icon || '🥊'}</span><span><span class="lb-verified"><span class="lb-name">${r.name}</span>${badge}</span><br><span class="lb-tag">${you ? 'შენ' : ''}</span></span></span>
-      <span class="lb-pts">${sign}${fmt(r.pts)}</span></div>`;
+      <span class="lb-user"><span class="lb-ava-glove">${r.icon || '🥊'}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name" style="font-size:${nmSize}">${nm}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
+      <span class="lb-pts" style="font-size:${ptsSize}">${ptsStr}</span></div>`;
   }).join('');
   overlay.innerHTML = `<div class="lb-popup"><div class="lb-popup-head"><h3>სრული ლიდერბორდი</h3><button class="x" id="lbPopupClose" aria-label="დახურვა">&times;</button></div><div class="lb-popup-body">${rowsHtml}</div></div>`;
   document.body.appendChild(overlay);
