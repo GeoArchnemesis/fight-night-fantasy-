@@ -27,7 +27,7 @@
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
-<link rel="stylesheet" href="style.css?v=133">
+<link rel="stylesheet" href="style.css?v=134">
 <style>
 .cd-unit { color: #fff !important; font-size: .75rem !important; }
 .eye-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;opacity:.5;padding:4px}
@@ -475,16 +475,29 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- ── CONTACT INFO POPUP ── -->
 <div class="modal-bg" id="contactInfoModal"><div class="modal modal-contact">
-<h3>დაამატე კონტაქტი</h3>
-<p class="sub">პრიზის მისაღებად საჭიროა მინიმუმ ერთი საკონტაქტო ინფორმაცია.</p>
-<div class="field">
-  <label for="ciPhone">მობილურის ნომერი</label>
-  <input type="tel" id="ciPhone" placeholder="მაგ. 555123456" autocomplete="tel" />
+<h3>შეავსე პროფილი</h3>
+<p class="sub">ფულადი პრიზების მისაღებად გთხოვთ შეავსოთ დარჩენილი ინფორმაცია.</p>
+<div id="ciContactWrap">
+  <div class="field">
+    <label for="ciPhone">მობილურის ნომერი</label>
+    <input type="tel" id="ciPhone" placeholder="მაგ. 555123456" autocomplete="tel" />
+  </div>
+  <div class="contact-or"><span>ან / და</span></div>
+  <div class="field">
+    <label for="ciTelegram">ტელეგრამი</label>
+    <input type="text" id="ciTelegram" placeholder="მაგ. @username" autocomplete="off" />
+  </div>
 </div>
-<div class="contact-or"><span>ან / და</span></div>
-<div class="field">
-  <label for="ciTelegram">ტელეგრამი</label>
-  <input type="text" id="ciTelegram" placeholder="მაგ. @username" autocomplete="off" />
+<div class="field" id="ciBirthYearField">
+  <label for="ciBirthYear">დაბადების წელი</label>
+  <input type="number" id="ciBirthYear" placeholder="მაგ. 1998" inputmode="numeric" min="1900" max="2015" autocomplete="off" />
+</div>
+<div class="field" id="ciGenderField">
+  <label>სქესი</label>
+  <div class="gender-opts">
+    <label class="gender-opt"><input type="radio" name="ciGender" value="male" /><span>მამრობითი</span></label>
+    <label class="gender-opt"><input type="radio" name="ciGender" value="female" /><span>მდედრობითი</span></label>
+  </div>
 </div>
 <div id="ciError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
 <button class="btn btn-primary" id="ciSave">შენახვა</button>
@@ -524,6 +537,6 @@ function openSocial(type){
 }
 </script>
 <!-- ── SCRIPTS ── -->
-<script src="app.js?v=131"></script>
+<script src="app.js?v=134"></script>
 </body>
 </html>
