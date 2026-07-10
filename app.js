@@ -780,6 +780,9 @@ async function doRegister() {
   const pass = document.getElementById('inPass').value || '';
   const passConfirm = document.getElementById('inPassConfirm').value || '';
   const phone = (document.getElementById('inRegPhone') && document.getElementById('inRegPhone').value || '').trim();
+  const birthYear = (document.getElementById('inBirthYear') && document.getElementById('inBirthYear').value || '').trim();
+  const genderEl = document.querySelector('input[name="gender"]:checked');
+  const gender = genderEl ? genderEl.value : '';
   if (!nick || !/^[a-zA-Z0-9_]{3,20}$/.test(nick)) { authError('სახელი: 3-20 ლათინური სიმბოლო (a-z, 0-9, _)'); return; }
   // ნიქის უნიკალურობა — is_nick_taken RPC (RLS-safe, anon-ისთვისაც მუშაობს)
   try { const { data: taken } = await sb.rpc('is_nick_taken', { p_nick: nick, p_exclude_user_id: null }); if (taken) { authError('ეს სახელი უკვე დაკავებულია — სცადე სხვა'); return; } } catch (e) {}
@@ -787,15 +790,17 @@ async function doRegister() {
   const pErr = passwordError(pass); if (pErr) { authError(pErr); return; }
   if (pass !== passConfirm) { authError('პაროლები არ ემთხვევა'); return; }
   if (!phone) { authError('შეიყვანე მობილურის ნომერი'); return; }
+  if (!birthYear || !/^\d{4}$/.test(birthYear) || +birthYear < 1900 || +birthYear > 2015) { authError('შეიყვანე სწორი დაბადების წელი (მაგ. 1998)'); return; }
+  if (!gender) { authError('აირჩიე სქესი'); return; }
   const btn = document.getElementById('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
-  const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick, phone } } });
+  const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick, phone, birth_year: +birthYear, gender } } });
   btn.disabled = false; btn.textContent = 'რეგისტრაცია';
   if (error) { const msg = error.message || ''; if (msg.includes('already registered') || msg.includes('already been registered')) authError('ეს ელ. ფოსტა უკვე რეგისტრირებულია — სცადე შესვლა'); else if (msg.includes('Database error')) authError('ეს სახელი უკვე დაკავებულია — სცადე სხვა'); else authError(msg); return; }
   if (!data.session) { const el = document.getElementById('authError'); el.style.color = 'var(--green)'; el.textContent = 'რეგისტრაცია წარმატებულია! ანგარიშის გასააქტიურებლად დაადასტურე ელ.ფოსტა — შეამოწმე საფოსტო ყუთი (ასევე spam/junk).'; el.style.display = 'block'; return; }
   await new Promise(r => setTimeout(r, 1000));
   let ud = null;
   try { const res = await sb.from('users').select('*').eq('id', data.user.id).maybeSingle(); ud = res.data; } catch (e) {}
-  try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({ registration_ip: ipData.ip, last_login_ip: ipData.ip, phone: phone || null }).eq('id', data.user.id); } catch (e) {}
+  try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({ registration_ip: ipData.ip, last_login_ip: ipData.ip, phone: phone || null }).eq('id', data.user.id); } catch (e) {}   try { await sb.from('users').update({ birth_year: +birthYear, gender }).eq('id', data.user.id); } catch (e) {}
   currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: (ud && ud.balance != null) ? ud.balance : 1000, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: phone || ud?.phone || null, telegram: ud?.telegram || null };
   window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'user_registration', method: 'email' });
   closeModal(); updateNavForUser(currentUser); await hydrateUserData();
