@@ -434,3 +434,19 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .lb-contact-icon svg{width:14px;height:14px}
 .lb-row.verified-row{box-shadow:inset 3px 0 0 var(--green)}
 .lb-row.verified-row.you{box-shadow:inset 3px 0 0 var(--green)}
+/* ── password live checklist ── */
+.pass-check{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.pc-item{font-size:.78rem;color:var(--muted);display:flex;align-items:center;gap:8px;transition:color .15s}
+.pc-item .pc-tick{width:16px;height:16px;border-radius:50%;border:1px solid var(--muted-2);color:transparent;font-size:.62rem;font-weight:700;display:inline-grid;place-items:center;flex-shrink:0;transition:all .15s}
+.pc-item.ok{color:var(--green)}
+.pc-item.ok .pc-tick{background:var(--green);border-color:var(--green);color:#fff}
+
+/* ── auth მოდალის სქროლი (რეგისტრაცია) ── */
+.modal-bg{align-items:flex-start}
+.modal{max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+
+/* ── ლიდერბორდი: სახელი იჭრება, ქულა ყოველთვის ჩანს ერთ ხაზზე ── */
+.lb-user{min-width:0}
+.lb-user>span:last-child{min-width:0;overflow:hidden}
+.lb-name{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom}
+.lb-pts{white-space:nowrap;flex-shrink:0}
