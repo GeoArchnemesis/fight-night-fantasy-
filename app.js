@@ -749,15 +749,26 @@ async function saveContactInfo() {
   if (phone) updates.phone = phone;
   if (telegram) updates.telegram = telegram.replace(/^@/, '');
 
-  const { error } = await sb.from('users').update(updates).eq('id', currentUser.id);
-  if (error) {
-    errEl.textContent = 'შენახვა ვერ მოხერხდა: ' + error.message;
+  try {
+    const { error } = await sb.from('users').update(updates).eq('id', currentUser.id);
+    if (error) {
+      // თუ სვეტები ჯერ არ არსებობს DB-ში
+      if (error.message && error.message.includes('column')) {
+        errEl.textContent = 'კონტაქტის შენახვა დროებით შეუძლებელია — დაუკავშირდი ადმინს';
+      } else {
+        errEl.textContent = 'შენახვა ვერ მოხერხდა: ' + error.message;
+      }
+      errEl.style.display = 'block';
+      return;
+    }
+
+    if (phone) currentUser.phone = phone;
+    if (telegram) currentUser.telegram = telegram.replace(/^@/, '');
+  } catch (e) {
+    errEl.textContent = 'შეცდომა: ' + e.message;
     errEl.style.display = 'block';
     return;
   }
-
-  if (phone) currentUser.phone = phone;
-  if (telegram) currentUser.telegram = telegram.replace(/^@/, '');
 
   closeContactInfoPopup();
   renderLeaderboard();
@@ -892,7 +903,7 @@ async function loadLeaderboard(period) {
     if (_currentLbPeriod === 'goat') {
       // G.O.A.T — users.score (ყველა დროის ჯამი)
       const { data, error } = await sb
-        .from('leaderboard_view').select('id,nick,icon,score,phone,telegram')
+        .from('leaderboard_view').select('*')
         .order('score', { ascending: false });
       if (error || !data) return;
       rows = data.map(u => ({
@@ -917,7 +928,7 @@ async function loadLeaderboard(period) {
       if (hErr || !hist) { LEADERBOARD.length = 0; renderLeaderboard(); renderLbTabs(); return; }
 
       // users ცალკე (nick + icon + phone + telegram)
-      const { data: usersData } = await sb.from('leaderboard_view').select('id,nick,icon,phone,telegram');
+      const { data: usersData } = await sb.from('leaderboard_view').select('*');
       const userMap = {};
       (usersData || []).forEach(u => { userMap[u.id] = { nick: u.nick || '—', icon: u.icon || '🥊', phone: u.phone || null, telegram: u.telegram || null }; });
 
@@ -1581,12 +1592,22 @@ async function saveProfile() {
       if (telegramChanged) upd.telegram = telegram || null;
       const { error: updErr } = await sb.from('users').update(upd).eq('id', currentUser.id);
       if (updErr) {
-        if (String(updErr.message || '').toLowerCase().includes('duplicate') || updErr.code === '23505') {
+        // თუ phone/telegram სვეტი ჯერ არ არსებობს — retry სვეტების გარეშე
+        if (updErr.message && updErr.message.includes('column') && (phoneChanged || telegramChanged)) {
+          const upd2 = { nick: nick || currentUser.nick, icon };
+          const { error: updErr2 } = await sb.from('users').update(upd2).eq('id', currentUser.id);
+          if (updErr2) {
+            profileMsg('შენახვა ვერ მოხერხდა: ' + updErr2.message, 'var(--red)');
+            return;
+          }
+          // retry წარმატებულია — nick/icon შეინახა, phone/telegram-ის გარეშე
+        } else if (String(updErr.message || '').toLowerCase().includes('duplicate') || updErr.code === '23505') {
           profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს', 'var(--red)');
+          return;
         } else {
           profileMsg('შენახვა ვერ მოხერხდა: ' + updErr.message, 'var(--red)');
+          return;
         }
-        return;
       }
       if (nickChanged) currentUser.nick = nick;
       currentUser.icon = icon;
