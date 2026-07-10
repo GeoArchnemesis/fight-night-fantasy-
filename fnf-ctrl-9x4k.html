@@ -3,1297 +3,418 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>UFC Fantasy — Admin</title>
-<link rel="manifest" href="./admin-manifest.json" />
-<meta name="theme-color" content="#F31D25" />
+<title>Fight Night Fantasy</title>
+
+<meta name="description" content="Fight Night Fantasy — UFC ფენტეზი ლიგა. აირჩიე ფავორიტი მებრძოლები, გალიდერდი ლიდერბორდში და მოიგე ფულადი პრიზები." />
+
+<!-- Favicon -->
+<link rel="icon" type="image/x-icon" href="favicon.ico" />
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png" />
+
+<!-- Open Graph (Facebook, Telegram, Instagram, etc.) -->
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://fnf.ge/" />
+<meta property="og:title" content="Fight Night Fantasy — UFC ფენტეზი ლიგა" />
+<meta property="og:description" content="Fight Night Fantasy — UFC ფენტეზი ლიგა. აირჩიე ფავორიტი მებრძოლები, გალიდერდი ლიდერბორდში და მოიგე ფულადი პრიზები." />
+<meta property="og:image" content="https://fnf.ge/og-image.png" />
+
+<!-- Twitter / X Card -->
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="Fight Night Fantasy — UFC ფენტეზი ლიგა" />
+<meta name="twitter:description" content="Fight Night Fantasy — UFC ფენტეზი ლიგა. აირჩიე ფავორიტი მებრძოლები, გალიდერდი ლიდერბორდში და მოიგე ფულადი პრიზები." />
+<meta name="twitter:image" content="https://fnf.ge/og-image.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://a.espncdn.com" />
+<link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="style.css?v=107">
 <style>
-  :root {
-    --ink:#0B0A0F; --canvas:#0E0D14; --surface:#16141E; --surface-2:#1F1C2B;
-    --line:#2A2738; --red:#F31D25; --gold:#F5C451; --green:#3ad17e;
-    --text:#EDEBF2; --muted:#8C8899;
-  }
-  * { box-sizing:border-box; margin:0; padding:0; }
-  body { background:var(--canvas); color:var(--text); font-family:'Segoe UI',sans-serif; padding:24px; }
-  h1 { color:var(--red); margin-bottom:8px; font-size:1.6rem; }
-  h2 { color:var(--gold); margin:24px 0 12px; font-size:1.1rem; }
-  .warn { background:rgba(243,29,37,.1); border:1px solid var(--red); border-radius:6px; padding:12px 16px; margin-bottom:20px; font-size:.85rem; color:#ff7070; }
-  .card { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:20px; margin-bottom:16px; }
-  label { display:block; font-size:.75rem; color:var(--muted); margin-bottom:6px; letter-spacing:.05em; text-transform:uppercase; }
-  input, select { width:100%; background:var(--canvas); border:1px solid var(--line); border-radius:4px; padding:10px 12px; color:var(--text); font-size:.95rem; margin-bottom:12px; }
-  input:focus, select:focus { outline:none; border-color:var(--red); }
-  .btn { font-family:inherit; font-weight:700; font-size:.85rem; padding:11px 20px; border-radius:4px; cursor:pointer; border:none; transition:.15s; }
-  .btn-primary { background:var(--red); color:#fff; }
-  .btn-primary:hover { opacity:.85; }
-  .btn-secondary { background:var(--gold); color:#000; }
-  .btn-secondary:hover { opacity:.85; }
-  .btn-ghost { background:var(--surface-2); color:var(--text); border:1px solid var(--line); }
-  .btn-ghost:hover { border-color:var(--muted); }
-  .btn-danger { background:rgba(243,29,37,.15); color:var(--red); border:1px solid var(--red); }
-  .btn-settle { background:rgba(58,209,126,.15); color:var(--green); border:1px solid var(--green); }
-  .btn-settle:hover { background:rgba(58,209,126,.25); }
-  .btn:disabled { opacity:.4; cursor:not-allowed; }
-  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-  .fight-card { border:1px solid var(--line); border-radius:8px; padding:14px; margin-bottom:10px; transition:.2s; }
-  .fight-card.active { background:var(--surface-2); }
-  .fight-card.inactive { background:rgba(0,0,0,.3); opacity:.55; border-style:dashed; }
-  .fight-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px; }
-  .fight-title { font-weight:700; font-size:.9rem; }
-  .fight-wc { font-size:.75rem; color:var(--muted); }
-  .vs { text-align:center; font-weight:900; color:var(--muted); font-size:1.1rem; margin:4px 0; }
-  .fighter-row { display:flex; align-items:center; justify-content:space-between; padding:5px 0; gap:8px; flex-wrap:wrap; }
-  .fighter-info { display:flex; align-items:center; gap:8px; flex:1; }
-  .fighter-img { width:36px; height:36px; border-radius:50%; object-fit:cover; background:var(--line); border:1px solid var(--line); }
-  .fighter-flag { font-size:1.1rem; }
-  .fighter-name { font-weight:700; font-size:.88rem; }
-  .fighter-record { font-size:.72rem; color:var(--muted); }
-  .fighter-details { font-size:.68rem; color:var(--gold); margin-top:1px; }
-  .odds-input { width:80px !important; margin:0; padding:6px 8px; font-size:.85rem; }
-  .odds-auto { background:rgba(58,209,126,.1); border-color:var(--green) !important; color:var(--green); }
-  .odds-locked { background:rgba(243,29,37,.08); border-color:var(--red) !important; color:var(--muted); cursor:not-allowed; }
-  .tag-odds { background:rgba(58,209,126,.15); color:var(--green); font-size:.65rem; padding:2px 6px; border-radius:3px; display:inline-block; }
-  .tag-locked { background:rgba(243,29,37,.15); color:var(--red); font-size:.65rem; padding:2px 6px; border-radius:3px; display:inline-block; }
-  .toggle-btn { font-family:inherit; font-size:.75rem; font-weight:700; padding:5px 12px; border-radius:20px; cursor:pointer; border:1px solid; transition:.15s; }
-  .toggle-active { background:rgba(58,209,126,.15); color:var(--green); border-color:var(--green); }
-  .toggle-inactive { background:rgba(140,136,153,.1); color:var(--muted); border-color:var(--line); }
-  .toggle-details-on { background:rgba(245,196,81,.15); color:var(--gold); border-color:var(--gold); }
-  .toggle-details-off { background:rgba(140,136,153,.1); color:var(--muted); border-color:var(--line); }
-  .method-section { margin-top:10px; padding-top:10px; border-top:1px solid var(--line); }
-  .method-grid { display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px; margin-top:6px; }
-  .method-item { display:flex; flex-direction:column; gap:3px; }
-  .method-item label { font-size:.65rem; color:var(--muted); text-transform:uppercase; margin:0; }
-  .method-input { width:100% !important; margin:0; padding:6px 8px; font-size:.8rem; }
-  .rounds-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:6px; margin-top:6px; }
-  .controls-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .rounds-select { width:72px !important; margin:0; padding:6px 8px; font-size:.82rem; }
-  .main-toggle { display:flex; align-items:center; gap:6px; font-size:.78rem; color:var(--muted); }
-  .main-toggle input[type=checkbox] { width:auto; margin:0; }
-  .log { background:var(--ink); border:1px solid var(--line); border-radius:6px; padding:14px; font-family:monospace; font-size:.8rem; height:240px; overflow-y:auto; }
-  .log .ok { color:var(--green); }
-  .log .err { color:#ff7070; }
-  .log .info { color:var(--gold); }
-  .log .auto { color:#7eb8ff; }
-  .flex-gap { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
-  .event-info { background:rgba(245,196,81,.08); border:1px solid rgba(245,196,81,.3); border-radius:6px; padding:14px; margin-bottom:16px; }
-  .event-info h3 { color:var(--gold); margin-bottom:4px; }
-  .event-info p { font-size:.85rem; color:var(--muted); margin-bottom:2px; }
-  .credits-badge { background:rgba(245,196,81,.15); border:1px solid rgba(245,196,81,.3); border-radius:4px; padding:4px 10px; font-size:.75rem; color:var(--gold); }
-  .section-label { font-size:.7rem; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:5px; }
-  .saved-badge { background:rgba(58,209,126,.1); border:1px solid var(--green); border-radius:4px; padding:4px 10px; font-size:.75rem; color:var(--green); }
-  .locked-badge { background:rgba(243,29,37,.1); border:1px solid var(--red); border-radius:4px; padding:4px 10px; font-size:.75rem; color:var(--red); }
-  .auto-badge { background:rgba(126,184,255,.1); border:1px solid #7eb8ff; border-radius:4px; padding:4px 10px; font-size:.75rem; color:#7eb8ff; }
-  .status-bar { background:var(--surface-2); border:1px solid var(--line); border-radius:6px; padding:12px 16px; margin-bottom:16px; display:flex; gap:16px; flex-wrap:wrap; align-items:center; font-size:.82rem; }
-  .status-item { display:flex; flex-direction:column; gap:2px; }
-  .status-label { font-size:.68rem; color:var(--muted); text-transform:uppercase; }
-  .status-value { color:var(--text); font-weight:600; }
-  .result-section { margin-top:10px; padding-top:10px; border-top:1px solid var(--line); }
-  .result-grid { display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:6px; margin-top:6px; }
-  .result-item { display:flex; flex-direction:column; gap:3px; }
-  .result-item label { font-size:.65rem; color:var(--muted); text-transform:uppercase; margin:0; }
-  .result-input { width:100% !important; margin:0; padding:6px 8px; font-size:.8rem; }
-  .settle-section { margin-top:14px; padding-top:14px; border-top:2px solid var(--green); }
-  .settle-section h3 { color:var(--green); font-size:.95rem; margin-bottom:10px; }
+.cd-unit { color: #fff !important; font-size: .75rem !important; }
+.eye-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:1.1rem;opacity:.5;padding:4px}
+.eye-toggle:hover{opacity:1}
+.pass-hint{font-size:.72rem;color:var(--muted);margin-top:6px;line-height:1.5}
 </style>
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-TLSVRK7V');</script>
+<!-- End Google Tag Manager -->  
 </head>
 <body>
-
-<!-- ── KEY SCREEN ── -->
-<div id="keyScreen" style="display:none;position:fixed;inset:0;background:var(--canvas);z-index:9999;align-items:center;justify-content:center;padding:24px">
-  <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:32px;max-width:420px;width:100%">
-    <h2 style="color:var(--gold);margin-bottom:6px;font-size:1.2rem">🔑 Admin Login</h2>
-    <p style="color:var(--muted);font-size:.85rem;margin-bottom:20px;line-height:1.6">
-      შედი იმავე email/password-ით, რომლითაც საიტზე ხარ რეგისტრირებული
-    </p>
-    <label>Email</label>
-    <input type="email" id="adminEmail" placeholder="admin@example.com" autocomplete="username"
-      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;margin-bottom:8px" />
-    <label>Password</label>
-    <input type="password" id="adminPassword" placeholder="••••••••" autocomplete="current-password"
-      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;margin-bottom:8px"
-      onkeydown="if(event.key==='Enter')submitLogin()" />
-    <label>Admin Notify Secret <span style="color:var(--muted);text-transform:none;font-weight:400">(Telegram შეტყობინებებისთვის — ერთხელ შეჰყავთ)</span></label>
-    <input type="password" id="notifySecretInput" placeholder="..." autocomplete="off"
-      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-family:monospace;font-size:.82rem;margin-bottom:8px" />
-    <div id="keyError" style="color:#ff7070;font-size:.8rem;min-height:18px;margin-bottom:12px"></div>
-    <button onclick="submitLogin()" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:4px;padding:12px;font-weight:700;font-size:.95rem;cursor:pointer">შესვლა →</button>
-    <div style="display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--muted);font-size:.78rem">
-      <div style="flex:1;height:1px;background:var(--line)"></div>ან<div style="flex:1;height:1px;background:var(--line)"></div>
-    </div>
-    <button onclick="handleAdminGoogleAuth()" style="width:100%;background:#fff;color:#1f1f1f;border:1px solid var(--line);border-radius:4px;padding:11px;font-weight:600;font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
-      <svg width="18" height="18" viewBox="0 0 18 18">
-        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
-        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
-        <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
-        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
-      </svg>
-      Google-ით შესვლა
-    </button>
-  </div>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TLSVRK7V"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+<!-- ── NAV ── -->
+<nav><div class="wrap nav-in">
+<a href="#top" class="brand">
+<img src="data:image/jpeg;base64,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" alt="Fight Night Fantasy" />
+<span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
+</a>
+<div class="nav-links" id="navLinks">
+  <a href="#card">ბრძოლები</a>
+  <a href="#tickets">ჩემი ბილეთები</a>
+  <a href="#leaderboard">ლიდერბორდი</a>
+  <a href="#how">წესები</a>
 </div>
-
-<!-- ── ADMIN CONTENT ── -->
-<div id="adminContent">
-
-<h1>⚙️ UFC Fantasy — Admin</h1>
-<div class="warn" style="display:flex;justify-content:space-between;align-items:center">
-  <span>⚠️ ეს გვერდი მხოლოდ ადმინისთვისაა.</span>
-  <button onclick="adminLogout()" style="background:rgba(243,29,37,.15);color:var(--red);border:1px solid var(--red);border-radius:4px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:.78rem">🚪 გამოსვლა</button>
+<div class="nav-cta">
+  <div class="balance-pill"><span class="coin"></span><b id="balNav">1,000</b> ქულა</div>
+  <button class="btn btn-ghost" id="signinBtn">შესვლა</button>
+  <button class="btn btn-ghost" id="joinBtn">რეგისტრაცია</button>
+  <button class="menu-btn" id="menuBtn" aria-label="მენიუ"><span></span></button>
 </div>
+</div></nav>
 
-<div class="status-bar" id="statusBar">
-  <div class="status-item"><span class="status-label">მომდევნო ივენთი</span><span class="status-value" id="statusEvent">—</span></div>
-  <div class="status-item"><span class="status-label">ივენთამდე</span><span class="status-value" id="statusCountdown">—</span></div>
-  <div class="status-item"><span class="status-label">კოეფ. განახლდა</span><span class="status-value" id="statusOddsTime">—</span></div>
-  <div class="status-item"><span class="status-label">კოეფ. სტატუსი</span><span class="status-value" id="statusOddsStatus">—</span></div>
-  <div class="status-item"><span class="status-label">Odds API credits</span><span class="status-value credits-badge" id="creditsLeft">?</span></div>
+<!-- ── HERO ── -->
+<header class="hero" id="top"><div class="hero-glow"></div><div class="wrap hero-in">
+<div class="event-tag reveal d1" style="flex-direction:column;align-items:center;gap:4px;color:#fff;letter-spacing:.1em;">
+  <span>UPCOMING EVENT</span>
+  <span id="eventLocation2"></span>
+  <span id="eventDate"></span>
 </div>
-
-<div class="card">
-  <h2>📡 ნაბიჯი 1 — ივენთი</h2>
-  <div class="grid-2">
-    <div><label>თარიღი (YYYYMMDD)</label><input type="text" id="espnDate" placeholder="მაგ: 20260627" /></div>
-    <div><label>The Odds API Key</label><input type="text" id="oddsApiKey" placeholder="API key..." style="font-family:monospace;font-size:.85rem;" oninput="saveToLocal()" /></div>
-  </div>
-  <div class="flex-gap">
-    <button class="btn btn-primary" onclick="fetchFromESPN()">📥 ESPN-დან წამოღება</button>
-    <button class="btn btn-ghost" onclick="fetchNextEvent()">⚡ მომდევნო ივენთი (ავტო)</button>
-    <button class="btn btn-secondary" onclick="fetchOdds()">🔄 კოეფიციენტები ახლავე</button>
-    <span id="localBadge" style="display:none" class="saved-badge">💾 შენახული სესია</span>
-    <span id="lockedBadge" style="display:none" class="locked-badge">🔒 კოეფ. დაბლოკილია</span>
-    <button class="btn btn-danger" onclick="clearLocal()" style="font-size:.75rem;padding:5px 12px;">🗑 სესიის გასუფთავება</button>
-  </div>
+<div class="cd-grid reveal d2" id="countdown">
+  <div class="cd-cell"><div class="cd-num" id="cd-d">--</div><div class="cd-unit">დღე</div></div>
+  <div class="cd-cell"><div class="cd-num" id="cd-h">--</div><div class="cd-unit">საათი</div></div>
+  <div class="cd-cell"><div class="cd-num" id="cd-m">--</div><div class="cd-unit">წუთი</div></div>
+  <div class="cd-cell"><div class="cd-num" id="cd-s">--</div><div class="cd-unit">წამი</div></div>
 </div>
+<p class="hero-bank reveal d3">კაცი, რომელსაც მაჩეტეთი სძინავს, ყოველღამე სულელია — გარდა ერთისა!</p>
+</div></header>
 
-<div class="card" id="eventSection" style="display:none">
-  <h2>🏟️ ნაბიჯი 2 — ივენთის დეტალები</h2>
-  <div id="eventInfo" class="event-info"></div>
-  <div class="grid-2">
-    <div><label>ივენთის სახელი</label><input type="text" id="eventName" oninput="saveToLocal()" /></div>
-    <div><label>ლოკაცია</label><input type="text" id="eventLocation" oninput="saveToLocal()" /></div>
-  </div>
-  <div><label>თარიღი</label><input type="datetime-local" id="eventDate" oninput="saveToLocal();updateCountdown()" /></div>
+<!-- ── MARKETS ── -->
+<section id="card" style="padding-top:clamp(16px,2vw,24px)"><div class="wrap">
+<div class="sec-head">
+  <h2>აირჩიე ფავორიტი მებრძოლები</h2>
 </div>
-
-<div class="card" id="fightsSection" style="display:none">
-  <h2>🥊 ნაბიჯი 3 — ბრძოლები</h2>
-  <div style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">
-    ✅ <b style="color:var(--green)">ჩართული</b> = საიტზე ჩანს &nbsp;|&nbsp;
-    ⚫ გამორთული = არ ჩანს &nbsp;|&nbsp;
-    🟡 <b style="color:var(--gold)">მეტი დეტალი</b> = რაუნდები/მეთოდი &nbsp;|&nbsp;
-    🏆 შედეგი = ბრძოლის შემდეგ
-  </div>
-  <div id="fightsList"></div>
-</div>
-
-<div class="card" id="saveSection" style="display:none">
-  <h2>💾 ნაბიჯი 4 — Supabase-ში შენახვა</h2>
-  <div class="flex-gap" style="margin-bottom:14px;">
-    <button class="btn btn-primary" onclick="saveToSupabase()">🚀 ბაზაში შენახვა</button>
-    <button class="btn btn-settle" onclick="syncOddsToDB()" style="margin-left:8px">📊 ოდსების სინქრონიზაცია DB-ში</button>
-    <button class="btn btn-ghost" onclick="checkResults()">🏆 შედეგების შემოწმება (ESPN)</button>
-    <button class="btn btn-ghost" onclick="clearLog()">🗑️ ლოგის გასუფთავება</button>
-  </div>
-
-  <!-- SETTLEMENT SECTION -->
-  <div class="settle-section">
-    <h3>⚡ Settlement — ბილეთების დამუშავება</h3>
-    <div style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">
-      ჯერ შეიყვანე შედეგები (ESPN ან ხელით), შეინახე ბაზაში, შემდეგ გაუშვი settlement.
-    </div>
-    <div class="flex-gap">
-      <button class="btn btn-settle" onclick="fetchAndSettle()">⚡ ESPN შედეგები + Settlement</button>
-      <button class="btn btn-settle" onclick="settleAllTickets()">🏆 მხოლოდ Settlement (შედეგები DB-შია)</button>
+<div id="prizeGuide" style="margin-bottom:16px">
+  <button class="tk-history-toggle" style="justify-content:center;gap:12px;font-size:.95rem;position:relative" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'; this.querySelector('.tk-arrow').classList.toggle('open')">
+    <span>💸 როგორ მოვიგო ფულადი პრიზები? 🎁</span>
+    <span class="tk-arrow" style="position:absolute;right:18px;font-size:1.3rem">▾</span>
+  </button>
+  <div style="display:none;border:1px solid var(--line);border-radius:8px;background:var(--surface);padding:28px 32px;margin-top:-8px;max-width:640px;margin-left:auto;margin-right:auto;text-align:center">
+    <div style="display:flex;flex-direction:column;gap:16px;font-size:1.05rem">
+      <div style="display:flex;gap:12px;align-items:flex-start;text-align:left"><span style="font-size:1.4rem">1️⃣</span><span>დარეგისტრირდი</span></div>
+      <!-- <div style="display:flex;gap:12px;align-items:flex-start;text-align:left"><span style="font-size:1.4rem"></span><span>გაიარე ვერიფიკაცია</span></div> -->
+      <div style="display:flex;gap:12px;align-items:flex-start;text-align:left"><span style="font-size:1.4rem">2️⃣</span><span>ავტომატურად მიღებული ქულებით დადე მომგებიანი ბილეთი</span></div>
+      <div style="display:flex;gap:12px;align-items:flex-start;text-align:left"><span style="font-size:1.4rem">3️⃣</span><span>მოაგროვე ქულები, გალიდერდი ლიდერბორდზე</span></div>
+      <div style="display:flex;gap:12px;align-items:flex-start;text-align:left"><span style="font-size:1.4rem">4️⃣</span><span>ყოველი თვის ბოლოს გამოვლინდებიან <b style="color:var(--green)">გამარჯვებულები</b></span></div>
     </div>
   </div>
+</div>
+<div class="markets" id="markets"></div>
+</div></section>
 
-  <!-- VERIFICATION SECTION -->
-  <div class="settle-section">
-    <h3>🪪 ვერიფიკაციები — მომლოდინე მოთხოვნები</h3>
-    <div style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">
-      მომხმარებლის ფოტო ჩანს მხოლოდ შენთვის (admin), დახურული storage-დან, დროებითი ბმულით.
-    </div>
-    <div class="flex-gap">
-      <button class="btn btn-ghost" onclick="loadPendingVerifications()">🔄 სიის განახლება</button>
-    </div>
-    <div id="verifQueue" style="margin-top:14px;display:flex;flex-direction:column;gap:14px;"></div>
+<!-- ── TICKETS ── -->
+<section id="tickets"><div class="wrap">
+<div class="sec-head"><h2>ჩემი ბილეთები</h2><span class="side" id="tkSummary">0 ბილეთი</span></div>
+<div class="tk-section">
+  <button class="tk-history-toggle" id="activeToggle">
+    <span>აქტიური ბილეთები</span>
+    <span class="tk-badge" id="activeBadge">0</span>
+    <span class="tk-arrow" id="activeArrow">▾</span>
+  </button>
+  <div class="tickets" id="activeTickets" style="display:flex;flex-direction:column;gap:12px"></div>
+</div>
+<div class="tk-section" style="margin-top:12px">
+  <button class="tk-history-toggle" id="historyToggle">
+    <span>ბილეთების ისტორია</span>
+    <span class="tk-badge" id="historyBadge">0</span>
+    <span class="tk-arrow" id="historyArrow">▾</span>
+  </button>
+  <div class="tickets tk-history" id="historyTickets" style="display:none"></div>
+</div>
+</div></section>
+
+<!-- ── LEADERBOARD ── -->
+<section id="leaderboard"><div class="wrap">
+<div class="sec-head"><h2>Leaderboard</h2></div>
+<div id="lbTabs" class="lb-tabs"></div>
+<div class="lb"><div id="lbRows"></div></div>
+</div></section>
+
+<!-- ── HOW IT WORKS ── -->
+<section id="how"><div class="wrap">
+<div class="sec-head"><h2>წესები</h2></div>
+<div class="how-grid">
+  <div class="how-card">
+    <div class="how-num">01</div>
+    <div class="how-t">მიიღე 1,000 ქულა</div>
+    <div class="how-d">ყოველი ახალი ივენთის შემდეგ, ყველა მომხმარებლის ბალანსი დარესტარტდება და გახდება თანაბარი — 1,000 ქულა.</div>
   </div>
+  <div class="how-card">
+    <div class="how-num">02</div>
+    <div class="how-t">დადე ბილეთი</div>
+    <div class="how-d">აირჩიე შენი ფავორიტი მებრძოლები. გადააბი პოზიციები ან განათავსე სინგლ ფსონები. ფსონების მიღება წყდება ივენთის დაწყებამდე 1 წუთით ადრე.</div>
+  </div>
+  <div class="how-card">
+    <div class="how-num">03</div>
+    <div class="how-t">ქეშაუთი</div>
+    <div class="how-d">ქეშაუთი ბილეთის დადებიდან 1 საათის განმავლობაში უფასოა. შემდეგ გეძლება დადებული ქულების 80%. ქეშაუთი შეუძლებელია ივენთის დაწყებამდე 1 საათზე ნაკლები რომ დარჩეს.</div>
+  </div>
+  <div class="how-card">
+    <div class="how-num">04</div>
+    <div class="how-t">Leaderboard</div>
+    <div class="how-d">ლიდერბორდზე ისახება მხოლოდ გამარჯვებული ბილეთით მოპოვებული ქულები. ლიდერბორდი რესტარტდება ყოველი თვის დასაწყისში.</div>
+  </div>
+  <div class="how-card">
+    <div class="how-num">05</div>
+    <div class="how-t">გამოუყენებელი ქულები</div>
+    <div class="how-d">ბალანსზე დარჩენილი ქულები ლიდერბორდს არ ემატება. მხოლოდ მოგებული ბილეთები ითვლება.</div>
+  </div>
+  <div class="how-card">
+    <div class="how-num">06</div>
+    <div class="how-t">პრიზები</div>
+    <div class="how-d">მიიღე ყოველი თვის ბოლოს შენი წილი 100 ლარიანი საპრიზო ფონდიდან</div>
+  </div>
+</div>
+</div></section>
 
-  <div class="log" id="log" style="margin-top:14px;"></div>
+<!-- ── FOOTER ── -->
+<footer><div class="wrap foot-in">
+<div>
+  <span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
+  
+  <p class="foot-note"> პირველი ქართული UFC Fantasy. გალიდერდი ლიდერბორდზე და მოიგე ფულადი პრიზები. ფსონები მხოლოდ ვირტუალური ქულებით თავსდება, რომელსაც ყოველი ივენთის წინ მიიღებ.გატესტე შენი MMA ინტუიცია უფასოდ!</p>
+  <div class="foot-socials">
+    <a href="#" id="socialFb" class="foot-social" aria-label="Facebook" target="_blank" rel="noopener">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+    </a>
+    <a href="#" id="socialTg" class="foot-social" aria-label="Telegram" target="_blank" rel="noopener">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+    </a>
+    <a href="#" id="socialLi" class="foot-social" aria-label="LinkedIn" target="_blank" rel="noopener">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+    </a>
+  </div>
+</div>
+<div class="foot-links">
+  <a href="#card">ბრძოლები</a>
+  <a href="#tickets">ბილეთები</a>
+  <a href="#how">წესები</a>
+  <button class="foot-contact-btn" onclick="document.getElementById('contactPopup').style.display='flex'">კონტაქტი</button>
+ 
+</div>
+</div></footer>
+<!-- CONTACT POPUP -->
+<div id="contactPopup" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(5,4,8,.8);backdrop-filter:blur(6px);justify-content:center;align-items:center;padding:20px">
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px;max-width:340px;width:100%;text-align:center">
+    <h3 style="font-family:var(--display);font-size:1.4rem;margin-bottom:16px">კონტაქტი</h3>
+    <a href="tel:+995557077665" style="display:block;padding:14px;margin-bottom:10px;background:var(--ink);border:1px solid var(--line);border-radius:8px;color:var(--green);font-family:var(--mono);font-weight:700;font-size:1rem;text-decoration:none">📞 557 077 665</a>
+    <a href="https://t.me/GeoArchnemesis" target="_blank" rel="noopener" style="display:block;padding:14px;margin-bottom:16px;background:var(--ink);border:1px solid var(--line);border-radius:8px;color:var(--blue-soft);font-family:var(--mono);font-weight:700;font-size:1rem;text-decoration:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-3px;margin-right:6px"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>@GeoArchnemesis</a>
+    <button onclick="document.getElementById('contactPopup').style.display='none'" style="color:var(--muted);font-size:.9rem;font-family:inherit;cursor:pointer;background:none;border:none">დახურვა</button>
+  </div>
+</div>
+<!-- ── BETBAR ── -->
+<div class="betbar" id="betbar"><div class="wrap bb-in">
+<div class="bb-left">
+  <div class="bb-block"><div class="bb-n gold" id="bbCoef">1.00</div><div class="bb-l">კოეფიციენტი</div></div>
+  <div class="bb-block"><div class="bb-n" id="bbCount">0</div><div class="bb-l">პოზიცია</div></div>
+</div>
+<button class="btn btn-primary" id="openSlip">ბილეთის ნახვა</button>
+</div></div>
+
+<!-- ── SLIP ── -->
+<div class="slip-bg" id="slipBg"></div>
+<div class="slip" id="slip">
+<div class="slip-head">
+  <div class="ht"><span class="slip-badge" id="slipBadge">0</span><h3>ბილეთი</h3></div>
+  <button class="x" id="closeSlip" aria-label="დახურვა">&times;</button>
+</div>
+<div class="slip-tabs">
+  <button class="slip-tab on" id="tabExpress">ექსპრესი</button>
+  <button class="slip-tab" id="tabSingle">სინგლი</button>
+</div>
+<div class="slip-body" id="slipBody"></div>
+<div class="slip-foot" id="slipFoot"></div>
 </div>
 
-<script>
-const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
-// ეს anon key საჯაროა და უსაფრთხოა ბრაუზერში — ისეთივეა, რასაც app.js იყენებს.
-// წვდომას არეგულირებს RLS + is_admin, არა ეს key.
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
-const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard";
-
-let ADMIN_NOTIFY_SECRET = localStorage.getItem('fnf_admin_notify_secret') || '';
-
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
-});
-
-function showLoginScreen(errMsg) {
-  document.getElementById('adminContent').style.display = 'none';
-  document.getElementById('keyScreen').style.display = 'flex';
-  if (errMsg) document.getElementById('keyError').textContent = errMsg;
-}
-
-async function submitLogin() {
-  const email = document.getElementById('adminEmail').value.trim();
-  const password = document.getElementById('adminPassword').value;
-  const notifySecret = document.getElementById('notifySecretInput').value.trim();
-  document.getElementById('keyError').textContent = '';
-
-  if (!email || !password) {
-    document.getElementById('keyError').textContent = 'შეიყვანე email და password';
-    return;
-  }
-
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if (error || !data?.user) {
-    document.getElementById('keyError').textContent = 'არასწორი email ან password';
-    return;
-  }
-
-  // ── is_admin შემოწმება ──
-  const { data: profile, error: profErr } = await sb.from('users').select('is_admin').eq('id', data.user.id).single();
-  if (profErr || !profile?.is_admin) {
-    await sb.auth.signOut();
-    document.getElementById('keyError').textContent = 'ეს ანგარიში ადმინი არ არის';
-    return;
-  }
-
-  if (notifySecret) {
-    localStorage.setItem('fnf_admin_notify_secret', notifySecret);
-    ADMIN_NOTIFY_SECRET = notifySecret;
-  }
-
-  document.getElementById('keyScreen').style.display = 'none';
-  document.getElementById('adminContent').style.display = 'block';
-  loadFromLocal();
-  startAutoOdds();
-  log('✅ ადმინად შესვლა წარმატებულია', 'ok');
-}
-
-async function adminLogout() {
-  if (!confirm('გსურს გამოსვლა?')) return;
-  await sb.auth.signOut();
-  showLoginScreen();
-}
-
-async function handleAdminGoogleAuth() {
-  // notify secret-ს ვინახავთ რედირექტამდე, რადგან გვერდი თავიდან ჩაიტვირთება
-  const notifySecret = document.getElementById('notifySecretInput').value.trim();
-  if (notifySecret) localStorage.setItem('fnf_admin_notify_secret', notifySecret);
-
-  const { error } = await sb.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: window.location.origin + window.location.pathname }
-  });
-  if (error) document.getElementById('keyError').textContent = 'Google შესვლა ვერ მოხერხდა: ' + error.message;
-}
-
-// ── init: სესია უკვე არსებობს? ──
-async function initAdminSession() {
-  const { data: { session } } = await sb.auth.getSession();
-  if (!session) { showLoginScreen(); return; }
-
-  const { data: profile, error: profErr } = await sb.from('users').select('is_admin').eq('id', session.user.id).single();
-  if (profErr || !profile?.is_admin) {
-    await sb.auth.signOut();
-    showLoginScreen('ეს ანგარიში ადმინი არ არის');
-    return;
-  }
-
-  document.getElementById('keyScreen').style.display = 'none';
-  document.getElementById('adminContent').style.display = 'block';
-  loadFromLocal();
-  startAutoOdds();
-}
-
-document.addEventListener('DOMContentLoaded', initAdminSession);
-
-let currentEventData = null;
-let fightsData = [];
-let oddsData = [];
-let oddsLocked = false;
-let autoTimer = null;
-
-// ── Telegram Notification ──
-const TG_NOTIFY_URL = 'https://qxfcwsiysnjxhxljqigl.supabase.co/functions/v1/telegram-bot';
-async function notifyTelegram(msg) {
-  try { await fetch(TG_NOTIFY_URL, { method: 'POST', headers: {'Content-Type':'application/json','X-Admin-Secret': ADMIN_NOTIFY_SECRET}, body: JSON.stringify({ notify: msg }) }); } catch(e) {}
-}
-
-// ─────────────────────────────────────────────────────────────
-//  LOCAL STORAGE
-// ─────────────────────────────────────────────────────────────
-function saveToLocal() {
-  try {
-    localStorage.setItem('ufc_odds_key', document.getElementById('oddsApiKey').value || '');
-    if (fightsData.length) {
-      localStorage.setItem('ufc_fights', JSON.stringify(fightsData));
-      localStorage.setItem('ufc_event', JSON.stringify({
-        name: document.getElementById('eventName').value,
-        location: document.getElementById('eventLocation').value,
-        date: document.getElementById('eventDate').value,
-        infoHtml: document.getElementById('eventInfo').innerHTML,
-      }));
-    }
-  } catch(e) {}
-}
-
-function loadFromLocal() {
-  try {
-    const key = localStorage.getItem('ufc_odds_key');
-    if (key) document.getElementById('oddsApiKey').value = key;
-    const evStr = localStorage.getItem('ufc_event');
-    const fStr  = localStorage.getItem('ufc_fights');
-    if (!evStr || !fStr) return;
-    const ev = JSON.parse(evStr);
-    fightsData = JSON.parse(fStr);
-    currentEventData = true;
-    document.getElementById('eventName').value    = ev.name     || '';
-    document.getElementById('eventLocation').value = ev.location || '';
-    document.getElementById('eventDate').value    = ev.date     || '';
-    document.getElementById('eventInfo').innerHTML = ev.infoHtml || `<h3>${ev.name}</h3>`;
-    document.getElementById('eventSection').style.display = 'block';
-    document.getElementById('fightsSection').style.display = 'block';
-    document.getElementById('saveSection').style.display   = 'block';
-    document.getElementById('localBadge').style.display    = 'inline';
-    renderFights();
-    updateCountdown();
-    log(`💾 სესია აღდგა: ${ev.name} (${fightsData.length} ბრძოლა)`, 'ok');
-  } catch(e) {}
-}
-
-function clearLocal() {
-  if (!confirm('სესიის მონაცემები წაიშლება?')) return;
-  ['ufc_fights','ufc_event','ufc_odds_last'].forEach(k => localStorage.removeItem(k));
-  fightsData = []; currentEventData = null;
-  ['eventSection','fightsSection','saveSection'].forEach(id => document.getElementById(id).style.display='none');
-  document.getElementById('localBadge').style.display = 'none';
-  document.getElementById('fightsList').innerHTML = '';
-  log('სესია გასუფთავდა', 'info');
-}
-
-// ─────────────────────────────────────────────────────────────
-//  LOG / COUNTDOWN
-// ─────────────────────────────────────────────────────────────
-function log(msg, type='info') {
-  const el = document.getElementById('log');
-  const line = document.createElement('div');
-  line.className = type;
-  line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
-  el.appendChild(line);
-  el.scrollTop = el.scrollHeight;
-}
-function clearLog() { document.getElementById('log').innerHTML = ''; }
-
-function updateCountdown() {
-  const dateVal = document.getElementById('eventDate').value;
-  if (!dateVal) return;
-  const eventTime = new Date(dateVal).getTime();
-  const now = Date.now();
-  const diff = eventTime - now;
-  oddsLocked = diff < 60 * 60 * 1000;
-  document.getElementById('lockedBadge').style.display = oddsLocked ? 'inline' : 'none';
-  document.getElementById('statusOddsStatus').textContent = oddsLocked ? '🔒 დაბლოკილია' : '✅ ღია';
-  if (diff <= 0) {
-    document.getElementById('statusCountdown').textContent = '🔴 მიმდინარეობს';
-    document.getElementById('statusCountdown').style.color = 'var(--red)';
-  } else {
-    const h = Math.floor(diff / 3600000);
-    const m = Math.floor((diff % 3600000) / 60000);
-    document.getElementById('statusCountdown').textContent = `${h}სთ ${m}წთ`;
-    document.getElementById('statusCountdown').style.color = diff < 7200000 ? 'var(--gold)' : 'var(--green)';
-  }
-  const evName = document.getElementById('eventName').value;
-  if (evName) document.getElementById('statusEvent').textContent = evName.replace('UFC Fight Night: ','').replace('UFC ','');
-}
-
-// ─────────────────────────────────────────────────────────────
-//  HELPERS
-// ─────────────────────────────────────────────────────────────
-function countryToFlag(alt) {
-  const map = {
-    'USA':'🇺🇸','Canada':'🇨🇦','Mexico':'🇲🇽','Brazil':'🇧🇷','Argentina':'🇦🇷',
-    'Colombia':'🇨🇴','Peru':'🇵🇪','Chile':'🇨🇱','Ecuador':'🇪🇨','Venezuela':'🇻🇪',
-    'Uruguay':'🇺🇾','Jamaica':'🇯🇲','Trinidad and Tobago':'🇹🇹','Dominican Republic':'🇩🇴',
-    'Puerto Rico':'🇵🇷','Guyana':'🇬🇾','Cuba':'🇨🇺','Aruba':'🇦🇼','Panama':'🇵🇦',
-    'United Kingdom':'🇬🇧','England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','Wales':'🏴󠁧󠁢󠁷󠁬󠁳󠁿',
-    'Ireland':'🇮🇪','France':'🇫🇷','Germany':'🇩🇪','Italy':'🇮🇹','Spain':'🇪🇸',
-    'Netherlands':'🇳🇱','Poland':'🇵🇱','Sweden':'🇸🇪','Norway':'🇳🇴','Denmark':'🇩🇰',
-    'Finland':'🇫🇮','Belgium':'🇧🇪','Austria':'🇦🇹','Switzerland':'🇨🇭',
-    'Portugal':'🇵🇹','Czech Republic':'🇨🇿','Czechia':'🇨🇿','Hungary':'🇭🇺',
-    'Romania':'🇷🇴','Serbia':'🇷🇸','Croatia':'🇭🇷','Bosnia and Herzegovina':'🇧🇦',
-    'Bulgaria':'🇧🇬','Greece':'🇬🇷','Lithuania':'🇱🇹','Latvia':'🇱🇻','Estonia':'🇪🇪',
-    'Moldova':'🇲🇩','Albania':'🇦🇱','Slovakia':'🇸🇰','Slovenia':'🇸🇮','Iceland':'🇮🇸',
-    'Russia':'🇷🇺','Ukraine':'🇺🇦','Georgia':'🇬🇪','Armenia':'🇦🇲','Azerbaijan':'🇦🇿',
-    'Kazakhstan':'🇰🇿','Uzbekistan':'🇺🇿','Kyrgyzstan':'🇰🇬','Tajikistan':'🇹🇯','Belarus':'🇧🇾',
-    'China':'🇨🇳','Japan':'🇯🇵','South Korea':'🇰🇷','Thailand':'🇹🇭','Philippines':'🇵🇭',
-    'Indonesia':'🇮🇩','India':'🇮🇳','Mongolia':'🇲🇳','Pakistan':'🇵🇰',
-    'Afghanistan':'🇦🇫','Iraq':'🇮🇶','Iran':'🇮🇷','Israel':'🇮🇱',
-    'Australia':'🇦🇺','New Zealand':'🇳🇿','Fiji':'🇫🇯','Samoa':'🇼🇸',
-    'Turkey':'🇹🇷','Türkiye':'🇹🇷','Saudi Arabia':'🇸🇦','UAE':'🇦🇪',
-    'Bahrain':'🇧🇭','Jordan':'🇯🇴','Lebanon':'🇱🇧',
-    'South Africa':'🇿🇦','Nigeria':'🇳🇬','Cameroon':'🇨🇲','Ghana':'🇬🇭',
-    'Morocco':'🇲🇦','Egypt':'🇪🇬','Tunisia':'🇹🇳','Algeria':'🇩🇿','Kenya':'🇰🇪',
-  };
-  return map[alt] || '🏳️';
-}
-
-function nameSimilarity(a, b) {
-  const norm = s => s.toLowerCase().replace(/[^a-z]/g,' ').trim().split(/\s+/).filter(Boolean);
-  const wa = norm(a), wb = norm(b);
-  let matches = 0;
-  for (const w of wa) {
-    if (wb.some(x => x.startsWith(w.slice(0,4)) || w.startsWith(x.slice(0,4)))) matches++;
-  }
-  return matches / Math.max(wa.length, wb.length);
-}
-
-async function fetchAthleteDetails(espnId) {
-  try {
-    const res = await fetch(`https://sports.core.api.espn.com/v2/sports/mma/athletes/${espnId}`);
-    const a = await res.json();
-    return {
-      age: a.age || null,
-      height_cm: a.height ? Math.round(a.height * 2.54) : null,
-      weight_kg: a.weight ? Math.round(a.weight * 0.4536) : null,
-      reach_cm: a.reach ? Math.round(a.reach * 2.54) : null,
-    };
-  } catch(e) { return {age:null,height_cm:null,weight_kg:null,reach_cm:null}; }
-}
-
-function findOddsForFight(redName, blueName) {
-  let best = null, bestScore = 0;
-  for (const game of oddsData) {
-    const score = Math.max(
-      nameSimilarity(game.home_team, redName)  + nameSimilarity(game.away_team, blueName),
-      nameSimilarity(game.home_team, blueName) + nameSimilarity(game.away_team, redName)
-    );
-    if (score > bestScore) { bestScore = score; best = game; }
-  }
-  if (bestScore < 0.5) return null;
-  const preferred = ['pinnacle','betonlineag','betsson','nordicbet','coolbet'];
-  let bm = null;
-  for (const key of preferred) { bm = best.bookmakers.find(b => b.key === key); if (bm) break; }
-  if (!bm) bm = best.bookmakers[0];
-  if (!bm) return null;
-  const h2h = bm.markets.find(m => m.key === 'h2h');
-  if (!h2h) return null;
-  const redOdds  = h2h.outcomes.find(o => nameSimilarity(o.name, redName)  > 0.4)?.price;
-  const blueOdds = h2h.outcomes.find(o => nameSimilarity(o.name, blueName) > 0.4)?.price;
-  return { redOdds, blueOdds, bookmaker: bm.title };
-}
-
-// ESPN-ის შედეგის მეთოდის ამოცნობა — რამდენიმე წყაროდან
-function parseESPNMethod(comp) {
-  const statusDesc = comp.status?.type?.description || '';
-  const headline = comp.headlines?.[0]?.description || '';
-  const notes = comp.notes?.[0]?.headline || '';
-  // სცადე ყველა წყარო
-  const sources = [headline, notes, statusDesc];
-  for (const src of sources) {
-    if (!src) continue;
-    const s = src.toLowerCase();
-    if (s.includes('ko') || s.includes('tko')) return 'KO/TKO';
-    if (s.includes('sub')) return 'Submission';
-    if (s.includes('dec') || s.includes('decision') || s.includes('unanimous') || s.includes('split') || s.includes('majority')) return 'Decision';
-    if (s.includes('no contest') || s.includes('nc')) return 'No Contest';
-    if (s.includes('dq') || s.includes('disqualif')) return 'DQ';
-  }
-  return ''; // მეთოდი ვერ ამოიცნო — არ დავაბრუნოთ statusDesc ("Final")
-}
-
-// ─────────────────────────────────────────────────────────────
-//  ESPN FETCH
-// ─────────────────────────────────────────────────────────────
-async function fetchNextEvent() {
-  log('მომდევნო ივენთის ძებნა...', 'info');
-  document.getElementById('saveSection').style.display = 'block';
-  const today = new Date();
-  for (let i = 0; i <= 30; i++) {
-    const d = new Date(today); d.setDate(d.getDate() + i);
-    const dateStr = d.toISOString().slice(0,10).replace(/-/g,'');
-    try {
-      const res = await fetch(`${ESPN_BASE}?dates=${dateStr}`);
-      const data = await res.json();
-      if (data.events && data.events.length > 0) {
-        log(`ნაპოვნია: ${data.events[0].name}`, 'ok');
-        document.getElementById('espnDate').value = dateStr;
-        await processESPNData(data); return;
-      }
-    } catch(e) {}
-  }
-  log('ვერ მოიძებნა', 'err');
-}
-
-async function fetchFromESPN() {
-  const dateStr = document.getElementById('espnDate').value.trim();
-  if (!dateStr) { log('შეიყვანე თარიღი!', 'err'); return; }
-  document.getElementById('saveSection').style.display = 'block';
-  log('ESPN-დან წამოღება...', 'info');
-  try {
-    const res = await fetch(`${ESPN_BASE}?dates=${dateStr}`);
-    const data = await res.json();
-    if (!data.events || !data.events.length) { log('ივენთი ვერ მოიძებნა', 'err'); return; }
-    log(`ნაპოვნია: ${data.events[0].name}`, 'ok');
-    await processESPNData(data);
-  } catch(e) { log('ESPN შეცდომა: ' + e.message, 'err'); }
-}
-
-async function processESPNData(data) {
-  const event = data.events[0];
-  currentEventData = event;
-  const venue    = event.competitions[0]?.venue;
-  const city     = venue?.address?.city    || '';
-  const country  = venue?.address?.country || '';
-  const location = city && country ? `${city}, ${country}` : city || country;
-
-  const infoHtml = `
-    <h3>${event.name}</h3>
-    <p>📅 ${new Date(event.date).toLocaleDateString('ka-GE',{year:'numeric',month:'long',day:'numeric'})}</p>
-    <p>📍 ${location} &nbsp;|&nbsp; 🥊 ${event.competitions.length} ბრძოლა</p>
-  `;
-  document.getElementById('eventSection').style.display  = 'block';
-  document.getElementById('fightsSection').style.display = 'block';
-  document.getElementById('saveSection').style.display   = 'block';
-  document.getElementById('eventInfo').innerHTML = infoHtml;
-  document.getElementById('eventName').value     = event.name;
-  document.getElementById('eventLocation').value = location;
-  document.getElementById('eventDate').value     = new Date(event.date).toISOString().slice(0,16);
-
-  localStorage.setItem('ufc_espn_event_id', event.id);
-  localStorage.setItem('ufc_espn_event_date', document.getElementById('espnDate').value || new Date(event.date).toISOString().slice(0,10).replace(/-/g,''));
-
-  const comps = [...event.competitions];
-  fightsData = comps.map((c, idx) => {
-    const red  = c.competitors.find(x => x.order === 1) || c.competitors[0];
-    const blue = c.competitors.find(x => x.order === 2) || c.competitors[1];
-    const rounds = c.format?.regulation?.periods || 3;
-    return {
-      espn_comp_id: c.id,
-      weight_class: c.type?.abbreviation || 'Unknown',
-      rounds, is_main: rounds === 5,
-      bout_order: comps.length - idx,
-      active: true, show_details: false,
-      red:  { name: red?.athlete?.fullName||'',  flag: countryToFlag(red?.athlete?.flag?.alt||''),  country: red?.athlete?.flag?.alt||'',  record: red?.records?.[0]?.summary||'',  espn_id: red?.id||'', age:null, height_cm:null, weight_kg:null, reach_cm:null },
-      blue: { name: blue?.athlete?.fullName||'', flag: countryToFlag(blue?.athlete?.flag?.alt||''), country: blue?.athlete?.flag?.alt||'', record: blue?.records?.[0]?.summary||'', espn_id: blue?.id||'', age:null, height_cm:null, weight_kg:null, reach_cm:null },
-      red_odds:null, blue_odds:null, odds_source:null,
-      ko_red:2.00, ko_blue:2.00, sub_red:3.00, sub_blue:3.00, dec_red:2.50, dec_blue:2.50,
-      r1_odds:5.00, r2_odds:4.50, r3_odds:3.50, r4_odds:6.00, r5_odds:7.00,
-      result_winner: '', result_method: '', result_round: '', result_time: '',
-    };
-  }).reverse();
-
-  log('მებრძოლების ანთროპომეტრიის წამოღება...', 'info');
-  let detailCount = 0;
-  for (let i = 0; i < fightsData.length; i++) {
-    const f = fightsData[i];
-    if (f.red.espn_id) {
-      const d = await fetchAthleteDetails(f.red.espn_id);
-      Object.assign(f.red, d);
-      if (d.age) detailCount++;
-    }
-    if (f.blue.espn_id) {
-      const d = await fetchAthleteDetails(f.blue.espn_id);
-      Object.assign(f.blue, d);
-      if (d.age) detailCount++;
-    }
-  }
-  log(`✅ ანთროპომეტრია: ${detailCount} მებრძოლის დეტალები წამოღებულია`, 'ok');
-
-  renderFights();
-  updateCountdown();
-  saveToLocal();
-}
-
-// ─────────────────────────────────────────────────────────────
-//  ODDS
-// ─────────────────────────────────────────────────────────────
-async function fetchOdds(auto = false) {
-  if (oddsLocked) { log('🔒 კოეფიციენტები დაბლოკილია!', 'err'); return; }
-  if (!fightsData.length) { if (!auto) log('ჯერ ივენთი წამოიღე!', 'err'); return; }
-  const ODDS_API_KEY = document.getElementById('oddsApiKey').value.trim();
-  if (!ODDS_API_KEY) { if (!auto) log('შეიყვანე API key!', 'err'); return; }
-  if (auto) log('🤖 ავტო-განახლება...', 'auto');
-  else log('კოეფიციენტების წამოღება...', 'info');
-  try {
-    const url = `https://api.the-odds-api.com/v4/sports/mma_mixed_martial_arts/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h&oddsFormat=decimal`;
-    const res = await fetch(url);
-    const remaining = res.headers.get('x-requests-remaining');
-    const used      = res.headers.get('x-requests-used');
-    if (remaining) document.getElementById('creditsLeft').textContent = `${remaining} credits`;
-    oddsData = await res.json();
-    const now = new Date();
-    localStorage.setItem('ufc_odds_last', now.toISOString());
-    document.getElementById('statusOddsTime').textContent = now.toLocaleTimeString('ka-GE', {hour:'2-digit', minute:'2-digit'});
-    let matched = 0;
-    for (let i = 0; i < fightsData.length; i++) {
-      const f = fightsData[i];
-      const odds = findOddsForFight(f.red.name, f.blue.name);
-      if (odds?.redOdds && odds?.blueOdds) {
-        fightsData[i].red_odds    = Math.round(odds.redOdds  * 100) / 100;
-        fightsData[i].blue_odds   = Math.round(odds.blueOdds * 100) / 100;
-        fightsData[i].odds_source = odds.bookmaker;
-        matched++;
-      } else {
-        log(`⚠ ვერ დაემთხვა: ${f.red.name} vs ${f.blue.name}`, 'info');
-      }
-    }
-    log(`✅ ${matched}/${fightsData.length} კოეფიციენტი განახლდა${used ? ` (${used} credits)` : ''}`, 'ok');
-    if (!auto && matched > 0) await notifyTelegram(`📊 <b>Admin: კოეფიციენტები</b>\n\n${matched}/${fightsData.length} განახლდა`);
-    renderFights();
-    saveToLocal();
-  } catch(e) { log('Odds API შეცდომა: ' + e.message, 'err'); }
-}
-
-function startAutoOdds() {
-  if (autoTimer) clearInterval(autoTimer);
-  const lastStr = localStorage.getItem('ufc_odds_last');
-  if (lastStr) {
-    const last = new Date(lastStr);
-    const diffH = (Date.now() - last.getTime()) / 3600000;
-    const timeStr = last.toLocaleTimeString('ka-GE', {hour:'2-digit', minute:'2-digit'});
-    document.getElementById('statusOddsTime').textContent = timeStr;
-    if (diffH < 12) {
-      log(`💾 კოეფ. ${Math.round(diffH*10)/10}სთ წინ — ავტო ${Math.round(12-diffH)}სთ-ში`, 'auto');
-      setTimeout(() => { fetchOdds(true); startAutoOdds(); }, (12 - diffH) * 3600000);
-      return;
-    }
-  }
-  fetchOdds(true);
-  autoTimer = setInterval(() => { if (!oddsLocked) fetchOdds(true); }, 12 * 60 * 60 * 1000);
-}
-
-// ─────────────────────────────────────────────────────────────
-//  CHECK RESULTS — ESPN-დან შედეგების წამოღება (ლოკალურად)
-// ─────────────────────────────────────────────────────────────
-async function checkResults() {
-  const dateStr = localStorage.getItem('ufc_espn_event_date');
-  if (!dateStr) { log('ESPN event date არ მოიძებნა', 'err'); return; }
-  log('ESPN-დან შედეგების შემოწმება...', 'info');
-  try {
-    const res  = await fetch(`${ESPN_BASE}?dates=${dateStr}`);
-    const data = await res.json();
-    if (!data.events || !data.events.length) { log('ივენთი ვერ მოიძებნა', 'err'); return; }
-    const event = data.events[0];
-    const state = event.status?.type?.state;
-    log(`სტატუსი: ${event.status?.type?.description || state}`, 'info');
-    if (state === 'pre') { log('ივენთი ჯერ არ დაწყებულა', 'info'); return; }
-    let updated = 0;
-    for (const comp of event.competitions) {
-      if (comp.status?.type?.state !== 'post') continue;
-      const winner = comp.competitors.find(c => c.winner);
-      if (!winner) continue;
-      const winnerName = winner.athlete?.fullName || '';
-      const method = parseESPNMethod(comp);
-      const round = comp.status?.period || '';
-      const time = comp.status?.displayClock || '';
-      const idx = fightsData.findIndex(f =>
-        nameSimilarity(f.red.name, winnerName) > 0.4 ||
-        nameSimilarity(f.blue.name, winnerName) > 0.4 ||
-        f.espn_comp_id === comp.id
-      );
-      if (idx >= 0) {
-        // ზუსტი მებრძოლის სახელი (ESPN ვარიაციის ნაცვლად)
-        const mRed = nameSimilarity(fightsData[idx].red.name, winnerName);
-        const mBlue = nameSimilarity(fightsData[idx].blue.name, winnerName);
-        const exactWinner = mRed >= mBlue ? fightsData[idx].red.name : fightsData[idx].blue.name;
-        fightsData[idx].result_winner = exactWinner;
-        fightsData[idx].result_method = method;
-        fightsData[idx].result_round  = String(round);
-        fightsData[idx].result_time   = time;
-        log(`🏆 ${fightsData[idx].red.name} vs ${fightsData[idx].blue.name}: ${exactWinner} (${method}, R${round} ${time})`, 'ok');
-        updated++;
-      }
-    }
-    if (updated === 0) log('დასრულებული ბრძოლები ვერ მოიძებნა', 'info');
-    else { renderFights(); saveToLocal(); log(`${updated} შედეგი განახლდა`, 'ok'); notifyTelegram(`🏆 <b>Admin: შედეგები</b>\n\n${updated} ბრძოლის შედეგი განახლდა`); }
-  } catch(e) { log('შეცდომა: ' + e.message, 'err'); }
-}
-
-// ─────────────────────────────────────────────────────────────
-//  RENDER FIGHTS
-// ─────────────────────────────────────────────────────────────
-function toggleActive(i)  { fightsData[i].active       = !fightsData[i].active;       saveToLocal(); renderFights(); }
-function toggleDetails(i) { fightsData[i].show_details = !fightsData[i].show_details; saveToLocal(); renderFights(); }
-
-function renderFights() {
-  const container = document.getElementById('fightsList');
-  container.innerHTML = fightsData.map((f, i) => {
-    const hasResult = !!f.result_winner;
-    const redDetails = [f.red.age?f.red.age+'წ':'', f.red.height_cm?f.red.height_cm+'სმ':'', f.red.weight_kg?f.red.weight_kg+'კგ':'', f.red.reach_cm?'R:'+f.red.reach_cm+'სმ':''].filter(Boolean).join(' · ');
-    const blueDetails = [f.blue.age?f.blue.age+'წ':'', f.blue.height_cm?f.blue.height_cm+'სმ':'', f.blue.weight_kg?f.blue.weight_kg+'კგ':'', f.blue.reach_cm?'R:'+f.blue.reach_cm+'სმ':''].filter(Boolean).join(' · ');
-    return `
-    <div class="fight-card ${f.active ? 'active' : 'inactive'}">
-      <div class="fight-header">
-        <div>
-          <span class="fight-title">${f.red.name} vs ${f.blue.name}</span>
-          <span class="fight-wc"> · ${f.weight_class}</span>
-          ${f.odds_source ? `<span class="tag-odds">📊 ${f.odds_source}</span>` : ''}
-          ${oddsLocked ? `<span class="tag-locked">🔒 ლოქი</span>` : ''}
-          ${hasResult ? `<span class="tag-odds">🏆 ${f.result_winner.split(' ').pop()}</span>` : ''}
-        </div>
-        <div class="controls-row">
-          <button class="toggle-btn ${f.active ? 'toggle-active' : 'toggle-inactive'}" onclick="toggleActive(${i})">${f.active ? '✅ ჩართული' : '⚫ გამორთული'}</button>
-          <button class="toggle-btn ${f.show_details ? 'toggle-details-on' : 'toggle-details-off'}" onclick="toggleDetails(${i})">${f.show_details ? '🟡 მეტი დეტალი' : '○ მხოლოდ მოგება'}</button>
-          <label class="main-toggle"><input type="checkbox" ${f.is_main?'checked':''} onchange="fightsData[${i}].is_main=this.checked;saveToLocal()"> Main</label>
-          <select class="rounds-select" onchange="fightsData[${i}].rounds=parseInt(this.value);saveToLocal();renderFights()">
-            <option value="3" ${f.rounds===3?'selected':''}>3R</option>
-            <option value="5" ${f.rounds===5?'selected':''}>5R</option>
-          </select>
-        </div>
-      </div>
-      <div class="section-label">მოგება / წაგება</div>
-      <div class="fighter-row">
-        <div class="fighter-info">
-          ${f.red.espn_id ? `<img class="fighter-img" src="https://a.espncdn.com/i/headshots/mma/players/full/${f.red.espn_id}.png" onerror="this.style.display='none'">` : ''}
-          <span class="fighter-flag">${f.red.flag}</span>
-          <div>
-            <div class="fighter-name">${f.red.name}</div>
-            <div class="fighter-record">${f.red.record}</div>
-            ${redDetails ? `<div class="fighter-details">${redDetails}</div>` : ''}
-          </div>
-        </div>
-        <input class="odds-input${f.odds_source?' odds-auto':''}${oddsLocked?' odds-locked':''}"
-          type="number" step="0.01" min="1.01" value="${f.red_odds ?? ''}" placeholder="ჯერ უცნობია" ${oddsLocked?'readonly':''}
-          onchange="fightsData[${i}].red_odds=this.value===''?null:(parseFloat(this.value)||null);fightsData[${i}].odds_source=null;saveToLocal()">
-      </div>
-      <div class="vs">VS</div>
-      <div class="fighter-row">
-        <div class="fighter-info">
-          ${f.blue.espn_id ? `<img class="fighter-img" src="https://a.espncdn.com/i/headshots/mma/players/full/${f.blue.espn_id}.png" onerror="this.style.display='none'">` : ''}
-          <span class="fighter-flag">${f.blue.flag}</span>
-          <div>
-            <div class="fighter-name">${f.blue.name}</div>
-            <div class="fighter-record">${f.blue.record}</div>
-            ${blueDetails ? `<div class="fighter-details">${blueDetails}</div>` : ''}
-          </div>
-        </div>
-        <input class="odds-input${f.odds_source?' odds-auto':''}${oddsLocked?' odds-locked':''}"
-          type="number" step="0.01" min="1.01" value="${f.blue_odds ?? ''}" placeholder="ჯერ უცნობია" ${oddsLocked?'readonly':''}
-          onchange="fightsData[${i}].blue_odds=this.value===''?null:(parseFloat(this.value)||null);fightsData[${i}].odds_source=null;saveToLocal()">
-      </div>
-      ${f.show_details ? `
-      <div class="method-section">
-        <div class="section-label" style="margin-bottom:6px;">მეთოდი</div>
-        <div class="method-grid">
-          <div class="method-item"><label>${f.red.name.split(' ').pop()} KO</label><input class="method-input" type="number" step="0.01" min="1.01" value="${f.ko_red}" onchange="fightsData[${i}].ko_red=parseFloat(this.value);saveToLocal()"></div>
-          <div class="method-item"><label>${f.red.name.split(' ').pop()} Sub</label><input class="method-input" type="number" step="0.01" min="1.01" value="${f.sub_red}" onchange="fightsData[${i}].sub_red=parseFloat(this.value);saveToLocal()"></div>
-          <div class="method-item"><label>${f.red.name.split(' ').pop()} Dec</label><input class="method-input" type="number" step="0.01" min="1.01" value="${f.dec_red}" onchange="fightsData[${i}].dec_red=parseFloat(this.value);saveToLocal()"></div>
-          <div class="method-item"><label>${f.blue.name.split(' ').pop()} KO</label><input class="method-input" type="number" step="0.01" min="1.01" value="${f.ko_blue}" onchange="fightsData[${i}].ko_blue=parseFloat(this.value);saveToLocal()"></div>
-          <div class="method-item"><label>${f.blue.name.split(' ').pop()} Sub</label><input class="method-input" type="number" step="0.01" min="1.01" value="${f.sub_blue}" onchange="fightsData[${i}].sub_blue=parseFloat(this.value);saveToLocal()"></div>
-          <div class="method-item"><label>${f.blue.name.split(' ').pop()} Dec</label><input class="method-input" type="number" step="0.01" min="1.01" value="${f.dec_blue}" onchange="fightsData[${i}].dec_blue=parseFloat(this.value);saveToLocal()"></div>
-        </div>
-        <div class="section-label" style="margin-top:10px;margin-bottom:6px;">რაუნდი</div>
-        <div class="rounds-grid">
-          ${[1,2,3,4,5].map(r => `<div class="method-item"><label>R${r}</label><input class="method-input" type="number" step="0.01" min="1.01" value="${f['r'+r+'_odds']||''}" ${r > f.rounds ? 'disabled style="opacity:.3"' : ''} onchange="fightsData[${i}].r${r}_odds=parseFloat(this.value);saveToLocal()"></div>`).join('')}
-        </div>
-      </div>` : ''}
-      <div class="result-section">
-        <div class="section-label" style="margin-bottom:6px;">🏆 შედეგი</div>
-        <div class="result-grid">
-          <div class="result-item"><label>გამარჯვებული</label>
-            <select class="result-input" onchange="fightsData[${i}].result_winner=this.value;saveToLocal()">
-              <option value="">—</option>
-              <option value="${f.red.name}" ${f.result_winner===f.red.name?'selected':''}>${f.red.name.split(' ').pop()}</option>
-              <option value="${f.blue.name}" ${f.result_winner===f.blue.name?'selected':''}>${f.blue.name.split(' ').pop()}</option>
-            </select></div>
-          <div class="result-item"><label>მეთოდი</label>
-            <select class="result-input" onchange="fightsData[${i}].result_method=this.value;saveToLocal()">
-              <option value="">—</option>
-              <option value="KO/TKO" ${f.result_method==='KO/TKO'?'selected':''}>KO/TKO</option>
-              <option value="Submission" ${f.result_method==='Submission'?'selected':''}>Submission</option>
-              <option value="Decision" ${f.result_method==='Decision'?'selected':''}>Decision</option>
-              <option value="No Contest" ${f.result_method==='No Contest'?'selected':''}>No Contest</option>
-              <option value="DQ" ${f.result_method==='DQ'?'selected':''}>DQ</option>
-            </select></div>
-          <div class="result-item"><label>რაუნდი</label>
-            <select class="result-input" onchange="fightsData[${i}].result_round=this.value;saveToLocal()">
-              <option value="">—</option>
-              ${[1,2,3,4,5].filter(r=>r<=f.rounds).map(r=>`<option value="${r}" ${f.result_round==r?'selected':''}>R${r}</option>`).join('')}
-            </select></div>
-          <div class="result-item"><label>დრო</label>
-            <input class="result-input" type="text" placeholder="1:23" value="${f.result_time||''}" onchange="fightsData[${i}].result_time=this.value;saveToLocal()"></div>
-        </div>
-      </div>
-    </div>`;
-  }).join('');
-}
-
-// ─────────────────────────────────────────────────────────────
-//  SAVE TO SUPABASE
-// ─────────────────────────────────────────────────────────────
-async function saveToSupabase() {
-  if (!currentEventData || !fightsData.length) { log('ჯერ ESPN-დან წამოიღე!', 'err'); return; }
-  const btn = document.querySelector('button[onclick="saveToSupabase()"]');
-  if (btn) { btn.disabled = true; btn.textContent = '⏳ იტვირთება...'; }
-  try {
-    const eventName     = document.getElementById('eventName').value;
-    const eventLocation = document.getElementById('eventLocation').value;
-    const dateVal       = document.getElementById('eventDate').value;
-    const eventDate     = dateVal ? new Date(dateVal).toISOString() : new Date().toISOString();
-
-    const {data: existing} = await sb.from('events').select('id').eq('name', eventName).maybeSingle();
-    if (existing) {
-      // შევამოწმოთ ბილეთები — თუ არის, არ წავშალოთ fights
-      const {data: existingTickets} = await sb.from('tickets').select('id').eq('event_id', existing.id).limit(1);
-      if (existingTickets && existingTickets.length > 0) {
-        log('⚠ ბილეთები უკვე არსებობს — fights UPDATE რეჟიმი (არა DELETE)', 'info');
-        // მხოლოდ ივენთის info განახლება
-        await sb.from('events').update({ location: eventLocation, event_date: eventDate }).eq('id', existing.id);
-        // ბრძოლების UPDATE (შედეგები + კოეფიციენტები)
-        await updateExistingFights(existing.id);
-        if (btn) { btn.disabled = false; btn.textContent = '🚀 ბაზაში შენახვა'; }
-        return;
-      }
-      await sb.from('fights').delete().eq('event_id', existing.id);
-      await sb.from('events').delete().eq('id', existing.id);
-      log('ძველი მონაცემები წაიშალა', 'info');
-    }
-
-    const {data: evData, error: evErr} = await sb.from('events').insert({
-      name: eventName, location: eventLocation, event_date: eventDate, status: 'upcoming'
-    }).select().maybeSingle();
-    if (evErr) { log('ივენთის შეცდომა: ' + evErr.message, 'err'); if (btn) { btn.disabled = false; btn.textContent = '🚀 ბაზაში შენახვა'; } return; }
-    log(`ივენთი შენახულია (id: ${evData.id})`, 'ok');
-
-    let saved = 0;
-    for (const f of fightsData) {
-      if (!f.active) { log(`⏭ გამოტოვება: ${f.red.name} vs ${f.blue.name}`, 'info'); continue; }
-      const redId  = await upsertFighter(f.red);
-      const blueId = await upsertFighter(f.blue);
-      if (!redId || !blueId) { log(`❌ ${f.red.name} vs ${f.blue.name} - გამოტოვებულია`, 'err'); continue; }
-
-      const fightData = {
-        event_id: evData.id, red_fighter_id: redId, blue_fighter_id: blueId,
-        weight_class: f.weight_class, max_rounds: f.rounds, bout_order: f.bout_order,
-        is_title_bout: false, red_odds: f.red_odds, blue_odds: f.blue_odds,
-        show_details: f.show_details, status: 'upcoming',
-      };
-      if (f.show_details) {
-        Object.assign(fightData, {
-          ko_red:f.ko_red, ko_blue:f.ko_blue, sub_red:f.sub_red, sub_blue:f.sub_blue,
-          dec_red:f.dec_red, dec_blue:f.dec_blue,
-          r1_odds:f.r1_odds, r2_odds:f.r2_odds, r3_odds:f.r3_odds,
-          ...(f.rounds>=4 && {r4_odds:f.r4_odds}), ...(f.rounds>=5 && {r5_odds:f.r5_odds}),
-        });
-      }
-      if (f.result_winner) {
-        Object.assign(fightData, {
-          status: 'completed', result_winner: f.result_winner, result_method: f.result_method,
-          result_round: f.result_round ? parseInt(f.result_round) : null, result_time: f.result_time || null,
-        });
-      }
-      const {error: fErr} = await sb.from('fights').insert(fightData);
-      if (fErr) log(`ბრძოლის შეცდომა: ${fErr.message}`, 'err');
-      else { log(`✓ ${f.red.name} vs ${f.blue.name}`, 'ok'); saved++; }
-    }
-
-    // ივენთის სტატუსი — თუ ყველა ბრძოლას შედეგი აქვს
-    const hasAllResults = fightsData.filter(f => f.active).every(f => !!f.result_winner);
-    if (hasAllResults && saved > 0) {
-      await sb.from('events').update({ status: 'completed' }).eq('id', evData.id);
-      log('ივენთის სტატუსი: completed', 'ok');
-    }
-
-    log(`✅ ${saved} ბრძოლა შენახულია!`, 'ok');
-    await notifyTelegram(`💾 <b>Admin: ბაზაში შენახულია</b>\n\n${eventName}\n🥊 ${saved} ბრძოლა`);
-  } catch(e) { log('კრიტიკული შეცდომა: ' + e.message, 'err'); }
-  if (btn) { btn.disabled = false; btn.textContent = '🚀 ბაზაში შენახვა'; }
-}
-
-// არსებული ბრძოლების UPDATE — ბილეთების FK არ ტყდება
-async function updateExistingFights(eventId) {
-  const { data: dbFights } = await sb.from('fights')
-    .select('id,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
-    .eq('event_id', eventId);
-
-  if (!dbFights) return;
-  let updated = 0;
-
-  for (const f of fightsData) {
-    if (!f.active) continue;
-    // match by fighter names
-    const match = dbFights.find(df => {
-      const sim = Math.max(
-        nameSimilarity(df.red?.name || '', f.red.name),
-        nameSimilarity(df.blue?.name || '', f.blue.name)
-      );
-      return sim > 0.4;
-    });
-    if (!match) { log(`⚠ ვერ დაემთხვა DB-ში: ${f.red.name} vs ${f.blue.name}`, 'info'); continue; }
-
-    const upd = {
-      red_odds: f.red_odds, blue_odds: f.blue_odds,
-      show_details: f.show_details,
-    };
-    if (f.show_details) {
-      Object.assign(upd, {
-        ko_red:f.ko_red, ko_blue:f.ko_blue, sub_red:f.sub_red, sub_blue:f.sub_blue,
-        dec_red:f.dec_red, dec_blue:f.dec_blue,
-        r1_odds:f.r1_odds, r2_odds:f.r2_odds, r3_odds:f.r3_odds,
-        ...(f.rounds>=4 && {r4_odds:f.r4_odds}), ...(f.rounds>=5 && {r5_odds:f.r5_odds}),
-      });
-    }
-    if (f.result_winner) {
-      Object.assign(upd, {
-        status: 'completed', result_winner: f.result_winner, result_method: f.result_method,
-        result_round: f.result_round ? parseInt(f.result_round) : null, result_time: f.result_time || null,
-      });
-    }
-    await sb.from('fights').update(upd).eq('id', match.id);
-    log(`✓ განახლდა: ${f.red.name} vs ${f.blue.name}`, 'ok');
-    updated++;
-  }
-
-  // ივენთის სტატუსი
-  const hasAllResults = fightsData.filter(f => f.active).every(f => !!f.result_winner);
-  if (hasAllResults && updated > 0) {
-    await sb.from('events').update({ status: 'completed' }).eq('id', eventId);
-    log('ივენთის სტატუსი: completed', 'ok');
-  }
-
-  log(`✅ ${updated} ბრძოლა განახლდა`, 'ok');
-}
-
-// ── ოდსების პირდაპირი სინქრონიზაცია DB-ში ──────────────────
-// DOM-ის odds input ველებიდან კითხულობს და ბაზაში პირდაპირ წერს
-// (არ ეყრდნობა სახელების მეტჩინგს ან ივენთის სახელს)
-async function syncOddsToDB() {
-  log('📊 ოდსების სინქრონიზაცია...', 'info');
-
-  // 1. მიმდინარე upcoming ივენთი DB-დან
-  const { data: events } = await sb.from('events')
-    .select('id,name').eq('status', 'upcoming')
-    .order('event_date', { ascending: true }).limit(1);
-  if (!events || events.length === 0) {
-    log('❌ upcoming ივენთი ვერ მოიძებნა DB-ში', 'err');
-    return;
-  }
-  const eventId = events[0].id;
-  log(`ივენთი: ${events[0].name} (id: ${eventId})`, 'info');
-
-  // 2. ამ ივენთის ბრძოლები DB-დან (bout_order-ით)
-  const { data: dbFights } = await sb.from('fights')
-    .select('id,bout_order').eq('event_id', eventId)
-    .order('bout_order', { ascending: true });
-  if (!dbFights || dbFights.length === 0) {
-    log('❌ ბრძოლები ვერ მოიძებნა DB-ში', 'err');
-    return;
-  }
-
-  // 3. DOM-ის odds input-ები (წყვილ-წყვილი: red, blue)
-  const inputs = document.querySelectorAll('.odds-input');
-  let synced = 0, skipped = 0;
-
-  for (let i = 0; i < dbFights.length; i++) {
-    const redInput  = inputs[i * 2];
-    const blueInput = inputs[i * 2 + 1];
-    if (!redInput || !blueInput) { skipped++; continue; }
-
-    const redOdds  = redInput.value === '' ? null : (parseFloat(redInput.value) || null);
-    const blueOdds = blueInput.value === '' ? null : (parseFloat(blueInput.value) || null);
-
-    if (redOdds && blueOdds) {
-      const { error } = await sb.from('fights').update({
-        red_odds: redOdds, blue_odds: blueOdds
-      }).eq('id', dbFights[i].id);
-
-      if (error) {
-        log(`❌ fight #${dbFights[i].id}: ${error.message}`, 'err');
-      } else {
-        log(`✓ fight #${dbFights[i].id}: ${redOdds} / ${blueOdds}`, 'ok');
-        synced++;
-      }
-    } else {
-      skipped++;
-    }
-  }
-
-  log(`✅ ${synced}/${dbFights.length} ოდსი ჩაიწერა DB-ში (${skipped} გამოტოვდა — ოდსი ცარიელია)`, synced > 0 ? 'ok' : 'err');
-  if (synced > 0) await notifyTelegram(`📊 <b>Admin: ოდსები სინქრონიზებულია</b>\n\n${synced}/${dbFights.length} ბრძოლა`);
-}
-
-async function upsertFighter(f) {
-  const slug = f.name.toLowerCase().replace(/[^a-z0-9]/g,'-').replace(/-+/g,'-');
-  const imageUrl = f.espn_id ? `https://a.espncdn.com/i/headshots/mma/players/full/${f.espn_id}.png` : null;
-
-  if (f.espn_id && !f.age) {
-    try {
-      const details = await fetchAthleteDetails(f.espn_id);
-      Object.assign(f, details);
-    } catch(e) {}
-  }
-
-  const {data: existing} = await sb.from('fighters').select('id,espn_id,image_url').eq('name', f.name).maybeSingle();
-  if (existing) {
-    const upd = {};
-    if (f.espn_id && !existing.espn_id) upd.espn_id = f.espn_id;
-    if (imageUrl && !existing.image_url) upd.image_url = imageUrl;
-    if (f.age)       upd.age       = f.age;
-    if (f.height_cm) upd.height_cm = f.height_cm;
-    if (f.weight_kg) upd.weight_kg = f.weight_kg;
-    if (f.reach_cm)  upd.reach_cm  = f.reach_cm;
-    if (f.record)    upd.record    = f.record;
-    if (Object.keys(upd).length) await sb.from('fighters').update(upd).eq('id', existing.id);
-    return existing.id;
-  }
-
-  const {data, error} = await sb.from('fighters').insert({
-    name: f.name, flag: f.flag, country: f.country,
-    record: f.record || null, rank: null, weight_class: null,
-    age: f.age || null, height_cm: f.height_cm || null,
-    weight_kg: f.weight_kg || null, reach_cm: f.reach_cm || null,
-    ko_pct: null, sub_pct: null, dec_pct: null,
-    ufc_slug: slug, espn_id: f.espn_id || null, image_url: imageUrl,
-  }).select().maybeSingle();
-  if (error) { log(`მებრძოლის შეცდომა (${f.name}): ${error.message}`, 'err'); return null; }
-  return data?.id || null;
-}
-
-// ─────────────────────────────────────────────────────────────
-//  SETTLEMENT HELPERS
-// ─────────────────────────────────────────────────────────────
-function methodMatches(picked, result) {
-  if (!picked || !result) return false;
-  const r = result.toLowerCase();
-  if (picked === 'ნოკაუტი')        return r.includes('ko') || r.includes('tko');
-  if (picked === 'მტკივნეული')     return r.includes('sub');
-  if (picked === 'გადაწყვეტილება') return r.includes('dec') || r.includes('decision');
-  return false;
-}
-
-function selectionWon(sel, fight) {
-  if (!fight || !fight.result_winner) return null;
-  const winnerSide = fight.result_winner === fight.red_name ? 'red' : 'blue';
-  if (sel.picked_fighter && sel.picked_fighter !== winnerSide) return false;
-  if (sel.picked_round) {
-    const resultRound = fight.result_round ? Number(fight.result_round) : null;
-    if (resultRound !== Number(sel.picked_round)) return false;
-  }
-  if (sel.picked_method) {
-    if (!methodMatches(sel.picked_method, fight.result_method || '')) return false;
-  }
-  return true;
-}
-
-// ─────────────────────────────────────────────────────────────
-//  SETTLE ALL TICKETS — მთავარი ფუნქცია
-// ─────────────────────────────────────────────────────────────
-async function settleAllTickets() {
-  log('🏆 ბილეთების შედეგების დამუშავება დაიწყო...', 'info');
-
-  // 1. ივენთი სადაც completed ბრძოლები არის
-  const { data: events } = await sb.from('events').select('id,name').in('status', ['upcoming', 'completed']);
-  if (!events || events.length === 0) { log('ივენთი ვერ მოიძებნა', 'err'); return; }
-
-  let targetEventId = null, targetEventName = '';
-  for (const ev of events) {
-    const { data: fights } = await sb.from('fights').select('id').eq('event_id', ev.id).eq('status', 'completed').limit(1);
-    if (fights && fights.length > 0) { targetEventId = ev.id; targetEventName = ev.name; log(`ივენთი: ${ev.name}`, 'info'); break; }
-  }
-  if (!targetEventId) { log('completed სტატუსის ბრძოლა ვერ მოიძებნა — ჯერ შეიყვანე შედეგები', 'err'); return; }
-
-  // 2. ბალანსზე/ქულაზე გავლენის მქონე settlement-ი მთლიანად სერვერზე ხდება
-  //    (admin_settle_event — SECURITY DEFINER RPC, is_admin შემოწმებით)
-  const { data: res, error } = await sb.rpc('admin_settle_event', { p_event_id: targetEventId });
-  if (error || !res?.ok) {
-    log('❌ Settlement ვერ მოხერხდა: ' + (res?.error || error?.message || 'უცნობი შეცდომა'), 'err');
-    return;
-  }
-
-  log(`─────────────────────────────`, 'info');
-  log(`✅ დასრულდა: ${res.won} მოგებული | ${res.lost} წაგებული | ${res.skipped} გამოტოვებული`, 'ok');
-  await notifyTelegram(`🏁 <b>Admin: Settlement</b>\n${targetEventName}\n\n✅ ${res.won} მოგებული\n❌ ${res.lost} წაგებული`);
-}
-
-// ─────────────────────────────────────────────────────────────
-//  ID VERIFICATION — admin review queue
-// ─────────────────────────────────────────────────────────────
-async function loadPendingVerifications() {
-  const box = document.getElementById('verifQueue');
-  box.innerHTML = '<div style="color:var(--muted);font-size:.85rem">იტვირთება...</div>';
-
-  const { data: rows, error } = await sb
-    .from('verifications')
-    .select('id,user_id,photo_path,submitted_at,users(nick,email)')
-    .eq('status', 'pending')
-    .order('submitted_at', { ascending: true });
-
-  if (error) { box.innerHTML = `<div style="color:var(--red)">შეცდომა: ${error.message}</div>`; return; }
-  if (!rows || rows.length === 0) { box.innerHTML = '<div style="color:var(--muted);font-size:.85rem">მომლოდინე ვერიფიკაცია არ არის</div>'; return; }
-
-  box.innerHTML = '';
-  for (const r of rows) {
-    const { data: signed } = await sb.storage.from('id-verification').createSignedUrl(r.photo_path, 300);
-    const card = document.createElement('div');
-    card.style.cssText = 'border:1px solid var(--line);border-radius:8px;padding:12px;background:var(--surface)';
-    card.innerHTML = `
-      <div style="font-size:.85rem;margin-bottom:8px"><b>${r.users?.nick || '?'}</b> — ${r.users?.email || ''}</div>
-      <img src="${signed?.signedUrl || ''}" style="max-width:100%;max-height:340px;border-radius:6px;display:block;margin-bottom:10px" />
-      <div style="font-size:.75rem;color:var(--muted);margin-bottom:10px">გაგზავნილია: ${new Date(r.submitted_at).toLocaleString('ka-GE')}</div>
-      <div class="flex-gap">
-        <button class="btn btn-settle" data-verif-id="${r.id}" data-action="approve">✅ დადასტურება</button>
-        <button class="btn btn-ghost" data-verif-id="${r.id}" data-action="reject" style="color:var(--red);border-color:var(--red)">❌ უარყოფა</button>
-      </div>`;
-    card.querySelector('[data-action="approve"]').onclick = () => reviewVerification(r.id, true, r.photo_path);
-    card.querySelector('[data-action="reject"]').onclick = () => reviewVerification(r.id, false, r.photo_path);
-    box.appendChild(card);
-  }
-}
-
-async function reviewVerification(verificationId, approve, photoPath) {
-  const note = approve ? null : (prompt('უარყოფის მიზეზი (არასავალდებულო):') || null);
-  const { data: res, error } = await sb.rpc('admin_review_verification', {
-    p_verification_id: verificationId, p_approve: approve, p_note: note
-  });
-  if (error || !res?.ok) { log('❌ ვერიფიკაციის დამუშავება ვერ მოხერხდა: ' + (res?.error || error?.message), 'err'); return; }
-
-  log(approve ? '✅ ვერიფიკაცია დადასტურდა' : '❌ ვერიფიკაცია უარყოფილია', approve ? 'ok' : 'info');
-
-  // ფოტოს წაშლა storage-დან განხილვის შემდეგ (მგრძნობიარე მონაცემია)
-  await sb.storage.from('id-verification').remove([photoPath]);
-
-  loadPendingVerifications();
-}
-
-// ─────────────────────────────────────────────────────────────
-//  FETCH AND SETTLE — ESPN-დან შედეგები + settlement ერთად
-// ─────────────────────────────────────────────────────────────
-async function fetchAndSettle() {
-  log('📡 ESPN-დან შედეგების წამოღება + ბილეთების დამუშავება...', 'info');
-
-  const dateStr = localStorage.getItem('ufc_espn_event_date');
-  if (!dateStr) {
-    log('ESPN event date ვერ მოიძებნა localStorage-ში. ჯერ ESPN-დან წამოიღე ივენთი.', 'err');
-    return;
-  }
-
-  try {
-    const res  = await fetch(`${ESPN_BASE}?dates=${dateStr}`);
-    const data = await res.json();
-    if (!data.events || !data.events.length) { log('ESPN: ივენთი ვერ მოიძებნა', 'err'); return; }
-
-    const event = data.events[0];
-    const espnState = event.status?.type?.state;
-    log(`ESPN სტატუსი: ${event.status?.type?.description || espnState}`, 'info');
-
-    if (espnState === 'pre') { log('ივენთი ჯერ არ დაწყებულა — ბილეთების დამუშავება შეუძლებელია', 'info'); return; }
-
-    let updated = 0;
-    for (const comp of event.competitions) {
-      if (comp.status?.type?.state !== 'post') continue;
-      const winner = comp.competitors.find(c => c.winner);
-      if (!winner) continue;
-
-      const winnerName = winner.athlete?.fullName || '';
-      const method     = parseESPNMethod(comp);
-      const round      = comp.status?.period || '';
-      const time       = comp.status?.displayClock || '';
-
-      const idx = fightsData.findIndex(f =>
-        nameSimilarity(f.red.name, winnerName) > 0.4 ||
-        nameSimilarity(f.blue.name, winnerName) > 0.4 ||
-        f.espn_comp_id === comp.id
-      );
-      if (idx >= 0) {
-        const mRed = nameSimilarity(fightsData[idx].red.name, winnerName);
-        const mBlue = nameSimilarity(fightsData[idx].blue.name, winnerName);
-        const exactWinner = mRed >= mBlue ? fightsData[idx].red.name : fightsData[idx].blue.name;
-        fightsData[idx].result_winner = exactWinner;
-        fightsData[idx].result_method = method;
-        fightsData[idx].result_round  = String(round);
-        fightsData[idx].result_time   = time;
-        updated++;
-      }
-    }
-
-    if (updated === 0) {
-      log('ESPN: დასრულებული ბრძოლები ვერ მოიძებნა', 'info');
-    } else {
-      log(`ESPN: ${updated} შედეგი წამოღებულია`, 'ok');
-      renderFights();
-      saveToLocal();
-      await saveResultsToDB();
-    }
-
-    // ბილეთების დამუშავება
-    await settleAllTickets();
-
-  } catch (e) {
-    log('შეცდომა: ' + e.message, 'err');
-  }
-}
-
-// მხოლოდ შედეგების DB-ში შენახვა — FIX: ზედმეტი query ამოღებული
-async function saveResultsToDB() {
-  const eventName = document.getElementById('eventName').value;
-  if (!eventName) return;
-
-  // ივენთი სახელით ვიპოვოთ
-  const { data: evData } = await sb.from('events').select('id').eq('name', eventName).maybeSingle();
-  if (!evData) { log('ივენთი DB-ში ვერ მოიძებნა: ' + eventName, 'err'); return; }
-  const eventId = evData.id;
-
-  const { data: dbFights } = await sb.from('fights')
-    .select('id,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
-    .eq('event_id', eventId);
-
-  if (!dbFights) return;
-
-  let saved = 0;
-  for (const f of fightsData) {
-    if (!f.result_winner) continue;
-
-    const match = dbFights.find(df => {
-      const sim = Math.max(
-        nameSimilarity(df.red?.name || '', f.red.name),
-        nameSimilarity(df.blue?.name || '', f.blue.name)
-      );
-      return sim > 0.4;
-    });
-
-    if (!match) continue;
-
-    await sb.from('fights').update({
-      status:         'completed',
-      result_winner:  f.result_winner,
-      result_method:  f.result_method,
-      result_round:   f.result_round ? parseInt(f.result_round) : null,
-      result_time:    f.result_time || null,
-    }).eq('id', match.id);
-    log(`DB განახლდა: ${f.red.name} vs ${f.blue.name} → ${f.result_winner}`, 'ok');
-    saved++;
-  }
-
-  // ივენთის სტატუსი
-  if (saved > 0) {
-    const allDone = fightsData.filter(f => f.active).every(f => !!f.result_winner);
-    if (allDone) {
-      await sb.from('events').update({ status: 'completed' }).eq('id', eventId);
-      log('ივენთის სტატუსი: completed', 'ok');
-    }
-  }
-}
-
-// ─────────────────────────────────────────────────────────────
-//  INIT
-// ─────────────────────────────────────────────────────────────
-setInterval(updateCountdown, 60000);
-
-// PWA — service worker რეგისტრაცია (offline shell + installability)
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./admin-sw.js').catch(err => console.warn('SW რეგისტრაცია ვერ მოხერხდა:', err));
-  });
-}
-</script>
-</div><!-- /adminContent -->
+<!-- ── AUTH MODAL ── -->
+<div class="modal-bg" id="modal"><div class="modal">
+<button class="modal-close" id="modalClose" aria-label="დახურვა">&times;</button>
+<h3 id="modalTitle">შემოუერთდი ლიგას</h3>
+<p class="sub" id="modalSub">შექმენი მებრძოლის სახელი და მიიღე 1,000 ქულა ამ ივენთისთვის.</p>
+<div class="field" id="nameField">
+  <label for="inName">შენი სახელი ფენტეზიში</label>
+  <input type="text" id="inName" placeholder="მაგ. UFC.King" autocomplete="off" maxlength="20" />
+</div>
+<div class="field">
+  <label for="inEmail">ელ. ფოსტა</label>
+  <input type="email" id="inEmail" placeholder="შეიყვანე შენი მეილი" autocomplete="off" />
+</div>
+<div class="field">
+  <label for="inPass">პასვორდი</label>
+  <div style="position:relative">
+    <input type="password" id="inPass" placeholder="მინ. 6 სიმბოლო" autocomplete="off" />
+    <button type="button" class="eye-toggle" onclick="toggleEye('inPass')" aria-label="პაროლის ჩვენება"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+  </div>
+  <div class="pass-hint" id="passHint">მინ. 6 სიმბოლო · 1 დიდი ასო (A-Z) · 1 პატარა (a-z) · 1 ციფრი · 1 სიმბოლო (!@#$%)</div>
+</div>
+<div class="field" id="confirmField" style="display:none">
+  <label for="inPassConfirm">გაიმეორე პასვორდი</label>
+  <div style="position:relative">
+    <input type="password" id="inPassConfirm" placeholder="პასვორდი ხელახლა" autocomplete="off" />
+    <button type="button" class="eye-toggle" onclick="toggleEye('inPassConfirm')" aria-label="პაროლის ჩვენება"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+  </div>
+</div>
+<div id="authError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
+<button class="btn btn-primary" id="modalSubmit">რეგისტრაცია</button>
+<!-- Forgot Password Link -->
+<div id="forgotWrap" style="display:none;text-align:center;margin-top:10px">
+  <button class="modal-link" id="forgotBtn">დაგავიწყდა პასვორდი?</button>
+</div>
+<div class="modal-divider"><span>ან</span></div>
+<button class="btn btn-google" id="googleBtn">
+  <svg width="18" height="18" viewBox="0 0 18 18">
+    <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+    <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+    <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
+    <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+  </svg>
+  Google-ით შესვლა
+</button>
+<p class="modal-foot" id="modalSwitch">უკვე გაქვს ანგარიში? <button id="switchMode">შესვლა</button></p>
+</div></div>
+
+<!-- ── FORGOT PASSWORD MODAL ── -->
+<div class="modal-bg" id="forgotModal"><div class="modal">
+<button class="modal-close" id="forgotModalClose" aria-label="დახურვა">&times;</button>
+<h3>პასვორდის აღდგენა</h3>
+<p class="sub" id="forgotSub">შეიყვანე ელ. ფოსტა და გამოგიგზავნით აღდგენის ლინკს.</p>
+<div class="field">
+  <label for="forgotEmail">ელ. ფოსტა</label>
+  <input type="email" id="forgotEmail" placeholder="შეიყვანე შენი მეილი" autocomplete="off" />
+</div>
+<div id="forgotError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
+<div id="forgotSuccess" style="display:none" class="forgot-success">
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+  <div class="forgot-success-title">ლინკი გამოგზავნილია!</div>
+  <div class="forgot-success-text">აღდგენის ბმული გამოგზავნილია შენს ელ. ფოსტაზე. შეამოწმე საფოსტო ყუთი და მიყევი ინსტრუქციას.</div>
+</div>
+<button class="btn btn-primary" id="forgotSubmit">გამოგზავნა</button>
+<p class="modal-foot"><button id="backToLogin">უკან შესვლაზე</button></p>
+</div></div>
+
+<!-- ── RESET PASSWORD (recovery link landing) ── -->
+<div class="modal-bg" id="resetPasswordModal"><div class="modal">
+<h3>ახალი პასვორდის დაყენება</h3>
+<p class="sub">შენი იდენტობა უკვე დადასტურებულია მეილის ბმულით — დააყენე ახალი პასვორდი.</p>
+<div class="field">
+  <label for="recoveryNewPass">ახალი პასვორდი</label>
+  <input type="password" id="recoveryNewPass" placeholder="მინ. 6 სიმბოლო" autocomplete="new-password" />
+</div>
+<div class="field">
+  <label for="recoveryNewPassConfirm">გაიმეორე პასვორდი</label>
+  <input type="password" id="recoveryNewPassConfirm" placeholder="გაიმეორე ახალი პასვორდი" autocomplete="new-password" />
+</div>
+<div id="recoveryError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
+<div id="recoverySuccess" style="display:none" class="forgot-success">
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+  <div class="forgot-success-title">პასვორდი განახლდა!</div>
+  <div class="forgot-success-text">შეგიძლია გააგრძელო საიტით სარგებლობა.</div>
+</div>
+<button class="btn btn-primary" id="recoverySubmit">პასვორდის დაყენება</button>
+</div></div>
+
+<!-- ── PROFILE MODAL ── -->
+<div class="modal-bg" id="profileModal"><div class="modal modal-profile">
+<button class="modal-close" id="profileClose" aria-label="დახურვა">&times;</button>
+<h3>პროფილი</h3>
+<p class="sub">შეცვალე შენი ანგარიშის პარამეტრები</p>
+
+<!-- Avatar Icon Picker -->
+<div class="profile-section">
+  <span class="field-label" id="iconPickerLabel">აირჩიე აიქონი</span>
+  <div class="icon-picker" id="iconPicker" role="radiogroup" aria-labelledby="iconPickerLabel"></div>
+</div>
+
+<!-- Nickname -->
+<div class="profile-section">
+  <div class="field">
+    <label for="profNick">სახელი (ნიქნეიმი)</label>
+    <input type="text" id="profNick" placeholder="მაგ. UFC.King" maxlength="20" />
+  </div>
+</div>
+
+<!-- Email -->
+<div class="profile-section">
+  <div class="field">
+    <label for="profEmail">ელ. ფოსტა</label>
+    <input type="email" id="profEmail" placeholder="შეიყვანე მეილი" />
+  </div>
+</div>
+
+<!-- Contact Info -->
+<div class="profile-section">
+  <div class="field-label" style="margin-bottom:8px">საკონტაქტო ინფორმაცია</div>
+  <div class="field">
+    <label for="profPhone">მობილურის ნომერი</label>
+    <input type="tel" id="profPhone" placeholder="მაგ. 555123456" />
+  </div>
+  <div class="field">
+    <label for="profTelegram">ტელეგრამი</label>
+    <input type="text" id="profTelegram" placeholder="მაგ. @username" />
+  </div>
+</div>
+
+<!-- ID Verification -->
+<div class="profile-section">
+  <div class="field-label" style="margin-bottom:8px">ვერიფიკაცია</div>
+  <p style="font-size:.8rem;color:var(--muted);line-height:1.6;margin:0 0 10px">
+    პრიზის მისაღებად საჭიროა ვერიფიკაცია — ატვირთე სელფი, სადაც ჩანხარ პირადობის მოწმობასთან ერთად (ორივე — სახე და მოწმობა — გარკვევით უნდა იკითხებოდეს). <b>ლიდერბორდზეც მხოლოდ ვერიფიცირებული მომხმარებლები ჩანან</b> — შენი ქულა მანამდეც ერიცხება, უბრალოდ საჯარო სიაში არ გამოჩნდება.
+  </p>
+  <div id="verifStatus" style="font-size:.85rem;margin-bottom:10px"></div>
+  <div id="verifUploadWrap">
+    <input type="file" id="verifPhotoInput" accept="image/*" capture="environment" style="display:none" />
+    <button type="button" class="btn btn-ghost" id="verifPickBtn" style="width:100%">📷 ფოტოს არჩევა</button>
+    <img id="verifPreview" style="display:none;max-width:100%;border-radius:8px;margin-top:10px" />
+    <button type="button" class="btn btn-primary" id="verifSubmitBtn" style="width:100%;margin-top:10px;display:none">ვერიფიკაციის გაგზავნა</button>
+  </div>
+</div>
+
+<!-- Password Change -->
+<div class="profile-section">
+  <div class="field-label" style="margin-bottom:12px">პასვორდის შეცვლა</div>
+  <div class="field">
+    <label for="profOldPass">ძველი პასვორდი</label>
+    <input type="password" id="profOldPass" placeholder="შეიყვანე ძველი პასვორდი" />
+  </div>
+  <div class="field">
+<label for="profNewPass">ახალი პასვორდი</label>
+    <input type="password" id="profNewPass" placeholder="მინ. 8 სიმბოლო" />
+  </div>
+</div>
+
+<div id="profileMsg" style="font-size:.85rem;margin-bottom:10px;display:none"></div>
+<button class="btn btn-primary" id="profileSave">შენახვა</button>
+<button class="btn btn-ghost" id="profileLogout" style="width:100%;margin-top:10px;text-align:center;display:block">გამოსვლა</button>
+</div></div>
+
+<!-- ── CONTACT INFO POPUP ── -->
+<div class="modal-bg" id="contactInfoModal"><div class="modal modal-contact">
+<h3>დაამატე კონტაქტი</h3>
+<p class="sub">პრიზის მისაღებად საჭიროა მინიმუმ ერთი საკონტაქტო ინფორმაცია.</p>
+<div class="field">
+  <label for="ciPhone">მობილურის ნომერი</label>
+  <input type="tel" id="ciPhone" placeholder="მაგ. 555123456" autocomplete="tel" />
+</div>
+<div class="contact-or"><span>ან / და</span></div>
+<div class="field">
+  <label for="ciTelegram">ტელეგრამი</label>
+  <input type="text" id="ciTelegram" placeholder="მაგ. @username" autocomplete="off" />
+</div>
+<div id="ciError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
+<button class="btn btn-primary" id="ciSave">შენახვა</button>
+<button class="btn btn-ghost" id="ciSkip" style="width:100%;margin-top:8px;text-align:center;display:block;font-size:.85rem;color:var(--muted)">მოგვიანებით</button>
+</div></div>
+
+<!-- ── SCRIPTS ── -->
+<script src="app.js?v=107"></script>
 </body>
 </html>
