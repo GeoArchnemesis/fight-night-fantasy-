@@ -305,6 +305,7 @@ function updateTotals() {
 
 // ── PLACE BETS ──
 async function placeBets() {
+  const pb = document.getElementById('placeBtn');
   if (!currentUser) { closeSlip(); openModal('join'); return; }
   if (isBettingClosed()) { closeSlip(); alert('ფსონების მიღება დასრულებულია'); return; }
   const arr = picksArr(); if (arr.length === 0) return;
@@ -312,36 +313,55 @@ async function placeBets() {
   const eventId = window.__currentEventId || null;
   if (!eventId) { closeSlip(); alert('ივენთი ვერ მოიძებნა'); return; }
 
-  if (state.mode === 'express') {
-    const st = state.expressStake; if (st <= 0 || st > state.balance) return;
-    const odds = comboOdds();
-    const selections = arr.map(s => ({ fight_id: FIGHTS[s.i]?._dbId, picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds }));
-    const { data: res, error } = await sb.rpc('place_bet', { p_event_id: eventId, p_type: 'express', p_stake: st, p_total_odds: odds, p_selections: selections });
-    if (error || !res || !res.ok) { alert('ფსონი ვერ დაიდო: ' + (res?.error || error?.message || 'უცნობი შეცდომა')); return; }
-    updateBalance(res.balance);
-    const finalOdds = res.total_odds != null ? Number(res.total_odds) : odds;
-    state.tickets.unshift({ _dbId: res.ticket_id, type: 'express',
-      sels: arr.map(s => ({ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name, redName: FIGHTS[s.i]?.red.name, blueName: FIGHTS[s.i]?.blue.name })),
-      stake: st, odds: finalOdds, status: 'open', placedAt: Date.now() });
-    window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'express', event_name: state.eventName||'', num_picks: arr.length});
-  } else {
-    const ts = totalStakeSingle(); if (ts <= 0 || ts > state.balance) return;
-    for (const s of arr) {
-      if (s.stake > 0) {
-        const selections = [{ fight_id: FIGHTS[s.i]?._dbId, picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds }];
-        const { data: res, error } = await sb.rpc('place_bet', { p_event_id: eventId, p_type: 'single', p_stake: s.stake, p_total_odds: s.odds, p_selections: selections });
-        if (error || !res || !res.ok) { alert('ფსონი ვერ დაიდო: ' + (res?.error || error?.message || 'უცნობი შეცდომა')); continue; }
-        updateBalance(res.balance);
-        const finalOdds = res.total_odds != null ? Number(res.total_odds) : s.odds;
-        state.tickets.unshift({ _dbId: res.ticket_id, type: 'single',
-          sels: [{ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name, redName: FIGHTS[s.i]?.red.name, blueName: FIGHTS[s.i]?.blue.name }],
-          stake: s.stake, odds: finalOdds, status: 'open', placedAt: Date.now() });
-        window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'single', event_name: state.eventName||'', num_picks:1});
+  // ორმაგი დაკლიკვის ბლოკი + რეალური ბალანსი DB-დან (თავიდან ავიცილოთ ცრუ 1000)
+  if (pb) pb.disabled = true;
+  await refreshBalance();
+
+  try {
+    if (state.mode === 'express') {
+      const st = state.expressStake;
+      if (st <= 0) { return; }
+      if (st > state.balance) { updateTotals(); alert('არასაკმარისი ქულები ბალანსზე (გაქვს ' + fmt(state.balance) + ')'); return; }
+      const odds = comboOdds();
+      const selections = arr.map(s => ({ fight_id: FIGHTS[s.i]?._dbId, picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds }));
+      const { data: res, error } = await sb.rpc('place_bet', { p_event_id: eventId, p_type: 'express', p_stake: st, p_total_odds: odds, p_selections: selections });
+      if (error || !res || !res.ok) { await refreshBalance(); updateTotals(); alert(betError(res, error)); return; }
+      updateBalance(res.balance);
+      const finalOdds = res.total_odds != null ? Number(res.total_odds) : odds;
+      state.tickets.unshift({ _dbId: res.ticket_id, type: 'express',
+        sels: arr.map(s => ({ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name, redName: FIGHTS[s.i]?.red.name, blueName: FIGHTS[s.i]?.blue.name })),
+        stake: st, odds: finalOdds, status: 'open', placedAt: Date.now() });
+      window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'express', event_name: state.eventName||'', num_picks: arr.length});
+    } else {
+      const ts = totalStakeSingle();
+      if (ts <= 0) { return; }
+      if (ts > state.balance) { updateTotals(); alert('არასაკმარისი ქულები ბალანსზე (გაქვს ' + fmt(state.balance) + ')'); return; }
+      let placedAny = false;
+      for (const s of arr) {
+        if (s.stake > 0) {
+          const selections = [{ fight_id: FIGHTS[s.i]?._dbId, picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds }];
+          const { data: res, error } = await sb.rpc('place_bet', { p_event_id: eventId, p_type: 'single', p_stake: s.stake, p_total_odds: s.odds, p_selections: selections });
+          if (error || !res || !res.ok) { await refreshBalance(); alert(betError(res, error)); continue; }
+          updateBalance(res.balance); placedAny = true;
+          const finalOdds = res.total_odds != null ? Number(res.total_odds) : s.odds;
+          state.tickets.unshift({ _dbId: res.ticket_id, type: 'single',
+            sels: [{ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name, redName: FIGHTS[s.i]?.red.name, blueName: FIGHTS[s.i]?.blue.name }],
+            stake: s.stake, odds: finalOdds, status: 'open', placedAt: Date.now() });
+          window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'single', event_name: state.eventName||'', num_picks:1});
+        }
       }
+      if (!placedAny) { updateTotals(); return; }
     }
+    state.picks = {}; state.expressStake = 0;
+    closeSlip(); refresh(); renderSlip(); renderTickets();
+  } catch (e) {
+    console.warn('placeBets failed:', e);
+    await refreshBalance(); updateTotals();
+    alert('ფსონი ვერ დაიდო — სცადე თავიდან');
+  } finally {
+    const pb2 = document.getElementById('placeBtn'); if (pb2) pb2.disabled = false;
+    updateTotals();
   }
-  state.picks = {}; state.expressStake = 0;
-  closeSlip(); refresh(); renderSlip(); renderTickets();
 }
 
 // ── TICKETS ──
@@ -425,6 +445,27 @@ function renderTickets() {
 
 // ── BALANCE / BAR ──
 function updateBalance(val) { if (!Number.isFinite(+val)) return; state.balance = +val; const el = document.getElementById('balNav'); if (el) el.textContent = fmt(val); }
+// რეალური ბალანსი DB-დან — რომ UI ყოველთვის სიმართლეს აჩვენებდეს
+async function refreshBalance() {
+  if (!currentUser) return;
+  try { const { data } = await sb.from('users').select('balance').eq('id', currentUser.id).maybeSingle();
+    if (data && data.balance != null) { currentUser.balance = data.balance; updateBalance(data.balance); } } catch (e) {}
+}
+// სერვერის შეცდომების ქართული თარგმანი
+function betError(res, error) {
+  const e = (res && res.error) || (error && error.message) || '';
+  const map = {
+    'insufficient balance': 'არასაკმარისი ქულები ბალანსზე',
+    'betting closed': 'ფსონების მიღება დასრულებულია',
+    'odds not available': 'ამ ბრძოლას კოეფიციენტი ჯერ არ აქვს',
+    'invalid selection or odds not available yet': 'ამ ბრძოლას კოეფიციენტი ჯერ არ აქვს',
+    'not authenticated': 'გთხოვ, გაიარე ავტორიზაცია',
+    'fight not open': 'ეს ბრძოლა ფსონისთვის დაკეტილია',
+    'fight is not open for betting': 'ეს ბრძოლა ფსონისთვის დაკეტილია',
+    'event not found': 'ივენთი ვერ მოიძებნა'
+  };
+  return map[e] || ('ფსონი ვერ დაიდო: ' + (e || 'უცნობი შეცდომა'));
+}
 function renderBar() {
   const n = picksArr().length;
   document.getElementById('bbCoef').textContent = (n ? comboOdds() : 1).toFixed(2);
@@ -704,6 +745,7 @@ document.addEventListener('click', e => { const dd = document.getElementById('na
 async function hydrateUserData() {
   if (!currentUser) return;
   await _fightsReady;
+  try { await refreshBalance(); } catch (e) {}
   try { await loadUserTickets(); } catch (e) { console.warn(e); }
   renderTickets();
   try { renderLeaderboard(); } catch (e) {}
