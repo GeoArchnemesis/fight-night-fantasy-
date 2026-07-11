@@ -1,5 +1,5 @@
 // ============================================================
-//  UFC Fantasy — app.js  (v18 — bugfix pass)
+//  UFC Fantasy — app.js  (v19 — server-time sync)
 // ============================================================
 (function () {
 if (window.__FNF_APP_LOADED__) {
@@ -29,12 +29,27 @@ const state = { balance: START, score: 0, picks: {}, mode: 'express', expressSta
 let currentUser = null;
 let _balanceKnown = false;
 
+// ── SERVER TIME (მოწყობილობის საათის აცდენის კომპენსაცია) ──
+// _timeOffset = სერვერსა და მოწყობილობის საათს შორის სხვაობა (ms).
+// 0 = ჩვეულებრივი Date.now(). თუ sync ვერ მოხდა, 0-ზე რჩება და ყველაფერი ისე მუშაობს, როგორც ადრე.
+let _timeOffset = 0;
+function serverNow() { return Date.now() + _timeOffset; }
+async function syncServerTime() {
+  try {
+    const { data, error } = await sb.rpc('server_now');
+    if (error || data == null) return;
+    const serverMs = new Date(data).getTime();
+    if (!Number.isFinite(serverMs)) return;
+    _timeOffset = serverMs - Date.now();
+  } catch (e) { /* ვერ მოვიდა — offset რჩება 0-ზე, fallback = Date.now() */ }
+}
+
 // ── BETTING RULES ──
-function isBettingClosed() { const ed = window.__eventDate; if (!ed) return false; return (ed - Date.now()) < 60000; }
-function isEventInProgress() { const ed = window.__eventDate; if (!ed) return false; return (ed - Date.now()) < 0; }
-function canCashout() { const ed = window.__eventDate; if (!ed) return true; return (ed - Date.now()) > 3600000; }
-function cashoutAmount(t) { const age = Date.now() - (t.placedAt || Date.now()); return age <= 3600000 ? t.stake : Math.round(t.stake * 0.8); }
-function cashoutLabel(t) { const age = Date.now() - (t.placedAt || Date.now()); return age <= 3600000 ? '↩ ქეშაუთი (უფასო)' : '↩ ქეშაუთი (80%)'; }
+function isBettingClosed() { const ed = window.__eventDate; if (!ed) return false; return (ed - serverNow()) < 60000; }
+function isEventInProgress() { const ed = window.__eventDate; if (!ed) return false; return (ed - serverNow()) < 0; }
+function canCashout() { const ed = window.__eventDate; if (!ed) return true; return (ed - serverNow()) > 3600000; }
+function cashoutAmount(t) { const age = serverNow() - (t.placedAt || serverNow()); return age <= 3600000 ? t.stake : Math.round(t.stake * 0.8); }
+function cashoutLabel(t) { const age = serverNow() - (t.placedAt || serverNow()); return age <= 3600000 ? '↩ ქეშაუთი (უფასო)' : '↩ ქეშაუთი (80%)'; }
 
 // ── CASHOUT POPUP ──
 function showCashoutPopup(amt, stake, blocked) {
@@ -81,10 +96,10 @@ async function doCashout(idx) {
 
 // ── DB LOAD (ივენთის შერჩევა გასწორებული) ──
 async function loadEventFromDB() {
-  const nowIso = new Date().toISOString();
+  const nowIso = new Date(serverNow()).toISOString();
   const { data: upRows } = await sb.from('events').select('*').gte('event_date', nowIso).order('event_date', { ascending: true }).limit(1);
   const { data: pastRows } = await sb.from('events').select('*').lt('event_date', nowIso).order('event_date', { ascending: false }).limit(1);
-  const now = Date.now();
+  const now = serverNow();
   const upcoming = upRows && upRows[0];
   const recent = pastRows && pastRows[0];
   const recentLiveOrFresh = recent && ((now - new Date(recent.event_date).getTime()) / 3600000) <= 48;
@@ -124,7 +139,7 @@ async function loadEventFromDB() {
 
   const dt = new Date(ev.event_date);
   window.__eventDate = dt;
-  const diff = dt - Date.now();
+  const diff = dt - serverNow();
   let label = 'UPCOMING EVENT';
   if (ev.status === 'completed') label = 'EVENT FINISHED';
   else if (diff <= 0) label = '🔴 LIVE NOW';
@@ -331,7 +346,7 @@ async function placeBets() {
       const finalOdds = res.total_odds != null ? Number(res.total_odds) : odds;
       state.tickets.unshift({ _dbId: res.ticket_id, type: 'express',
         sels: arr.map(s => ({ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name, redName: FIGHTS[s.i]?.red.name, blueName: FIGHTS[s.i]?.blue.name })),
-        stake: st, odds: finalOdds, status: 'open', placedAt: Date.now() });
+        stake: st, odds: finalOdds, status: 'open', placedAt: serverNow() });
       window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'express', event_name: state.eventName||'', num_picks: arr.length});
     } else {
       const ts = totalStakeSingle();
@@ -347,7 +362,7 @@ async function placeBets() {
           const finalOdds = res.total_odds != null ? Number(res.total_odds) : s.odds;
           state.tickets.unshift({ _dbId: res.ticket_id, type: 'single',
             sels: [{ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name, redName: FIGHTS[s.i]?.red.name, blueName: FIGHTS[s.i]?.blue.name }],
-            stake: s.stake, odds: finalOdds, status: 'open', placedAt: Date.now() });
+            stake: s.stake, odds: finalOdds, status: 'open', placedAt: serverNow() });
           window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'single', event_name: state.eventName||'', num_picks:1});
         }
       }
@@ -649,7 +664,7 @@ function renderLbTabs() {
 // ── LIVE RESULTS ──
 async function loadLiveResults() {
   const eventId = window.__currentEventId; if (!eventId) return;
-  const ed = window.__eventDate; const diffH = ed ? (Date.now() - ed.getTime()) / 3600000 : 0;
+  const ed = window.__eventDate; const diffH = ed ? (serverNow() - ed.getTime()) / 3600000 : 0;
   if (ed && diffH < 0) return; if (ed && diffH > 48) return;
   try {
     const { data: fights } = await sb.from('fights').select('id,status,result_winner,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)').eq('event_id', eventId);
@@ -690,7 +705,7 @@ async function loadUserTickets() {
         return { i, fighter: s.picked_fighter, round: s.picked_round, method: s.picked_method, odds: Number(s.odds), name: rebuildSelNameDB(fighterName, s), redName, blueName, res };
       }),
       stake: Number(tk.stake), odds: Number(tk.total_odds), status: statusMap[tk.status] || tk.status,
-      placedAt: tk.placed_at ? new Date(tk.placed_at).getTime() : Date.now()
+      placedAt: tk.placed_at ? new Date(tk.placed_at).getTime() : serverNow()
     }));
   } catch (e) { console.warn('loadUserTickets failed:', e); }
 }
@@ -710,7 +725,7 @@ const cd_d = document.getElementById('cd-d'), cd_h = document.getElementById('cd
 function tick() {
   const ed = window.__eventDate; const p = n => String(n).padStart(2, '0');
   if (!ed) { [cd_d, cd_h, cd_m, cd_s].forEach(el => { if (el) el.textContent = '--'; }); return; }
-  const diff = ed - Date.now();
+  const diff = ed - serverNow();
   if (diff <= 0) { [cd_d, cd_h, cd_m, cd_s].forEach(el => { if (el) el.textContent = '00'; }); return; }
   const d = Math.floor(diff / 864e5), h = Math.floor(diff % 864e5 / 36e5), m = Math.floor(diff % 36e5 / 6e4), s = Math.floor(diff % 6e4 / 1e3);
   if (cd_d) cd_d.textContent = p(d); if (cd_h) cd_h.textContent = p(h); if (cd_m) cd_m.textContent = p(m); if (cd_s) cd_s.textContent = p(s);
@@ -1124,11 +1139,12 @@ document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click
   if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (navLinks) navLinks.classList.remove('open'); }
 }));
 
-// ── INIT (getSession → fights → session) ──
+// ── INIT (server-time → getSession → fights → session) ──
 const loadingEl = document.getElementById('markets');
 if (loadingEl) loadingEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">იტვირთება ბრძოლები…</div>';
 
 async function init() {
+  try { await syncServerTime(); } catch (e) {}   // სერვერის დროის სინქრონიზაცია — ჯერ ეს, მერე ყველაფერი
   let session = null;
   try { const { data } = await sb.auth.getSession(); session = data.session; } catch (e) {}
   if (session) { const jb = $('joinBtn'), sb2 = $('signinBtn'); if (jb) jb.style.display = 'none'; if (sb2) sb2.style.display = 'none'; }
