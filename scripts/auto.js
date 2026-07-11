@@ -33,13 +33,11 @@ function log(msg) { console.log(`[${new Date().toISOString()}] ${msg}`); }
 
 function countryToFlag(alt) {
   const map = {
-    // ჩრდილოეთ/სამხრეთ ამერიკა
     'USA':'🇺🇸','Canada':'🇨🇦','Mexico':'🇲🇽','Brazil':'🇧🇷','Argentina':'🇦🇷',
     'Colombia':'🇨🇴','Peru':'🇵🇪','Chile':'🇨🇱','Ecuador':'🇪🇨','Venezuela':'🇻🇪',
     'Uruguay':'🇺🇾','Jamaica':'🇯🇲','Trinidad and Tobago':'🇹🇹','Dominican Republic':'🇩🇴',
     'Puerto Rico':'🇵🇷','Guyana':'🇬🇾','Cuba':'🇨🇺','Aruba':'🇦🇼','Panama':'🇵🇦',
-    // ევროპა
-    'United Kingdom':'🇬🇧','England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','Wales':'🏴󠁧󠁢󠁷󠁬󠁳󠁿',
+    'United Kingdom':'🇬🇧','England':'🏴','Scotland':'🏴','Wales':'🏴',
     'Ireland':'🇮🇪','France':'🇫🇷','Germany':'🇩🇪','Italy':'🇮🇹','Spain':'🇪🇸',
     'Netherlands':'🇳🇱','Poland':'🇵🇱','Sweden':'🇸🇪','Norway':'🇳🇴','Denmark':'🇩🇰',
     'Finland':'🇫🇮','Belgium':'🇧🇪','Austria':'🇦🇹','Switzerland':'🇨🇭',
@@ -48,20 +46,16 @@ function countryToFlag(alt) {
     'Bulgaria':'🇧🇬','Greece':'🇬🇷','Lithuania':'🇱🇹','Latvia':'🇱🇻','Estonia':'🇪🇪',
     'Moldova':'🇲🇩','Albania':'🇦🇱','North Macedonia':'🇲🇰','Montenegro':'🇲🇪',
     'Slovakia':'🇸🇰','Slovenia':'🇸🇮','Iceland':'🇮🇸','Kosovo':'🇽🇰',
-    // СНГ / ცენტრალური აზია
     'Russia':'🇷🇺','Ukraine':'🇺🇦','Georgia':'🇬🇪','Armenia':'🇦🇲','Azerbaijan':'🇦🇿',
     'Kazakhstan':'🇰🇿','Uzbekistan':'🇺🇿','Kyrgyzstan':'🇰🇬','Tajikistan':'🇹🇯',
     'Turkmenistan':'🇹🇲','Belarus':'🇧🇾',
-    // აზია / ოკეანეთი
     'China':'🇨🇳','Japan':'🇯🇵','South Korea':'🇰🇷','Thailand':'🇹🇭','Philippines':'🇵🇭',
     'Indonesia':'🇮🇩','India':'🇮🇳','Mongolia':'🇲🇳','Myanmar':'🇲🇲','Vietnam':'🇻🇳',
     'Malaysia':'🇲🇾','Singapore':'🇸🇬','Taiwan':'🇹🇼','Pakistan':'🇵🇰',
     'Afghanistan':'🇦🇫','Iraq':'🇮🇶','Iran':'🇮🇷','Israel':'🇮🇱',
     'Australia':'🇦🇺','New Zealand':'🇳🇿','Fiji':'🇫🇯','Samoa':'🇼🇸',
-    // ახლო აღმოსავლეთი / თურქეთი
     'Turkey':'🇹🇷','Türkiye':'🇹🇷','Saudi Arabia':'🇸🇦','UAE':'🇦🇪',
     'Bahrain':'🇧🇭','Jordan':'🇯🇴','Lebanon':'🇱🇧','Syria':'🇸🇾',
-    // აფრიკა
     'South Africa':'🇿🇦','Nigeria':'🇳🇬','Cameroon':'🇨🇲','Ghana':'🇬🇭',
     'Morocco':'🇲🇦','Egypt':'🇪🇬','Tunisia':'🇹🇳','Algeria':'🇩🇿',
     'Kenya':'🇰🇪','DR Congo':'🇨🇩','Senegal':'🇸🇳','Angola':'🇦🇴',
@@ -94,7 +88,7 @@ function parseESPNMethod(comp) {
     if (s.includes('no contest')) return 'No Contest';
     if (s.includes('dq') || s.includes('disqualif')) return 'DQ';
   }
-  return ''; // მეთოდი ვერ ამოიცნო — არ დავაბრუნოთ "Final"
+  return '';
 }
 
 function methodMatches(picked, result) {
@@ -202,8 +196,17 @@ async function createEventFromESPN(espnData) {
   const location = city && country ? `${city}, ${country}` : city || country;
 
   // შევამოწმოთ უკვე ხომ არ არსებობს
-  const { data: existing } = await sb.from('events').select('id').eq('name', event.name).maybeSingle();
-  if (existing) { log(`ივენთი უკვე არსებობს: ${event.name}`); return existing.id; }
+  // (.maybeSingle()-ის ნაცვლად .select() ვიყენებთ — .maybeSingle() error-ს აგდებდა
+  //  და existing-ს null-ს უტოვებდა, თუ ერთზე მეტი დუბლიკატი უკვე არსებობდა.
+  //  ეს არის runaway დუბლიკაციის ძირითადი მიზეზი, რომელიც ასევე ყოველ ჯერზე
+  //  ყველა მომხმარებლის ბალანსსაც აბრუნებდა 1000-ზე.)
+  const { data: existingRows, error: existingErr } = await sb.from('events')
+    .select('id').eq('name', event.name).order('id', { ascending: true });
+  if (existingErr) { log(`⚠ ივენთის შემოწმება ვერ მოხერხდა: ${existingErr.message}`); return null; }
+  if (existingRows && existingRows.length > 0) {
+    log(`ივენთი უკვე არსებობს: ${event.name} (${existingRows.length} ჩანაწერი ბაზაში) — ახალი აღარ იქმნება`);
+    return existingRows[0].id;
+  }
 
   // ბალანსების რესტარტი ახალი ივენთისთვის
   log('💰 ბალანსების რესტარტი → 1,000');
@@ -227,7 +230,6 @@ async function createEventFromESPN(espnData) {
     const blueC = c.competitors.find(x => x.order === 2) || c.competitors[1];
     const rounds = c.format?.regulation?.periods || 3;
 
-    // მებრძოლების დეტალები
     const redDetails  = redC?.id  ? await fetchAthleteDetails(redC.id) : {};
     const blueDetails = blueC?.id ? await fetchAthleteDetails(blueC.id) : {};
 
@@ -341,14 +343,12 @@ async function fetchResultsAndSettle(eventId, eventDate) {
 
   if (espnState === 'pre') { log('ივენთი ჯერ არ დაწყებულა'); return; }
 
-  // DB-ში ბრძოლების წამოღება
   const { data: dbFights } = await sb.from('fights')
     .select('id,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
     .eq('event_id', eventId);
 
   if (!dbFights) return;
 
-  // შედეგების განახლება
   let resultsUpdated = 0;
   for (const comp of event.competitions) {
     if (comp.status?.type?.state !== 'post') continue;
@@ -366,14 +366,12 @@ async function fetchResultsAndSettle(eventId, eventDate) {
     );
     if (!match) continue;
 
-    // მკაცრი შემოწმება — winner ნამდვილად ერთ-ერთი მებრძოლია
     const matchRed = nameSimilarity(match.red?.name || '', winnerName);
     const matchBlue = nameSimilarity(match.blue?.name || '', winnerName);
     if (matchRed < 0.5 && matchBlue < 0.5) {
       log(`  ⚠ winner "${winnerName}" ვერ დაემთხვა ვერც ერთ მებრძოლს — გამოტოვება`);
       continue;
     }
-    // ზუსტი სახელი DB-დან (ESPN-ის ვარიაციის ნაცვლად)
     const exactWinner = matchRed >= matchBlue ? match.red.name : match.blue.name;
 
     await sb.from('fights').update({
@@ -391,7 +389,6 @@ async function fetchResultsAndSettle(eventId, eventDate) {
     log(`${resultsUpdated} შედეგი განახლდა — settlement იწყება...`);
   }
 
-  // SETTLEMENT
   const { data: fights } = await sb.from('fights')
     .select('id,result_winner,result_method,result_round,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
     .eq('event_id', eventId).eq('status', 'completed');
@@ -432,7 +429,6 @@ async function fetchResultsAndSettle(eventId, eventDate) {
       const newStatus = anyLost ? 'lost' : (allWon ? 'won' : 'pending');
       if (newStatus === 'pending') { skipped++; continue; }
 
-      // თითო selection-ის result ჩაწერა (✅/❌-ისთვის)
       for (let si = 0; si < sels.length; si++) {
         const r = results[si];
         if (r === true || r === false) {
@@ -461,7 +457,6 @@ async function fetchResultsAndSettle(eventId, eventDate) {
     await sendTelegram(`🏁 <b>Settlement დასრულდა</b>\n\n✅ ${wonCount} მოგებული\n❌ ${lostCount} წაგებული\n⏭ ${skipped} გამოტოვებული`);
   }
 
-  // ივენთის სტატუსი → completed (თუ ყველა ბრძოლა დასრულდა)
   const { data: remaining } = await sb.from('fights')
     .select('id').eq('event_id', eventId).neq('status', 'completed').limit(1);
 
@@ -478,13 +473,12 @@ function getBackupSlot() {
   const now = new Date();
   const day = days[now.getUTCDay()];
   const half = now.getUTCHours() < 12 ? '00' : '12';
-  return `${day}_${half}`;  // მაგ: "ორშ_00", "პარ_12"
+  return `${day}_${half}`;
 }
 
 function shouldRunBackup() {
   const hour = new Date().getUTCHours();
   const minute = new Date().getUTCMinutes();
-  // ყოველ 12 საათში: 0:00 და 12:00 UTC
   return (hour === 0 || hour === 12) && minute < 30;
 }
 
@@ -495,25 +489,19 @@ async function backupToSheets(eventName) {
   try {
     const slot = getBackupSlot();
 
-    // მომხმარებლები
     const { data: users } = await sb.from('users').select('nick,email,balance,score,icon,created_at');
 
-    // ბილეთები + nick + event name
     const { data: tickets } = await sb.from('tickets')
       .select('id,type,stake,total_odds,potential_win,status,placed_at,settled_at,user:users!user_id(nick),event:events!event_id(name)');
 
-    // სელექციები
     const { data: selections } = await sb.from('ticket_selections')
       .select('ticket_id,fight_id,picked_fighter,picked_round,picked_method,odds,result,fight:fights!fight_id(red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name))');
 
-    // ივენთები
     const { data: events } = await sb.from('events').select('id,name,location,event_date,status');
 
-    // ბრძოლები
     const { data: fights } = await sb.from('fights')
       .select('id,weight_class,red_odds,blue_odds,result_winner,result_method,result_round,status,event:events!event_id(name),red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)');
 
-    // ლიდერბორდი
     const { data: leaderboard } = await sb.from('score_history')
       .select('amount,created_at,user:users!user_id(nick)');
 
@@ -553,11 +541,8 @@ async function backupToSheets(eventName) {
 
 // ── MAIN ─────────────────────────────────────────────────────
 
-// ── SETTLEMENT SWEEP — orphaned pending ბილეთების დამუშავება ──
-// ნებისმიერი ივენთი რომელსაც აქვს completed ბრძოლები + pending ბილეთი
 async function settlementSweep() {
   try {
-    // ყველა ივენთი ბოლო 7 დღეში (upcoming ან completed)
     const weekAgo = new Date(Date.now() - 7 * 24 * 3600000).toISOString();
     const { data: events } = await sb.from('events')
       .select('id,name,event_date,status')
@@ -567,17 +552,14 @@ async function settlementSweep() {
     if (!events || events.length === 0) return;
 
     for (const ev of events) {
-      // აქვს თუ არა pending ბილეთი?
       const { data: pendingTickets } = await sb.from('tickets')
         .select('id').eq('event_id', ev.id).eq('status', 'pending').is('settled_at', null).limit(1);
       if (!pendingTickets || pendingTickets.length === 0) continue;
 
-      // აქვს თუ არა completed ბრძოლა?
       const { data: completedFights } = await sb.from('fights')
         .select('id').eq('event_id', ev.id).eq('status', 'completed').limit(1);
       if (!completedFights || completedFights.length === 0) continue;
 
-      // settlement ვცადოთ ამ ივენთზე
       log(`🧹 Settlement sweep: ${ev.name} (pending ბილეთები ნაპოვნია)`);
       await fetchResultsAndSettle(ev.id, ev.event_date);
     }
@@ -591,14 +573,8 @@ async function main() {
   log('UFC Fantasy — Auto Script Started');
   log('========================================');
 
-  // 0. SETTLEMENT SWEEP — ნებისმიერი ივენთი (upcoming ან completed)
-  //    რომელსაც აქვს pending ბილეთი + completed ბრძოლები →
-  //    settlement ხელახლა ვცადოთ. ეს იცავს "შედეგი არ მაქვს" პრობლემისგან:
-  //    თუ ერთი ბრძოლა ვერ ჩაიწერა და ივენთი completed ვერ გახდა,
-  //    ან თუ ბილეთი settlement-მა გამოტოვა.
   await settlementSweep();
 
-  // 1. მიმდინარე upcoming ივენთის შემოწმება
   const { data: upcomingEvents } = await sb.from('events')
     .select('id,name,event_date,status')
     .eq('status', 'upcoming')
@@ -608,9 +584,7 @@ async function main() {
   const upcoming = upcomingEvents?.[0];
 
   if (!upcoming) {
-    // არ გვაქვს upcoming ივენთი → ახალი ივენთი მხოლოდ ორშაბათს შეიქმნება.
-    // ორშაბათი განისაზღვრება საქართველოს დროით (UTC+4).
-    const georgianDay = new Date(Date.now() + 4 * 3600000).getUTCDay(); // 0=კვ, 1=ორშ ...
+    const georgianDay = new Date(Date.now() + 4 * 3600000).getUTCDay();
     if (georgianDay !== 1) {
       log('📭 upcoming ივენთი არ არსებობს — ახალი მხოლოდ ორშაბათს შეიქმნება (ველოდებით)');
       return;
@@ -630,15 +604,12 @@ async function main() {
     return;
   }
 
-  // 2. upcoming ივენთი გვაქვს
   const eventDate = new Date(upcoming.event_date);
   const hoursUntil = (eventDate.getTime() - Date.now()) / 3600000;
   log(`📅 ${upcoming.name}`);
   log(`⏰ ${hoursUntil > 0 ? Math.round(hoursUntil) + ' საათი დარჩა' : 'ივენთი დასრულდა ' + Math.abs(Math.round(hoursUntil)) + ' საათის წინ'}`);
 
   if (hoursUntil > 1) {
-    // ივენთამდე 1+ საათი — კოეფიციენტების განახლება დღეში 2-ჯერ
-    // გაეშვება მხოლოდ 07:00 და 19:00 UTC-ზე = 11:00 და 23:00 თბილისის დროით
     const hour = new Date().getUTCHours();
     const isOddsHour = [7, 19].includes(hour);
     const minute = new Date().getUTCMinutes();
@@ -650,7 +621,6 @@ async function main() {
       log(`⏳ ველოდებით (კოეფ. შემდეგი განახლება: ${nextUtc}:00 UTC / ${(nextUtc + 4) % 24}:00 თბილისი)`);
     }
 
-    // 12-საათიანი backup (0:00 და 12:00 UTC)
     if (shouldRunBackup()) {
       await backupToSheets(upcoming.name);
     }
@@ -659,21 +629,15 @@ async function main() {
   }
 
   if (hoursUntil > -0.5) {
-    // ივენთი ახლახან დაიწყო — ჯერ ნაადრევია
     log('🔴 ივენთი მიმდინარეობს — ველოდებით');
     return;
   }
 
-  // 3. ივენთი დასრულდა → შედეგები + settlement
   log('🏁 ივენთი დასრულდა — შედეგების წამოღება + settlement...');
   await fetchResultsAndSettle(upcoming.id, upcoming.event_date);
 
-  // 3.5. Backup → Google Sheets
   await backupToSheets(upcoming.name);
 
-  // 4. მომდევნო ივენთი ავტომატურად ორშაბათს შეიქმნება.
-  //    settlement-ის შემდეგ ძველი ივენთი რჩება completed-ად (თავისი შედეგებით),
-  //    ხოლო ახალ ივენთს სკრიპტი ორშაბათს დაამატებს (იხ. ზემოთ !upcoming ბლოკი).
   log('✅ Settlement დასრულდა — ძველი ივენთი რჩება შედეგებით. ახალი ივენთი ორშაბათს შეიქმნება.');
 }
 
