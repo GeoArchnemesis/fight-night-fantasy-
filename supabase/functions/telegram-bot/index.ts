@@ -101,8 +101,15 @@ async function cmdUpdateEvent(chatId: number): Promise<string> {
   const venue = event.competitions[0]?.venue
   const city = venue?.address?.city || '', country = venue?.address?.country || ''
   const location = city && country ? `${city}, ${country}` : city || country
-  const { data: existing } = await sb.from('events').select('id').eq('name', event.name).maybeSingle()
-  if (existing) return `ℹ️ ივენთი უკვე არსებობს:\n<b>${event.name}</b>`
+  // (.maybeSingle()-ის ნაცვლად .select() ვიყენებთ — .maybeSingle() error-ს აგდებდა
+  //  და existing-ს null-ს უტოვებდა, თუ ერთზე მეტი დუბლიკატი უკვე არსებობდა.
+  //  ეს identical ბაგია რაც auto.js-ში იყო გასწორებული.)
+  const { data: existingRows, error: existingErr } = await sb.from('events')
+    .select('id').eq('name', event.name).order('id', { ascending: true })
+  if (existingErr) return `❌ ივენთის შემოწმება ვერ მოხერხდა: ${existingErr.message}`
+  if (existingRows && existingRows.length > 0) {
+    return `ℹ️ ივენთი უკვე არსებობს (${existingRows.length} ჩანაწერი):\n<b>${event.name}</b>`
+  }
   const { data: evData, error: evErr } = await sb.from('events').insert({
     name: event.name, location, event_date: event.date, status: 'upcoming'
   }).select().maybeSingle()
