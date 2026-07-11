@@ -36,7 +36,12 @@ let _timeOffset = 0;
 function serverNow() { return Date.now() + _timeOffset; }
 async function syncServerTime() {
   try {
-    const { data, error } = await sb.rpc('server_now');
+    // timeout guard: თუ სერვერი 4 წამში არ უპასუხა, აღარ ველოდებით — offset რჩება 0-ზე (= Date.now()),
+    // საიტი ჩვეულებრივ იტვირთება. ასე sync-მა ვერასდროს დაბლოკოს გვერდის ჩატვირთვა.
+    const timeout = new Promise(resolve => setTimeout(() => resolve({ __timedOut: true }), 4000));
+    const res = await Promise.race([sb.rpc('server_now'), timeout]);
+    if (!res || res.__timedOut) return;
+    const { data, error } = res;
     if (error || data == null) return;
     const serverMs = new Date(data).getTime();
     if (!Number.isFinite(serverMs)) return;
