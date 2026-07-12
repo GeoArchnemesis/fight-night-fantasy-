@@ -135,7 +135,7 @@ async function loadEventFromDB() {
   state.eventName = ev.name || '';
 
   const { data: fights, error: fErr } = await sb.from('fights')
-    .select(`id,bout_order,weight_class,max_rounds,is_title_bout,red_odds,blue_odds,show_details,status,result_winner,result_method,result_round,
+    .select(`id,bout_order,weight_class,max_rounds,is_title_bout,red_odds,blue_odds,show_details,status,result_winner,result_method,result_round,is_voided,
              red:fighters!red_fighter_id(name,flag,rank,record,age,height_cm,weight_kg,reach_cm,ufc_slug,ko_pct,sub_pct,dec_pct,image_url),
              blue:fighters!blue_fighter_id(name,flag,rank,record,age,height_cm,weight_kg,reach_cm,ufc_slug,ko_pct,sub_pct,dec_pct,image_url)`)
     .eq('event_id', ev.id).order('bout_order', { ascending: true });
@@ -151,6 +151,7 @@ async function loadEventFromDB() {
     return {
       _dbId: f.id, wc: f.weight_class, rounds: f.max_rounds + ' Rounds', maxRound: f.max_rounds,
       showDetails: f.show_details !== false, status: f.status || 'upcoming', resultWinner,
+      isVoided: f.is_voided === true,
       resultMethod: f.result_method || null, resultRound: f.result_round || null,
       red: { name: f.red.name, flag: f.red.flag || '🏳️', odds: f.red_odds == null ? null : Number(f.red_odds), img: f.red.image_url || null,
         record: f.red.record || '-', age: String(f.red.age || '-'), ht: (f.red.height_cm || '-') + ' სმ', wt: (f.red.weight_kg || '-') + ' კგ', reach: (f.red.reach_cm || '-') + ' სმ' },
@@ -420,13 +421,15 @@ function renderTickets() {
   const activeBadge = $('activeBadge'); if (activeBadge) activeBadge.textContent = activeTickets.length;
   const historyBadge = $('historyBadge'); if (historyBadge) historyBadge.textContent = historyTickets.length;
 
-  const stLabel = { open: 'მიმდინარე', won: 'მოგებული', lost: 'წაგებული', cashout: 'ქეშაუთი', pending: 'მიმდინარე' };
+  const stLabel = { open: 'მიმდინარე', won: 'მოგებული', lost: 'წაგებული', cashout: 'ქეშაუთი', pending: 'მიმდინარე', void: 'ანულირებული' };
   const cashoutOk = canCashout();
 
   const selResult = (s) => {
-    if (s.res === 'ok' || s.res === 'no') return s.res;
+    if (s.res === 'ok' || s.res === 'no' || s.res === 'void') return s.res;
     const f = (s.i >= 0 && s.i < FIGHTS.length) ? FIGHTS[s.i] : null;
-    if (!f || f.status !== 'completed' || !f.resultWinner) return null;
+    if (!f || f.status !== 'completed') return null;
+    if (f.isVoided) return 'void';
+    if (!f.resultWinner) return null;
     return f.resultWinner === s.fighter ? 'ok' : 'no';
   };
 
@@ -460,10 +463,11 @@ function renderTickets() {
           const f = (s.i >= 0 && s.i < FIGHTS.length) ? FIGHTS[s.i] : null;
           const redName = s.redName || (f ? f.red.name : ''); const blueName = s.blueName || (f ? f.blue.name : '');
           const pickLabel = extras || 'გამარჯვებული';
-          const res = selResult(s); const resCls = res === 'ok' ? 'ok' : res === 'no' ? 'no' : ''; const resTxt = res === 'ok' ? '✓' : res === 'no' ? '✗' : '';
-          return `<div class="tk-sel"><div class="tk-sel-main">
+          const res = selResult(s); const resCls = res === 'ok' ? 'ok' : res === 'no' ? 'no' : res === 'void' ? 'void' : ''; const resTxt = res === 'ok' ? '✓' : res === 'no' ? '✗' : res === 'void' ? '⊘' : '';
+          const pickDim = res === 'void' ? 'opacity:.5;' : '';
+          return `<div class="tk-sel" style="${pickDim}"><div class="tk-sel-main">
               <div class="tk-sel-fighters"><span class="tk-sel-dot red"></span><span class="tk-sel-red">${redName || 'Red'}</span><span class="tk-sel-vs">vs</span><span class="tk-sel-blue">${blueName || 'Blue'}</span><span class="tk-sel-dot blue"></span></div>
-              <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}">${fighterName} — ${pickLabel}</div></div>
+              <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}">${fighterName} — ${pickLabel}${res === 'void' ? ' <span style="color:var(--muted);font-weight:400">(ბრძოლა გაუქმდა)</span>' : ''}</div></div>
             <div class="tk-sel-right">${resTxt ? `<span class="tk-sel-result ${resCls}">${resTxt}</span>` : ''}<span class="tk-sel-odds">${Number(s.odds || 0).toFixed(2)}</span></div></div>`;
         }).join('')}
       </div>
@@ -718,7 +722,7 @@ async function loadUserTickets() {
       .select(`id,type,stake,total_odds,status,placed_at,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds,result,fight:fights!fight_id(id,status,result_winner,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)))`)
       .eq('user_id', currentUser.id).order('placed_at', { ascending: false });
     if (error || !rows) return;
-    const statusMap = { pending: 'open', open: 'open', won: 'won', lost: 'lost', cashout: 'cashout' };
+    const statusMap = { pending: 'open', open: 'open', won: 'won', lost: 'lost', cashout: 'cashout', void: 'void' };
     state.tickets = rows.map(tk => ({
       _dbId: tk.id, type: tk.type,
       sels: (tk.ticket_selections || []).map(s => {
