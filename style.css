@@ -490,3 +490,9 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 
 /* ── ივენთი დასრულებულია — countdown-ის ნაცვლად ტექსტი ── */
 .event-ended-msg{text-align:center;font-family:var(--mono);font-size:clamp(1.15rem,3.5vw,1.5rem);font-weight:700;line-height:1.6;color:#fff;padding:clamp(18px,3vw,28px) 20px;max-width:480px;margin:0 auto}
+
+/* ── void / ანულირებული პოზიცია ── */
+.tk-sel-result.void{color:var(--muted)}
+.ticket.tk-void{border-left-color:var(--muted)}
+.tk-status.void::before{background:var(--muted)}
+.tk-status.void{color:var(--muted)}
