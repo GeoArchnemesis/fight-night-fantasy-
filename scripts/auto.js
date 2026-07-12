@@ -101,7 +101,9 @@ function methodMatches(picked, result) {
 }
 
 function selectionWon(sel, fight) {
-  if (!fight || !fight.result_winner) return null;
+  if (!fight) return null;
+  if (fight.is_voided) return 'void';   // ბრძოლა ნეიტრალდა (მებრძოლის ჩანაცვლება) — ეს leg არ ითვლება
+  if (!fight.result_winner) return null;
   const winnerSide = fight.result_winner === fight.red_name ? 'red' : 'blue';
   if (sel.picked_fighter && sel.picked_fighter !== winnerSide) return false;
   if (sel.picked_round) {
@@ -344,12 +346,13 @@ async function fetchResultsAndSettle(eventId, eventDate) {
   if (espnState === 'pre') { log('ივენთი ჯერ არ დაწყებულა'); return; }
 
   const { data: dbFights } = await sb.from('fights')
-    .select('id,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
+    .select('id,red_fighter_id,blue_fighter_id,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
     .eq('event_id', eventId);
 
   if (!dbFights) return;
 
   let resultsUpdated = 0;
+  let voidedCount = 0;
   for (const comp of event.competitions) {
     if (comp.status?.type?.state !== 'post') continue;
     const winner = comp.competitors.find(c => c.winner);
@@ -360,28 +363,74 @@ async function fetchResultsAndSettle(eventId, eventDate) {
     const round  = comp.status?.period || '';
     const time   = comp.status?.displayClock || '';
 
-    const match = dbFights.find(f =>
-      nameSimilarity(f.red?.name || '', winnerName) > 0.4 ||
-      nameSimilarity(f.blue?.name || '', winnerName) > 0.4
-    );
-    if (!match) continue;
-
-    const matchRed = nameSimilarity(match.red?.name || '', winnerName);
-    const matchBlue = nameSimilarity(match.blue?.name || '', winnerName);
-    if (matchRed < 0.5 && matchBlue < 0.5) {
-      log(`  ⚠ winner "${winnerName}" ვერ დაემთხვა ვერც ერთ მებრძოლს — გამოტოვება`);
+    // ── ID-ზე დაფუძნებული დამთხვევა (მთავარი, საიმედო გზა) ──
+    // ESPN competitor.id ↔ fighters.espn_id. ID არ იცვლება; სახელი შეიძლება.
+    const espnIds = (comp.competitors || []).map(c => String(c.id || '')).filter(Boolean);
+    let match = null;
+    let matchedById = false;
+    if (espnIds.length) {
+      match = dbFights.find(f => {
+        const rid = String(f.red?.espn_id || '');
+        const bid = String(f.blue?.espn_id || '');
+        return (rid && espnIds.includes(rid)) || (bid && espnIds.includes(bid));
+      });
+      if (match) matchedById = true;
+    }
+    // fallback: სახელით (მხოლოდ თუ ID-მ ვერ იპოვა — მაგ. ძველი მონაცემი espn_id-ის გარეშე)
+    if (!match) {
+      match = dbFights.find(f =>
+        nameSimilarity(f.red?.name || '', winnerName) > 0.4 ||
+        nameSimilarity(f.blue?.name || '', winnerName) > 0.4
+      );
+    }
+    if (!match) {
+      log(`  ⚠ winner "${winnerName}" ვერ დაემთხვა ვერც ერთ ბრძოლას — გამოტოვება`);
       continue;
     }
-    const exactWinner = matchRed >= matchBlue ? match.red.name : match.blue.name;
+
+    // ── მებრძოლის ჩანაცვლების შემოწმება (ID-ით) ──
+    // თუ ID-ით ვიპოვეთ ბრძოლა, მაგრამ ESPN-ის ორივე მებრძოლის ID ბაზას არ ემთხვევა
+    // ზუსტად ამ ბრძოლის red/blue-ს — ესე იგი მებრძოლი ჩანაცვლდა → ბრძოლა void.
+    if (matchedById) {
+      const rid = String(match.red?.espn_id || '');
+      const bid = String(match.blue?.espn_id || '');
+      const winnerId = String(winner.id || '');
+      const winnerKnown = (winnerId === rid) || (winnerId === bid);
+      if (!winnerKnown) {
+        // გამარჯვებული ESPN-ზე არის ID, რომელიც ბაზაში ამ ბრძოლის არცერთ მხარეს არ ეკუთვნის
+        // → მებრძოლი შეიცვალა short-notice. ვნიშნავთ void-ად.
+        await sb.from('fights').update({ status: 'completed', is_voided: true }).eq('id', match.id);
+        log(`  ⚖️ ჩანაცვლება აღმოჩენილია (ID არ ემთხვევა) → ბრძოლა ნეიტრალდება (void): ${match.red?.name} vs ${match.blue?.name}`);
+        await sendTelegram(`⚖️ <b>ბრძოლა ნეიტრალდა (void)</b>\n\nმებრძოლი შეიცვალა (ID არ ემთხვევა ESPN-ს).\n${match.red?.name} vs ${match.blue?.name}\nESPN გამარჯვებული: ${winnerName}\n\n➡️ ამ ბრძოლის პოზიცია ბილეთებიდან ამოვარდა, კოეფ. გადაითვალა.`);
+        voidedCount++;
+        continue;
+      }
+    }
+
+    // ── გამარჯვებული მხარის დადგენა ──
+    let exactWinner;
+    if (matchedById) {
+      const winnerId = String(winner.id || '');
+      exactWinner = (winnerId === String(match.red?.espn_id || '')) ? match.red.name : match.blue.name;
+    } else {
+      const matchRed = nameSimilarity(match.red?.name || '', winnerName);
+      const matchBlue = nameSimilarity(match.blue?.name || '', winnerName);
+      if (matchRed < 0.5 && matchBlue < 0.5) {
+        log(`  ⚠ winner "${winnerName}" ვერ დაემთხვა ვერც ერთ მებრძოლს — გამოტოვება`);
+        continue;
+      }
+      exactWinner = matchRed >= matchBlue ? match.red.name : match.blue.name;
+    }
 
     await sb.from('fights').update({
       status: 'completed', result_winner: exactWinner, result_method: method,
       result_round: round ? parseInt(round) : null, result_time: time || null,
     }).eq('id', match.id);
 
-    log(`  🏆 ${match.red?.name} vs ${match.blue?.name} → ${exactWinner} (${method} R${round})`);
+    log(`  🏆 ${match.red?.name} vs ${match.blue?.name} → ${exactWinner} (${method} R${round})${matchedById ? ' [ID✓]' : ' [name]'}`);
     resultsUpdated++;
   }
+  if (voidedCount > 0) log(`⚖️ ${voidedCount} ბრძოლა ნეიტრალდა (მებრძოლის ჩანაცვლება)`);
 
   if (resultsUpdated === 0) {
     log('ახალი შედეგი ვერ მოიძებნა — მაგრამ settlement მაინც ვცადოთ (pending ბილეთებისთვის)');
@@ -390,7 +439,7 @@ async function fetchResultsAndSettle(eventId, eventDate) {
   }
 
   const { data: fights } = await sb.from('fights')
-    .select('id,result_winner,result_method,result_round,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
+    .select('id,result_winner,result_method,result_round,is_voided,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
     .eq('event_id', eventId).eq('status', 'completed');
 
   if (!fights || fights.length === 0) return;
@@ -401,6 +450,7 @@ async function fetchResultsAndSettle(eventId, eventDate) {
       result_winner: f.result_winner || '',
       result_method: f.result_method || '',
       result_round:  f.result_round  || null,
+      is_voided:     f.is_voided === true,
       red_name:      f.red?.name     || '',
       blue_name:     f.blue?.name    || '',
     };
@@ -412,9 +462,10 @@ async function fetchResultsAndSettle(eventId, eventDate) {
 
   if (!tickets || tickets.length === 0) { log('pending ბილეთი ვერ მოიძებნა'); }
   else {
-    let wonCount = 0, lostCount = 0, skipped = 0;
+    let wonCount = 0, lostCount = 0, skipped = 0, voidRefundCount = 0, errorCount = 0;
 
     for (const ticket of tickets) {
+     try {
       const sels = ticket.ticket_selections || [];
       const results = sels.map(sel => {
         const fight = fightMap[sel.fight_id];
@@ -422,18 +473,61 @@ async function fetchResultsAndSettle(eventId, eventDate) {
         return selectionWon(sel, fight);
       });
 
+      // თუ რომელიმე leg ჯერ არ დასრულებულა (null) → ბილეთი ჯერ არ ფასდება
       if (results.some(r => r === null)) { skipped++; continue; }
 
-      const allWon  = results.every(r => r === true);
-      const anyLost = results.some(r => r === false);
+      // void leg-ები — ცალკე გამოვყოთ. ისინი არც მოგება, არც წაგება.
+      const voidIdx = [];
+      results.forEach((r, i) => { if (r === 'void') voidIdx.push(i); });
+      const activeResults = results.filter(r => r !== 'void');
+
+      // ── შემთხვევა A: ბილეთის ყველა leg void-ია → სრული void, stake დაბრუნება ──
+      if (activeResults.length === 0) {
+        // ყველა selection void — ნიშნავს void-ს ჩავუწერთ და stake დავაბრუნებთ
+        for (let si = 0; si < sels.length; si++) {
+          await sb.from('ticket_selections').update({ result: 'void' }).eq('id', sels[si].id);
+        }
+        await sb.from('tickets').update({ status: 'void', settled_at: new Date().toISOString() }).eq('id', ticket.id);
+        // stake დაბრუნება — cashout-ის მსგავსად, ბალანსზე (increment_user_score არა — ეს score-ია, ბალანსი გვინდა)
+        // ბალანსი trigger-ითაა დაცული, ამიტ RPC-ს ვიყენებთ თუ არსებობს; თუ არა — refund score_history-ს არ ვწერთ.
+        try {
+          await sb.rpc('refund_ticket_stake', { p_ticket_id: ticket.id });
+        } catch (e) {
+          log(`  ⚠ stake დაბრუნების RPC ვერ გაეშვა ბილეთ ${ticket.id}-ზე: ${e.message}`);
+        }
+        log(`  ↩️ სრული void — ბილეთი ${ticket.id}: stake (${ticket.stake}) დაბრუნდა`);
+        voidRefundCount++;
+        continue;
+      }
+
+      // ── შემთხვევა B: ნაწილობრივ void — void leg-ები ამოვარდება, კოეფ. გადაითვლება ──
+      // ჩავწეროთ თითო selection-ის შედეგი (void leg-ს 'void')
+      for (let si = 0; si < sels.length; si++) {
+        const r = results[si];
+        if (r === true || r === false || r === 'void') {
+          await sb.from('ticket_selections').update({ result: r === true ? 'ok' : r === false ? 'no' : 'void' }).eq('id', sels[si].id);
+        }
+      }
+
+      const allWon  = activeResults.every(r => r === true);
+      const anyLost = activeResults.some(r => r === false);
       const newStatus = anyLost ? 'lost' : (allWon ? 'won' : 'pending');
       if (newStatus === 'pending') { skipped++; continue; }
 
-      for (let si = 0; si < sels.length; si++) {
-        const r = results[si];
-        if (r === true || r === false) {
-          await sb.from('ticket_selections').update({ result: r ? 'ok' : 'no' }).eq('id', sels[si].id);
+      // total_odds გადათვლა: ავიღოთ საწყისი და გავყოთ void leg-ების კოეფიციენტებზე
+      let adjustedOdds = Number(ticket.total_odds);
+      if (voidIdx.length > 0) {
+        for (const i of voidIdx) {
+          const voidOdds = Number(sels[i].odds) || 1;
+          if (voidOdds > 0) adjustedOdds = adjustedOdds / voidOdds;
         }
+        adjustedOdds = Math.round(adjustedOdds * 100) / 100;
+        // ბილეთის total_odds და potential_win განვაახლოთ
+        await sb.from('tickets').update({
+          total_odds: adjustedOdds,
+          potential_win: Math.round(Number(ticket.stake) * adjustedOdds)
+        }).eq('id', ticket.id);
+        log(`  ⚖️ ბილეთი ${ticket.id}: ${voidIdx.length} void leg ამოვარდა, კოეფ. ${ticket.total_odds} → ${adjustedOdds}`);
       }
 
       await sb.from('tickets').update({
@@ -442,7 +536,7 @@ async function fetchResultsAndSettle(eventId, eventDate) {
 
       if (newStatus === 'won') {
         wonCount++;
-        const winnings = Math.round(Number(ticket.stake) * Number(ticket.total_odds));
+        const winnings = Math.round(Number(ticket.stake) * adjustedOdds);
         await sb.rpc('increment_user_score', { p_user_id: ticket.user_id, p_amount: winnings });
         await sb.from('score_history').insert({
           user_id: ticket.user_id, amount: winnings
@@ -451,10 +545,19 @@ async function fetchResultsAndSettle(eventId, eventDate) {
       } else {
         lostCount++;
       }
+     } catch (e) {
+       // ერთი ბილეთის ჩავარდნა დანარჩენს არ აჩერებს — ლოგი + ტელეგრამი, ხელით მიხედვისთვის
+       errorCount++;
+       log(`  ❌ ბილეთი ${ticket.id} ვერ დამუშავდა: ${e.message}`);
+       try {
+         await sendTelegram(`⚠️ <b>ბილეთი ვერ დამუშავდა</b>\n\nID: ${ticket.id}\nშეცდომა: <code>${(e.message || String(e)).slice(0, 300)}</code>\n\n➡️ საჭიროა ხელით შემოწმება.`);
+       } catch (_) {}
+       continue;
+     }
     }
 
-    log(`✅ Settlement: ${wonCount} მოგებული | ${lostCount} წაგებული | ${skipped} გამოტოვებული`);
-    await sendTelegram(`🏁 <b>Settlement დასრულდა</b>\n\n✅ ${wonCount} მოგებული\n❌ ${lostCount} წაგებული\n⏭ ${skipped} გამოტოვებული`);
+    log(`✅ Settlement: ${wonCount} მოგებული | ${lostCount} წაგებული | ${skipped} გამოტოვებული | ${voidRefundCount} სრული void${errorCount > 0 ? ` | ${errorCount} შეცდომა` : ''}`);
+    await sendTelegram(`🏁 <b>Settlement დასრულდა</b>\n\n✅ ${wonCount} მოგებული\n❌ ${lostCount} წაგებული\n⏭ ${skipped} გამოტოვებული${voidRefundCount > 0 ? `\n↩️ ${voidRefundCount} სრული void (stake დაბრუნდა)` : ''}${errorCount > 0 ? `\n🚨 ${errorCount} ბილეთი ვერ დამუშავდა — ხელით შემოწმება საჭიროა` : ''}`);
   }
 
   const { data: remaining } = await sb.from('fights')
@@ -643,4 +746,11 @@ async function main() {
 
 main()
   .then(() => log('✅ Auto script finished'))
-  .catch(e => { log(`❌ Fatal error: ${e.message}`); process.exit(1); });
+  .catch(async (e) => {
+    log(`❌ Fatal error: ${e.message}`);
+    // ერრორი ტელეგრამზე — რომ ხელით მიხედვა შესაძლ იყოს
+    try {
+      await sendTelegram(`🚨 <b>auto.js ჩავარდა (Fatal error)</b>\n\n<code>${(e.message || String(e)).slice(0, 500)}</code>\n\n➡️ საჭიროა ხელით შემოწმება. settlement შესაძლოა არ დასრულებულა.`);
+    } catch (_) { /* თუ telegram-იც ჩავარდა, აღარაფერი გვრჩება ლოგის გარდა */ }
+    process.exit(1);
+  });
