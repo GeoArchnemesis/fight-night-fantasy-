@@ -340,7 +340,7 @@ Deno.serve(async (req) => {
     }
     let response = ''
     if (text === '/start' || text === 'help' || text === '/help') {
-      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\nკომანდები:\n\n📥 <b>ივენთი</b> — ESPN-დან მომდევნო ივენთი\n📊 <b>კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>settlement</b> — ბილეთების დამუშავება\n🔄 <b>სრულად</b> — ყველაფერი ერთად\n📋 <b>სტატუსი</b> — მიმდინარე მდგომარეობა\n💰 <b>რესეტი</b> — ბალანსების განულება (1,000)`
+      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\nკომანდები:\n\n📥 <b>ივენთი</b> — ESPN-დან მომდევნო ივენთი\n📊 <b>კოეფიციენტები</b> — Odds API განახლება\n📋 <b>სტატუსი</b> — მიმდინარე მდგომარეობა\n💰 <b>რესეტი</b> — ბალანსების განულება (1,000)\n\n⚙️ <b>შედეგები და settlement ავტომატურია</b> — მათ ამუშავებს auto.js (GitHub Actions), მებრძოლის ID-ით და ბრძოლის ჩანაცვლების (void) მხარდაჭერით. ბოტიდან ხელით აღარ ეშვება.`
     }
     else if (text.includes('ივენთ') || text.includes('event') || text === '/event') {
       await sendMsg(chatId, '⏳ ESPN-დან ძებნა...')
@@ -351,15 +351,18 @@ Deno.serve(async (req) => {
       response = await cmdUpdateOdds(chatId)
     }
     else if (text.includes('შედეგ') || text.includes('result') || text === '/results') {
-      await sendMsg(chatId, '⏳ ESPN შედეგები...')
-      response = await cmdFetchResults(chatId)
+      response = '⚠️ <b>შედეგების წამოღება ახლა ავტომატურია</b>\n\nშედეგებს და settlement-ს ამუშავებს <b>auto.js</b> (GitHub Actions) — მებრძოლის ID-ით, ბრძოლის ჩანაცვლების (void) მხარდაჭერით.\n\nბოტის ძველი შედეგების ლოგიკა გამორთულია, რომ ორმაგი (და არასწორი) დამუშავება არ მოხდეს.\n\n➡️ გაუშვი GitHub Actions workflow ან დაელოდე ავტომატურ ციკლს.'
     }
     else if (text.includes('settle') || text.includes('დამუშავება') || text === '/settle') {
-      await sendMsg(chatId, '⏳ Settlement...')
-      response = await cmdSettle(chatId)
+      response = '⚠️ <b>Settlement ახლა ავტომატურია</b>\n\nბილეთების დამუშავებას აკეთებს <b>auto.js</b> (GitHub Actions), ID-ით და void (ნეიტრალური პოზიციის) მხარდაჭერით.\n\nბოტის ძველი settlement გამორთულია — ის void-ს ვერ ცნობდა და ორმაგი დამუშავების რისკს ქმნიდა.\n\n➡️ გაუშვი GitHub Actions workflow ან დაელოდე ავტომატურ ციკლს.'
     }
     else if (text.includes('სრულად') || text.includes('full') || text === '/full') {
-      response = await cmdFull(chatId)
+      await sendMsg(chatId, '⏳ 1/2 — ივენთის შემოწმება...')
+      const evR = await cmdUpdateEvent(chatId)
+      await sendMsg(chatId, '⏳ 2/2 — კოეფიციენტები...')
+      const odR = await cmdUpdateOdds(chatId)
+      response = ['🔄 <b>ივენთი + კოეფიციენტები განახლდა</b>\n', evR, '\n' + odR,
+        '\n⚠️ შედეგები და settlement ახლა ავტომატურია (auto.js, void მხარდაჭერით) — ბოტიდან აღარ ეშვება.'].join('\n')
     }
     else if (text.includes('სტატუს') || text.includes('status') || text === '/status') {
       response = await cmdStatus(chatId)
