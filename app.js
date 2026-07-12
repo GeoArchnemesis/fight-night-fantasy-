@@ -152,6 +152,14 @@ async function loadEventFromDB() {
   if (tagEl) { const fs = tagEl.querySelector('span'); if (fs) fs.textContent = label; }
   const locEl = $('eventLocation2'); if (locEl) locEl.textContent = (ev.location || '').toUpperCase();
   const dateEl = $('eventDate'); if (dateEl) dateEl.textContent = '· ' + EN_MONTHS[dt.getMonth()] + ' ' + dt.getDate();
+
+  // ივენთი დასრულებულია და ახალი (upcoming) ჯერ არ შექმნილა → countdown-ის ნაცვლად ტექსტი
+  const cdEl = $('countdown');
+  const endedEl = $('eventEndedMsg');
+  const eventFullyOver = (ev.status === 'completed') && !upcoming;
+  if (cdEl) cdEl.style.display = eventFullyOver ? 'none' : '';
+  if (endedEl) endedEl.style.display = eventFullyOver ? 'block' : 'none';
+
   return ev;
 }
 
