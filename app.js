@@ -107,9 +107,26 @@ async function loadEventFromDB() {
   const now = serverNow();
   const upcoming = upRows && upRows[0];
   const recent = pastRows && pastRows[0];
-  const recentLiveOrFresh = recent && ((now - new Date(recent.event_date).getTime()) / 3600000) <= 48;
+
+  // ── ჩვენების წესი ──
+  // დასრულებულ (recent) ივენთს ვაჩვენებთ მანამ, სანამ არ დადგება მისი მომდევნო
+  // ორშაბათი 00:00 თბილისის დროით (UTC+4). ე.ი. კვირას ჩანს completed ივენთი + ტექსტი,
+  // ხოლო ორშაბათი 00:00 თბილისიდან — ვრთვდებით upcoming ივენთზე (countdown, კოეფები, სურათები).
+  let showRecent = false;
+  if (recent) {
+    const evEndMs = new Date(recent.event_date).getTime();
+    // თბილისის დრო = UTC + 4 საათი
+    const TB = 4 * 3600000;
+    const tb = new Date(evEndMs + TB);              // ივენთის დრო თბილისურ "კედლის საათზე"
+    // ვიპოვოთ მომდევნო ორშაბათი 00:00 (თბილისით). getUTCDay(): 0=კვ,1=ორშ...
+    const daysUntilMon = ((8 - tb.getUTCDay()) % 7) || 7;   // 1..7 (ყოველთვის მომავალი ორშაბათი)
+    const monMidnightTb = Date.UTC(tb.getUTCFullYear(), tb.getUTCMonth(), tb.getUTCDate() + daysUntilMon, 0, 0, 0);
+    const cutoffMs = monMidnightTb - TB;            // ისევ UTC-ში დავაბრუნოთ
+    showRecent = now < cutoffMs;
+  }
+
   let ev = null;
-  if (recentLiveOrFresh) ev = recent;
+  if (showRecent) ev = recent;
   else if (upcoming) ev = upcoming;
   else if (recent) ev = recent;
   if (!ev) return null;
@@ -153,10 +170,10 @@ async function loadEventFromDB() {
   const locEl = $('eventLocation2'); if (locEl) locEl.textContent = (ev.location || '').toUpperCase();
   const dateEl = $('eventDate'); if (dateEl) dateEl.textContent = '· ' + EN_MONTHS[dt.getMonth()] + ' ' + dt.getDate();
 
-  // ივენთი დასრულებულია და ახალი (upcoming) ჯერ არ შექმნილა → countdown-ის ნაცვლად ტექსტი
+  // ივენთი დასრულებულია → countdown-ის ნაცვლად ტექსტი
   const cdEl = $('countdown');
   const endedEl = $('eventEndedMsg');
-  const eventFullyOver = (ev.status === 'completed') && !upcoming;
+  const eventFullyOver = (ev.status === 'completed');
   if (cdEl) cdEl.style.display = eventFullyOver ? 'none' : '';
   if (endedEl) endedEl.style.display = eventFullyOver ? 'block' : 'none';
 
