@@ -148,13 +148,26 @@ async function fetchAthleteDetails(espnId) {
 // ── STEP 1: ახალი ივენთის შექმნა ────────────────────────────
 
 async function findNextESPNEvent() {
+  // ბაზაში უკვე არსებული ივენთების სახელები — რომ დასრულებული/მიმდინარე ივენთი
+  // ხელახლა არ წამოვიღოთ (ESPN-ზე დასრულებული ივენთი კიდევ დიდხანს ჩანს).
+  const { data: existing } = await sb.from('events').select('name');
+  const existingNames = new Set((existing || []).map(e => (e.name || '').trim().toLowerCase()));
+
   const today = new Date();
   for (let i = 0; i <= 30; i++) {
     const d = new Date(today); d.setDate(d.getDate() + i);
     const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '');
     try {
       const data = await fetchJSON(`${ESPN_BASE}?dates=${dateStr}`);
-      if (data.events && data.events.length > 0) return data;
+      if (data.events && data.events.length > 0) {
+        // გავფილტროთ ის ივენთები, რომლებიც უკვე ბაზაშია
+        const fresh = data.events.filter(ev => !existingNames.has((ev.name || '').trim().toLowerCase()));
+        if (fresh.length > 0) {
+          // დავაბრუნოთ ობიექტი მხოლ ახალი ივენთებით (createEventFromESPN events[0]-ს იღებს)
+          return { ...data, events: fresh };
+        }
+        // თუ ამ დღის ყველა ივენთი უკვე ბაზაშია — ვაგრძელებთ ძებნას მომდევნო დღეებში
+      }
     } catch {}
   }
   return null;
@@ -564,8 +577,13 @@ async function fetchResultsAndSettle(eventId, eventDate) {
     .select('id').eq('event_id', eventId).neq('status', 'completed').limit(1);
 
   if (!remaining || remaining.length === 0) {
-    await sb.from('events').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', eventId);
-    log('✅ ივენთის სტატუსი → completed (completed_at ჩაიწერა)');
+    // completed_at მხოლ ერთხელ დაიწეროს — ხელახალ გაშვებაზე რომ არ გადაიწეროს
+    // (თორემ 1-საათიანი ტაიმერი ყოველ ჯერ გადაიწევდა და ახალი ივენთი არ შეიქმნებოდა)
+    const { data: evNow } = await sb.from('events').select('completed_at').eq('id', eventId).maybeSingle();
+    const patch = { status: 'completed' };
+    if (!evNow?.completed_at) patch.completed_at = new Date().toISOString();
+    await sb.from('events').update(patch).eq('id', eventId);
+    log(`✅ ივენთის სტატუსი → completed${patch.completed_at ? ' (completed_at ჩაიწერა)' : ' (completed_at უკვე იყო)'}`);
   }
 }
 
