@@ -564,8 +564,8 @@ async function fetchResultsAndSettle(eventId, eventDate) {
     .select('id').eq('event_id', eventId).neq('status', 'completed').limit(1);
 
   if (!remaining || remaining.length === 0) {
-    await sb.from('events').update({ status: 'completed' }).eq('id', eventId);
-    log('✅ ივენთის სტატუსი → completed');
+    await sb.from('events').update({ status: 'completed', completed_at: new Date().toISOString() }).eq('id', eventId);
+    log('✅ ივენთის სტატუსი → completed (completed_at ჩაიწერა)');
   }
 }
 
@@ -687,13 +687,30 @@ async function main() {
   const upcoming = upcomingEvents?.[0];
 
   if (!upcoming) {
-    const georgianDay = new Date(Date.now() + 4 * 3600000).getUTCDay();
-    if (georgianDay !== 1) {
-      log('📭 upcoming ივენთი არ არსებობს — ახალი მხოლოდ ორშაბათს შეიქმნება (ველოდებით)');
-      return;
+    // ახალი ივენთი იქმნება, როცა ბოლო ივენთის settlement-იდან (completed_at) 1 საათი გავიდა.
+    // (ორშაბათის შეზღუდვა მოხსნილია — ივენთი ავტომატურად მოდის settlement-იდან 1 საათში.)
+    const { data: lastCompleted } = await sb.from('events')
+      .select('id,name,completed_at,event_date,status')
+      .eq('status', 'completed')
+      .order('completed_at', { ascending: false, nullsFirst: false })
+      .limit(1);
+
+    const last = lastCompleted?.[0];
+    if (last) {
+      // completed_at fallback — ძველ ივენთს თუ არ აქვს, event_date-ს ვიყენებთ
+      const completedTime = last.completed_at ? new Date(last.completed_at).getTime()
+                                              : new Date(last.event_date).getTime();
+      const hoursSince = (Date.now() - completedTime) / 3600000;
+      if (hoursSince < 1) {
+        log(`⏳ ბოლო ივენთი დასრულდა ${Math.round(hoursSince * 60)} წუთის წინ — ახალ ივენთამდე ${Math.round((1 - hoursSince) * 60)} წუთი (შედეგები ჩანს საიტზე)`);
+        return;
+      }
+      log(`✅ ბოლო ივენთის settlement-იდან ${hoursSince.toFixed(1)} საათი გავიდა — ვქმნით ახალ ივენთს`);
+    } else {
+      log('📭 completed ივენთი არ არის — ვცდით ახალი ივენთის შექმნას');
     }
 
-    log('📭 ორშაბათია და upcoming ივენთი არ არსებობს — ვეძებთ ახალს...');
+    log('🔍 ESPN-დან შემდეგი ივენთის ძებნა...');
     const espnData = await findNextESPNEvent();
     if (espnData) {
       const eventId = await createEventFromESPN(espnData);
@@ -702,7 +719,7 @@ async function main() {
         await updateOdds(eventId);
       }
     } else {
-      log('📭 მომდევნო 30 დღეში UFC ივენთი ვერ მოიძებნა');
+      log('📭 მომდევნო 30 დღეში UFC ივენთი ვერ მოიძებნა — შემდეგ გაშვებაზე ისევ ვცდით');
     }
     return;
   }
@@ -741,7 +758,7 @@ async function main() {
 
   await backupToSheets(upcoming.name);
 
-  log('✅ Settlement დასრულდა — ძველი ივენთი რჩება შედეგებით. ახალი ივენთი ორშაბათს შეიქმნება.');
+  log('✅ Settlement დასრულდა — შედეგები ჩანს საიტზე. ახალი ივენთი settlement-იდან 1 საათში შეიქმნება.');
 }
 
 main()
