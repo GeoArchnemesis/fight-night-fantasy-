@@ -9,6 +9,7 @@ const sb = createClient(
 )
 const TG_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN')!
 const ODDS_API_KEY = Deno.env.get('ODDS_API_KEY') || ''
+const CLOUDBET_API_KEY = Deno.env.get('CLOUDBET_API_KEY') || ''
 const ADMIN_CHAT_ID = Deno.env.get('TELEGRAM_CHAT_ID') || ''
 const TG_WEBHOOK_SECRET = Deno.env.get('TELEGRAM_WEBHOOK_SECRET') || ''
 const ADMIN_NOTIFY_SECRET = Deno.env.get('ADMIN_NOTIFY_SECRET') || ''
@@ -354,6 +355,139 @@ async function cmdResetBalances(chatId: number): Promise<string> {
   return `💰 <b>ბალანსები დარესეტდა</b>\n\n${count || 0} მომხმარებლის ბალანსი → 1,000 ქულა`
 }
 
+// ═══════════════════════════════════════════════════════════
+//  F1 — ხელით sync (Cloudbet კოეფები + markets + standings)
+//  იგივე ლოგიკა რაც scripts/f1-auto.js, ოღონდ ბოტიდან.
+//  არ ეხება UFC-ს. sb = service_role.
+// ═══════════════════════════════════════════════════════════
+const CB_BASE = 'https://sports-api.cloudbet.com/pub/v2/odds'
+const OPENF1 = 'https://api.openf1.org/v1'
+const F1_SEASON = new Date().getUTCFullYear()
+const INCLUDE_THE_FIELD = false
+
+async function f1GetJSON(url: string, headers?: Record<string, string>): Promise<any> {
+  const res = await fetch(url, { headers: headers || {} })
+  if (!res.ok) throw new Error(`${res.status} ${url}`)
+  return res.json()
+}
+const cbGet = (path: string) => f1GetJSON(`${CB_BASE}${path}`, { 'X-API-Key': CLOUDBET_API_KEY })
+const of1Get = (path: string) => f1GetJSON(`${OPENF1}${path}`)
+function slugToName(slug: string): string {
+  return slug.replace(/^s-/, '').replace(/-/g, ' ').trim().toLowerCase()
+}
+
+async function findCloudbetGP(): Promise<{ raceComp: any; qualiComp: any }> {
+  const data = await cbGet('/sports/motorsport')
+  let raceComp: any = null, qualiComp: any = null
+  for (const cat of data.categories || []) {
+    for (const c of cat.competitions || []) {
+      const n = (c.name || '').toLowerCase()
+      if (/grand prix\s*-\s*qualifying$/.test(n)) qualiComp = c
+      else if (/grand prix$/.test(n) && !/championship/.test(n)) raceComp = c
+    }
+  }
+  return { raceComp, qualiComp }
+}
+async function cloudbetOdds(competitionKey: string): Promise<any[]> {
+  const d = await cbGet(`/competitions/${competitionKey}`)
+  const ev = (d.events || [])[0]
+  if (!ev) return []
+  const mkt = ev.markets && ev.markets['motorsport.outright.v3']
+  const sels = mkt && mkt.submarkets && mkt.submarkets.default && mkt.submarkets.default.selections
+  if (!sels) return []
+  return sels
+    .filter((s: any) => INCLUDE_THE_FIELD || s.outcome !== 's-the-field')
+    .map((s: any) => ({ name: slugToName(s.outcome), slug: s.outcome, price: s.price, probability: s.probability, enabled: s.status === 'SELECTION_ENABLED' }))
+}
+async function findOpenF1Meeting(gpName: string): Promise<any> {
+  const meetings = await of1Get(`/meetings?year=${F1_SEASON}`)
+  const target = gpName.toLowerCase()
+  const m = meetings.find((x: any) => (x.meeting_name || '').toLowerCase() === target)
+    || meetings.find((x: any) => target.includes((x.meeting_name || '').toLowerCase()))
+    || meetings.find((x: any) => (x.meeting_name || '').toLowerCase().includes(target.replace(' grand prix', '')))
+  if (!m) return null
+  const sessions = await of1Get(`/sessions?meeting_key=${m.meeting_key}`)
+  const race = sessions.find((s: any) => s.session_type === 'Race')
+  const quali = sessions.find((s: any) => s.session_type === 'Qualifying')
+  return { meeting: m, race, quali }
+}
+async function f1DriverMaps(): Promise<any> {
+  const { data } = await sb.from('f1_drivers').select('id,name,car_number,slug')
+  const byName: any = {}
+  for (const d of data || []) byName[(d.name || '').toLowerCase()] = d
+  return { byName }
+}
+
+async function cmdUpdateOddsF1(chatId: number): Promise<string> {
+  if (!CLOUDBET_API_KEY) return '⚠️ CLOUDBET_API_KEY არ არის დაყენებული (Supabase → Edge Functions → Secrets)'
+  const { raceComp, qualiComp } = await findCloudbetGP()
+  if (!raceComp) return '❌ Cloudbet: მიმდინარე GP ვერ მოიძებნა'
+  const gpName = raceComp.name
+  await sendMsg(chatId, `🏁 GP: <b>${gpName}</b>\n⏳ OpenF1 sessions...`)
+
+  const of1 = await findOpenF1Meeting(gpName)
+  if (!of1 || !of1.race) return `❌ OpenF1: "${gpName}"-ის session ვერ მოიძებნა`
+
+  const raceRow = {
+    name: of1.meeting.meeting_name || gpName,
+    location: of1.meeting.country_name || null,
+    season: F1_SEASON, round: null, status: 'upcoming',
+    openf1_meeting_key: of1.meeting.meeting_key,
+  }
+  const { data: upRace, error: rErr } = await sb.from('f1_races')
+    .upsert(raceRow, { onConflict: 'openf1_meeting_key' }).select('id').maybeSingle()
+  if (rErr) return `❌ f1_races: ${rErr.message}`
+  const raceId = (upRace as any).id
+
+  const marketDefs = [
+    { kind: 'race', comp: raceComp, ses: of1.race },
+    { kind: 'quali', comp: qualiComp, ses: of1.quali },
+  ].filter(m => m.comp && m.ses)
+
+  const { byName } = await f1DriverMaps()
+  const lines: string[] = []
+  for (const md of marketDefs) {
+    const { data: upMkt, error: mErr } = await sb.from('f1_markets')
+      .upsert({
+        race_id: raceId, kind: md.kind, cb_key: md.comp.key,
+        start_time: md.ses.date_start, status: 'upcoming',
+        openf1_session_key: md.ses.session_key,
+      }, { onConflict: 'race_id,kind' }).select('id').maybeSingle()
+    if (mErr) { lines.push(`❌ ${md.kind}: ${mErr.message}`); continue }
+    const marketId = (upMkt as any).id
+    const odds = await cloudbetOdds(md.comp.key)
+    let matched = 0; const missed: string[] = []
+    for (const o of odds) {
+      const drv = byName[o.name]
+      if (!drv) { missed.push(o.name); continue }
+      if (!drv.slug) await sb.from('f1_drivers').update({ slug: o.slug }).eq('id', drv.id)
+      await sb.from('f1_market_entries').upsert({
+        market_id: marketId, driver_id: drv.id, price: o.price,
+        probability: o.probability, is_enabled: o.enabled, updated_at: new Date().toISOString(),
+      }, { onConflict: 'market_id,driver_id' })
+      matched++
+    }
+    const label = md.kind === 'race' ? 'რბოლა' : 'კვალიფიკაცია'
+    lines.push(`✅ ${label}: <b>${matched}</b> კოეფი${missed.length ? `\n   ⚠️ ვერ დაემთხვა: ${missed.join(', ')}` : ''}`)
+  }
+
+  // standings (rank/points)
+  let stdN = 0
+  try {
+    const d = await f1GetJSON('https://api.jolpi.ca/ergast/f1/current/driverstandings/?limit=100')
+    const rows = (((d.MRData || {}).StandingsTable || {}).StandingsLists || [])[0]
+    const list = rows ? rows.DriverStandings : []
+    for (const r of list || []) {
+      const num = parseInt(r.Driver.permanentNumber)
+      if (!num) continue
+      await sb.from('f1_drivers').update({ rank: parseInt(r.position), points: parseFloat(r.points) }).eq('car_number', num)
+      stdN++
+    }
+  } catch (_) {}
+
+  return `🏎️ <b>F1 კოეფები განახლდა</b>\n${gpName}\n\n${lines.join('\n')}\n\n📊 standings: ${stdN} მძღოლი`
+}
+
 // ── MAIN HANDLER ─────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -386,7 +520,11 @@ Deno.serve(async (req) => {
     }
     let response = ''
     if (text === '/start' || text === 'help' || text === '/help') {
-      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\nკომანდები:\n\n📥 <b>ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ფოტო</b> — მებრძოლების ფოტოების განახლება\n📊 <b>კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>settlement</b> — ბილეთების დამუშავება\n🔄 <b>სრულად</b> — ყველაფერი ერთად\n📋 <b>სტატუსი</b> — მიმდინარე მდგომარეობა\n💰 <b>რესეტი</b> — ბალანსების განულება (1,000)`
+      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\nკომანდები:\n\n📥 <b>ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ფოტო</b> — მებრძოლების ფოტოების განახლება\n📊 <b>კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>settlement</b> — ბილეთების დამუშავება\n🔄 <b>სრულად</b> — ყველაფერი ერთად\n📋 <b>სტატუსი</b> — მიმდინარე მდგომარეობა\n💰 <b>რესეტი</b> — ბალანსების განულება (1,000)\n\n🏎️ <b>კოეფიციენტები f1</b> — F1 კოეფების განახლება (Cloudbet)`
+    }
+    else if (text.includes('f1') || text.includes('ფ1') || text.includes('ფორმულა')) {
+      await sendMsg(chatId, '⏳ F1 კოეფების განახლება (Cloudbet)...')
+      response = await cmdUpdateOddsF1(chatId)
     }
     else if (text.includes('ივენთ') || text.includes('event') || text === '/event') {
       await sendMsg(chatId, '⏳ ESPN-დან ძებნა...')
