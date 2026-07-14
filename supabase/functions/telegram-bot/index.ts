@@ -84,6 +84,52 @@ async function upsertFighter(f: any): Promise<number | null> {
   return data?.id || null
 }
 
+// მხოლოდ ფოტოების განახლება — ივენთს/ბრძოლებს/კოეფიციენტებს/ბილეთებს არ ეხება
+async function cmdUpdatePhotos(chatId: number): Promise<string> {
+  // 1. მიმდინარე ივენთი DB-დან (უახლესი მომავალი, ან ბოლო)
+  const nowIso = new Date().toISOString()
+  let { data: evRows } = await sb.from('events').select('id,name').gte('event_date', nowIso).order('event_date', { ascending: true }).limit(1)
+  if (!evRows || evRows.length === 0) {
+    const past = await sb.from('events').select('id,name').lt('event_date', nowIso).order('event_date', { ascending: false }).limit(1)
+    evRows = past.data
+  }
+  if (!evRows || evRows.length === 0) return '❌ ივენთი ვერ მოიძებნა ბაზაში'
+  const dbEvent = evRows[0]
+
+  // 2. ESPN-იდან იგივე სახელის ივენთი
+  const today = new Date()
+  let espnData: any = null
+  for (let i = 0; i <= 30; i++) {
+    const d = new Date(today); d.setDate(d.getDate() + i)
+    const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '')
+    try {
+      const res = await fetch(`${ESPN_BASE}?dates=${dateStr}`)
+      const data = await res.json()
+      if (data.events && data.events.length > 0 && data.events[0].name === dbEvent.name) { espnData = data; break }
+      if (data.events && data.events.length > 0 && !espnData) espnData = data
+    } catch {}
+  }
+  if (!espnData) return '❌ ESPN-ზე ივენთი ვერ მოიძებნა'
+  const event = espnData.events[0]
+
+  // 3. ყველა მებრძოლს მხოლოდ image_url + espn_id განუახლე (name-ით)
+  let updated = 0, missing = 0
+  const comps = event.competitions || []
+  for (const c of comps) {
+    for (const comp of (c.competitors || [])) {
+      const name = comp?.athlete?.fullName || ''
+      const espnId = comp?.id || ''
+      if (!name || !espnId) { missing++; continue }
+      const imageUrl = `https://a.espncdn.com/i/headshots/mma/players/full/${espnId}.png`
+      const { data: existing } = await sb.from('fighters').select('id').eq('name', name).maybeSingle()
+      if (!existing) { missing++; continue }
+      await sb.from('fighters').update({ image_url: imageUrl, espn_id: espnId }).eq('id', existing.id)
+      updated++
+    }
+  }
+  return `✅ <b>ფოტოები განახლდა</b>\n\n${event.name}\n🖼️ ${updated} მებრძოლი განახლდა${missing ? `\n⚠️ ${missing} ვერ მოიძებნა` : ''}`
+}
+
 async function cmdUpdateEvent(chatId: number): Promise<string> {
   const today = new Date()
   let espnData: any = null
@@ -340,29 +386,30 @@ Deno.serve(async (req) => {
     }
     let response = ''
     if (text === '/start' || text === 'help' || text === '/help') {
-      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\nკომანდები:\n\n📥 <b>ივენთი</b> — ESPN-დან მომდევნო ივენთი\n📊 <b>კოეფიციენტები</b> — Odds API განახლება\n📋 <b>სტატუსი</b> — მიმდინარე მდგომარეობა\n💰 <b>რესეტი</b> — ბალანსების განულება (1,000)\n\n⚙️ <b>შედეგები და settlement ავტომატურია</b> — მათ ამუშავებს auto.js (GitHub Actions), მებრძოლის ID-ით და ბრძოლის ჩანაცვლების (void) მხარდაჭერით. ბოტიდან ხელით აღარ ეშვება.`
+      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\nკომანდები:\n\n📥 <b>ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ფოტო</b> — მებრძოლების ფოტოების განახლება\n📊 <b>კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>settlement</b> — ბილეთების დამუშავება\n🔄 <b>სრულად</b> — ყველაფერი ერთად\n📋 <b>სტატუსი</b> — მიმდინარე მდგომარეობა\n💰 <b>რესეტი</b> — ბალანსების განულება (1,000)`
     }
     else if (text.includes('ივენთ') || text.includes('event') || text === '/event') {
       await sendMsg(chatId, '⏳ ESPN-დან ძებნა...')
       response = await cmdUpdateEvent(chatId)
+    }
+    else if (text.includes('ფოტო') || text.includes('photo') || text === '/photos') {
+      await sendMsg(chatId, '⏳ ფოტოების განახლება...')
+      response = await cmdUpdatePhotos(chatId)
     }
     else if (text.includes('კოეფ') || text.includes('odds') || text === '/odds') {
       await sendMsg(chatId, '⏳ Odds API...')
       response = await cmdUpdateOdds(chatId)
     }
     else if (text.includes('შედეგ') || text.includes('result') || text === '/results') {
-      response = '⚠️ <b>შედეგების წამოღება ახლა ავტომატურია</b>\n\nშედეგებს და settlement-ს ამუშავებს <b>auto.js</b> (GitHub Actions) — მებრძოლის ID-ით, ბრძოლის ჩანაცვლების (void) მხარდაჭერით.\n\nბოტის ძველი შედეგების ლოგიკა გამორთულია, რომ ორმაგი (და არასწორი) დამუშავება არ მოხდეს.\n\n➡️ გაუშვი GitHub Actions workflow ან დაელოდე ავტომატურ ციკლს.'
+      await sendMsg(chatId, '⏳ ESPN შედეგები...')
+      response = await cmdFetchResults(chatId)
     }
     else if (text.includes('settle') || text.includes('დამუშავება') || text === '/settle') {
-      response = '⚠️ <b>Settlement ახლა ავტომატურია</b>\n\nბილეთების დამუშავებას აკეთებს <b>auto.js</b> (GitHub Actions), ID-ით და void (ნეიტრალური პოზიციის) მხარდაჭერით.\n\nბოტის ძველი settlement გამორთულია — ის void-ს ვერ ცნობდა და ორმაგი დამუშავების რისკს ქმნიდა.\n\n➡️ გაუშვი GitHub Actions workflow ან დაელოდე ავტომატურ ციკლს.'
+      await sendMsg(chatId, '⏳ Settlement...')
+      response = await cmdSettle(chatId)
     }
     else if (text.includes('სრულად') || text.includes('full') || text === '/full') {
-      await sendMsg(chatId, '⏳ 1/2 — ივენთის შემოწმება...')
-      const evR = await cmdUpdateEvent(chatId)
-      await sendMsg(chatId, '⏳ 2/2 — კოეფიციენტები...')
-      const odR = await cmdUpdateOdds(chatId)
-      response = ['🔄 <b>ივენთი + კოეფიციენტები განახლდა</b>\n', evR, '\n' + odR,
-        '\n⚠️ შედეგები და settlement ახლა ავტომატურია (auto.js, void მხარდაჭერით) — ბოტიდან აღარ ეშვება.'].join('\n')
+      response = await cmdFull(chatId)
     }
     else if (text.includes('სტატუს') || text.includes('status') || text === '/status') {
       response = await cmdStatus(chatId)
