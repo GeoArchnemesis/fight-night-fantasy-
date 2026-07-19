@@ -1,5 +1,5 @@
 // ============================================================
-//  UFC Fantasy — app.js  (v19 — server-time sync)
+//  UFC Fantasy — app.js  (v20 — server-authoritative odds/cashout/settlement)
 // ============================================================
 (function () {
 if (window.__FNF_APP_LOADED__) {
@@ -7,6 +7,8 @@ if (window.__FNF_APP_LOADED__) {
   return;
 }
 window.__FNF_APP_LOADED__ = true;
+// პროფილის გვერდი (/profile) ამ გასაღებით ხვდება, საიდან მოვიდა მომხმარებელი
+try { localStorage.setItem('fnf_sport', 'ufc'); } catch (e) {}
 
 const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
@@ -88,15 +90,20 @@ async function doCashout(idx) {
   const t = state.tickets[idx];
   if (!t || t.status !== 'open') return;
   if (!canCashout()) { await showCashoutPopup(null, null, true); return; }
-  const amt = cashoutAmount(t);
+  const amt = cashoutAmount(t);   // მხოლოდ ჩვენებისთვის — რეალურ თანხას სერვერი წყვეტს
   const confirmed = await showCashoutPopup(amt, t.stake, false);
   if (!confirmed) return;
   if (!t._dbId) { alert('ბილეთის ID ვერ მოიძებნა'); return; }
   const { data: res, error } = await sb.rpc('cashout_ticket', { p_ticket_id: t._dbId });
-  if (error || !res || !res.ok) { alert('ქეშაუთი ვერ შესრულდა: ' + (res?.error || error?.message || 'უცნობი შეცდომა')); return; }
+  if (error || !res || !res.ok) { alert(betError(res, error)); return; }
   t.status = 'cashout';
   updateBalance(res.balance);
   renderTickets();
+  // სერვერის რეალური თანხა/პროცენტი (#11)
+  if (res.refund != null) {
+    const pct = Math.round((res.pct != null ? res.pct : (res.refund / (t.stake || 1))) * 100);
+    alert('ქეშაუთი შესრულდა — დაგიბრუნდა ' + fmt(res.refund) + ' ქულა (' + pct + '%)');
+  }
 }
 
 // ── DB LOAD (ივენთის შერჩევა გასწორებული) ──
@@ -108,26 +115,13 @@ async function loadEventFromDB() {
   const upcoming = upRows && upRows[0];
   const recent = pastRows && pastRows[0];
 
-  // ── ჩვენების წესი ──
-  // დასრულებულ (recent) ივენთს ვაჩვენებთ მანამ, სანამ არ დადგება მისი მომდევნო
-  // ორშაბათი 00:00 თბილისის დროით (UTC+4). ე.ი. კვირას ჩანს completed ივენთი + ტექსტი,
-  // ხოლო ორშაბათი 00:00 თბილისიდან — ვრთვდებით upcoming ივენთზე (countdown, კოეფები, სურათები).
-  let showRecent = false;
-  if (recent) {
-    const evEndMs = new Date(recent.event_date).getTime();
-    // თბილისის დრო = UTC + 4 საათი
-    const TB = 4 * 3600000;
-    const tb = new Date(evEndMs + TB);              // ივენთის დრო თბილისურ "კედლის საათზე"
-    // ვიპოვოთ მომდევნო ორშაბათი 00:00 (თბილისით). getUTCDay(): 0=კვ,1=ორშ...
-    const daysUntilMon = ((8 - tb.getUTCDay()) % 7) || 7;   // 1..7 (ყოველთვის მომავალი ორშაბათი)
-    const monMidnightTb = Date.UTC(tb.getUTCFullYear(), tb.getUTCMonth(), tb.getUTCDate() + daysUntilMon, 0, 0, 0);
-    const cutoffMs = monMidnightTb - TB;            // ისევ UTC-ში დავაბრუნოთ
-    showRecent = now < cutoffMs;
-  }
-
+  // ── ჩვენების წესი (#5) ──
+  // upcoming ივენთი ჩანს როგორც კი ბაზაშია — auto.js მას წინას დასრულებიდან
+  // ~1 საათში ქმნის. სანამ ახალი არ შექმნილა, ბოლო დასრულებული ჩანს შედეგებით.
+  // (ძველი "ორშაბათამდე ჩვენების" ლოგიკა მოხსნილია — auto.js-ს ეწინააღმდეგებოდა
+  //  და კვირის ფსონის ფანჯარას კარგავდა.)
   let ev = null;
-  if (showRecent) ev = recent;
-  else if (upcoming) ev = upcoming;
+  if (upcoming) ev = upcoming;
   else if (recent) ev = recent;
   if (!ev) return null;
 
@@ -160,7 +154,10 @@ async function loadEventFromDB() {
     };
   });
 
-  const dt = new Date(ev.event_date);
+  // ESPN ივენთის დროს 1 საათით ადრე იძლევა — ჩვენებაზე ვასწორებთ (+1სთ).
+  // ბაზაში event_date უცვლელი რჩება, რომ ავტომატიკამ შედეგები სწორი თარიღით იპოვოს.
+  const ESPN_FIX_MS = 60 * 60 * 1000;
+  const dt = new Date(new Date(ev.event_date).getTime() + ESPN_FIX_MS);
   window.__eventDate = dt;
   const diff = dt - serverNow();
   let label = 'UPCOMING EVENT';
@@ -370,6 +367,7 @@ async function placeBets() {
       if (st <= 0) { return; }
       if (st > state.balance) { updateTotals(); alert('არასაკმარისი ქულები ბალანსზე (გაქვს ' + fmt(state.balance) + ')'); return; }
       const odds = comboOdds();
+      // #1: p_total_odds/odds მხოლოდ ჩვენებისთვის მიდის — სერვერი (place_bet RPC) თვითონ ითვლის და კლიენტისას იგნორირებს
       const selections = arr.map(s => ({ fight_id: FIGHTS[s.i]?._dbId, picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds }));
       const { data: res, error } = await sb.rpc('place_bet', { p_event_id: eventId, p_type: 'express', p_stake: st, p_total_odds: odds, p_selections: selections });
       if (error || !res || !res.ok) { await refreshBalance(); updateTotals(); alert(betError(res, error)); return; }
@@ -415,7 +413,8 @@ async function placeBets() {
 function renderTickets() {
   const activeList = $('activeTickets'), historyList = $('historyTickets'), singleList = $('ticketsList');
   const activeTickets = state.tickets.filter(t => t.status === 'open');
-  const historyTickets = state.tickets.filter(t => t.status === 'won' || t.status === 'lost' || t.status === 'cashout').sort((a, b) => (b.placedAt || 0) - (a.placedAt || 0));
+  // #6: void (სრულად ანულირებული) ბილეთიც ისტორიაში ჩანს — stake დაბრუნებულია
+  const historyTickets = state.tickets.filter(t => ['won','lost','cashout','void'].includes(t.status)).sort((a, b) => (b.placedAt || 0) - (a.placedAt || 0));
 
   const summaryEl = $('tkSummary'); if (summaryEl) summaryEl.textContent = state.tickets.length + ' ბილეთი';
   const activeBadge = $('activeBadge'); if (activeBadge) activeBadge.textContent = activeTickets.length;
@@ -424,14 +423,8 @@ function renderTickets() {
   const stLabel = { open: 'მიმდინარე', won: 'მოგებული', lost: 'წაგებული', cashout: 'ქეშაუთი', pending: 'მიმდინარე', void: 'ანულირებული' };
   const cashoutOk = canCashout();
 
-  const selResult = (s) => {
-    if (s.res === 'ok' || s.res === 'no' || s.res === 'void') return s.res;
-    const f = (s.i >= 0 && s.i < FIGHTS.length) ? FIGHTS[s.i] : null;
-    if (!f || f.status !== 'completed') return null;
-    if (f.isVoided) return 'void';
-    if (!f.resultWinner) return null;
-    return f.resultWinner === s.fighter ? 'ok' : 'no';
-  };
+  // #15: leg-ის შედეგი მხოლოდ სერვერის მიერ ჩაწერილია (result სვეტი) — კლიენტი აღარ „ხვდება"
+  const selResult = (s) => (s.res === 'ok' || s.res === 'no' || s.res === 'void') ? s.res : null;
 
   const renderTicketCard = (t) => {
     const realIdx = state.tickets.indexOf(t);
@@ -440,34 +433,35 @@ function renderTickets() {
     const totalOdds = Number(t.odds || 0).toFixed(2);
     const potentialWin = Math.round((t.stake || 0) * (t.odds || 0));
     const isCollapsed = state.tkCollapsed[key] !== false;
-    const statusColor = t.status === 'won' ? 'var(--green)' : (t.status === 'lost' ? 'var(--red-soft)' : (t.status === 'cashout' ? 'var(--gold)' : '#ff9d3c'));
+    // #6: void leg-ები ბილეთიდან ქრება — მხოლოდ აქტიური პოზიციები ჩანს
+    const visSels = t.sels.filter(s => selResult(s) !== 'void');
+    const statusColor = t.status === 'won' ? 'var(--green)' : (t.status === 'lost' ? 'var(--red-soft)' : (t.status === 'cashout' ? 'var(--gold)' : (t.status === 'void' ? 'var(--muted)' : '#ff9d3c')));
     const winColor = t.status === 'won' ? 'var(--green)' : t.status === 'lost' ? 'var(--red-soft)' : 'var(--gold)';
     const winText = t.status === 'won' ? '+' + fmt(potentialWin) : fmt(potentialWin);
     const collapsedView = `<div class="tk-collapsed-info">
-        <div class="tkc-col"><span class="tkc-lbl">პოზიცია</span><span class="tkc-val">${t.sels.length}</span></div>
+        <div class="tkc-col"><span class="tkc-lbl">პოზიცია</span><span class="tkc-val">${visSels.length}</span></div>
         <div class="tkc-col"><span class="tkc-lbl">ფსონი</span><span class="tkc-val">${fmt(t.stake)}</span></div>
         <div class="tkc-col"><span class="tkc-lbl">კოეფ.</span><span class="tkc-val">${totalOdds}</span></div>
-        <div class="tkc-col"><span class="tkc-lbl">${t.status === 'cashout' ? 'ქეშაუთი' : 'შესაძლო მოგება'}</span><span class="tkc-val" style="color:${winColor}">${t.status === 'cashout' ? '✓' : winText}</span></div>
+        <div class="tkc-col"><span class="tkc-lbl">${t.status === 'cashout' ? 'ქეშაუთი' : t.status === 'void' ? 'დაბრუნდა' : 'შესაძლო მოგება'}</span><span class="tkc-val" style="color:${winColor}">${t.status === 'cashout' ? '✓' : t.status === 'void' ? fmt(t.stake) : winText}</span></div>
       </div>`;
     return `
     <div class="ticket tk-${t.status} ${isCollapsed ? 'collapsed' : ''}">
       <div class="tk-head" data-tktoggle="${key}" style="cursor:pointer">
-        <div class="tk-head-left"><span class="tk-status ${t.status}" style="color:${statusColor}">${stLabel[t.status] || t.status}</span><span class="tk-type">${t.type === 'express' ? 'ექსპრესი · ' + t.sels.length + ' მოვლენა' : 'სინგლი'}</span></div>
+        <div class="tk-head-left"><span class="tk-status ${t.status}" style="color:${statusColor}">${stLabel[t.status] || t.status}</span><span class="tk-type">${t.type === 'express' ? 'ექსპრესი · ' + visSels.length + ' მოვლენა' : 'სინგლი'}</span></div>
         <span class="tk-arrow ${isCollapsed ? '' : 'open'}">▾</span>
       </div>
       ${isCollapsed ? collapsedView : `
       <div class="tk-sels">
-        ${t.sels.map(s => {
+        ${visSels.length === 0 ? '<div class="tk-empty" style="padding:10px">ყველა პოზიცია გაუქმდა — ფსონი დაბრუნებულია</div>' : visSels.map(s => {
           const parts = s.name.split(' · '); const fighterName = (parts[0] || '').replace(' მოგება', ''); const extras = parts.slice(1).join(' · ');
           const isRed = s.fighter === 'red';
           const f = (s.i >= 0 && s.i < FIGHTS.length) ? FIGHTS[s.i] : null;
           const redName = s.redName || (f ? f.red.name : ''); const blueName = s.blueName || (f ? f.blue.name : '');
           const pickLabel = extras || 'გამარჯვებული';
-          const res = selResult(s); const resCls = res === 'ok' ? 'ok' : res === 'no' ? 'no' : res === 'void' ? 'void' : ''; const resTxt = res === 'ok' ? '✓' : res === 'no' ? '✗' : res === 'void' ? '⊘' : '';
-          const pickDim = res === 'void' ? 'opacity:.5;' : '';
-          return `<div class="tk-sel" style="${pickDim}"><div class="tk-sel-main">
+          const res = selResult(s); const resCls = res === 'ok' ? 'ok' : res === 'no' ? 'no' : ''; const resTxt = res === 'ok' ? '✓' : res === 'no' ? '✗' : '';
+          return `<div class="tk-sel"><div class="tk-sel-main">
               <div class="tk-sel-fighters"><span class="tk-sel-dot red"></span><span class="tk-sel-red">${redName || 'Red'}</span><span class="tk-sel-vs">vs</span><span class="tk-sel-blue">${blueName || 'Blue'}</span><span class="tk-sel-dot blue"></span></div>
-              <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}">${fighterName} — ${pickLabel}${res === 'void' ? ' <span style="color:var(--muted);font-weight:400">(ბრძოლა გაუქმდა)</span>' : ''}</div></div>
+              <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}">${fighterName} — ${pickLabel}</div></div>
             <div class="tk-sel-right">${resTxt ? `<span class="tk-sel-result ${resCls}">${resTxt}</span>` : ''}<span class="tk-sel-odds">${Number(s.odds || 0).toFixed(2)}</span></div></div>`;
         }).join('')}
       </div>
@@ -475,6 +469,7 @@ function renderTickets() {
           ${t.status === 'won' ? '<span style="color:var(--green)">+' + fmt(potentialWin) + ' ქულა</span>'
             : t.status === 'lost' ? '<span style="color:var(--red-soft)">' + fmt(potentialWin) + ' ქულა</span>'
             : t.status === 'cashout' ? '<span style="color:var(--gold)">ქეშაუთი</span>'
+            : t.status === 'void' ? '<span style="color:var(--muted)">' + fmt(t.stake) + ' ქულა დაბრუნდა</span>'
             : '<span class="tk-foot-label">შეს. მოგება</span><span style="color:var(--gold)">' + fmt(potentialWin) + '</span>'}
         </span></div>
       ${showCashout ? `<button class="cashout-btn" data-co="${realIdx}">${cashoutLabel(t)}</button>` : ''}
@@ -512,7 +507,10 @@ function betError(res, error) {
     'not authenticated': 'გთხოვ, გაიარე ავტორიზაცია',
     'fight not open': 'ეს ბრძოლა ფსონისთვის დაკეტილია',
     'fight is not open for betting': 'ეს ბრძოლა ფსონისთვის დაკეტილია',
-    'event not found': 'ივენთი ვერ მოიძებნა'
+    'event not found': 'ივენთი ვერ მოიძებნა',
+    'cashout closed': 'ქეშაუთი დახურულია',
+    'ticket not open': 'ბილეთი უკვე დამუშავებულია',
+    'ticket not found': 'ბილეთი ვერ მოიძებნა'
   };
   return map[e] || ('ფსონი ვერ დაიდო: ' + (e || 'უცნობი შეცდომა'));
 }
@@ -655,7 +653,8 @@ function openLbPopup(fullSorted) {
 
 let _currentLbPeriod = 'goat';
 function periodStartDate(period) {
-  const now = new Date(); const y = now.getFullYear(), m = now.getMonth();
+  // #19: სერვერის დროზე — რომ ლიდერბორდის პერიოდი ყველა მომხმარებელს ერთნაირი ჰქონდეს
+  const now = new Date(serverNow()); const y = now.getFullYear(), m = now.getMonth();
   if (period === '1m') return new Date(y, m, 1);
   if (period === '3m') return new Date(y, m - 2, 1);
   if (period === '6m') return new Date(y, m - 5, 1);
@@ -701,14 +700,15 @@ async function loadLiveResults() {
   const ed = window.__eventDate; const diffH = ed ? (serverNow() - ed.getTime()) / 3600000 : 0;
   if (ed && diffH < 0) return; if (ed && diffH > 48) return;
   try {
-    const { data: fights } = await sb.from('fights').select('id,status,result_winner,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)').eq('event_id', eventId);
+    const { data: fights } = await sb.from('fights').select('id,status,result_winner,is_voided,result_method,result_round,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)').eq('event_id', eventId);
     if (!fights) return;
     let changed = false;
     fights.forEach(f => {
       const idx = FIGHTS.findIndex(x => x._dbId === f.id); if (idx < 0) return;
       let rw = null;
       if (f.status === 'completed' && f.result_winner) { if (f.result_winner === f.red?.name) rw = 'red'; else if (f.result_winner === f.blue?.name) rw = 'blue'; else rw = null; }
-      if (FIGHTS[idx].resultWinner !== rw || FIGHTS[idx].status !== f.status) { FIGHTS[idx].resultWinner = rw; FIGHTS[idx].status = f.status || 'upcoming'; changed = true; }
+      const iv = f.is_voided === true;
+      if (FIGHTS[idx].resultWinner !== rw || FIGHTS[idx].status !== f.status || FIGHTS[idx].isVoided !== iv) { FIGHTS[idx].resultWinner = rw; FIGHTS[idx].status = f.status || 'upcoming'; FIGHTS[idx].isVoided = iv; FIGHTS[idx].resultMethod = f.result_method || null; FIGHTS[idx].resultRound = f.result_round || null; changed = true; }
     });
     if (changed) { renderMarkets(); if (currentUser) { try { await loadUserTickets(); renderTickets(); } catch (e) {} } await loadLeaderboard(); }
   } catch (e) { console.warn('loadLiveResults failed:', e); }
@@ -730,12 +730,8 @@ async function loadUserTickets() {
         const ffight = s.fight || null;
         const redName = ffight?.red?.name || '', blueName = ffight?.blue?.name || '';
         const fighterName = s.picked_fighter === 'red' ? redName : blueName;
-        let res = s.result || null;
-        if (!res && ffight && ffight.status === 'completed' && ffight.result_winner) {
-          let winSide = null;
-          if (ffight.result_winner === redName) winSide = 'red'; else if (ffight.result_winner === blueName) winSide = 'blue';
-          if (winSide) res = s.picked_fighter === winSide ? 'ok' : 'no';
-        }
+        // #15: მხოლოდ settlement-ის მიერ ჩაწერილი საბოლოო შედეგი — კლიენტი აღარ ითვლის
+        const res = s.result || null;
         return { i, fighter: s.picked_fighter, round: s.picked_round, method: s.picked_method, odds: Number(s.odds), name: rebuildSelNameDB(fighterName, s), redName, blueName, res };
       }),
       stake: Number(tk.stake), odds: Number(tk.total_odds), status: statusMap[tk.status] || tk.status,
@@ -818,6 +814,7 @@ function updateSecHead() {
   secHead.style.display = (!currentUser || isEventInProgress()) ? 'none' : '';
 }
 function updateNavForUser(user) {
+  document.body.classList.toggle('logged-in', !!user);   // მობილურის ქვედა ბარი (.mnav) ამ კლასზეა დამოკიდებული
   const joinBtn = document.getElementById('joinBtn'), signinBtn = document.getElementById('signinBtn'), balancePill = document.querySelector('.balance-pill');
   let navUser = document.getElementById('navUser');
   if (user) {
@@ -834,7 +831,11 @@ function updateNavForUser(user) {
     } else { navUser.querySelector('.nav-nick').textContent = user.nick; navUser.querySelector('.nav-ava').textContent = user.icon || '🥊'; }
     navUser.style.display = 'flex';
     if (balancePill) balancePill.classList.add('visible');
-    addMobileMenuLinks(); updateBalance(user.balance != null ? user.balance : 1000); updateSecHead();
+    addMobileMenuLinks();
+    // #14: ბალანსი მხოლოდ მაშინ ჩანს, როცა რეალურად ვიცით — თორემ '…' რჩება refreshBalance-მდე
+    if (user.balance != null) updateBalance(user.balance);
+    else { _balanceKnown = false; const bEl = $('balNav'); if (bEl) bEl.textContent = '…'; }
+    updateSecHead();
   } else {
     if (joinBtn) joinBtn.style.display = '';
     if (signinBtn) signinBtn.style.display = '';
@@ -872,7 +873,7 @@ async function doRegister() {
   const birthYear = (document.getElementById('inBirthYear') && document.getElementById('inBirthYear').value || '').trim();
   const genderEl = document.querySelector('input[name="gender"]:checked');
   const gender = genderEl ? genderEl.value : '';
-  if (!nick || !/^[a-zA-Z0-9_]{3,20}$/.test(nick)) { authError('სახელი: 3-20 ლათინური სიმბოლო (a-z, 0-9, _)'); return; }
+  if (!nick || !/^[a-zA-Z0-9._]{3,20}$/.test(nick)) { authError('სახელი: 3-20 სიმბოლო (ასოები, ციფრები, . _)'); return; }
   // ნიქის უნიკალურობა — is_nick_taken RPC (RLS-safe, anon-ისთვისაც მუშაობს)
   try { const { data: taken } = await sb.rpc('is_nick_taken', { p_nick: nick, p_exclude_user_id: null }); if (taken) { authError('ეს სახელი უკვე დაკავებულია — სცადე სხვა'); return; } } catch (e) {}
   if (!email) { authError('შეიყვანე ელ. ფოსტა'); return; }
@@ -889,9 +890,11 @@ async function doRegister() {
   await new Promise(r => setTimeout(r, 1000));
   let ud = null;
   try { const res = await sb.from('users').select('*').eq('id', data.user.id).maybeSingle(); ud = res.data; } catch (e) {}
-  try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({ registration_ip: ipData.ip, last_login_ip: ipData.ip, phone: phone || null }).eq('id', data.user.id); } catch (e) {}
-  try { await sb.from('users').update({ birth_year: +birthYear, gender }).eq('id', data.user.id); } catch (e) {}
-  currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: (ud && ud.balance != null) ? ud.balance : 1000, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: phone || ud?.phone || null, telegram: ud?.telegram || null, birth_year: +birthYear || ud?.birth_year || null, gender: gender || ud?.gender || null };
+  // #7: პროფილის ველების შენახვა ipify-სგან დამოუკიდებლად — AdBlock-მა IP fetch რომ დაბლოკოს,
+  // phone/birth_year/gender მაინც შეინახება
+  try { await sb.from('users').update({ phone: phone || null, birth_year: +birthYear, gender }).eq('id', data.user.id); } catch (e) {}
+  try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({ registration_ip: ipData.ip, last_login_ip: ipData.ip }).eq('id', data.user.id); } catch (e) {}
+  currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: phone || ud?.phone || null, telegram: ud?.telegram || null, birth_year: +birthYear || ud?.birth_year || null, gender: gender || ud?.gender || null };
   window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'user_registration', method: 'email' });
   closeModal(); updateNavForUser(currentUser); await hydrateUserData();
 }
@@ -906,7 +909,7 @@ async function doSignIn() {
   if (error) { authError('არასწორი მეილი ან პაროლი'); return; }
   let ud = null;
   try { const res = await sb.from('users').select('*').eq('id', data.user.id).maybeSingle(); ud = res.data; } catch (e) {}
-  currentUser = { id: data.user.id, email, nick: ud?.nick || email, balance: (ud && ud.balance != null) ? ud.balance : 1000, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null, birth_year: ud?.birth_year || null, gender: ud?.gender || null };
+  currentUser = { id: data.user.id, email, nick: ud?.nick || email, balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null, birth_year: ud?.birth_year || null, gender: ud?.gender || null };
   closeModal(); updateNavForUser(currentUser); await hydrateUserData();
 }
 
@@ -942,7 +945,7 @@ async function applySession(session) {
     try { const res = await sb.from('users').select('*').eq('id', session.user.id).maybeSingle(); ud = res.data; } catch (e) { console.warn('users select failed:', e); }
     currentUser = { id: session.user.id, email: session.user.email,
       nick: ud?.nick || session.user.user_metadata?.nick || (session.user.email || '').split('@')[0],
-      balance: (ud && ud.balance != null) ? ud.balance : 1000, score: Number(ud?.score) || 0,
+      balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0,
       icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null, birth_year: ud?.birth_year || null, gender: ud?.gender || null };
     try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({ last_login_ip: ipData.ip }).eq('id', session.user.id); } catch (e) {}
     updateNavForUser(currentUser);
@@ -1030,7 +1033,7 @@ async function saveProfile() {
   const newPass = document.getElementById('profNewPass').value || '';
   const selectedIcon = document.querySelector('#iconPicker .icon-opt.active');
   const icon = selectedIcon ? selectedIcon.dataset.icon : currentUser.icon || '🥊';
-  if (nick && !/^[a-zA-Z0-9_]{3,20}$/.test(nick)) { profileMsg('სახელი: 3-20 ლათინური სიმბოლო (a-z, 0-9, _)', 'var(--red)'); return; }
+  if (nick && !/^[a-zA-Z0-9._]{3,20}$/.test(nick)) { profileMsg('სახელი: 3-20 სიმბოლო (ასოები, ციფრები, . _)', 'var(--red)'); return; }
   try {
     const nickChanged = nick && nick !== currentUser.nick;
     if (nickChanged) {

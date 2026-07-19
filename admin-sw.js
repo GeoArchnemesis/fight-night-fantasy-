@@ -1,9 +1,11 @@
 // admin-sw.js — FNF Admin Panel Service Worker
-// მიზანი: მხოლოდ "shell"-ის (HTML/JS/CSS) ქეშირება offline/PWA install-ისთვის.
-// Supabase API მოთხოვნები (სხვა origin-ია) აქ არასდროს არ ქეშირდება —
-// ადმინ მონაცემები ყოველთვის ცოცხალი/network-დან მოდის.
+// მიზანი: "shell"-ის (HTML/JS/CSS) ქეშირება offline/PWA install-ისთვის.
+// #18: NETWORK-FIRST სტრატეგია — deploy-ის შემდეგ ადმინი ყოველთვის ახალ
+// ვერსიას ხედავს; cache მხოლოდ offline fallback-ია (ძველი cache-first
+// ჯერ ძველ ვერსიას აჩვენებდა და მეორე ჩატვირთვამდე ასე რჩებოდა).
+// Supabase/ESPN/Telegram API (სხვა origin) აქ არასდროს ქეშირდება.
 
-const CACHE_NAME = 'fnf-admin-shell-v1';
+const CACHE_NAME = 'fnf-admin-shell-v2';
 const SHELL_FILES = [
   './fnf-ctrl-9x4k.html',
   './admin-manifest.json'
@@ -28,24 +30,21 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // მხოლოდ საკუთარი origin-ის GET მოთხოვნები — Supabase/ESPN/Telegram
-  // API calls (სხვა origin) ხელუხლებელი რჩება, ყოველთვის network-ზე მიდის.
+  // მხოლოდ საკუთარი origin-ის GET მოთხოვნები — API calls ხელუხლებელი რჩება
   if (event.request.method !== 'GET' || url.origin !== self.location.origin) {
     return;
   }
 
+  // network-first: ჯერ ქსელი (და cache-ის განახლება), offline-ზე — cache
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      const network = fetch(event.request)
-        .then((res) => {
-          if (res && res.ok) {
-            const copy = res.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-          }
-          return res;
-        })
-        .catch(() => cached);
-      return cached || network;
-    })
+    fetch(event.request)
+      .then((res) => {
+        if (res && res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(event.request))
   );
 });

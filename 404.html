@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fight Night Fantasy</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<link rel="stylesheet" href="/style.css?v=152" />
+<script>
+  (function () {
+    // დიდი/შერეული ასოების მისამართები რეალურ ფაილებზე გადავიყვანოთ.
+    // ყოფილი ბაგი: '/f1' → replace('/f1') → იგივე 404 → უსასრულო redirect loop.
+    // ახლა: სამიზნე ყოველთვის რეალური ფაილია (.html), და raw !== target guard
+    // გარანტიას იძლევა, რომ ერთსა და იმავე მისამართზე redirect ვერასდროს მოხდება.
+    var raw = location.pathname.replace(/\/+$/, '');
+    var p = raw.toLowerCase();
+    var target = null;
+    if (p === '/f1' || p === '/f1.html') target = '/f1.html';
+    else if (p === '/ufc' || p === '/ufc.html') target = '/ufc.html';
+    else if (p === '' || p === '/index' || p === '/index.html') target = '/';
+    if (target && raw !== target) location.replace(target);
+  })();
+</script>
+<style>
+  body{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;background:radial-gradient(1200px 600px at 50% -10%, rgba(243,29,37,.14), transparent 60%), var(--bg,#0a0910);text-align:center;font-family:sans-serif;color:var(--text,#fff)}
+  .nf-code{font-family:var(--head);font-weight:900;font-size:clamp(3rem,12vw,6rem);color:var(--red,#f31d25);line-height:1}
+  .nf-t{font-family:var(--head);font-weight:900;font-size:1.3rem;margin:8px 0 6px}
+  .nf-d{color:var(--muted,#9a97a8);margin-bottom:24px}
+  .nf-btn{display:inline-block;padding:12px 26px;border-radius:8px;background:var(--red,#f31d25);color:#fff;text-decoration:none;font-family:var(--head);font-weight:700}
+</style>
+</head>
+<body>
+  <div class="nf-code">404</div>
+  <div class="nf-t">გვერდი ვერ მოიძებნა</div>
+  <div class="nf-d">შესაძლოა მისამართი შეიცვალა ან აღარ არსებობს.</div>
+  <a class="nf-btn" href="/">მთავარ გვერდზე</a>
+</body>
+</html>

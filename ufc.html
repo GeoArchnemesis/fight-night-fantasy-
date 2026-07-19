@@ -619,7 +619,7 @@ function openSocial(type){
 <script>
 (function(){var fx=document.getElementById('navFx');if(!fx)return;
 fx.addEventListener('click',function(e){
-  if(e.target.closest('.nav-fx-pop a'))return;
+  if(e.target.closest('.nav-fx-pop a'))return;      /* ლინკზე დაჭერა → გადასვლა */
   e.preventDefault();fx.classList.toggle('open');
 });
 document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.classList.remove('open');});

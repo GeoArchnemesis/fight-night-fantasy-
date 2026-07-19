@@ -164,6 +164,27 @@
   </div>
 </div>
 
+<div class="card">
+  <h2>🖼️ სადესანტო ბექგრაუნდები (fnf.ge)</h2>
+  <div style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">
+    UFC და F1 ბარათების ფონური ფოტოები მთავარ გვერდზე. რეკომენდ.: 1200×800, JPG/WebP, &lt;300KB. ცვლილება ჩანს ~1 წუთში.
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:24px;">
+    <div style="flex:1;min-width:220px;">
+      <div style="font-weight:700;margin-bottom:8px;">UFC ბარათი</div>
+      <img id="bgPreviewUfc" alt="UFC" onerror="this.removeAttribute('src')" style="width:100%;max-width:280px;aspect-ratio:3/2;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:block;margin-bottom:8px;" />
+      <input type="file" id="bgFileUfc" accept="image/*" style="margin-bottom:8px;display:block;" />
+      <button class="btn btn-primary" onclick="uploadLandingBg('ufc')">⬆️ UFC ფოტოს ატვირთვა</button>
+    </div>
+    <div style="flex:1;min-width:220px;">
+      <div style="font-weight:700;margin-bottom:8px;">F1 ბარათი</div>
+      <img id="bgPreviewF1" alt="F1" onerror="this.removeAttribute('src')" style="width:100%;max-width:280px;aspect-ratio:3/2;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:block;margin-bottom:8px;" />
+      <input type="file" id="bgFileF1" accept="image/*" style="margin-bottom:8px;display:block;" />
+      <button class="btn btn-primary" onclick="uploadLandingBg('f1')">⬆️ F1 ფოტოს ატვირთვა</button>
+    </div>
+  </div>
+</div>
+
 <div class="card" id="eventSection" style="display:none">
   <h2>🏟️ ნაბიჯი 2 — ივენთის დეტალები</h2>
   <div id="eventInfo" class="event-info"></div>
@@ -220,6 +241,32 @@
 
   <div class="log" id="log" style="margin-top:14px;"></div>
 </div>
+
+<script>
+// ── LANDING BACKGROUNDS (Supabase Storage bucket: site) ──
+const BG_BUCKET = 'site';
+function landingBgUrl(sport) {
+  return `${SUPABASE_URL}/storage/v1/object/public/${BG_BUCKET}/landing-${sport}?t=${Date.now()}`;
+}
+function loadLandingBgPreviews() {
+  const u = document.getElementById('bgPreviewUfc'); if (u) u.src = landingBgUrl('ufc');
+  const f = document.getElementById('bgPreviewF1'); if (f) f.src = landingBgUrl('f1');
+}
+async function uploadLandingBg(sport) {
+  const input = document.getElementById(sport === 'ufc' ? 'bgFileUfc' : 'bgFileF1');
+  const file = input && input.files && input.files[0];
+  if (!file) { log('❌ ჯერ აირჩიე ფოტო', 'err'); return; }
+  if (file.size > 3 * 1024 * 1024) { log('❌ ფოტო > 3MB — შეამცირე', 'err'); return; }
+  log(`⬆️ ${sport.toUpperCase()} ფოტო იტვირთება...`, 'info');
+  const { error } = await sb.storage.from(BG_BUCKET).upload(`landing-${sport}`, file, { upsert: true, cacheControl: '60', contentType: file.type });
+  if (error) { log('❌ ატვირთვა ვერ მოხერხდა: ' + error.message, 'err'); return; }
+  log(`✅ ${sport.toUpperCase()} ბექგრაუნდი აიტვირთა (ჩანს ~1 წუთში)`, 'ok');
+  const img = document.getElementById(sport === 'ufc' ? 'bgPreviewUfc' : 'bgPreviewF1');
+  if (img) img.src = landingBgUrl(sport);
+  input.value = '';
+}
+window.addEventListener('load', () => { try { loadLandingBgPreviews(); } catch (e) {} });
+</script>
 
 <script>
 const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
@@ -477,7 +524,7 @@ function findOddsForFight(redName, blueName) {
     );
     if (score > bestScore) { bestScore = score; best = game; }
   }
-  if (bestScore < 0.5) return null;
+  if (bestScore < 1.0) return null;   // #14: ორივე მხარე
   const preferred = ['pinnacle','betonlineag','betsson','nordicbet','coolbet'];
   let bm = null;
   for (const key of preferred) { bm = best.bookmakers.find(b => b.key === key); if (bm) break; }
@@ -662,7 +709,7 @@ function startAutoOdds() {
     document.getElementById('statusOddsTime').textContent = timeStr;
     if (diffH < 12) {
       log(`💾 კოეფ. ${Math.round(diffH*10)/10}სთ წინ — ავტო ${Math.round(12-diffH)}სთ-ში`, 'auto');
-      setTimeout(() => { fetchOdds(true); startAutoOdds(); }, (12 - diffH) * 3600000);
+      setTimeout(async () => { await fetchOdds(true); startAutoOdds(); }, (12 - diffH) * 3600000);
       return;
     }
   }
@@ -686,6 +733,7 @@ async function checkResults() {
     log(`სტატუსი: ${event.status?.type?.description || state}`, 'info');
     if (state === 'pre') { log('ივენთი ჯერ არ დაწყებულა', 'info'); return; }
     let updated = 0;
+    let voidedChk = 0;
     for (const comp of event.competitions) {
       if (comp.status?.type?.state !== 'post') continue;
       const winner = comp.competitors.find(c => c.winner);
@@ -694,26 +742,58 @@ async function checkResults() {
       const method = parseESPNMethod(comp);
       const round = comp.status?.period || '';
       const time = comp.status?.displayClock || '';
-      const idx = fightsData.findIndex(f =>
-        nameSimilarity(f.red.name, winnerName) > 0.4 ||
-        nameSimilarity(f.blue.name, winnerName) > 0.4 ||
-        f.espn_comp_id === comp.id
-      );
-      if (idx >= 0) {
-        // ზუსტი მებრძოლის სახელი (ESPN ვარიაციის ნაცვლად)
+      // ── ID-ზე დაფუძნებული დამთხვევა (auto.js-ის სარკე): comp id → competitor id-ები → სახელი ──
+      const espnIds = (comp.competitors || []).map(c => String(c.id || '')).filter(Boolean);
+      let idx = fightsData.findIndex(f => f.espn_comp_id === comp.id);
+      if (idx < 0 && espnIds.length) {
+        idx = fightsData.findIndex(f =>
+          (f.red.espn_id && espnIds.includes(String(f.red.espn_id))) ||
+          (f.blue.espn_id && espnIds.includes(String(f.blue.espn_id))));
+      }
+      const matchedById = idx >= 0;
+      if (idx < 0) {
+        idx = fightsData.findIndex(f =>
+          nameSimilarity(f.red.name, winnerName) > 0.4 ||
+          nameSimilarity(f.blue.name, winnerName) > 0.4);
+      }
+      if (idx < 0) { log(`⚠ winner "${winnerName}" ვერ დაემთხვა ვერც ერთ ბრძოლას — გამოტოვება`, 'err'); continue; }
+
+      const rid = String(fightsData[idx].red.espn_id || '');
+      const bid = String(fightsData[idx].blue.espn_id || '');
+      const winnerId = String(winner.id || '');
+
+      // ── ჩანაცვლების დეტექცია (ორივე ID ცნობილი უნდა იყოს, რომ ცრუ void არ დაფიქსირდეს) ──
+      if (matchedById && winnerId && rid && bid && winnerId !== rid && winnerId !== bid) {
+        fightsData[idx].is_voided = true;
+        fightsData[idx].result_winner = null;
+        fightsData[idx].result_method = '';
+        fightsData[idx].result_round  = '';
+        log(`⚖️ ჩანაცვლება აღმოჩენილია (ID არ ემთხვევა) → void: ${fightsData[idx].red.name} vs ${fightsData[idx].blue.name}`, 'err');
+        voidedChk++; updated++;
+        continue;
+      }
+
+      // ── გამარჯვებული მხარე: ID-ით თუ შესაძლებელია, თუ არა — სახელით ──
+      let exactWinner;
+      if (winnerId && (winnerId === rid || winnerId === bid)) {
+        exactWinner = winnerId === rid ? fightsData[idx].red.name : fightsData[idx].blue.name;
+      } else {
         const mRed = nameSimilarity(fightsData[idx].red.name, winnerName);
         const mBlue = nameSimilarity(fightsData[idx].blue.name, winnerName);
-        const exactWinner = mRed >= mBlue ? fightsData[idx].red.name : fightsData[idx].blue.name;
-        fightsData[idx].result_winner = exactWinner;
-        fightsData[idx].result_method = method;
-        fightsData[idx].result_round  = String(round);
-        fightsData[idx].result_time   = time;
-        log(`🏆 ${fightsData[idx].red.name} vs ${fightsData[idx].blue.name}: ${exactWinner} (${method}, R${round} ${time})`, 'ok');
-        updated++;
+        if (mRed < 0.5 && mBlue < 0.5) { log(`⚠ winner "${winnerName}" ვერ დაემთხვა ვერც ერთ მებრძოლს — გამოტოვება`, 'err'); continue; }
+        exactWinner = mRed >= mBlue ? fightsData[idx].red.name : fightsData[idx].blue.name;
       }
+      fightsData[idx].is_voided     = false;
+      fightsData[idx].result_winner = exactWinner;
+      fightsData[idx].result_method = method;
+      fightsData[idx].result_round  = String(round);
+      fightsData[idx].result_time   = time;
+      log(`🏆 ${fightsData[idx].red.name} vs ${fightsData[idx].blue.name}: ${exactWinner} (${method}, R${round} ${time})`, 'ok');
+      updated++;
     }
+    if (voidedChk > 0) log(`⚖️ ${voidedChk} ბრძოლა ნეიტრალდა (მებრძოლის ჩანაცვლება)`, 'err');
     if (updated === 0) log('დასრულებული ბრძოლები ვერ მოიძებნა', 'info');
-    else { renderFights(); saveToLocal(); log(`${updated} შედეგი განახლდა`, 'ok'); notifyTelegram(`🏆 <b>Admin: შედეგები</b>\n\n${updated} ბრძოლის შედეგი განახლდა`); }
+    else { renderFights(); saveToLocal(); log(`${updated} შედეგი განახლდა`, 'ok'); notifyTelegram(`🏆 <b>Admin: შედეგები</b>\n\n${updated} ბრძოლის შედეგი განახლდა${voidedChk ? ` (${voidedChk} void)` : ''}`); }
   } catch(e) { log('შეცდომა: ' + e.message, 'err'); }
 }
 
@@ -873,7 +953,7 @@ async function saveToSupabase() {
       const fightData = {
         event_id: evData.id, red_fighter_id: redId, blue_fighter_id: blueId,
         weight_class: f.weight_class, max_rounds: f.rounds, bout_order: f.bout_order,
-        is_title_bout: false, red_odds: f.red_odds, blue_odds: f.blue_odds,
+        is_title_bout: f.is_main || false, red_odds: f.red_odds, blue_odds: f.blue_odds,
         show_details: f.show_details, status: 'upcoming',
       };
       if (f.show_details) {
@@ -895,12 +975,9 @@ async function saveToSupabase() {
       else { log(`✓ ${f.red.name} vs ${f.blue.name}`, 'ok'); saved++; }
     }
 
-    // ივენთის სტატუსი — თუ ყველა ბრძოლას შედეგი აქვს
-    const hasAllResults = fightsData.filter(f => f.active).every(f => !!f.result_winner);
-    if (hasAllResults && saved > 0) {
-      await sb.from('events').update({ status: 'completed' }).eq('id', evData.id);
-      log('ივენთის სტატუსი: completed', 'ok');
-    }
+    // #4: ივენთის დახურვა ერთიანი წესით — void-იც "დასრულებულად" ითვლება,
+    // completed_at ერთხელ იწერება (writeResultsToDatabase-ის იდენტურად)
+    if (saved > 0) await markEventCompletedIfDone(evData.id);
 
     log(`✅ ${saved} ბრძოლა შენახულია!`, 'ok');
     await notifyTelegram(`💾 <b>Admin: ბაზაში შენახულია</b>\n\n${eventName}\n🥊 ${saved} ბრძოლა`);
@@ -911,7 +988,7 @@ async function saveToSupabase() {
 // არსებული ბრძოლების UPDATE — ბილეთების FK არ ტყდება
 async function updateExistingFights(eventId) {
   const { data: dbFights } = await sb.from('fights')
-    .select('id,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
+    .select('id,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
     .eq('event_id', eventId);
 
   if (!dbFights) return;
@@ -919,19 +996,18 @@ async function updateExistingFights(eventId) {
 
   for (const f of fightsData) {
     if (!f.active) continue;
-    // match by fighter names
+    // #13: დამთხვევა მხოლოდ espn_id-ით — სახელით matching ერთგვარიან მებრძოლებზე ცდებოდა
+    const fr = String(f.red.espn_id || ''), fb = String(f.blue.espn_id || '');
     const match = dbFights.find(df => {
-      const sim = Math.max(
-        nameSimilarity(df.red?.name || '', f.red.name),
-        nameSimilarity(df.blue?.name || '', f.blue.name)
-      );
-      return sim > 0.4;
+      const rid = String(df.red?.espn_id || ''), bid = String(df.blue?.espn_id || '');
+      return (fr && (fr === rid || fr === bid)) || (fb && (fb === rid || fb === bid));
     });
-    if (!match) { log(`⚠ ვერ დაემთხვა DB-ში: ${f.red.name} vs ${f.blue.name}`, 'info'); continue; }
+    if (!match) { log(`⚠ ვერ დაემთხვა DB-ში ID-ით: ${f.red.name} vs ${f.blue.name} (fighters.espn_id შეამოწმე)`, 'info'); continue; }
 
     const upd = {
       red_odds: f.red_odds, blue_odds: f.blue_odds,
       show_details: f.show_details,
+      is_title_bout: f.is_main || false,   // #10: Main-ის შეცვლა არსებულ ბრძოლაზეც აისახოს
     };
     if (f.show_details) {
       Object.assign(upd, {
@@ -952,12 +1028,8 @@ async function updateExistingFights(eventId) {
     updated++;
   }
 
-  // ივენთის სტატუსი
-  const hasAllResults = fightsData.filter(f => f.active).every(f => !!f.result_winner);
-  if (hasAllResults && updated > 0) {
-    await sb.from('events').update({ status: 'completed' }).eq('id', eventId);
-    log('ივენთის სტატუსი: completed', 'ok');
-  }
+  // #4: ივენთის დახურვა ერთიანი წესით (void + completed_at coalesce)
+  if (updated > 0) await markEventCompletedIfDone(eventId);
 
   log(`✅ ${updated} ბრძოლა განახლდა`, 'ok');
 }
@@ -979,9 +1051,10 @@ async function syncOddsToDB() {
   const eventId = events[0].id;
   log(`ივენთი: ${events[0].name} (id: ${eventId})`, 'info');
 
-  // 2. ამ ივენთის ბრძოლები DB-დან (bout_order-ით)
+  // 2. ამ ივენთის ბრძოლები DB-დან (bout_order-ით) — სახელებიც, ვერიფიკაციისთვის
   const { data: dbFights } = await sb.from('fights')
-    .select('id,bout_order').eq('event_id', eventId)
+    .select('id,bout_order,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
+    .eq('event_id', eventId)
     .order('bout_order', { ascending: true });
   if (!dbFights || dbFights.length === 0) {
     log('❌ ბრძოლები ვერ მოიძებნა DB-ში', 'err');
@@ -989,13 +1062,32 @@ async function syncOddsToDB() {
   }
 
   // 3. DOM-ის odds input-ები (წყვილ-წყვილი: red, blue)
+  // ⚠ FIX: ძველი კოდი inputs[i*2]-ს dbFights[i]-ს პირდაპირ უწყვილებდა, მაგრამ
+  // DOM-ში *გამორთული* (inactive) ბრძოლებიც რენდერდება, ბაზაში კი მხოლოდ აქტიურები —
+  // ერთი გამორთული ბრძოლა და ყველა მომდევნო კოეფი სხვის ბრძოლას მიეწერებოდა.
+  // ახლა: (ა) ინდექსი fightsData-ს აქტიურ ბრძოლებზე გადაითვლება და
+  //       (ბ) ჩაწერამდე სახელები მოწმდება — შეუთავსებლობისას ბრძოლა გამოიტოვება.
   const inputs = document.querySelectorAll('.odds-input');
-  let synced = 0, skipped = 0;
+  const activeIdx = [];
+  fightsData.forEach((f, origIdx) => { if (f.active) activeIdx.push(origIdx); });
+  let synced = 0, skipped = 0, mismatched = 0;
 
   for (let i = 0; i < dbFights.length; i++) {
-    const redInput  = inputs[i * 2];
-    const blueInput = inputs[i * 2 + 1];
+    const origIdx = activeIdx[i];
+    if (origIdx == null) { skipped++; continue; }
+    const lf = fightsData[origIdx];
+    const redInput  = inputs[origIdx * 2];
+    const blueInput = inputs[origIdx * 2 + 1];
     if (!redInput || !blueInput) { skipped++; continue; }
+
+    // სახელით ვერიფიკაცია — პოზიციური აღრევის ბოლო დამცავი
+    const nameOk =
+      nameSimilarity(dbFights[i].red?.name || '', lf.red.name) > 0.4 ||
+      nameSimilarity(dbFights[i].blue?.name || '', lf.blue.name) > 0.4;
+    if (!nameOk) {
+      log(`⚠ პოზიცია #${i + 1} არ ემთხვევა: ლოკალურად "${lf.red.name} vs ${lf.blue.name}", DB-ში "${dbFights[i].red?.name} vs ${dbFights[i].blue?.name}" — გამოტოვება`, 'err');
+      mismatched++; continue;
+    }
 
     const redOdds  = redInput.value === '' ? null : (parseFloat(redInput.value) || null);
     const blueOdds = blueInput.value === '' ? null : (parseFloat(blueInput.value) || null);
@@ -1016,7 +1108,7 @@ async function syncOddsToDB() {
     }
   }
 
-  log(`✅ ${synced}/${dbFights.length} ოდსი ჩაიწერა DB-ში (${skipped} გამოტოვდა — ოდსი ცარიელია)`, synced > 0 ? 'ok' : 'err');
+  log(`✅ ${synced}/${dbFights.length} ოდსი ჩაიწერა DB-ში (${skipped} გამოტოვდა — ოდსი ცარიელია${mismatched ? `, ${mismatched} სახელი არ დაემთხვა` : ''})`, synced > 0 ? 'ok' : 'err');
   if (synced > 0) await notifyTelegram(`📊 <b>Admin: ოდსები სინქრონიზებულია</b>\n\n${synced}/${dbFights.length} ბრძოლა`);
 }
 
@@ -1060,27 +1152,18 @@ async function upsertFighter(f) {
 // ─────────────────────────────────────────────────────────────
 //  SETTLEMENT HELPERS
 // ─────────────────────────────────────────────────────────────
-function methodMatches(picked, result) {
-  if (!picked || !result) return false;
-  const r = result.toLowerCase();
-  if (picked === 'ნოკაუტი')        return r.includes('ko') || r.includes('tko');
-  if (picked === 'მტკივნეული')     return r.includes('sub');
-  if (picked === 'გადაწყვეტილება') return r.includes('dec') || r.includes('decision');
-  return false;
-}
-
-function selectionWon(sel, fight) {
-  if (!fight || !fight.result_winner) return null;
-  const winnerSide = fight.result_winner === fight.red_name ? 'red' : 'blue';
-  if (sel.picked_fighter && sel.picked_fighter !== winnerSide) return false;
-  if (sel.picked_round) {
-    const resultRound = fight.result_round ? Number(fight.result_round) : null;
-    if (resultRound !== Number(sel.picked_round)) return false;
-  }
-  if (sel.picked_method) {
-    if (!methodMatches(sel.picked_method, fight.result_method || '')) return false;
-  }
-  return true;
+// #4: ივენთის დახურვის ერთადერთი იმპლემენტაცია სამივე ნაკადისთვის:
+// ბრძოლა "დასრულებულია" თუ result_winner აქვს ან void-ია; completed_at ერთხელ იწერება.
+// (#8: აქ ადრე მკვდარი settlement-helper-ები იყო ძველი blue-fallback ბაგით —
+//  settlement მთლიანად admin_settle_event RPC-შია, ამიტომ ისინი წაშლილია.)
+async function markEventCompletedIfDone(eventId) {
+  const allDone = fightsData.filter(f => f.active).every(f => !!f.result_winner || f.is_voided === true);
+  if (!allDone) return;
+  const { data: evNow } = await sb.from('events').select('completed_at').eq('id', eventId).maybeSingle();
+  const patch = { status: 'completed' };
+  if (!evNow?.completed_at) patch.completed_at = new Date().toISOString();
+  await sb.from('events').update(patch).eq('id', eventId);
+  log('ივენთის სტატუსი: completed' + (patch.completed_at ? ' (completed_at ჩაიწერა)' : ''), 'ok');
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -1186,7 +1269,7 @@ async function fetchAndSettle() {
 
     if (espnState === 'pre') { log('ივენთი ჯერ არ დაწყებულა — ბილეთების დამუშავება შეუძლებელია', 'info'); return; }
 
-    let updated = 0;
+    let updated = 0, voidedCount = 0;
     for (const comp of event.competitions) {
       if (comp.status?.type?.state !== 'post') continue;
       const winner = comp.competitors.find(c => c.winner);
@@ -1197,22 +1280,57 @@ async function fetchAndSettle() {
       const round      = comp.status?.period || '';
       const time       = comp.status?.displayClock || '';
 
-      const idx = fightsData.findIndex(f =>
-        nameSimilarity(f.red.name, winnerName) > 0.4 ||
-        nameSimilarity(f.blue.name, winnerName) > 0.4 ||
-        f.espn_comp_id === comp.id
-      );
-      if (idx >= 0) {
+      // ── ID-ზე დაფუძნებული დამთხვევა (auto.js-ის სარკე): comp id → competitor id-ები → სახელი ──
+      const espnIds = (comp.competitors || []).map(c => String(c.id || '')).filter(Boolean);
+      let idx = fightsData.findIndex(f => f.espn_comp_id === comp.id);
+      if (idx < 0 && espnIds.length) {
+        idx = fightsData.findIndex(f =>
+          (f.red.espn_id && espnIds.includes(String(f.red.espn_id))) ||
+          (f.blue.espn_id && espnIds.includes(String(f.blue.espn_id))));
+      }
+      const matchedById = idx >= 0;
+      if (idx < 0) {
+        idx = fightsData.findIndex(f =>
+          nameSimilarity(f.red.name, winnerName) > 0.4 ||
+          nameSimilarity(f.blue.name, winnerName) > 0.4);
+      }
+      if (idx < 0) { log(`⚠ winner "${winnerName}" ვერ დაემთხვა ვერც ერთ ბრძოლას — გამოტოვება`, 'err'); continue; }
+
+      const rid = String(fightsData[idx].red.espn_id || '');
+      const bid = String(fightsData[idx].blue.espn_id || '');
+      const winnerId = String(winner.id || '');
+
+      // ── ჩანაცვლების დეტექცია: გამარჯვებულის ID ამ ბრძოლის არცერთ მხარეს არ ეკუთვნის → void ──
+      // (მხოლოდ მაშინ, როცა ორივე მხარის ID ცნობილია — რომ ცრუ void არ დაფიქსირდეს)
+      if (matchedById && winnerId && rid && bid && winnerId !== rid && winnerId !== bid) {
+        fightsData[idx].is_voided = true;
+        fightsData[idx].result_winner = null;
+        fightsData[idx].result_method = '';
+        fightsData[idx].result_round  = '';
+        log(`⚖️ ჩანაცვლება აღმოჩენილია (ID არ ემთხვევა) → void: ${fightsData[idx].red.name} vs ${fightsData[idx].blue.name}`, 'err');
+        voidedCount++; updated++;
+        continue;
+      }
+
+      // ── გამარჯვებული მხარე: ID-ით თუ შესაძლებელია, თუ არა — სახელით ──
+      let exactWinner;
+      if (winnerId && (winnerId === rid || winnerId === bid)) {
+        exactWinner = winnerId === rid ? fightsData[idx].red.name : fightsData[idx].blue.name;
+      } else {
         const mRed = nameSimilarity(fightsData[idx].red.name, winnerName);
         const mBlue = nameSimilarity(fightsData[idx].blue.name, winnerName);
-        const exactWinner = mRed >= mBlue ? fightsData[idx].red.name : fightsData[idx].blue.name;
-        fightsData[idx].result_winner = exactWinner;
-        fightsData[idx].result_method = method;
-        fightsData[idx].result_round  = String(round);
-        fightsData[idx].result_time   = time;
-        updated++;
+        if (mRed < 0.5 && mBlue < 0.5) { log(`⚠ winner "${winnerName}" ვერ დაემთხვა ვერც ერთ მებრძოლს — გამოტოვება`, 'err'); continue; }
+        exactWinner = mRed >= mBlue ? fightsData[idx].red.name : fightsData[idx].blue.name;
       }
+      fightsData[idx].is_voided     = false;
+      fightsData[idx].result_winner = exactWinner;
+      fightsData[idx].result_method = method;
+      fightsData[idx].result_round  = String(round);
+      fightsData[idx].result_time   = time;
+      log(`🏆 ${fightsData[idx].red.name} vs ${fightsData[idx].blue.name}: ${exactWinner} (${method}, R${round} ${time})`, 'ok');
+      updated++;
     }
+    if (voidedCount > 0) log(`⚖️ ${voidedCount} ბრძოლა ნეიტრალდა (მებრძოლის ჩანაცვლება)`, 'err');
 
     if (updated === 0) {
       log('ESPN: დასრულებული ბრძოლები ვერ მოიძებნა', 'info');
@@ -1242,24 +1360,31 @@ async function saveResultsToDB() {
   const eventId = evData.id;
 
   const { data: dbFights } = await sb.from('fights')
-    .select('id,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
+    .select('id,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
     .eq('event_id', eventId);
 
   if (!dbFights) return;
 
   let saved = 0;
   for (const f of fightsData) {
-    if (!f.result_winner) continue;
+    if (!f.result_winner && !f.is_voided) continue;
 
+    // #13: დამთხვევა მხოლოდ espn_id-ით
+    const fr = String(f.red.espn_id || ''), fb = String(f.blue.espn_id || '');
     const match = dbFights.find(df => {
-      const sim = Math.max(
-        nameSimilarity(df.red?.name || '', f.red.name),
-        nameSimilarity(df.blue?.name || '', f.blue.name)
-      );
-      return sim > 0.4;
+      const rid = String(df.red?.espn_id || ''), bid = String(df.blue?.espn_id || '');
+      return (fr && (fr === rid || fr === bid)) || (fb && (fb === rid || fb === bid));
     });
 
-    if (!match) continue;
+    if (!match) { log(`⚠ ვერ დაემთხვა DB-ში ID-ით: ${f.red.name} vs ${f.blue.name}`, 'err'); continue; }
+
+    // void ბრძოლა: შედეგის გარეშე, is_voided=true (settlement-ისთვის)
+    if (f.is_voided) {
+      await sb.from('fights').update({ status: 'completed', is_voided: true }).eq('id', match.id);
+      log(`DB: void ჩაიწერა: ${f.red.name} vs ${f.blue.name}`, 'ok');
+      saved++;
+      continue;
+    }
 
     await sb.from('fights').update({
       status:         'completed',
@@ -1272,11 +1397,14 @@ async function saveResultsToDB() {
     saved++;
   }
 
-  // ივენთის სტატუსი
+  // ივენთის სტატუსი (void-იც "დასრულებულად" ითვლება; completed_at ერთხელ იწერება)
   if (saved > 0) {
-    const allDone = fightsData.filter(f => f.active).every(f => !!f.result_winner);
+    const allDone = fightsData.filter(f => f.active).every(f => !!f.result_winner || f.is_voided === true);
     if (allDone) {
-      await sb.from('events').update({ status: 'completed' }).eq('id', eventId);
+      const { data: evNow } = await sb.from('events').select('completed_at').eq('id', eventId).maybeSingle();
+      const patch = { status: 'completed' };
+      if (!evNow?.completed_at) patch.completed_at = new Date().toISOString();
+      await sb.from('events').update(patch).eq('id', eventId);
       log('ივენთის სტატუსი: completed', 'ok');
     }
   }
