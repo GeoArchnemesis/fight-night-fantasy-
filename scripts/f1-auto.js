@@ -175,22 +175,43 @@ async function syncUpcoming() {
   await sendTelegram(`🏎️ <b>ახალი F1 რბოლა</b>\n\n${raceName}\n📍 ${location || '—'}\n\nკოეფები ხელით დასამატებელია.`);
 }
 
-// markets (quali + race) შექმნა/განახლება ESPN-ის competitions-იდან
+// markets (quali+race+fastest_lap +sprint თუ სპრინტია) + ყველა მძღოლი entry-ებად
 async function ensureF1Markets(raceId, ev) {
-  const { data: existing } = await sb.from('f1_markets').select('kind').eq('race_id', raceId);
+  const comps = ev.competitions || [];
+  const isSprint = comps.some(x => {
+    const a = (x.type?.abbreviation || x.type?.text || '').toLowerCase();
+    return a === 'ss' || a === 'sr' || a.includes('sprint');
+  });
+  const { data: existing } = await sb.from('f1_markets').select('id,kind').eq('race_id', raceId);
   const have = new Set((existing || []).map(m => m.kind));
   const defs = [
-    { kind: 'quali', comp: espnComp(ev, 'quali') },
-    { kind: 'race',  comp: espnComp(ev, 'race') },
+    { kind: 'quali',       comp: espnComp(ev, 'quali') },
+    { kind: 'race',        comp: espnComp(ev, 'race') },
+    { kind: 'fastest_lap', comp: espnComp(ev, 'race') },   // fastest lap რბოლის დროზე
   ];
+  if (isSprint) {
+    defs.push({ kind: 'sprint_quali', comp: comps.find(c => (c.type?.abbreviation||'').toLowerCase()==='ss') });
+    defs.push({ kind: 'sprint',       comp: comps.find(c => (c.type?.abbreviation||'').toLowerCase()==='sr') });
+  }
+  const newMkts = [];
   for (const d of defs) {
     if (have.has(d.kind)) continue;
-    await sb.from('f1_markets').insert({
-      race_id: raceId, kind: d.kind,
-      start_time: d.comp?.date || null,
+    const { data: m } = await sb.from('f1_markets').insert({
+      race_id: raceId, kind: d.kind, start_time: d.comp?.date || null,
       status: 'upcoming', is_voided: false,
-    });
-    log(`  market შეიქმნა: ${d.kind} (${d.comp?.date || 'დრო უცნობი'})`);
+    }).select('id,kind').maybeSingle();
+    if (m) { newMkts.push(m); log(`  market შეიქმნა: ${d.kind}`); }
+  }
+  // ყველა მძღოლი entry-ებად ახალ market-ებში (price=null, is_enabled=false — ჩანან, ფსონი დაკეტილი)
+  if (newMkts.length) {
+    const { data: drivers } = await sb.from('f1_drivers').select('id');
+    if (drivers && drivers.length) {
+      const entries = [];
+      for (const m of newMkts) for (const dr of drivers)
+        entries.push({ market_id: m.id, driver_id: dr.id, price: null, is_enabled: false });
+      await sb.from('f1_market_entries').insert(entries);
+      log(`  ${drivers.length} მძღოლი ჩაიწერა თითო ახალ market-ში`);
+    }
   }
 }
 
