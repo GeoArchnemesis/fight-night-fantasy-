@@ -748,15 +748,19 @@ async function main() {
   log(`⏰ ${hoursUntil > 0 ? Math.round(hoursUntil) + ' საათი დარჩა' : 'ივენთი დასრულდა ' + Math.abs(Math.round(hoursUntil)) + ' საათის წინ'}`);
 
   if (hoursUntil > 1) {
-    const hour = new Date().getUTCHours();
-    const isOddsHour = [7, 19].includes(hour);
-    const minute = new Date().getUTCMinutes();
-    if (ODDS_API_KEY && isOddsHour && minute < 30) {
-      log(`📊 კოეფიციენტების განახლება (${hour}:00 UTC / ${(hour + 4) % 24}:00 თბილისი — დღეში 2-ჯერ)...`);
+    // კოეფის განახლება ფიქსირებული საათის ფანჯრის ნაცვლად timestamp-ითაა:
+    // განახლდეს, თუ ბოლო განახლებიდან ≥5.5 საათი გავიდა → დღეში ~4-ჯერ,
+    // GitHub cron-ის დაგვიანება ვეღარ ააცდენს (ძველი "hour===7&&minute<30"
+    // პირობა დაგვიანებულ გაშვებაზე მთელ ფანჯარას კარგავდა).
+    const { data: evRow } = await sb.from('events').select('odds_updated_at').eq('id', upcoming.id).maybeSingle();
+    const lastOddsMs = evRow?.odds_updated_at ? new Date(evRow.odds_updated_at).getTime() : 0;
+    const hoursSinceOdds = (Date.now() - lastOddsMs) / 3600000;
+    if (ODDS_API_KEY && hoursSinceOdds >= 5.5) {
+      log(`📊 კოეფიციენტების განახლება (ბოლო: ${lastOddsMs ? Math.round(hoursSinceOdds) + ' სთ წინ' : 'არასდროს'} | დღეში ~4-ჯერ)...`);
       await updateOdds(upcoming.id);
-    } else {
-      const nextUtc = [7, 19].find(h => h > hour) ?? 7;
-      log(`⏳ ველოდებით (კოეფ. შემდეგი განახლება: ${nextUtc}:00 UTC / ${(nextUtc + 4) % 24}:00 თბილისი)`);
+      await sb.from('events').update({ odds_updated_at: new Date().toISOString() }).eq('id', upcoming.id);
+    } else if (ODDS_API_KEY) {
+      log(`⏳ კოეფ. განახლდა ${Math.round(hoursSinceOdds)} სთ წინ — შემდეგი ≥5.5 სთ-ზე`);
     }
 
     if (shouldRunBackup()) {
