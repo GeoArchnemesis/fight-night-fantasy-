@@ -23,8 +23,8 @@ const fmt = n => Number.isFinite(+n) ? Math.round(+n).toLocaleString('en-US') : 
 const EN_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
 const $ = id => document.getElementById(id);
 function $on(id, ev, fn) { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); }
-const KIND_LABEL = { race: 'რბოლის გამარჯვებული', quali: 'კვალიფიკაციის გამარჯვებული', fastest_lap: 'უსწრაფესი წრე', sprint: 'სპრინტის გამარჯვებული' };
-const KIND_SHORT = { race: 'რბოლა', quali: 'კვალიფიკაცია', fastest_lap: 'უსწრაფესი წრე', sprint: 'სპრინტი' };
+const KIND_LABEL = { race: 'რბოლის გამარჯვებული', quali: 'კვალიფიკაციის გამარჯვებული', fastest_lap: 'უსწრაფესი წრე', sprint: 'სპრინტის გამარჯვებული', sprint_quali: 'სპრინტ-კვალიფიკაციის გამარჯვებული' };
+const KIND_SHORT = { race: 'რბოლა', quali: 'კვალიფიკაცია', fastest_lap: 'უსწრაფესი წრე', sprint: 'სპრინტი', sprint_quali: 'სპრინტ-კვალ.' };
 
 // ── state ──
 // MARKETS: [{ id, kind, start_time(Date), status, resultDriverId, isVoided, entries:[{driverId,name,team,colour,img,odds,enabled}] }]
@@ -173,7 +173,7 @@ async function loadRaceFromDB() {
   window.__raceId = race.id;
 
   // markets აწყობა (race ჯერ, quali მერე)
-  const order = { race: 0, quali: 1, sprint: 2, fastest_lap: 3 };
+  const order = { quali: 0, sprint_quali: 1, sprint: 2, race: 3, fastest_lap: 4 };
   MARKETS = (race.f1_markets || []).map(m => ({
     id: m.id, kind: m.kind,
     start_time: m.start_time ? new Date(m.start_time) : null,
