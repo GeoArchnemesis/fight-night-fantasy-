@@ -2,7 +2,7 @@ name: UFC Fantasy Auto
 
 on:
   schedule:
-    - cron: '*/30 * * * *'
+    - cron: '4,19,34,49 * * * *'
   workflow_dispatch:
 
 jobs:
