@@ -1,28 +1,331 @@
-name: F1 Fantasy Auto
+// ============================================================
+//  F1 Fantasy — Zero-Touch Automation (ცალკე UFC-სგან)
+//  GitHub Actions-ით ეშვება. auto.js-ს არ ეხება.
+//
+//  წყაროები:
+//   - Cloudbet (motorsport) → კოეფები: რბოლის + კვალიფიკაციის გამარჯვებული
+//   - OpenF1 → განრიგი (meeting/sessions) + შედეგები (session_result)
+//   - jolpica → (ცალკე, drivers-ის ხელით განახლებისთვის; აქ არ გამოიყენება)
+//
+//  რას აკეთებს ყოველ გაშვებაზე:
+//   1) settleFinished() — დასრულებული რბოლების settlement (OpenF1 შედეგებით)
+//   2) syncUpcoming()   — მომდევნო GP: race/quali markets + კოეფების განახლება
+// ============================================================
 
-on:
-  schedule:
-    - cron: '*/30 * * * *'
-  workflow_dispatch:
+const { createClient } = require('@supabase/supabase-js');
 
-jobs:
-  f1:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+const SUPABASE_URL     = process.env.SUPABASE_URL;
+const SUPABASE_KEY     = process.env.SUPABASE_KEY;            // service_role
+const CLOUDBET_API_KEY = process.env.CLOUDBET_API_KEY || '';
+const TG_TOKEN         = process.env.TELEGRAM_BOT_TOKEN || '';
+const TG_CHAT          = process.env.TELEGRAM_CHAT_ID || '';
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
+const SEASON      = new Date().getUTCFullYear();
+const CB_BASE     = 'https://sports-api.cloudbet.com/pub/v2/odds';
+const OPENF1      = 'https://api.openf1.org/v1';   // მკვდარია (401 — ფასიანი გახდა)
+const ESPN_F1     = 'https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard';
+const INCLUDE_THE_FIELD = false;   // Cloudbet-ის "the field" outcome — გამორთული
 
-      - name: Install dependencies
-        run: npm install @supabase/supabase-js@2.49.1
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('SUPABASE_URL / SUPABASE_KEY აუცილებელია'); process.exit(1);
+}
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-      - name: Run F1 automation
-        run: node scripts/f1-auto.js
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          CLOUDBET_API_KEY: ${{ secrets.CLOUDBET_API_KEY }}
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+// ── helpers ──────────────────────────────────────────────
+const log = (m) => console.log(`[${new Date().toISOString()}] ${m}`);
+
+async function getJSON(url, headers) {
+  const res = await fetch(url, { headers: headers || {} });
+  if (!res.ok) throw new Error(`${res.status} ${url}`);
+  return res.json();
+}
+const cbGet   = (path) => getJSON(`${CB_BASE}${path}`, { 'X-API-Key': CLOUDBET_API_KEY });
+// const of1Get — ამოღებულია (OpenF1 მკვდარია, ESPN-ს ვიყენებთ)
+
+function slugToName(slug) {              // 's-kimi-antonelli' -> 'kimi antonelli'
+  return slug.replace(/^s-/, '').replace(/-/g, ' ').trim().toLowerCase();
+}
+
+// #12: აქცენტების მოშორება — Cloudbet slug ASCII-ა ('hulkenberg'), ბაზაში კი
+// შეიძლება 'Hülkenberg'/'Pérez' იყოს. ნორმალიზაციის გარეშე ამ მძღოლებს
+// კოეფი ვერასდროს განუახლდებოდა.
+function deaccent(s) {
+  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+}
+
+async function sendTelegram(text) {
+  if (!TG_TOKEN || !TG_CHAT) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TG_CHAT, text, parse_mode: 'HTML' }),
+    });
+  } catch (_) {}
+}
+
+// ── Cloudbet: მიმდინარე GP-ის competitions (race + quali) ─────
+async function findCloudbetGP() {
+  const data = await cbGet('/sports/motorsport');
+  let raceComp = null, qualiComp = null, sprintComp = null;
+  for (const cat of data.categories || []) {
+    for (const c of cat.competitions || []) {
+      const n = (c.name || '').toLowerCase();
+      if (/grand prix\s*-\s*qualifying$/.test(n)) qualiComp = c;
+      else if (/grand prix\s*-\s*sprint$/.test(n)) sprintComp = c;   // sprint weekend (Cloudbet-ის სახელი — გადაამოწმე რეალურ პასუხზე)
+      else if (/grand prix$/.test(n) && !/championship/.test(n)) raceComp = c;
+    }
+  }
+  // ── GP-ების აღრევის დაცვა ──
+  // გარდამავალ პერიოდში Cloudbet-ზე ორი GP ერთდროულად შეიძლება იყოს, ციკლი კი
+  // race/quali/sprint-ს დამოუკიდებლად ირჩევს ("ბოლო გაიმარჯვებს"). quali/sprint
+  // მხოლოდ მაშინ მიიღება, თუ სახელი raceComp-ის GP-ს ემთხვევა — თორემ ერთი GP-ის
+  // კვალიფიკაციის კოეფები მეორე GP-ის market-ს მიეკერებოდა.
+  if (raceComp) {
+    const base = (raceComp.name || '').toLowerCase();
+    if (qualiComp  && !(qualiComp.name  || '').toLowerCase().startsWith(base)) qualiComp  = null;
+    if (sprintComp && !(sprintComp.name || '').toLowerCase().startsWith(base)) sprintComp = null;
+  }
+  return { raceComp, qualiComp, sprintComp };   // raceComp.name მაგ: "Belgian Grand Prix"
+}
+
+// competition-იდან outcome→price რუკა (race winner / quali winner)
+async function cloudbetOdds(competitionKey) {
+  const d = await cbGet(`/competitions/${competitionKey}`);
+  const ev = (d.events || [])[0];
+  if (!ev) return [];
+  const mkt = ev.markets && ev.markets['motorsport.outright.v3'];
+  const sels = mkt && mkt.submarkets && mkt.submarkets.default && mkt.submarkets.default.selections;
+  if (!sels) return [];
+  return sels
+    .filter(s => INCLUDE_THE_FIELD || s.outcome !== 's-the-field')
+    .map(s => ({ name: slugToName(s.outcome), slug: s.outcome,
+                 price: s.price, probability: s.probability,
+                 enabled: s.status === 'SELECTION_ENABLED' }));
+}
+
+// (OpenF1 event/session lookup ამოღებულია — ESPN-ზე გადავედით)
+
+// ── drivers რუკა ──────────────────────────────────────────
+async function driverMaps() {
+  const { data } = await sb.from('f1_drivers').select('id,name,car_number,slug');
+  const byName = {}, byNumber = {};
+  for (const d of data || []) {
+    byName[deaccent(d.name)] = d;   // #12: აქცენტ-ნორმალიზებული გასაღები
+    if (d.car_number != null) byNumber[d.car_number] = d;
+  }
+  return { byName, byNumber, all: data || [] };
+}
+
+// ── SYNC: მომდევნო GP-ის markets + კოეფები ─────────────────
+
+// ── ESPN F1: მომავალი რბოლა + შედეგები (OpenF1-ის ჩამნაცვლებელი) ──
+async function espnF1Calendar() {
+  const data = await getJSON(`${ESPN_F1}?dates=${SEASON}`);
+  return data.events || [];
+}
+// ESPN-ის competition ამ kind-ისთვის (race/quali/sprint)
+function espnComp(ev, kind) {
+  return (ev.competitions || []).find(c => {
+    const a = (c.type?.abbreviation || c.type?.text || '').toLowerCase();
+    if (kind === 'race')   return a === 'race' || a.includes('race');
+    if (kind === 'quali')  return a.includes('qual');
+    if (kind === 'sprint') return a.includes('sprint');
+    return false;
+  });
+}
+// ESPN-ის რბოლის სახელი ↔ ბაზის f1_races.name (deaccent + პრეფიქსი)
+function espnMatchRace(espnEvents, dbName) {
+  const n = deaccent(dbName).replace(/[^a-z]/g, '');
+  return espnEvents.find(e => {
+    const en = deaccent(e.name).replace(/[^a-z]/g, '');
+    return en.includes(n.slice(0, 8)) || n.includes(en.slice(0, 8));
+  });
+}
+
+async function syncUpcoming() {
+  // ESPN-იდან მომდევნო რბოლა (OpenF1-ის ნაცვლად). კოეფებს ხელით/Cloudbet-ით ამატებ.
+  let events;
+  try { events = await espnF1Calendar(); }
+  catch (e) { log(`ESPN კალენდარი ვერ წამოვიდა: ${e.message}`); return; }
+  const upcoming = events
+    .filter(e => e.status?.type?.state === 'pre')
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  if (!upcoming.length) { log('ESPN: მომავალი რბოლა არ არის'); return; }
+  const ev = upcoming[0];
+  const raceName = ev.name;
+  const location = ev.circuit?.address?.country || ev.circuit?.place?.country || null;
+
+  // უკვე არსებობს ბაზაში? (სახელით — ESPN meeting_key არ გვაქვს)
+  const { data: exist } = await sb.from('f1_races')
+    .select('id,status').ilike('name', raceName).maybeSingle();
+  if (exist) {
+    // #1: completed-ს არ ვეხებით (oscillation guard)
+    if (exist.status === 'completed') { log(`${raceName} უკვე completed — ვტოვებ`); return; }
+    log(`${raceName} უკვე upcoming-ია (id ${exist.id}) — markets-ს ვამოწმებ`);
+    await ensureF1Markets(exist.id, ev);
+    return;
+  }
+
+  const { data: race, error: rErr } = await sb.from('f1_races')
+    .insert({ name: raceName, location, season: SEASON, status: 'upcoming' })
+    .select('id').maybeSingle();
+  if (rErr || !race) { log(`f1_races insert ჩავარდა: ${rErr?.message}`); return; }
+  log(`🏎️ ახალი F1 რბოლა: ${raceName} (id ${race.id})`);
+  await ensureF1Markets(race.id, ev);
+  await sendTelegram(`🏎️ <b>ახალი F1 რბოლა</b>\n\n${raceName}\n📍 ${location || '—'}\n\nკოეფები ხელით დასამატებელია.`);
+}
+
+// markets (quali + race) შექმნა/განახლება ESPN-ის competitions-იდან
+async function ensureF1Markets(raceId, ev) {
+  const { data: existing } = await sb.from('f1_markets').select('kind').eq('race_id', raceId);
+  const have = new Set((existing || []).map(m => m.kind));
+  const defs = [
+    { kind: 'quali', comp: espnComp(ev, 'quali') },
+    { kind: 'race',  comp: espnComp(ev, 'race') },
+  ];
+  for (const d of defs) {
+    if (have.has(d.kind)) continue;
+    await sb.from('f1_markets').insert({
+      race_id: raceId, kind: d.kind,
+      start_time: d.comp?.date || null,
+      status: 'upcoming', is_voided: false,
+    });
+    log(`  market შეიქმნა: ${d.kind} (${d.comp?.date || 'დრო უცნობი'})`);
+  }
+}
+
+// ── SETTLE: დასრულებული რბოლების დამუშავება ────────────────
+async function settleFinished() {
+  const { data: races } = await sb.from('f1_races')
+    .select('id,name,status').eq('status', 'upcoming');
+  if (!races || races.length === 0) return;
+
+  const now = Date.now();
+  const { byName } = await driverMaps();
+  let espnEvents = null;
+  try { espnEvents = await espnF1Calendar(); }
+  catch (e) { log(`ESPN კალენდარი ვერ წამოვიდა settle-ისთვის: ${e.message}`); return; }
+
+  // ESPN-ის გამარჯვებულს ბაზის მძღოლს ვამთხვევთ (deaccent + გვარით fallback)
+  const findDrv = (espnName, all) => {
+    const key = deaccent(espnName).replace(/[^a-z]/g, '');
+    if (byName[deaccent(espnName)]) return byName[deaccent(espnName)];
+    const last = deaccent((espnName || '').split(' ').pop() || '').replace(/[^a-z]/g, '');
+    return (all || []).find(d => deaccent(d.name).replace(/[^a-z]/g, '').includes(last) && last.length >= 4) || null;
+  };
+
+  for (const race of races) {
+    const { data: markets } = await sb.from('f1_markets')
+      .select('id,kind,start_time,result_driver_id,is_voided,status')
+      .eq('race_id', race.id);
+    const raceMkt = (markets || []).find(m => m.kind === 'race');
+    if (!raceMkt || !raceMkt.start_time) continue;
+    // რბოლა უნდა დასრულებულიყო (start + ~3სთ)
+    if (now < new Date(raceMkt.start_time).getTime() + 3 * 3600000) continue;
+
+    const espnEv = espnMatchRace(espnEvents, race.name);
+    if (!espnEv) { log(`Settlement: ${race.name} — ESPN-ზე ვერ მოიძებნა`); continue; }
+    log(`Settlement: ${race.name}`);
+
+    const { all } = await driverMaps();
+    // შედეგები ESPN-იდან თითო market-ზე
+    for (const m of markets) {
+      if (m.result_driver_id || m.is_voided) continue;
+      const comp = espnComp(espnEv, m.kind);
+      if (!comp) { log(`  ${m.kind}: ESPN-ზე ვერ მოიძებნა`); continue; }
+      if (comp.status?.type?.state !== 'post') { log(`  ${m.kind}: ჯერ არ დასრულებულა`); continue; }
+      const winner = (comp.competitors || []).find(x => x.winner) || (comp.competitors || [])[0];
+      const wName = winner?.athlete?.displayName || winner?.athlete?.fullName;
+      const drv = wName ? findDrv(wName, all) : null;
+      if (!drv) { log(`  ${m.kind}: გამარჯვებული "${wName}" ბაზაში ვერ მოიძებნა`); continue; }
+      await sb.from('f1_markets').update({ result_driver_id: drv.id, status: 'completed' }).eq('id', m.id);
+      log(`  ${m.kind}: გამარჯვებული ${drv.name}`);
+    }
+
+    await settleTickets(race.id);
+
+    // ── რბოლის completed + ბალანსების reset (pending ბილეთებისგან დამოუკიდებლად) ──
+    // ადრე completed-ს მხოლოდ settleTickets ნიშნავდა, მაგრამ ის ბილეთების არარსებობისას
+    // early-return-ს აკეთებდა → რბოლა, რომელსაც ბილეთი არ ჰქონდა, სამუდამოდ 'upcoming' რჩებოდა.
+    const { data: freshMarkets } = await sb.from('f1_markets')
+      .select('status,is_voided').eq('race_id', race.id);
+    const allDone = (freshMarkets || []).length > 0 &&
+                    (freshMarkets || []).every(m => m.status === 'completed' || m.is_voided);
+    if (allDone) {
+      const { data: rNow } = await sb.from('f1_races').select('status,completed_at').eq('id', race.id).maybeSingle();
+      if (rNow && rNow.status !== 'completed') {
+        const patch = { status: 'completed' };
+        if (!rNow.completed_at) patch.completed_at = new Date().toISOString();
+        await sb.from('f1_races').update(patch).eq('id', race.id);
+        log(`  ✅ რბოლა → completed`);
+        await resetF1Balances(race.name, race.id);   // ← ერთხელ, completed-ზე გადასვლისას
+      }
+    }
+  }
+}
+
+// UFC-ის auto.js:228-ის F1 ანალოგი — ბალანსების განულება ახალი რბოლისთვის.
+// F1 ბალანსი ცალკე ცხრილშია: user_balances(sport='f1') (იხ. f1-app.js header).
+// service_role key-ით RLS ხელს არ გვიშლის. იდემპოტენტურია: ეშვება მხოლოდ მაშინ, როცა
+// რბოლა პირველად გადადის completed-ზე (ზემოთ status!=='completed' guard-ის წყალობით).
+async function resetF1Balances(raceName, completedRaceId) {
+  // #2/#3: რესეტი + upcoming pending-ის ხელახალი ჩამოჭრა ერთ ატომურ SQL
+  // ტრანზაქციაშია (f1_reset_balances RPC). balance ითვლება 1000-ის ბაზიდან და
+  // არა მიმდინარედან → იდემპოტენტურია: გაჭედილი upcoming რბოლის pending
+  // „განმეორებით ჯარიმას" ვეღარ იძლევა, select→update race window აღარ არსებობს.
+  const { data: res, error } = await sb.rpc('f1_reset_balances', { p_completed_race_id: completedRaceId });
+  if (error || !res || !res.ok) {
+    log(`  ⚠ F1 ბალანსების reset ვერ მოხერხდა: ${res?.error || error?.message || 'უცნობი შეცდომა'}`);
+    return;
+  }
+  log(`  💰 F1 ბალანსები → 1,000 (${res.reset} მომხმარებელი; ${res.deducted_users} მათგანს მომდევნო რბოლის pending ხელახლა ჩამოეჭრა)`);
+  await sendTelegram(`💰 <b>F1 ბალანსები → 1,000</b>\n\n${raceName || ''} დასრულდა — ახალი რბოლისთვის ბალანსი ყველას განულდა.`);
+}
+
+// #5: tickets settlement მთლიანად სერვერზეა — settle_f1_race_tickets (SECURITY DEFINER RPC).
+// selections + tickets + score + f1_score_history + refund ერთ ატომურ ტრანზაქციაშია;
+// ორჯერ გაშვება უსაფრთხოა (pending ფილტრი + f1_score_history.ticket_id unique).
+async function settleTickets(raceId) {
+  const { data: res, error } = await sb.rpc('settle_f1_race_tickets', { p_race_id: raceId });
+  if (error || !res || !res.ok) {
+    log(`  ❌ F1 settlement RPC ჩავარდა: ${res?.error || error?.message || 'უცნობი შეცდომა'}`);
+    await sendTelegram(`🏎️🚨 <b>F1 settlement ჩავარდა</b>\n<code>${(res?.error || error?.message || '').slice(0, 300)}</code>`);
+    return;
+  }
+  log(`  settlement: won=${res.won} lost=${res.lost} void=${res.voided} skipped=${res.skipped}`);
+}
+
+// ── SYNC standings (rank/points) — car_number-ით (აქცენტებს გვერდს უვლის) ──
+async function syncStandings() {
+  try {
+    const d = await getJSON(`https://api.jolpi.ca/ergast/f1/current/driverstandings/?limit=100`);
+    const rows = (((d.MRData || {}).StandingsTable || {}).StandingsLists || [])[0];
+    const list = rows ? rows.DriverStandings : [];
+    if (!list || !list.length) { log('standings: ცარიელი'); return; }
+    let n = 0;
+    for (const r of list) {
+      const num = parseInt(r.Driver.permanentNumber);
+      if (!num) continue;
+      await sb.from('f1_drivers')
+        .update({ rank: parseInt(r.position), points: parseFloat(r.points) })
+        .eq('car_number', num);
+      n++;
+    }
+    log(`standings: ${n} მძღოლის rank/points განახლდა`);
+  } catch (e) { log(`standings sync ჩავარდა: ${e.message}`); }
+}
+
+// ── main ─────────────────────────────────────────────────
+async function main() {
+  await settleFinished();
+  await syncUpcoming();
+  await syncStandings();
+}
+
+main()
+  .then(() => log('F1 auto finished'))
+  .catch(async (e) => {
+    log(`Fatal: ${e.message}`);
+    await sendTelegram(`🏎️ <b>f1-auto.js ჩავარდა</b>\n<code>${(e.message || String(e)).slice(0, 400)}</code>`);
+    process.exit(1);
+  });
