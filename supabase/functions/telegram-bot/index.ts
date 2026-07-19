@@ -446,7 +446,7 @@ async function cmdF1CreateEvent(chatId: number): Promise<string> {
   const location = ev.circuit?.address?.country || ev.circuit?.place?.country || null
 
   const { data: exist } = await sb.from('f1_races').select('id,status').ilike('name', raceName).maybeSingle()
-  if (exist) return `ℹ️ "${raceName}" უკვე ბაზაშია (id ${exist.id}, ${exist.status}).\nკოეფებისთვის: <b>f1 კოეფ</b>`
+  if (exist) return `ℹ️ "${raceName}" უკვე ბაზაშია (id ${exist.id}, ${exist.status}).`
 
   const { data: race, error: rErr } = await sb.from('f1_races')
     .insert({ name: raceName, location, season: SEASON, status: 'upcoming' })
@@ -454,19 +454,46 @@ async function cmdF1CreateEvent(chatId: number): Promise<string> {
   if (rErr || !race) return `❌ რბოლის შექმნა ვერ მოხერხდა: ${rErr?.message || 'უცნობი'}`
 
   const comps = ev.competitions || []
-  const getT = (abbr: string) => {
-    const c = comps.find((x: any) => (x.type?.abbreviation || x.type?.text || '').toLowerCase().includes(abbr))
+  const compTime = (test: (a: string) => boolean) => {
+    const c = comps.find((x: any) => test((x.type?.abbreviation || x.type?.text || '').toLowerCase()))
     return c?.date || null
   }
-  const markets = [
-    { race_id: race.id, kind: 'quali', start_time: getT('qual'), status: 'upcoming', is_voided: false },
-    { race_id: race.id, kind: 'race',  start_time: getT('race'), status: 'upcoming', is_voided: false },
+  // სპრინტ-weekend? ESPN აღნიშნავს SS (sprint quali) + SR (sprint race)
+  const isSprint = comps.some((x: any) => {
+    const a = (x.type?.abbreviation || x.type?.text || '').toLowerCase()
+    return a === 'ss' || a === 'sr' || a.includes('sprint')
+  })
+
+  // markets: quali + race + fastest_lap ყოველთვის; sprint-ის ორი — თუ სპრინტ-weekend-ია
+  const marketDefs: any[] = [
+    { kind: 'quali',       start_time: compTime(a => a.includes('qual') && !a.includes('ss')) },
+    { kind: 'race',        start_time: compTime(a => a === 'race' || (a.includes('race') && !a.includes('sprint') && a !== 'sr')) },
+    { kind: 'fastest_lap', start_time: compTime(a => a === 'race' || a.includes('race')) },
   ]
-  const { error: mErr } = await sb.from('f1_markets').insert(markets)
-  if (mErr) return `⚠️ რბოლა შეიქმნა (id ${race.id}), მაგრამ markets ვერ ჩაიწერა: ${mErr.message}`
+  if (isSprint) {
+    marketDefs.push({ kind: 'sprint_quali', start_time: compTime(a => a === 'ss' || a.includes('sprint') && a.includes('qual')) })
+    marketDefs.push({ kind: 'sprint',       start_time: compTime(a => a === 'sr' || (a.includes('sprint') && !a.includes('qual'))) })
+  }
+
+  const { data: mkts, error: mErr } = await sb.from('f1_markets')
+    .insert(marketDefs.map(d => ({ race_id: race.id, kind: d.kind, start_time: d.start_time, status: 'upcoming', is_voided: false })))
+    .select('id,kind')
+  if (mErr || !mkts) return `⚠️ რბოლა შეიქმნა (id ${race.id}), მაგრამ markets ვერ ჩაიწერა: ${mErr?.message}`
+
+  // ყველა მძღოლი entry-ებად თითო market-ში — price=null (კოეფი დაკეტილი),
+  // is_enabled=false (ფსონი ვერ დაიდება სანამ კოეფი არ ჩაიწერება), მაგრამ საიტზე ჩანან
+  const { data: drivers } = await sb.from('f1_drivers').select('id')
+  if (drivers && drivers.length) {
+    const entries: any[] = []
+    for (const m of mkts) for (const d of drivers)
+      entries.push({ market_id: m.id, driver_id: d.id, price: null, is_enabled: false })
+    const { error: eErr } = await sb.from('f1_market_entries').insert(entries)
+    if (eErr) return `⚠️ რბოლა+markets შეიქმნა, მაგრამ მძღოლები ვერ ჩაიწერა: ${eErr.message}`
+  }
 
   const fmtT = (t: string | null) => t ? new Date(t).toLocaleString('ka-GE', { timeZone: 'Asia/Tbilisi' }) : '—'
-  return `🏎️ <b>F1 რბოლა შეიქმნა</b>\n\n<b>${raceName}</b>\n📍 ${location || '—'}\n🕒 ქვალიფიკაცია: ${fmtT(getT('qual'))}\n🏁 რბოლა: ${fmtT(getT('race'))}\n\nშემდეგი: <b>f1 კოეფ</b> (Cloudbet-დან კოეფები)`
+  const mkList = mkts.map((m: any) => '• ' + m.kind).join('\n')
+  return `🏎️ <b>F1 რბოლა შეიქმნა</b>\n\n<b>${raceName}</b>\n📍 ${location || '—'}\n${isSprint ? '⚡ სპრინტ-weekend\n' : ''}\n<b>ბაზრები:</b>\n${mkList}\n\n🕒 ქვალიფიკაცია: ${fmtT(compTime(a => a.includes('qual')))}\n🏁 რბოლა: ${fmtT(compTime(a => a === 'race'))}\n\n✅ ${drivers?.length || 0} მძღოლი ჩაიწერა (კოეფები დაკეტილია)`
 }
 
 async function cmdF1Status(chatId: number): Promise<string> {
