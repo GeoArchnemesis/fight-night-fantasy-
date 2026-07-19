@@ -10,39 +10,329 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Fight Night Fantasy</title>
+<title>პროფილი — Fight Night Fantasy</title>
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-<link rel="stylesheet" href="/style.css?v=200" />
-<script>
-  (function () {
-    // დიდი/შერეული ასოების მისამართები რეალურ ფაილებზე გადავიყვანოთ.
-    // ყოფილი ბაგი: '/f1' → replace('/f1') → იგივე 404 → უსასრულო redirect loop.
-    // ახლა: სამიზნე ყოველთვის რეალური ფაილია (.html), და raw !== target guard
-    // გარანტიას იძლევა, რომ ერთსა და იმავე მისამართზე redirect ვერასდროს მოხდება.
-    var raw = location.pathname.replace(/\/+$/, '');
-    var p = raw.toLowerCase();
-    var target = null;
-    // ძველი .html მისამართები ახალ სუფთა URL-ზე გადავამისამართოთ
-    if (p === '/f1.html') target = '/f1';
-    else if (p === '/ufc.html') target = '/ufc';
-    else if (p === '/index' || p === '/index.html') target = '/';
-    if (target && raw !== target) location.replace(target);
-  })();
-</script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="/style.css?v=200">
 <style>
-  body{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;background:radial-gradient(1200px 600px at 50% -10%, rgba(243,29,37,.14), transparent 60%), var(--bg,#0a0910);text-align:center;font-family:sans-serif;color:var(--text,#fff)}
-  .nf-code{font-family:var(--head);font-weight:900;font-size:clamp(3rem,12vw,6rem);color:var(--red,#f31d25);line-height:1}
-  .nf-t{font-family:var(--head);font-weight:900;font-size:1.3rem;margin:8px 0 6px}
-  .nf-d{color:var(--muted,#9a97a8);margin-bottom:24px}
-  .nf-btn{display:inline-block;padding:12px 26px;border-radius:8px;background:var(--red,#f31d25);color:#fff;text-decoration:none;font-family:var(--head);font-weight:700}
+/* პროფილის გვერდი — ცალკე */
+.pf-page{min-height:100vh;display:flex;flex-direction:column}
+.pf-main{flex:1;width:min(560px,92vw);margin:0 auto;padding:clamp(24px,5vw,48px) 0 120px}
+.pf-back{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.8rem;color:var(--muted);margin-bottom:24px;transition:color .15s;cursor:pointer;background:none;border:none}
+.pf-back:hover{color:var(--text)}
+.pf-title{font-family:var(--display);font-size:clamp(2rem,6vw,2.8rem);line-height:1;margin-bottom:6px}
+.pf-sub{color:var(--muted);font-size:.9rem;margin-bottom:28px}
+.pf-loading{text-align:center;padding:60px 20px;color:var(--muted);font-family:var(--mono)}
+.pf-guest{text-align:center;padding:50px 24px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.pf-guest h3{font-family:var(--display);font-size:1.5rem;margin-bottom:10px}
+.pf-guest p{color:var(--muted);font-size:.9rem;margin-bottom:20px}
+.pf-card{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:clamp(20px,4vw,32px)}
+</style>
+<style>
+/* ── MOBILE BOTTOM NAV (mnav) — მხოლოდ მობილურზე ── */
+.mnav{position:fixed !important;top:auto !important;bottom:0 !important;left:0 !important;right:0 !important;height:auto !important;z-index:46;background:#000;border-top:1px solid var(--line);border-bottom:none;display:flex;padding:8px 4px calc(8px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 20px rgba(0,0,0,.5)}
+.mnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;cursor:pointer;padding:6px 2px;min-width:0;text-decoration:none;position:relative}
+.mnav-ic{width:24px;height:24px;flex-shrink:0;opacity:.75;transition:opacity .15s,transform .15s}
+.mnav-btn:hover .mnav-ic,.mnav-btn.on .mnav-ic{opacity:1}
+.mnav-btn.on .mnav-ic{transform:translateY(-1px)}
+.mnav-lbl{font-size:.6rem;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:.01em;transition:color .15s}
+.mnav-btn.on .mnav-lbl{color:var(--gold)}
+.mnav-btn:hover .mnav-lbl{color:var(--text)}
+.mnav-pop{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:150px;display:flex;flex-direction:column;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,transform .2s ease,visibility .2s;z-index:48}
+.mnav-pop.show{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.mnav-pop::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--line)}
+.mnav-pop-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:7px;font-family:var(--head);font-weight:700;font-size:.9rem;color:var(--text);cursor:pointer;transition:background .15s;white-space:nowrap;text-decoration:none}
+.mnav-pop-opt.on{background:rgba(245,196,81,.1);color:var(--gold);cursor:default}
+.mnav-pop-tag{font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.04em;color:var(--green);text-transform:uppercase}
+.mnav-pop-tag.soon{color:var(--muted)}
+/* პირველი ღილაკის (ფენტეზის ტიპი) popup მარცხენა კიდეს არ უნდა გადასცდეს */
+#mnavSport .mnav-pop{left:8px;right:auto;transform:translateY(6px)}
+#mnavSport .mnav-pop.show{transform:translateY(0)}
+#mnavSport .mnav-pop::after{left:38px;transform:translateX(-50%)}
+
+@media(min-width:921px){.mnav{display:none}}
+@media(max-width:920px){
+  .mnav{display:flex}   /* პროფილზე ყოველთვის ჩანს — აქ მოხვედრა ისედაც ლოგინს ნიშნავს */
+  body{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
+}
 </style>
 </head>
 <body>
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TLSVRK7V"
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-  <div class="nf-code">404</div>
-  <div class="nf-t">გვერდი ვერ მოიძებნა</div>
-  <div class="nf-d">შესაძლოა მისამართი შეიცვალა ან აღარ არსებობს.</div>
-  <a class="nf-btn" href="/">მთავარ გვერდზე</a>
+<!-- ── TEST MODE BANNER ── -->
+<div id="testBanner" style="background:#F31D25;color:#fff;text-align:center;font-size:.78rem;line-height:1.4;padding:5px 12px;letter-spacing:.02em;position:relative;z-index:60">
+  საიტი მუშაობს სატესტო რეჟიმში. ხარვეზის შემთხვევაში გთხოვთ გვაცნობოთ — <a href="#" onclick="document.getElementById('reportPopup').style.display='flex';return false" style="color:#fff;font-weight:700;text-decoration:underline">კონტაქტი</a>
+</div>
+
+<div class="pf-page">
+<!-- NAV -->
+<nav><div class="wrap nav-in">
+<a id="brandLink" class="brand">
+<img src="data:image/jpeg;base64,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" alt="Fight Night Fantasy" />
+<span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
+</a>
+<div class="nav-cta">
+  <div class="balance-pill"><span class="coin"></span><b id="balNav">1,000</b> ქულა</div>
+  <a class="btn btn-ghost" id="backLink" href="/ufc">მთავარი</a>
+</div>
+</div></nav>
+
+<main class="pf-main">
+  <button class="pf-back" id="backBtn">&larr; მთავარ გვერდზე</button>
+
+  <!-- იტვირთება -->
+  <div class="pf-loading" id="pfLoading">იტვირთება…</div>
+
+  <!-- სტუმარი (არ არის შესული) -->
+  <div class="pf-guest" id="pfGuest" style="display:none">
+    <h3>ჯერ არ ხარ შესული</h3>
+    <p>პროფილის სანახავად გაიარე ავტორიზაცია.</p>
+    <a class="btn btn-primary" id="guestLink" href="/ufc" style="display:inline-block">შესვლა</a>
+  </div>
+
+  <!-- პროფილის ფორმა -->
+  <div id="pfContent" style="display:none">
+    <h1 class="pf-title">პროფილი</h1>
+    <p class="pf-sub">შეცვალე შენი ანგარიშის პარამეტრები</p>
+    <div class="pf-card">
+
+      <div class="profile-section">
+        <span class="field-label" id="iconPickerLabel">აირჩიე აიქონი</span>
+        <div class="icon-picker" id="iconPicker" role="radiogroup" aria-labelledby="iconPickerLabel"></div>
+      </div>
+
+      <div class="profile-section">
+        <div class="field">
+          <label for="profNick">სახელი (ნიქნეიმი)</label>
+          <input type="text" id="profNick" placeholder="მაგ. UFC.King" maxlength="20" />
+        </div>
+      </div>
+
+      <div class="profile-section">
+        <div class="field">
+          <label for="profEmail">ელ. ფოსტა</label>
+          <input type="email" id="profEmail" placeholder="შეიყვანე მეილი" />
+        </div>
+      </div>
+
+      <div class="profile-section">
+        <div class="field-label" style="margin-bottom:8px">საკონტაქტო ინფორმაცია</div>
+        <div class="field">
+          <label for="profPhone">მობილურის ნომერი</label>
+          <input type="tel" id="profPhone" placeholder="მაგ. 555123456" />
+        </div>
+        <div class="field">
+          <label for="profTelegram">ტელეგრამი</label>
+          <input type="text" id="profTelegram" placeholder="მაგ. @username" />
+        </div>
+      </div>
+
+      <div class="profile-section">
+        <div class="field-label" style="margin-bottom:12px">პასვორდის შეცვლა</div>
+        <div class="field">
+          <label for="profOldPass">ძველი პასვორდი</label>
+          <input type="password" id="profOldPass" placeholder="შეიყვანე ძველი პასვორდი" />
+        </div>
+        <div class="field">
+          <label for="profNewPass">ახალი პასვორდი</label>
+          <input type="password" id="profNewPass" placeholder="მინ. 6 სიმბოლო" />
+        </div>
+      </div>
+
+      <div id="profileMsg" style="font-size:.85rem;margin-bottom:10px;display:none"></div>
+      <button class="btn btn-primary" id="profileSave" style="width:100%;justify-content:center;padding:14px">შენახვა</button>
+      <button class="btn btn-ghost" id="profileLogout" style="width:100%;margin-top:10px;text-align:center;display:block">გამოსვლა</button>
+    </div>
+  </div>
+</main>
+</div>
+
+<!-- ლოგო/ღილაკები იმ ფენტეზზე გადავიდეს, სადაც ბოლოს იყავი -->
+<script>
+(function(){
+  var s = 'ufc';
+  try { s = localStorage.getItem('fnf_sport') || 'ufc'; } catch(e){}
+  var url = (s === 'f1') ? '/f1' : '/ufc';
+  var b = document.getElementById('brandLink');  if (b) b.href = url;
+  var k = document.getElementById('backLink');   if (k) k.href = url;
+  var g = document.getElementById('guestLink');  if (g) g.href = url;
+  var bb = document.getElementById('backBtn');   if (bb) bb.onclick = function(){ location.href = url; };
+})();
+</script>
+
+<script>
+(function(){
+  const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, lock: (name,t,fn)=>fn() }
+  });
+  const AVATAR_ICONS = ['\ud83e\udd4a','\ud83c\udfc6','\ud83d\udd25','\u26a1','\ud83d\udcaa','\ud83e\udd81','\ud83d\udc3a','\ud83d\udc4a','\ud83d\udc8e','\ud83c\udfaf','\u2b50','\ud83e\udd85'];
+  const fmt = n => Number.isFinite(+n) ? Math.round(+n).toLocaleString('en-US') : '0';
+  // რომელი ფენტეზიდან მოვიდა — ბალანსი ამის მიხედვით ჩაიტვირთება
+  let SPORT = 'ufc';
+  try { SPORT = localStorage.getItem('fnf_sport') || 'ufc'; } catch(e){}
+  let currentUser = null;
+
+  function passwordError(pass){
+    if(pass.length < 6) return 'პაროლი მინ. 6 სიმბოლო';
+    if(!/[A-Z]/.test(pass)) return 'პაროლში მინ. 1 დიდი ასო (A-Z)';
+    if(!/[a-z]/.test(pass)) return 'პაროლში მინ. 1 პატარა ასო (a-z)';
+    if(!/[0-9]/.test(pass)) return 'პაროლში მინ. 1 ციფრი (0-9)';
+    return null;
+  }
+  function profileMsg(msg, color){
+    const el = document.getElementById('profileMsg');
+    if(msg){ el.textContent = msg; el.style.color = color || 'var(--green)'; el.style.display = 'block'; }
+    else el.style.display = 'none';
+  }
+
+  function fillForm(){
+    document.getElementById('profNick').value = currentUser.nick || '';
+    document.getElementById('profEmail').value = currentUser.email || '';
+    document.getElementById('profPhone').value = currentUser.phone || '';
+    document.getElementById('profTelegram').value = currentUser.telegram || '';
+    document.getElementById('profOldPass').value = '';
+    document.getElementById('profNewPass').value = '';
+    const bal = document.getElementById('balNav'); if(bal) bal.textContent = fmt(currentUser.balance);
+    const pill = document.querySelector('.balance-pill'); if(pill) pill.classList.add('visible');
+    const picker = document.getElementById('iconPicker');
+    picker.innerHTML = AVATAR_ICONS.map(ic => '<button class="icon-opt ' + ((currentUser.icon||'\ud83e\udd4a')===ic?'active':'') + '" data-icon="'+ic+'">'+ic+'</button>').join('');
+    picker.querySelectorAll('.icon-opt').forEach(b => b.onclick = () => { picker.querySelectorAll('.icon-opt').forEach(x=>x.classList.remove('active')); b.classList.add('active'); });
+  }
+
+  async function saveProfile(){
+    if(!currentUser) return;
+    const nick = (document.getElementById('profNick').value||'').trim();
+    const email = (document.getElementById('profEmail').value||'').trim();
+    const phone = (document.getElementById('profPhone').value||'').trim();
+    const telegram = (document.getElementById('profTelegram').value||'').trim().replace(/^@/,'');
+    const oldPass = document.getElementById('profOldPass').value||'';
+    const newPass = document.getElementById('profNewPass').value||'';
+    const selIcon = document.querySelector('#iconPicker .icon-opt.active');
+    const icon = selIcon ? selIcon.dataset.icon : currentUser.icon || '\ud83e\udd4a';
+    if(nick && !/^[a-zA-Z0-9._]{3,20}$/.test(nick)){ profileMsg('სახელი: 3-20 სიმბოლო (ასოები, ციფრები, . _)','var(--red)'); return; }
+    try{
+      const nickChanged = nick && nick !== currentUser.nick;
+      if(nickChanged){
+        let taken = false;
+        const rpc = await sb.rpc('is_nick_taken', { p_nick: nick, p_exclude_user_id: currentUser.id });
+        if(rpc.error){ const {data:fb} = await sb.from('leaderboard_view').select('id').eq('nick',nick).neq('id',currentUser.id).maybeSingle(); taken = !!fb; }
+        else taken = !!rpc.data;
+        if(taken){ profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს','var(--red)'); return; }
+      }
+      const phoneChanged = phone !== (currentUser.phone||'');
+      const telegramChanged = telegram !== (currentUser.telegram||'');
+      if(nickChanged || icon !== currentUser.icon || phoneChanged || telegramChanged){
+        const upd = { nick: nick || currentUser.nick, icon };
+        if(phoneChanged) upd.phone = phone || null;
+        if(telegramChanged) upd.telegram = telegram || null;
+        let { data: updData, error: updErr } = await sb.from('users').update(upd).eq('id',currentUser.id).select('id');
+        if(updErr){
+          if(String(updErr.message||'').toLowerCase().includes('duplicate') || updErr.code==='23505'){ profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს','var(--red)'); return; }
+          profileMsg('შენახვა ვერ მოხერხდა: '+updErr.message,'var(--red)'); return;
+        }
+        if(!updData || updData.length===0){ profileMsg('შენახვა დაბლოკილია (RLS).','var(--red)'); return; }
+        if(nickChanged) currentUser.nick = nick;
+        currentUser.icon = icon;
+        if(phoneChanged) currentUser.phone = phone || null;
+        if(telegramChanged) currentUser.telegram = telegram || null;
+      }
+      if(email && email !== currentUser.email){
+        const { error } = await sb.auth.updateUser({ email });
+        if(error){ profileMsg('მეილის შეცვლა ვერ მოხერხდა: '+error.message,'var(--red)'); return; }
+        currentUser.email = email;
+      }
+      if(newPass){
+        const pErr = passwordError(newPass); if(pErr){ profileMsg('ახალი '+pErr,'var(--red)'); return; }
+        if(!oldPass){ profileMsg('შეიყვანე ძველი პაროლი','var(--red)'); return; }
+        const { error: signErr } = await sb.auth.signInWithPassword({ email: currentUser.email, password: oldPass });
+        if(signErr){ profileMsg('ძველი პაროლი არასწორია','var(--red)'); document.getElementById('profOldPass').value=''; document.getElementById('profNewPass').value=''; return; }
+        const { error: upErr } = await sb.auth.updateUser({ password: newPass });
+        if(upErr){ profileMsg('პაროლის შეცვლა ვერ მოხერხდა','var(--red)'); return; }
+      }
+      profileMsg('წარმატებით შეინახა!','var(--green)');
+    }catch(e){ profileMsg('შეცდომა: '+e.message,'var(--red)'); }
+  }
+
+  async function doLogout(){ await sb.auth.signOut(); location.href = '/'; }
+
+  async function init(){
+    let session = null;
+    try{ const { data } = await sb.auth.getSession(); session = data.session; }catch(e){}
+    document.getElementById('pfLoading').style.display = 'none';
+    if(!session){ document.getElementById('pfGuest').style.display = 'block'; return; }
+    let ud = null;
+    try{ const res = await sb.from('users').select('*').eq('id', session.user.id).maybeSingle(); ud = res.data; }catch(e){}
+
+    // ── ბალანსი იმ ფენტეზის მიხედვით, საიდანაც მოვიდა ──
+    // UFC → users.balance; F1 → get_sport_balance RPC (user_balances, sport='f1').
+    // თუ RPC ვერ იმუშავებს, UFC-ის ბალანსზე ვრჩებით, გვერდი მაინც იტვირთება.
+    let balance = (ud && ud.balance != null) ? ud.balance : 1000;
+    if (SPORT === 'f1') {
+      try {
+        const { data: b, error } = await sb.rpc('get_sport_balance', { p_sport: 'f1' });
+        if (!error && b && b.balance != null) balance = b.balance;
+      } catch(e){}
+    }
+
+    currentUser = {
+      id: session.user.id, email: session.user.email,
+      nick: ud?.nick || (session.user.email||'').split('@')[0],
+      balance: balance,
+      icon: ud?.icon || '\ud83e\udd4a',
+      phone: ud?.phone || null, telegram: ud?.telegram || null
+    };
+    document.getElementById('pfContent').style.display = 'block';
+    fillForm();
+    document.getElementById('profileSave').addEventListener('click', saveProfile);
+    document.getElementById('profileLogout').addEventListener('click', doLogout);
+  }
+  init();
+})();
+</script>
+<nav class="mnav" id="mnav">
+  <button class="mnav-btn" id="mnavSport">
+    <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNzIgNzIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMTIiIHk9IjE4IiB3aWR0aD0iNDgiIGhlaWdodD0iNyIgcng9IjEuNSIvPjxyZWN0IHg9IjEyIiB5PSIzMyIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjciIHJ4PSIxLjUiLz48cmVjdCB4PSIxMiIgeT0iNDgiIHdpZHRoPSI0OCIgaGVpZ2h0PSI3IiByeD0iMS41Ii8+PC9zdmc+Cg==" alt="">
+    <span class="mnav-lbl">ფენტეზის ტიპი</span>
+    <div class="mnav-pop">
+      <div class="mnav-pop-opt on">UFC <span class="mnav-pop-tag">აქტიური</span></div>
+      <a class="mnav-pop-opt" href="/f1">F1 <span class="mnav-pop-tag">აქტიური</span></a>
+    </div>
+  </button>
+  <button class="mnav-btn" onclick="location.href='/ufc#leaderboard'">
+    <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNzIgNzIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTUyLjIsMTEuOGMuMTYsMCwuMjguMTQuMjQuMy0uMi44OC0uOTQsNC4zLTMuNTksMTcuNTItMS41OSw3Ljk0LTUuNSwxMi41Ny0xMi44MywxMi41N3MtMTEuMjUtNC41LTEyLjgzLTEyLjQ0Yy0yLjQxLTExLjg1LTMuNjctMTcuOTQtMy42Ny0xNy45NGgzMi42OFoiLz48cGF0aCBkPSJNMjMsMzEuNXMuMDgtLjI2LTUuNDItMy45M2MtMi41My0xLjY4LTUuNDYtMy45LTUuNDYtNi45NHMyLjUtNS4xMSw1LjU0LTUuMTFoMS41MSIvPjxwYXRoIGQ9Ik00OC43LDMxLjhzLjA4LS4yNiw1LjU4LTMuOTNjMi41My0xLjY4LDUuNTQtMy45LDUuNTQtNi45NHMtMi4zMy01LjEzLTUuMTctNS4xMmgtMi4xNSIvPjxyZWN0IHg9IjI2LjU1IiB5PSI1MC4zMyIgd2lkdGg9IjE4LjMzIiBoZWlnaHQ9IjkuMTciIHJ4PSIxIi8+PGxpbmUgeDE9IjM2IiB4Mj0iMzYiIHkxPSI1MC4zMyIgeTI9IjQyLjIiLz48L3N2Zz4K" alt="">
+    <span class="mnav-lbl">ლიდერბორდი</span>
+  </button>
+  <button class="mnav-btn" onclick="location.href='/ufc#tickets'">
+    <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMjQgMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTMgOGEyIDIgMCAwIDEgMi0yaDE0YTIgMiAwIDAgMSAyIDJ2MmEyIDIgMCAwIDAgMCA0djJhMiAyIDAgMCAxLTIgMkg1YTIgMiAwIDAgMS0yLTJ2LTJhMiAyIDAgMCAwIDAtNFY4eiIvPjxsaW5lIHgxPSI5IiB5MT0iNiIgeDI9IjkiIHkyPSIxOCIgc3Ryb2tlLWRhc2hhcnJheT0iMiAyIi8+PC9zdmc+Cg==" alt="">
+    <span class="mnav-lbl">ბილეთების ისტორია</span>
+  </button>
+  <a class="mnav-btn on" href="#">
+    <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMjQgMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI0Ii8+PHBhdGggZD0iTTQgMjFjMC00LjQgMy42LTcgOC03czggMi42IDggNyIvPjwvc3ZnPgo=" alt="">
+    <span class="mnav-lbl">პროფილი</span>
+  </a>
+</nav>
+<script>
+(function(){var sp=document.getElementById('mnavSport');if(!sp)return;var pop=sp.querySelector('.mnav-pop');sp.addEventListener('click',function(e){if(e.target.closest('.mnav-pop-opt'))return;if(pop)pop.classList.toggle('show');});document.addEventListener('click',function(e){if(pop&&!e.target.closest('#mnavSport'))pop.classList.remove('show');});})();
+</script>
+<!-- ── REPORT CONTACT POPUP ── -->
+<div id="reportPopup" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(5,4,8,.8);backdrop-filter:blur(6px);justify-content:center;align-items:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
+  <div style="background:var(--surface,#14121c);border:1px solid var(--line,#2a2734);border-radius:12px;padding:28px;max-width:340px;width:100%;text-align:center">
+    <h3 style="font-family:var(--display,inherit);font-size:1.4rem;margin-bottom:16px">კონტაქტი</h3>
+    <a href="https://t.me/GeoArchnemesis" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;margin-bottom:10px;background:var(--ink,#0b0a10);border:1px solid var(--line,#2a2734);border-radius:8px;color:#4ea1ff;font-family:var(--mono,monospace);font-weight:700;font-size:1rem;text-decoration:none">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+      @GeoArchnemesis</a>
+    <a href="https://wa.me/995557007665" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;gap:8px;padding:14px;margin-bottom:16px;background:var(--ink,#0b0a10);border:1px solid var(--line,#2a2734);border-radius:8px;color:#25D366;font-family:var(--mono,monospace);font-weight:700;font-size:1rem;text-decoration:none">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+      557 007 665</a>
+    <button onclick="document.getElementById('reportPopup').style.display='none'" style="color:var(--muted,#888);font-size:.9rem;font-family:inherit;cursor:pointer;background:none;border:none">დახურვა</button>
+  </div>
+</div>
 </body>
 </html>
