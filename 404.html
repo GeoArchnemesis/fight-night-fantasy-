@@ -22,9 +22,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     var raw = location.pathname.replace(/\/+$/, '');
     var p = raw.toLowerCase();
     var target = null;
-    if (p === '/f1' || p === '/f1.html') target = '/f1.html';
-    else if (p === '/ufc' || p === '/ufc.html') target = '/ufc.html';
-    else if (p === '' || p === '/index' || p === '/index.html') target = '/';
+    // ძველი .html მისამართები ახალ სუფთა URL-ზე გადავამისამართოთ
+    if (p === '/f1.html') target = '/f1';
+    else if (p === '/ufc.html') target = '/ufc';
+    else if (p === '/index' || p === '/index.html') target = '/';
     if (target && raw !== target) location.replace(target);
   })();
 </script>
