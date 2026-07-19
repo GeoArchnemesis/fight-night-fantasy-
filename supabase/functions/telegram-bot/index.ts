@@ -432,6 +432,88 @@ const ESPN_F1 = 'https://site.api.espn.com/apis/site/v2/sports/racing/f1/scorebo
 const SEASON = new Date().getUTCFullYear()   // მიმდინარე წელი — ხელით ცვლა არ სჭირდება
 
 // ESPN-იდან მომდევნო F1 რბოლის შექმნა (OpenF1 401-ს აბრუნებს — ეს მისი ჩამნაცვლებელია)
+
+// ── აქტიური (pending) ბილეთები — UFC ──
+async function cmdActiveTickets(chatId: number): Promise<string> {
+  const { data: tickets } = await sb.from('tickets')
+    .select('id,user_id,stake,potential_win,type,status').eq('status', 'pending').order('user_id')
+  if (!tickets || !tickets.length) return '🎫 აქტიური UFC ბილეთი არ არის'
+
+  // მომხმარებლების ნიკები
+  const uids = [...new Set(tickets.map(t => t.user_id))]
+  const { data: users } = await sb.from('users').select('id,nick').in('id', uids)
+  const nick: Record<string, string> = {}
+  for (const u of users || []) nick[u.id] = u.nick || '—'
+
+  // selections თითო ბილეთზე (მებრძოლი + kind)
+  const tids = tickets.map(t => t.id)
+  const { data: sels } = await sb.from('ticket_selections')
+    .select('ticket_id,picked_fighter,fight:fights!fight_id(red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name))').in('ticket_id', tids)
+  const byTicket: Record<number, string[]> = {}
+  for (const s of sels || []) {
+    const f: any = s.fight
+    const pick = s.picked_fighter === 'red' ? f?.red?.name : f?.blue?.name
+    ;(byTicket[s.ticket_id] = byTicket[s.ticket_id] || []).push(pick || '—')
+  }
+
+  // ჯგუფება მომხმარებლის მიხედვით
+  const byUser: Record<string, any[]> = {}
+  for (const t of tickets) (byUser[t.user_id] = byUser[t.user_id] || []).push(t)
+
+  let totalStake = 0
+  const lines: string[] = []
+  for (const uid of Object.keys(byUser)) {
+    const uts = byUser[uid]
+    lines.push(`\n👤 <b>${nick[uid]}</b> — ${uts.length} ბილეთი`)
+    for (const t of uts) {
+      totalStake += t.stake || 0
+      const picks = (byTicket[t.id] || []).join(', ')
+      const kind = t.type === 'express' ? 'ექსპრესი' : 'სინგლი'
+      lines.push(`  🎫 #${t.id} (${kind}) — ${t.stake} → ${t.potential_win}\n     ${picks}`)
+    }
+  }
+  return `🎫 <b>UFC აქტიური ბილეთები</b>\n\nსულ: <b>${tickets.length}</b> ბილეთი | ${Object.keys(byUser).length} მომხმარებელი | ჯამური ფსონი: <b>${totalStake}</b>\n${lines.join('\n')}`
+}
+
+// ── აქტიური (pending) ბილეთები — F1 ──
+async function cmdF1ActiveTickets(chatId: number): Promise<string> {
+  const { data: tickets } = await sb.from('f1_tickets')
+    .select('id,user_id,stake,potential_win,type,status').eq('status', 'pending').order('user_id')
+  if (!tickets || !tickets.length) return '🎫 აქტიური F1 ბილეთი არ არის'
+
+  const uids = [...new Set(tickets.map(t => t.user_id))]
+  const { data: users } = await sb.from('users').select('id,nick').in('id', uids)
+  const nick: Record<string, string> = {}
+  for (const u of users || []) nick[u.id] = u.nick || '—'
+
+  const tids = tickets.map(t => t.id)
+  const { data: sels } = await sb.from('f1_selections')
+    .select('ticket_id,driver:f1_drivers!driver_id(name),market:f1_markets!market_id(kind)').in('ticket_id', tids)
+  const byTicket: Record<number, string[]> = {}
+  const KIND: Record<string, string> = { race: 'რბოლა', quali: 'კვალიფ.', fastest_lap: 'სწრ.წრე', sprint: 'სპრინტი', sprint_quali: 'სპრ.კვალ.' }
+  for (const s of sels || []) {
+    const d: any = s.driver, m: any = s.market
+    ;(byTicket[s.ticket_id] = byTicket[s.ticket_id] || []).push(`${d?.name || '—'} (${KIND[m?.kind] || m?.kind || '—'})`)
+  }
+
+  const byUser: Record<string, any[]> = {}
+  for (const t of tickets) (byUser[t.user_id] = byUser[t.user_id] || []).push(t)
+
+  let totalStake = 0
+  const lines: string[] = []
+  for (const uid of Object.keys(byUser)) {
+    const uts = byUser[uid]
+    lines.push(`\n👤 <b>${nick[uid]}</b> — ${uts.length} ბილეთი`)
+    for (const t of uts) {
+      totalStake += t.stake || 0
+      const picks = (byTicket[t.id] || []).join(', ')
+      const kind = t.type === 'express' ? 'ექსპრესი' : 'სინგლი'
+      lines.push(`  🎫 #${t.id} (${kind}) — ${t.stake} → ${t.potential_win}\n     ${picks}`)
+    }
+  }
+  return `🎫 <b>F1 აქტიური ბილეთები</b>\n\nსულ: <b>${tickets.length}</b> ბილეთი | ${Object.keys(byUser).length} მომხმარებელი | ჯამური ფსონი: <b>${totalStake}</b>\n${lines.join('\n')}`
+}
+
 async function cmdF1CreateEvent(chatId: number): Promise<string> {
   let cal: any
   try {
@@ -703,7 +785,9 @@ Deno.serve(async (req) => {
     // ── F1 ბრძანებები (ჯერ ეს — "f1 კოეფ" UFC-ის ბრენჩში რომ არ ჩავარდეს) ──
     if (text.startsWith('f1') || text.startsWith('/f1')) {
       const t = text.replace(/^\/?f1\s*/, '')
-      if (t.includes('სტატუს') || t.includes('status') || t === '') {
+      if (t.includes('ბილეთ') || t.includes('ticket') || t.includes('აქტიურ')) {
+        response = await cmdF1ActiveTickets(chatId)
+      } else if (t.includes('სტატუს') || t.includes('status') || t === '') {
         response = await cmdF1Status(chatId)
       } else if (t.includes('კოეფ') || t.includes('odds')) {
         await sendMsg(chatId, '⏳ Cloudbet კოეფები...')
@@ -733,7 +817,7 @@ Deno.serve(async (req) => {
       }
     }
     else if (text === '/start' || text === 'help' || text === '/help') {
-      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── UFC ──</b>\n📥 <b>ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>settle</b> — ბილეთების დამუშავება\n🔄 <b>სრულად</b> — ყველაფერი ერთად\n📋 <b>სტატუსი</b> — მდგომარეობა\n💰 <b>რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი`
+      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── UFC ──</b>\n📥 <b>ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>settle</b> — ბილეთების დამუშავება\n🔄 <b>სრულად</b> — ყველაფერი ერთად\n🎫 <b>ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>სტატუსი</b> — მდგომარეობა\n💰 <b>რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი`
     }
     else if (text.includes('ივენთ') || text.includes('event') || text === '/event') {
       await sendMsg(chatId, '⏳ ESPN-დან ძებნა...')
@@ -757,6 +841,9 @@ Deno.serve(async (req) => {
     }
     else if (text.includes('სრულად') || text.includes('full') || text === '/full') {
       response = await cmdFull(chatId)
+    }
+    else if (text.includes('ბილეთ') || text.includes('ticket') || text.includes('აქტიურ')) {
+      response = await cmdActiveTickets(chatId)
     }
     else if (text.includes('სტატუს') || text.includes('status') || text === '/status') {
       response = await cmdStatus(chatId)
