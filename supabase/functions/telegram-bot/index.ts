@@ -752,6 +752,163 @@ async function cmdF1Full(chatId: number): Promise<string> {
   return await cmdF1Status(chatId)
 }
 
+// ═══════════════════════════════ NBA კომანდები ═══════════════════════════════
+// nba-auto.js-ის სარკე: ID-ით matching, კოეფის timestamp მხოლოდ წარმატებაზე,
+// completed თამაშებს არასდროს ვეხებით.
+
+const ESPN_NBA = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard'
+
+function espnDateStr(d: Date): string { return d.toISOString().slice(0, 10).replace(/-/g, '') }
+function tbTime(t: string | null): string {
+  return t ? new Date(t).toLocaleString('ka-GE', { timeZone: 'Asia/Tbilisi', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
+}
+function nbaTeamMatch(a: string, b: string): number {
+  const na = (a || '').trim().toLowerCase(), nb = (b || '').trim().toLowerCase()
+  if (na && na === nb) return 2
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, ' ').trim().split(/\s+/).filter(Boolean)
+  const wa = norm(a || ''), wb = norm(b || '')
+  let m = 0
+  for (const w of wa) if (wb.some(x => x.startsWith(w.slice(0, 4)) || w.startsWith(x.slice(0, 4)))) m++
+  return m / Math.max(wa.length, wb.length, 1)
+}
+
+async function cmdNbaStatus(chatId: number): Promise<string> {
+  const nowIso = new Date().toISOString()
+  const { data: up } = await sb.from('nba_games')
+    .select('home_team,away_team,home_odds,away_odds,start_time')
+    .eq('status', 'upcoming').eq('is_voided', false).gt('start_time', nowIso)
+    .order('start_time').limit(10)
+  const { data: live } = await sb.from('nba_games')
+    .select('home_team,away_team').eq('status', 'upcoming').eq('is_voided', false).lte('start_time', nowIso)
+  const { count: pending } = await sb.from('nba_tickets')
+    .select('id', { count: 'exact', head: true }).eq('status', 'pending')
+
+  let out = '🏀 <b>NBA სტატუსი</b>\n'
+  if (live && live.length) out += `\n🔴 მიმდინარე: ${live.map((g: any) => `${g.away_team} @ ${g.home_team}`).join('; ')}\n`
+  if (up && up.length) {
+    out += '\n<b>მომდევნო თამაშები (Tbilisi):</b>\n'
+    out += up.map((g: any) => `• ${tbTime(g.start_time)} — ${g.away_team} @ ${g.home_team}${g.home_odds ? ` (${g.away_odds}/${g.home_odds})` : ' (კოეფი არაა)'}`).join('\n')
+  } else if (!live?.length) {
+    out += '\n📭 დაგეგმილი თამაში არ არის (off-season?)'
+  }
+  out += `\n\n🎫 pending ბილეთი: ${pending || 0}`
+  return out
+}
+
+async function cmdNbaOdds(chatId: number): Promise<string> {
+  if (!ODDS_API_KEY) return '⚠️ ODDS_API_KEY არ არის'
+  const nowIso = new Date().toISOString()
+  const winIso = new Date(Date.now() + 72 * 3600000).toISOString()
+  const { data: games } = await sb.from('nba_games')
+    .select('id,home_team,away_team').eq('status', 'upcoming').eq('is_voided', false)
+    .gt('start_time', nowIso).lt('start_time', winIso)
+  if (!games || !games.length) return '📭 კოეფებისთვის თამაში არ არის (72სთ ფანჯარა)'
+
+  let oddsData: any
+  try {
+    const r = await fetch(`https://api.the-odds-api.com/v4/sports/basketball_nba/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h&oddsFormat=decimal`)
+    if (!r.ok) return `❌ Odds API: HTTP ${r.status}`
+    oddsData = await r.json()
+  } catch (e) { return `❌ Odds API: ${(e as Error).message}` }
+
+  let updated = 0
+  for (const g of games) {
+    let best: any = null, bestScore = 0
+    for (const og of oddsData) {
+      const s = nbaTeamMatch(og.home_team, g.home_team) + nbaTeamMatch(og.away_team, g.away_team)
+      if (s > bestScore) { bestScore = s; best = og }
+    }
+    if (bestScore < 2.0 || !best) continue
+    const preferred = ['pinnacle', 'betonlineag', 'betsson', 'nordicbet', 'coolbet']
+    let bm: any = null
+    for (const key of preferred) { bm = best.bookmakers?.find((b: any) => b.key === key); if (bm) break }
+    if (!bm) bm = best.bookmakers?.[0]
+    const h2h = bm?.markets?.find((m: any) => m.key === 'h2h')
+    if (!h2h) continue
+    const ho = h2h.outcomes.find((o: any) => nbaTeamMatch(o.name, g.home_team) >= 1)?.price
+    const ao = h2h.outcomes.find((o: any) => nbaTeamMatch(o.name, g.away_team) >= 1)?.price
+    if (!ho || !ao) continue
+    await sb.from('nba_games').update({
+      home_odds: Math.round(ho * 100) / 100,
+      away_odds: Math.round(ao * 100) / 100,
+      odds_updated_at: new Date().toISOString(),
+    }).eq('id', g.id)
+    updated++
+  }
+  return `📊 <b>NBA კოეფები</b>\n\n${updated}/${games.length} თამაში განახლდა`
+}
+
+async function cmdNbaResults(chatId: number): Promise<string> {
+  const nowIso = new Date().toISOString()
+  const { data: started } = await sb.from('nba_games')
+    .select('id,espn_event_id,home_team,away_team,start_time')
+    .eq('status', 'upcoming').eq('is_voided', false).lte('start_time', nowIso)
+  if (!started || !started.length) return '📭 დაწყებული/დასამუშავებელი თამაში არ არის'
+
+  const minStart = new Date(Math.min(...started.map((g: any) => new Date(g.start_time).getTime())) - 86400000)
+  const maxD = new Date(Date.now() + 86400000)
+  let data: any
+  try {
+    const r = await fetch(`${ESPN_NBA}?dates=${espnDateStr(minStart)}-${espnDateStr(maxD)}&limit=200`)
+    if (!r.ok) return `❌ ESPN: HTTP ${r.status}`
+    data = await r.json()
+  } catch (e) { return `❌ ESPN: ${(e as Error).message}` }
+
+  const byId = new Map((data.events || []).map((ev: any) => [String(ev.id), ev]))
+  let written = 0, lines: string[] = []
+  for (const g of started) {
+    const ev: any = byId.get(g.espn_event_id)
+    if (!ev || !ev.status?.type?.completed) continue
+    const comp = ev.competitions?.[0]
+    const winnerComp = comp?.competitors?.find((c: any) => c.winner === true)
+    if (!winnerComp) { lines.push(`⚠ ${g.away_team} @ ${g.home_team}: winner ვერ დადგინდა`); continue }
+    const side = winnerComp.homeAway === 'home' ? 'home' : 'away'
+    const { error } = await sb.from('nba_games').update({ status: 'completed', result_winner: side }).eq('id', g.id)
+    if (!error) { written++; lines.push(`🏆 ${g.away_team} @ ${g.home_team} → ${side === 'home' ? g.home_team : g.away_team}`) }
+  }
+
+  let tail = ''
+  if (written > 0) {
+    const { data: res, error } = await sb.rpc('settle_nba_tickets')
+    if (error || !res?.ok) tail = `\n\n🚨 Settlement ჩავარდა: ${res?.error || error?.message}`
+    else tail = `\n\n🏁 Settlement: ✅${res.won} ❌${res.lost}${res.voided > 0 ? ` ↩️${res.voided}` : ''} ⏭${res.skipped}`
+  }
+  return `🏀 <b>NBA შედეგები</b>\n\n${lines.length ? lines.join('\n') : 'ახალი დასრულებული არ არის'}${tail}`
+}
+
+async function cmdNbaSettle(chatId: number): Promise<string> {
+  const { data: res, error } = await sb.rpc('settle_nba_tickets')
+  if (error || !res?.ok) return `❌ NBA settlement ჩავარდა: ${res?.error || error?.message || 'უცნობი'}`
+  return `🏁 <b>NBA Settlement</b>\n\n✅ ${res.won} მოგებული\n❌ ${res.lost} წაგებული${res.voided > 0 ? `\n↩️ ${res.voided} void` : ''}\n⏭ ${res.skipped} ელოდება`
+}
+
+async function cmdNbaReset(chatId: number, force: boolean): Promise<string> {
+  if (!force) {
+    const { count } = await sb.from('nba_tickets')
+      .select('id', { count: 'exact', head: true }).eq('status', 'pending')
+    if ((count || 0) > 0) return `⛔ ${count} pending NBA ბილეთია.\nჯერ <b>nba settle</b>, ან ძალით: <b>nba reset force</b>\n(რესეტი იდემპოტენტურია — pending stake-ები ისევ ჩამოიჭრება)`
+  }
+  const { data: res, error } = await sb.rpc('nba_reset_balances')
+  if (error || !res?.ok) return `❌ შეცდომა: ${res?.error || error?.message}`
+  return `💰 <b>NBA ბალანსები დარესეტდა</b>\n\n${res.reset} მომხმარებელი → 1,000${res.deducted_users ? `\n${res.deducted_users}-ს pending ჩამოეჭრა` : ''}`
+}
+
+async function cmdNbaActiveTickets(chatId: number): Promise<string> {
+  const { data: tickets } = await sb.from('nba_tickets')
+    .select('id,stake,total_odds,potential_win,type,placed_at,users(nick),nba_selections(picked_side,odds,nba_games(home_team,away_team,home_abbr,away_abbr))')
+    .eq('status', 'pending').order('placed_at', { ascending: false }).limit(20)
+  if (!tickets || !tickets.length) return '📭 აქტიური NBA ბილეთი არ არის'
+  const lines = tickets.map((t: any) => {
+    const sels = (t.nba_selections || []).map((s: any) => {
+      const g = s.nba_games
+      const pick = s.picked_side === 'home' ? (g?.home_abbr || g?.home_team) : (g?.away_abbr || g?.away_team)
+      return `${g?.away_abbr || g?.away_team}@${g?.home_abbr || g?.home_team}→${pick}(${s.odds})`
+    }).join(', ')
+    return `• <b>${t.users?.nick || '?'}</b> — ${t.stake} @ ${t.total_odds} → ${t.potential_win}\n  ${sels}`
+  })
+  return `🎫 <b>აქტიური NBA ბილეთები (${tickets.length})</b>\n\n${lines.join('\n')}`
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('OK', { status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Telegram-Bot-Api-Secret-Token, X-Admin-Secret' } })
@@ -782,8 +939,30 @@ Deno.serve(async (req) => {
       return new Response('OK', { status: 200 })
     }
     let response = ''
+    // ── NBA ბრძანებები (F1-ის მსგავსად პრეფიქსით — UFC-ის ბრენჩში რომ არ ჩავარდეს) ──
+    if (text.startsWith('nba') || text.startsWith('/nba')) {
+      const t = text.replace(/^\/?nba\s*/, '')
+      if (t.includes('ბილეთ') || t.includes('ticket') || t.includes('აქტიურ')) {
+        response = await cmdNbaActiveTickets(chatId)
+      } else if (t.includes('სტატუს') || t.includes('status') || t === '') {
+        response = await cmdNbaStatus(chatId)
+      } else if (t.includes('კოეფ') || t.includes('odds')) {
+        await sendMsg(chatId, '⏳ Odds API...')
+        response = await cmdNbaOdds(chatId)
+      } else if (t.includes('შედეგ') || t.includes('result')) {
+        await sendMsg(chatId, '⏳ ESPN-დან NBA შედეგები...')
+        response = await cmdNbaResults(chatId)
+      } else if (t.includes('settle') || t.includes('დამუშავ')) {
+        await sendMsg(chatId, '⏳ NBA Settlement...')
+        response = await cmdNbaSettle(chatId)
+      } else if (t.includes('რესეტ') || t.includes('reset')) {
+        response = await cmdNbaReset(chatId, t.includes('force') || t.includes('ძალით'))
+      } else {
+        response = '🤷 ვერ გავიგე. NBA ბრძანებები: <b>help</b>'
+      }
+    }
     // ── F1 ბრძანებები (ჯერ ეს — "f1 კოეფ" UFC-ის ბრენჩში რომ არ ჩავარდეს) ──
-    if (text.startsWith('f1') || text.startsWith('/f1')) {
+    else if (text.startsWith('f1') || text.startsWith('/f1')) {
       const t = text.replace(/^\/?f1\s*/, '')
       if (t.includes('ბილეთ') || t.includes('ticket') || t.includes('აქტიურ')) {
         response = await cmdF1ActiveTickets(chatId)
@@ -817,7 +996,7 @@ Deno.serve(async (req) => {
       }
     }
     else if (text === '/start' || text === 'help' || text === '/help') {
-      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── UFC ──</b>\n📥 <b>ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>settle</b> — ბილეთების დამუშავება\n🔄 <b>სრულად</b> — ყველაფერი ერთად\n🎫 <b>ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>სტატუსი</b> — მდგომარეობა\n💰 <b>რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი`
+      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── UFC ──</b>\n📥 <b>ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>settle</b> — ბილეთების დამუშავება\n🔄 <b>სრულად</b> — ყველაფერი ერთად\n🎫 <b>ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>სტატუსი</b> — მდგომარეობა\n💰 <b>რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)`
     }
     else if (text.includes('ივენთ') || text.includes('event') || text === '/event') {
       await sendMsg(chatId, '⏳ ESPN-დან ძებნა...')
