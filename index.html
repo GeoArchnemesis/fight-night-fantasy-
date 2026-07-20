@@ -11,7 +11,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Fight Night Fantasy — აირჩიე ფენტეზი</title>
-<meta name="description" content="Fight Night Fantasy — აირჩიე ფენტეზის ტიპი: UFC ან Formula 1. დადე მომგებიანი ბილეთები, გალიდერდი ლიდერბორდზე და მიიღე ყოველთვიური ფულადი პრიზები." />
+<meta name="description" content="Fight Night Fantasy — აირჩიე ფენტეზის ტიპი: UFC, Formula 1 ან NBA. დადე მომგებიანი ბილეთები, გალიდერდი ლიდერბორდზე და მიიღე ყოველთვიური ფულადი პრიზები." />
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
@@ -25,15 +25,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .land-logo .bw{color:var(--text,#fff)}.land-logo .bn{color:var(--red,#f31d25)}.land-logo .bf{color:var(--text,#fff)}
   .land-title{font-family:var(--head);font-weight:900;font-size:clamp(1.6rem,5vw,2.6rem);text-align:center;margin:18px 0 6px;color:var(--text,#fff)}
   .land-desc{color:var(--muted,#9a97a8);text-align:center;max-width:440px;margin-bottom:34px;font-size:.98rem;line-height:1.5}
-  .land-cards{display:grid;grid-template-columns:1fr 1fr;gap:20px;width:100%;max-width:760px}
+  .land-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;width:100%;max-width:1020px}
   .land-card{position:relative;display:block;border:1px solid var(--line,#26232f);border-radius:18px;background-color:var(--surface,#14121b);background-repeat:no-repeat;background-position:center;background-size:cover;text-decoration:none;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;overflow:hidden;min-height:240px}
   .land-card.ufc{background-image:url('https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/object/public/site/landing-ufc')}
   .land-card.f1{background-image:url('https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/object/public/site/landing-f1')}
+  .land-card.nba{background-image:url('https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/object/public/site/landing-nba')}
   .land-card:hover{transform:translateY(-6px);box-shadow:0 24px 60px -20px rgba(0,0,0,.7)}
   .land-card.ufc:hover{border-color:var(--red,#f31d25)}
   .land-card.f1:hover{border-color:#30d1b4}
+  .land-card.nba:hover{border-color:#ff8c42}
   .land-foot{margin-top:34px;color:var(--muted,#9a97a8);font-size:.8rem;text-align:center}
-  @media(max-width:560px){.land-cards{grid-template-columns:1fr;max-width:360px}.land-card{min-height:160px}}
+  @media(max-width:860px){.land-cards{grid-template-columns:1fr;max-width:360px}.land-card{min-height:160px}}
 </style>
 </head>
 <body class="landing">
@@ -50,6 +52,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div class="land-cards">
   <a href="/ufc" class="land-card ufc" aria-label="UFC"></a>
   <a href="/f1" class="land-card f1" aria-label="Formula 1"></a>
+  <a href="/nba" class="land-card nba" aria-label="NBA"></a>
 </div>
 
 <!-- <div class="land-foot">საიტი მუშაობს სატესტო რეჟიმში.</div> -->
