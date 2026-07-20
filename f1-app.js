@@ -130,7 +130,7 @@ async function doCashout(idx) {
   const ageMs = serverNow() - (t.placedAt || serverNow());
   const est = Math.round((t.stake || 0) * (ageMs <= 3600000 ? 1 : 0.8));
   const confirmed = await confirmCashoutPopup(
-    'ნამდვილად გსურს ქეშაუთი?<br>მიახლოებით <b>' + fmt(est) + '</b> ქულა');
+    'ნამდვილად გსურს ქეშაუთი?<br>მიიღე <b>' + fmt(est) + '</b> ქულა');
   if (!confirmed) return;
   try {
     const { data: res, error } = await sb.rpc('cashout_ticket_f1', { p_ticket_id: t._dbId });
