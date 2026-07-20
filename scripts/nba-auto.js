@@ -292,22 +292,46 @@ async function fetchResultsAndSettle() {
 // ── 4. ორშაბათის კვირეული რესეტი ─────────────────────────────
 
 async function weeklyResetIfMonday() {
+  // 1. მხოლოდ ორშაბათს (Tbilisi). სხვა დღეს საერთოდ არ ვცდილობთ რესეტს.
+  const d = tbilisiNow();
+  const isMonday = ((d.getUTCDay() + 6) % 7) === 0;   // ორშაბათი=0
+  if (!isMonday) return;
+
   const key = currentMondayKey();
-  const { data } = await sb.from('app_state').select('value').eq('key', 'nba_last_reset_week').maybeSingle();
-  if (data?.value === key) return;   // ეს კვირა უკვე დარესეტებულია
 
-  // slot ჯერ ჩავწეროთ, მერე რესეტი — ორი პარალელური გაშვება ერთსა და იმავე
-  // კვირას ორჯერ რომ არ დაარესეტოს (RPC ისედაც იდემპოტენტურია, ეს სპამის დაცვაა)
-  await sb.from('app_state').upsert({ key: 'nba_last_reset_week', value: key, updated_at: new Date().toISOString() });
+  // 2. ეს ორშაბათი უკვე დარესეტებულია? — slot-ს ვამოწმებთ. თუ კი, ვჩერდებით.
+  const { data: slot, error: readErr } = await sb.from('app_state')
+    .select('value').eq('key', 'nba_last_reset_week').maybeSingle();
+  if (readErr) { log(`⚠ app_state წაკითხვა ჩავარდა: ${readErr.message} — რესეტს ვტოვებთ (თავიდან ვცდით)`); return; }
+  if (slot?.value === key) return;   // ✅ უკვე გაკეთდა ამ კვირას → აღარ ვიმეორებთ
 
+  // 3. slot ჯერ ჩავწეროთ და ჩაწერა ვერიფიცირდეს. თუ ჩაწერა ვერ დადასტურდა —
+  //    რესეტს საერთოდ არ ვუშვებთ (თორემ ბალანსი დაირესეტდება slot-ის გარეშე
+  //    და ყოველ გაშვებაზე გამეორდება — ზუსტად ეს ბაგი იყო).
+  const { error: upErr } = await sb.from('app_state')
+    .upsert({ key: 'nba_last_reset_week', value: key, updated_at: new Date().toISOString() });
+  if (upErr) {
+    log(`🚨 slot ჩაწერა ჩავარდა: ${upErr.message} — რესეტს ვაუქმებთ`);
+    await sendTelegram(`🚨 <b>NBA რესეტი შეჩერდა</b>\n\nslot ვერ ჩაიწერა app_state-ში:\n<code>${(upErr.message || '').slice(0, 200)}</code>\n\n➡️ რესეტი არ შესრულებულა — შეამოწმე app_state ცხრილი.`);
+    return;
+  }
+  // ჩაწერის დადასტურება — უკან ვკითხულობთ
+  const { data: verify } = await sb.from('app_state')
+    .select('value').eq('key', 'nba_last_reset_week').maybeSingle();
+  if (verify?.value !== key) {
+    log(`🚨 slot ჩაიწერა მაგრამ ვერ დადასტურდა (მოსალოდნელი ${key}, ვიპოვეთ ${verify?.value}) — რესეტს ვაუქმებთ`);
+    await sendTelegram(`🚨 <b>NBA რესეტი შეჩერდა</b>\n\nslot ვერ დადასტურდა app_state-ში — რესეტი არ შესრულებულა.`);
+    return;
+  }
+
+  // 4. slot უსაფრთხოდ ჩაწერილია → ახლა ვასრულებთ რესეტს.
+  //    RPC ჩავარდნაზე slot-ს ვტოვებთ ჩაწერილს (აღარ ვშლით) — ბალანსი ისედაც
+  //    კვირაში 1000-ია, ხოლო ჩავარდნა Telegram-ით შეგვატყობინებს ხელით დასამუშავებლად.
+  //    ეს გამორიცხავს ავტომატურ განმეორებას.
   const { data: res, error } = await sb.rpc('nba_reset_balances');
   if (error || !res?.ok) {
-    // #1 fix: slot-ს ვაუქმებთ, რომ მომდევნო cron-გაშვებამ თავიდან სცადოს —
-    // თორემ ერთი ჩავარდნა მთელი კვირის რესეტს უხმაუროდ გამოტოვებდა.
-    // RPC იდემპოტენტურია, ამიტომ განმეორებითი ცდა უსაფრთხოა.
-    await sb.from('app_state').delete().eq('key', 'nba_last_reset_week');
-    log(`🚨 nba_reset_balances ჩავარდა: ${res?.error || error?.message} — slot გაუქმდა, ვცდით შემდეგ გაშვებაზე`);
-    await sendTelegram(`🚨 <b>NBA კვირეული რესეტი ჩავარდა</b>\n\n<code>${(res?.error || error?.message || '').slice(0, 300)}</code>\n\n🔁 ავტომატურად ვცდით შემდეგ გაშვებაზე (30 წთ).`);
+    log(`🚨 nba_reset_balances ჩავარდა: ${res?.error || error?.message} — slot ჩაწერილია, ავტომ. აღარ მეორდება`);
+    await sendTelegram(`🚨 <b>NBA კვირეული რესეტი ჩავარდა</b>\n\n<code>${(res?.error || error?.message || '').slice(0, 300)}</code>\n\n➡️ ხელით გაუშვი: Telegram-ში <b>nba რესეტი</b>`);
     return;
   }
   log(`💰 კვირეული რესეტი (${key}): ${res.reset} მომხმარებელი → 1,000`);
