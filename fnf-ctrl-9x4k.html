@@ -167,7 +167,7 @@
 <div class="card">
   <h2>🖼️ სადესანტო ბექგრაუნდები (fnf.ge)</h2>
   <div style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">
-    UFC და F1 ბარათების ფონური ფოტოები მთავარ გვერდზე. რეკომენდ.: 1200×800, JPG/WebP, &lt;300KB. ცვლილება ჩანს ~1 წუთში.
+    UFC, F1 და NBA ბარათების ფონური ფოტოები მთავარ გვერდზე. რეკომენდ.: 1200×800, JPG/WebP, &lt;300KB. ცვლილება ჩანს ~1 წუთში.
   </div>
   <div style="display:flex;flex-wrap:wrap;gap:24px;">
     <div style="flex:1;min-width:220px;">
@@ -181,6 +181,12 @@
       <img id="bgPreviewF1" alt="F1" onerror="this.removeAttribute('src')" style="width:100%;max-width:280px;aspect-ratio:3/2;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:block;margin-bottom:8px;" />
       <input type="file" id="bgFileF1" accept="image/*" style="margin-bottom:8px;display:block;" />
       <button class="btn btn-primary" onclick="uploadLandingBg('f1')">⬆️ F1 ფოტოს ატვირთვა</button>
+    </div>
+    <div style="flex:1;min-width:220px;">
+      <div style="font-weight:700;margin-bottom:8px;">NBA ბარათი</div>
+      <img id="bgPreviewNba" alt="NBA" onerror="this.removeAttribute('src')" style="width:100%;max-width:280px;aspect-ratio:3/2;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:block;margin-bottom:8px;" />
+      <input type="file" id="bgFileNba" accept="image/*" style="margin-bottom:8px;display:block;" />
+      <button class="btn btn-primary" onclick="uploadLandingBg('nba')">⬆️ NBA ფოტოს ატვირთვა</button>
     </div>
   </div>
 </div>
@@ -251,9 +257,11 @@ function landingBgUrl(sport) {
 function loadLandingBgPreviews() {
   const u = document.getElementById('bgPreviewUfc'); if (u) u.src = landingBgUrl('ufc');
   const f = document.getElementById('bgPreviewF1'); if (f) f.src = landingBgUrl('f1');
+  const n = document.getElementById('bgPreviewNba'); if (n) n.src = landingBgUrl('nba');
 }
 async function uploadLandingBg(sport) {
-  const input = document.getElementById(sport === 'ufc' ? 'bgFileUfc' : 'bgFileF1');
+  const cap = sport.charAt(0).toUpperCase() + sport.slice(1);   // ufc→Ufc, f1→F1, nba→Nba
+  const input = document.getElementById('bgFile' + cap);
   const file = input && input.files && input.files[0];
   if (!file) { log('❌ ჯერ აირჩიე ფოტო', 'err'); return; }
   if (file.size > 3 * 1024 * 1024) { log('❌ ფოტო > 3MB — შეამცირე', 'err'); return; }
@@ -261,7 +269,7 @@ async function uploadLandingBg(sport) {
   const { error } = await sb.storage.from(BG_BUCKET).upload(`landing-${sport}`, file, { upsert: true, cacheControl: '60', contentType: file.type });
   if (error) { log('❌ ატვირთვა ვერ მოხერხდა: ' + error.message, 'err'); return; }
   log(`✅ ${sport.toUpperCase()} ბექგრაუნდი აიტვირთა (ჩანს ~1 წუთში)`, 'ok');
-  const img = document.getElementById(sport === 'ufc' ? 'bgPreviewUfc' : 'bgPreviewF1');
+  const img = document.getElementById('bgPreview' + cap);
   if (img) img.src = landingBgUrl(sport);
   input.value = '';
 }
