@@ -909,6 +909,59 @@ async function cmdNbaActiveTickets(chatId: number): Promise<string> {
   return `🎫 <b>აქტიური NBA ბილეთები (${tickets.length})</b>\n\n${lines.join('\n')}`
 }
 
+// ── დაბალბალანსიანი მომხმარებლები (ნებისმიერი სპორტი < 1,000) + აქტიური ბილეთები ──
+async function cmdLowBalance(chatId: number): Promise<string> {
+  const { data: ufcLow } = await sb.from('users').select('id').lt('balance', 1000)
+  const { data: f1Low } = await sb.from('user_balances').select('user_id').eq('sport', 'f1').lt('balance', 1000)
+  const { data: nbaLow } = await sb.from('user_balances').select('user_id').eq('sport', 'nba').lt('balance', 1000)
+
+  const ids = [...new Set([
+    ...(ufcLow || []).map((u: any) => u.id),
+    ...(f1Low || []).map((u: any) => u.user_id),
+    ...(nbaLow || []).map((u: any) => u.user_id),
+  ])]
+  if (!ids.length) return '✅ ყველა მომხმარებელს აქვს ≥ 1,000 ბალანსი სამივე სპორტში'
+
+  const { data: users } = await sb.from('users').select('id,nick,balance').in('id', ids)
+  const { data: f1Bal } = await sb.from('user_balances').select('user_id,balance').eq('sport', 'f1').in('user_id', ids)
+  const { data: nbaBal } = await sb.from('user_balances').select('user_id,balance').eq('sport', 'nba').in('user_id', ids)
+
+  const f1BalMap: Record<string, number> = {}
+  for (const b of f1Bal || []) f1BalMap[b.user_id] = b.balance
+  const nbaBalMap: Record<string, number> = {}
+  for (const b of nbaBal || []) nbaBalMap[b.user_id] = b.balance
+
+  const { data: ufcTix } = await sb.from('tickets').select('user_id').eq('status', 'pending').in('user_id', ids)
+  const { data: f1Tix } = await sb.from('f1_tickets').select('user_id').eq('status', 'pending').in('user_id', ids)
+  const { data: nbaTix } = await sb.from('nba_tickets').select('user_id').eq('status', 'pending').in('user_id', ids)
+
+  const countBy = (rows: any[] | null) => {
+    const m: Record<string, number> = {}
+    for (const r of rows || []) m[r.user_id] = (m[r.user_id] || 0) + 1
+    return m
+  }
+  const ufcCount = countBy(ufcTix)
+  const f1Count = countBy(f1Tix)
+  const nbaCount = countBy(nbaTix)
+
+  const lines: string[] = []
+  for (const u of users || []) {
+    const f1b = f1BalMap[u.id]
+    const nbab = nbaBalMap[u.id]
+    const uc = ufcCount[u.id] || 0
+    const fc = f1Count[u.id] || 0
+    const nc = nbaCount[u.id] || 0
+    const total = uc + fc + nc
+    const balStr = `UFC ${u.balance} · F1 ${f1b != null ? f1b : '—'} · NBA ${nbab != null ? nbab : '—'}`
+    const parts: string[] = []
+    if (uc) parts.push(`UFC — ${uc}`)
+    if (fc) parts.push(`F1 — ${fc}`)
+    if (nc) parts.push(`NBA — ${nc}`)
+    lines.push(`👤 <b>${u.nick || '—'}</b>\n💰 ${balStr}\n🎫 აქტიური ბილეთი: <b>${total}</b>${parts.length ? '\n   ' + parts.join('\n   ') : ''}`)
+  }
+  return `📉 <b>დაბალბალანსიანი მომხმარებლები</b> (< 1,000 ერთ-ერთ სპორტში მაინც)\n\nსულ: <b>${users?.length || 0}</b> მომხმარებელი\n\n${lines.join('\n\n')}`
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('OK', { status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Telegram-Bot-Api-Secret-Token, X-Admin-Secret' } })
@@ -996,7 +1049,7 @@ Deno.serve(async (req) => {
       }
     }
     else if (text === '/start' || text === 'help' || text === '/help') {
-      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── UFC ──</b>\n📥 <b>ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>settle</b> — ბილეთების დამუშავება\n🔄 <b>სრულად</b> — ყველაფერი ერთად\n🎫 <b>ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>სტატუსი</b> — მდგომარეობა\n💰 <b>რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)`
+      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── UFC ──</b>\n📥 <b>ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>settle</b> — ბილეთების დამუშავება\n🔄 <b>სრულად</b> — ყველაფერი ერთად\n🎫 <b>ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>სტატუსი</b> — მდგომარეობა\n💰 <b>რესეტი</b> — ბალანსები → 1,000\n📉 <b>დაბალი ბალანსი</b> — < 1,000 ბალანსიანები (ნებისმ. სპორტი) + აქტიური ბილეთები\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)`
     }
     else if (text.includes('ივენთ') || text.includes('event') || text === '/event') {
       await sendMsg(chatId, '⏳ ESPN-დან ძებნა...')
@@ -1030,6 +1083,9 @@ Deno.serve(async (req) => {
     else if (text.includes('რესეტ') || text.includes('reset') || text === '/reset') {
       await sendMsg(chatId, '⏳ ბალანსების რესეტი...')
       response = await cmdResetBalances(chatId, text.includes('force') || text.includes('ძალით'))
+    }
+    else if (text.includes('დაბალ') && (text.includes('ბალანს') || text.includes('balance'))) {
+      response = await cmdLowBalance(chatId)
     }
     else {
       response = '🤷 ვერ გავიგე. დაწერე <b>help</b> კომანდების სანახავად.'
