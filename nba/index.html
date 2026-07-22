@@ -10,7 +10,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>NBA Fantasy</title>
+<title>Fight Night Fantasy — NBA ფენტეზი ლიგა</title>
 <meta name="description" content="Fight Night Fantasy — NBA ფენტეზი. დადე ფსონი კალათბურთის თამაშების გამარჯვებულზე, გალიდერდი ლიდერბორდზე." />
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
@@ -254,18 +254,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   Google-ით შესვლა
 </button>
 <p class="sub" id="modalSub">შექმენი სახელი და მიიღე 1,000 ქულა.</p>
+<form id="authForm" method="post" action="#" onsubmit="event.preventDefault();document.getElementById('modalSubmit').click()">
 <div class="field" id="nameField">
   <label for="inName">შენი ზედმეტსახელი ფენტეზიში</label>
-  <input type="text" id="inName" placeholder="მაგ. NBA.King" autocomplete="off" maxlength="20" />
+  <input type="text" id="inName" name="nickname" placeholder="მაგ. NBA.King" autocomplete="nickname" maxlength="20" />
 </div>
 <div class="field" id="phoneField" style="display:none">
   <div class="pass-hint" style="margin:0 0 8px;color:var(--gold)">შეიყვანე შენი ნომერი, ფულადი პრიზების მისაღებად.</div>
   <label for="inRegPhone">მობილურის ნომერი</label>
-  <input type="tel" id="inRegPhone" placeholder="მაგ. 555123456" autocomplete="tel" />
+  <input type="tel" id="inRegPhone" name="tel" placeholder="მაგ. 555123456" autocomplete="tel" />
 </div>
 <div class="field" id="birthYearField">
   <label for="inBirthYear">დაბადების წელი</label>
-  <input type="number" id="inBirthYear" placeholder="მაგ. 1998" inputmode="numeric" min="1900" max="2015" autocomplete="off" />
+  <input type="number" id="inBirthYear" name="bday-year" placeholder="მაგ. 1998" inputmode="numeric" min="1900" max="2015" autocomplete="bday-year" />
 </div>
 <div class="field" id="genderField">
   <label>სქესი</label>
@@ -276,12 +277,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 <div class="field">
   <label for="inEmail">ელ. ფოსტა</label>
-  <input type="email" id="inEmail" placeholder="შეიყვანე შენი მეილი" autocomplete="off" />
+  <input type="email" id="inEmail" name="email" placeholder="შეიყვანე შენი მეილი" autocomplete="email" />
 </div>
 <div class="field">
   <label for="inPass">პასვორდი</label>
   <div style="position:relative">
-    <input type="password" id="inPass" placeholder="მინ. 6 სიმბოლო" autocomplete="off" />
+    <input type="password" id="inPass" name="password" placeholder="მინ. 6 სიმბოლო" autocomplete="new-password" />
     <button type="button" class="eye-toggle" onclick="toggleEye('inPass')" aria-label="პაროლის ჩვენება"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
   </div>
   <div class="pass-check" id="passHint">
@@ -294,12 +295,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div class="field" id="confirmField" style="display:none">
   <label for="inPassConfirm">გაიმეორე პასვორდი</label>
   <div style="position:relative">
-    <input type="password" id="inPassConfirm" placeholder="პასვორდი ხელახლა" autocomplete="off" />
+    <input type="password" id="inPassConfirm" name="password-confirm" placeholder="პასვორდი ხელახლა" autocomplete="new-password" />
     <button type="button" class="eye-toggle" onclick="toggleEye('inPassConfirm')" aria-label="პაროლის ჩვენება"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
   </div>
 </div>
 <div id="authError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
-<button class="btn btn-primary" id="modalSubmit">რეგისტრაცია</button>
+<button type="button" class="btn btn-primary" id="modalSubmit">რეგისტრაცია</button>
+</form>
 <div id="forgotWrap" style="display:none;text-align:center;margin-top:10px">
   <button class="modal-link" id="forgotBtn">დაგავიწყდა პასვორდი?</button>
 </div>
@@ -311,7 +313,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <button class="modal-close" id="forgotModalClose" aria-label="დახურვა">&times;</button>
 <h3>პასვორდის აღდგენა</h3>
 <p class="sub" id="forgotSub">შეიყვანე ელ. ფოსტა და გამოგიგზავნით აღდგენის ლინკს.</p>
-<div class="field"><label for="forgotEmail">ელ. ფოსტა</label><input type="email" id="forgotEmail" placeholder="შეიყვანე შენი მეილი" autocomplete="off" /></div>
+<form id="forgotForm" method="post" action="#" onsubmit="event.preventDefault();document.getElementById('forgotSubmit').click()">
+<div class="field"><label for="forgotEmail">ელ. ფოსტა</label><input type="email" id="forgotEmail" name="email" placeholder="შეიყვანე შენი მეილი" autocomplete="email" /></div>
+</form>
 <div id="forgotError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
 <div id="forgotSuccess" style="display:none" class="forgot-success">
   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
@@ -326,8 +330,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div class="modal-bg" id="resetPasswordModal"><div class="modal">
 <h3>ახალი პასვორდის დაყენება</h3>
 <p class="sub">შენი იდენტობა დადასტურებულია — დააყენე ახალი პასვორდი.</p>
-<div class="field"><label for="recoveryNewPass">ახალი პასვორდი</label><input type="password" id="recoveryNewPass" placeholder="მინ. 6 სიმბოლო" autocomplete="new-password" /></div>
-<div class="field"><label for="recoveryNewPassConfirm">გაიმეორე პასვორდი</label><input type="password" id="recoveryNewPassConfirm" placeholder="გაიმეორე ახალი პასვორდი" autocomplete="new-password" /></div>
+<form id="recoveryForm" method="post" action="#" onsubmit="event.preventDefault();document.getElementById('recoverySubmit').click()">
+<div class="field"><label for="recoveryNewPass">ახალი პასვორდი</label><input type="password" id="recoveryNewPass" name="new-password" placeholder="მინ. 6 სიმბოლო" autocomplete="new-password" /></div>
+<div class="field"><label for="recoveryNewPassConfirm">გაიმეორე პასვორდი</label><input type="password" id="recoveryNewPassConfirm" name="new-password-confirm" placeholder="გაიმეორე ახალი პასვორდი" autocomplete="new-password" /></div>
+</form>
 <div id="recoveryError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
 <div id="recoverySuccess" style="display:none" class="forgot-success">
   <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
@@ -345,18 +351,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <span class="field-label" id="iconPickerLabel">აირჩიე აიქონი</span>
   <div class="icon-picker" id="iconPicker" role="radiogroup" aria-labelledby="iconPickerLabel"></div>
 </div>
-<div class="profile-section"><div class="field"><label for="profNick">სახელი (ნიქნეიმი)</label><input type="text" id="profNick" placeholder="მაგ. NBA.King" maxlength="20" /></div></div>
-<div class="profile-section"><div class="field"><label for="profEmail">ელ. ფოსტა</label><input type="email" id="profEmail" placeholder="შეიყვანე მეილი" /></div></div>
+<div class="profile-section"><div class="field"><label for="profNick">სახელი (ნიქნეიმი)</label><input type="text" id="profNick" name="nickname" placeholder="მაგ. NBA.King" autocomplete="nickname" maxlength="20" /></div></div>
+<div class="profile-section"><div class="field"><label for="profEmail">ელ. ფოსტა</label><input type="email" id="profEmail" name="email" placeholder="შეიყვანე მეილი" autocomplete="email" /></div></div>
 <div class="profile-section">
   <div class="field-label" style="margin-bottom:8px">საკონტაქტო ინფორმაცია</div>
-  <div class="field"><label for="profPhone">მობილურის ნომერი</label><input type="tel" id="profPhone" placeholder="მაგ. 555123456" /></div>
+  <div class="field"><label for="profPhone">მობილურის ნომერი</label><input type="tel" id="profPhone" name="tel" placeholder="მაგ. 555123456" autocomplete="tel" /></div>
   <div class="field"><label for="profTelegram">ტელეგრამი</label><input type="text" id="profTelegram" placeholder="მაგ. @username" /></div>
 </div>
+<form id="profPassForm" method="post" action="#" onsubmit="event.preventDefault();document.getElementById('profileSave').click()">
 <div class="profile-section">
   <div class="field-label" style="margin-bottom:12px">პასვორდის შეცვლა</div>
-  <div class="field"><label for="profOldPass">ძველი პასვორდი</label><input type="password" id="profOldPass" placeholder="შეიყვანე ძველი პასვორდი" /></div>
-  <div class="field"><label for="profNewPass">ახალი პასვორდი</label><input type="password" id="profNewPass" placeholder="მინ. 8 სიმბოლო" /></div>
+  <div class="field"><label for="profOldPass">ძველი პასვორდი</label><input type="password" id="profOldPass" name="current-password" placeholder="შეიყვანე ძველი პასვორდი" autocomplete="current-password" /></div>
+  <div class="field"><label for="profNewPass">ახალი პასვორდი</label><input type="password" id="profNewPass" name="new-password" placeholder="მინ. 8 სიმბოლო" autocomplete="new-password" /></div>
 </div>
+</form>
 <div id="profileMsg" style="font-size:.85rem;margin-bottom:10px;display:none"></div>
 <button class="btn btn-primary" id="profileSave">შენახვა</button>
 <button class="btn btn-ghost" id="profileLogout" style="width:100%;margin-top:10px;text-align:center;display:block">გამოსვლა</button>
