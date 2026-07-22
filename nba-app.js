@@ -708,7 +708,7 @@ function authError(msg) { const el = $('authError'); if (el) { el.textContent = 
 function openModal(mode) {
   modalMode = mode; authError('');
   const ae = $('authError'); if (ae) ae.style.color = 'var(--red)';
-  if ($('inPass')) $('inPass').value = '';
+  if ($('inPass')) { $('inPass').value = ''; $('inPass').setAttribute('autocomplete', mode === 'join' ? 'new-password' : 'current-password'); }
   if ($('modalTitle')) $('modalTitle').textContent = mode === 'join' ? 'შემოუერთდი ლიგას' : 'კეთილი იყოს დაბრუნება';
   if ($('modalSub')) $('modalSub').textContent = ' ';
   ['nameField','confirmField','phoneField','birthYearField','genderField'].forEach(id => { const el = $(id); if (el) el.style.display = mode === 'join' ? 'block' : 'none'; });
