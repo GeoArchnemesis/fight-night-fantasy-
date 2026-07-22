@@ -229,10 +229,23 @@ async function settleFinished() {
 
   // ESPN-ის გამარჯვებულს ბაზის მძღოლს ვამთხვევთ (deaccent + გვარით fallback)
   const findDrv = (espnName, all) => {
-    const key = deaccent(espnName).replace(/[^a-z]/g, '');
+    // 1. ზუსტი დამთხვევა (deaccent-ნორმალიზებული სრული სახელი)
     if (byName[deaccent(espnName)]) return byName[deaccent(espnName)];
-    const last = deaccent((espnName || '').split(' ').pop() || '').replace(/[^a-z]/g, '');
-    return (all || []).find(d => deaccent(d.name).replace(/[^a-z]/g, '').includes(last) && last.length >= 4) || null;
+    // 2. fallback: გვარით. "Jr."/"Sr." სუფიქსებს ვაგდებთ, ბოლო რეალურ სიტყვას ვიღებთ
+    const parts = deaccent(espnName || '').split(/\s+/)
+      .map(w => w.replace(/[^a-z]/g, ''))
+      .filter(w => w && !['jr', 'sr', 'ii', 'iii'].includes(w));
+    const last = parts[parts.length - 1] || '';
+    if (last.length < 4) return null;
+    // მძღოლის გვარიც ბოლო სიტყვად ვადარებთ — includes კი არა, ზუსტი ტოკენით
+    const matches = (all || []).filter(d => {
+      const dParts = deaccent(d.name).split(/\s+/)
+        .map(w => w.replace(/[^a-z]/g, ''))
+        .filter(w => w && !['jr', 'sr', 'ii', 'iii'].includes(w));
+      return dParts[dParts.length - 1] === last;
+    });
+    // ერთადერთი დამთხვევა → ვაბრუნებთ; 0 ან ორაზროვანი (2+) → null (არასწორ მძღოლს არ ვანიჭებთ)
+    return matches.length === 1 ? matches[0] : null;
   };
 
   for (const race of races) {
@@ -349,4 +362,4 @@ main()
     log(`Fatal: ${e.message}`);
     await sendTelegram(`🏎️ <b>f1-auto.js ჩავარდა</b>\n<code>${(e.message || String(e)).slice(0, 400)}</code>`);
     process.exit(1);
-  });
+  })
