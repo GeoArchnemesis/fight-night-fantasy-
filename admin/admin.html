@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>UFC Fantasy — Admin</title>
+<title>Fight Night Fantasy — Admin</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 <link rel="manifest" href="./admin-manifest.json" />
 <meta name="theme-color" content="#F31D25" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
@@ -104,40 +108,37 @@
     <p style="color:var(--muted);font-size:.85rem;margin-bottom:20px;line-height:1.6">
       შედი იმავე email/password-ით, რომლითაც საიტზე ხარ რეგისტრირებული
     </p>
-    <label>Email</label>
-    <input type="email" id="adminEmail" placeholder="admin@example.com" autocomplete="username"
+    <form id="adminLoginForm" method="post" action="#" onsubmit="event.preventDefault();submitLogin()">
+    <label for="adminEmail">Email</label>
+    <input type="email" id="adminEmail" name="email" placeholder="admin@example.com" autocomplete="email"
       style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;margin-bottom:8px" />
-    <label>Password</label>
-    <input type="password" id="adminPassword" placeholder="••••••••" autocomplete="current-password"
-      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;margin-bottom:8px"
-      onkeydown="if(event.key==='Enter')submitLogin()" />
-    <label>Admin Notify Secret <span style="color:var(--muted);text-transform:none;font-weight:400">(Telegram შეტყობინებებისთვის — ერთხელ შეჰყავთ)</span></label>
-    <input type="password" id="notifySecretInput" placeholder="..." autocomplete="off"
-      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-family:monospace;font-size:.82rem;margin-bottom:8px" />
+    <label for="adminPassword">Password</label>
+    <input type="password" id="adminPassword" name="password" placeholder="••••••••" autocomplete="current-password"
+      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;margin-bottom:8px" />
     <div id="keyError" style="color:#ff7070;font-size:.8rem;min-height:18px;margin-bottom:12px"></div>
-    <button onclick="submitLogin()" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:4px;padding:12px;font-weight:700;font-size:.95rem;cursor:pointer">შესვლა →</button>
-    <div style="display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--muted);font-size:.78rem">
-      <div style="flex:1;height:1px;background:var(--line)"></div>ან<div style="flex:1;height:1px;background:var(--line)"></div>
-    </div>
-    <button onclick="handleAdminGoogleAuth()" style="width:100%;background:#fff;color:#1f1f1f;border:1px solid var(--line);border-radius:4px;padding:11px;font-weight:600;font-size:.9rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
-      <svg width="18" height="18" viewBox="0 0 18 18">
-        <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
-        <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
-        <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
-        <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
-      </svg>
-      Google-ით შესვლა
-    </button>
+    <button type="submit" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:4px;padding:12px;font-weight:700;font-size:.95rem;cursor:pointer">შესვლა →</button>
+    </form>
+    
   </div>
 </div>
 
 <!-- ── ADMIN CONTENT ── -->
 <div id="adminContent">
 
-<h1>⚙️ UFC Fantasy — Admin</h1>
+<h1 style="display:flex;align-items:center;gap:10px"><img src="/favicon-32x32.png" alt="FNF" width="28" height="28" style="border-radius:6px" onerror="this.style.display='none'"> Fight Night Fantasy — Admin</h1>
 <div class="warn" style="display:flex;justify-content:space-between;align-items:center">
   <span>⚠️ ეს გვერდი მხოლოდ ადმინისთვისაა.</span>
   <button onclick="adminLogout()" style="background:rgba(243,29,37,.15);color:var(--red);border:1px solid var(--red);border-radius:4px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:.78rem">🚪 გამოსვლა</button>
+</div>
+
+<div class="card" style="padding:14px 20px">
+  <label for="notifySecretInput" style="margin-bottom:6px">🔔 Admin Notify Secret <span style="color:var(--muted);text-transform:none;font-weight:400">(Telegram შეტყობინებებისთვის — ინახება ამ ბრაუზერში)</span></label>
+  <div style="display:flex;gap:8px;align-items:center">
+    <input type="password" id="notifySecretInput" placeholder="..." autocomplete="off"
+      style="flex:1;font-family:monospace;font-size:.82rem;margin-bottom:0" />
+    <button type="button" class="btn btn-ghost" onclick="saveNotifySecret()">შენახვა</button>
+    <span id="notifySecretStatus" style="font-size:.75rem;color:var(--green);min-width:70px"></span>
+  </div>
 </div>
 
 <div class="status-bar" id="statusBar">
@@ -285,6 +286,20 @@ const ESPN_BASE = "https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scorebo
 
 let ADMIN_NOTIFY_SECRET = localStorage.getItem('fnf_admin_notify_secret') || '';
 
+// ── Notify Secret (შესვლის შემდეგ, adminContent-ის ბარათი) ──
+function initNotifySecretField() {
+  const el = document.getElementById('notifySecretInput');
+  if (el) el.value = ADMIN_NOTIFY_SECRET;
+}
+function saveNotifySecret() {
+  const el = document.getElementById('notifySecretInput');
+  const st = document.getElementById('notifySecretStatus');
+  const v = (el && el.value.trim()) || '';
+  if (v) { localStorage.setItem('fnf_admin_notify_secret', v); ADMIN_NOTIFY_SECRET = v; }
+  else { localStorage.removeItem('fnf_admin_notify_secret'); ADMIN_NOTIFY_SECRET = ''; }
+  if (st) { st.textContent = '✓ შენახულია'; setTimeout(() => st.textContent = '', 2500); }
+}
+
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
@@ -298,7 +313,6 @@ function showLoginScreen(errMsg) {
 async function submitLogin() {
   const email = document.getElementById('adminEmail').value.trim();
   const password = document.getElementById('adminPassword').value;
-  const notifySecret = document.getElementById('notifySecretInput').value.trim();
   document.getElementById('keyError').textContent = '';
 
   if (!email || !password) {
@@ -320,13 +334,9 @@ async function submitLogin() {
     return;
   }
 
-  if (notifySecret) {
-    localStorage.setItem('fnf_admin_notify_secret', notifySecret);
-    ADMIN_NOTIFY_SECRET = notifySecret;
-  }
-
   document.getElementById('keyScreen').style.display = 'none';
   document.getElementById('adminContent').style.display = 'block';
+  initNotifySecretField();
   loadFromLocal();
   startAutoOdds();
   log('✅ ადმინად შესვლა წარმატებულია', 'ok');
@@ -338,17 +348,6 @@ async function adminLogout() {
   showLoginScreen();
 }
 
-async function handleAdminGoogleAuth() {
-  // notify secret-ს ვინახავთ რედირექტამდე, რადგან გვერდი თავიდან ჩაიტვირთება
-  const notifySecret = document.getElementById('notifySecretInput').value.trim();
-  if (notifySecret) localStorage.setItem('fnf_admin_notify_secret', notifySecret);
-
-  const { error } = await sb.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: window.location.origin + window.location.pathname }
-  });
-  if (error) document.getElementById('keyError').textContent = 'Google შესვლა ვერ მოხერხდა: ' + error.message;
-}
 
 // ── init: სესია უკვე არსებობს? ──
 async function initAdminSession() {
@@ -364,6 +363,7 @@ async function initAdminSession() {
 
   document.getElementById('keyScreen').style.display = 'none';
   document.getElementById('adminContent').style.display = 'block';
+  initNotifySecretField();
   loadFromLocal();
   startAutoOdds();
 }
