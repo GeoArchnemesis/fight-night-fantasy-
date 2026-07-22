@@ -5,9 +5,9 @@
 // ჯერ ძველ ვერსიას აჩვენებდა და მეორე ჩატვირთვამდე ასე რჩებოდა).
 // Supabase/ESPN/Telegram API (სხვა origin) აქ არასდროს ქეშირდება.
 
-const CACHE_NAME = 'fnf-admin-shell-v2';
+const CACHE_NAME = 'fnf-admin-shell-v3';
 const SHELL_FILES = [
-  './fnf-ctrl-9x4k.html',
+  './admin.html',
   './admin-manifest.json'
 ];
 
