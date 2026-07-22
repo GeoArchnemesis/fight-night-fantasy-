@@ -788,7 +788,7 @@ function authError(msg) { const el = document.getElementById('authError'); if (e
 function openModal(mode) {
   modalMode = mode; authError('');
   const authErrEl = document.getElementById('authError'); if (authErrEl) authErrEl.style.color = 'var(--red)';
-  const passEl = document.getElementById('inPass'); if (passEl) passEl.value = '';
+  const passEl = document.getElementById('inPass'); if (passEl) { passEl.value = ''; passEl.setAttribute('autocomplete', mode === 'join' ? 'new-password' : 'current-password'); }
   const titleEl = document.getElementById('modalTitle'); if (titleEl) titleEl.textContent = mode === 'join' ? 'შემოუერთდი ლიგას' : 'კეთილი იყოს დაბრუნება';
   const subEl = document.getElementById('modalSub'); if (subEl) subEl.textContent = ' ';
   const nameFieldEl = document.getElementById('nameField'); if (nameFieldEl) nameFieldEl.style.display = mode === 'join' ? 'block' : 'none';
