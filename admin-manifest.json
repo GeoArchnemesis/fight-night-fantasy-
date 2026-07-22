@@ -1,8 +1,8 @@
 {
-  "name": "FNF Admin Panel",
+  "name": "Fight Night Fantasy — Admin",
   "short_name": "FNF Admin",
   "description": "Fight Night Fantasy — Admin Panel",
-  "start_url": "./fnf-ctrl-9x4k.html",
+  "start_url": "/admin",
   "display": "standalone",
   "background_color": "#0B0A0F",
   "theme_color": "#F31D25",
