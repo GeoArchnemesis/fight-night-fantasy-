@@ -334,7 +334,7 @@ async function cmdFetchResults(chatId: number): Promise<string> {
       lines.push(`⚠️ ${match.red?.name} vs ${match.blue?.name}: გამარჯვებულის ID ვერ დაემთხვა (espn_id შეავსე)`)
       continue
     }
-    const exactWinner: string = winnerId === rid ? match.red.name : match.blue.name
+    const exactWinner: string = winnerId === rid ? (match.red?.name || 'Unknown') : (match.blue?.name || 'Unknown')
     await sb.from('fights').update({ status: 'completed', result_winner: exactWinner, result_method: method, result_round: round ? parseInt(round) : null }).eq('id', match.id)
     lines.push(`🏆 ${exactWinner} (${method}, R${round}) [ID✓]`)
     updated++
