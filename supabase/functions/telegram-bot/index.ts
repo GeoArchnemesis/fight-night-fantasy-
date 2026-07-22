@@ -962,6 +962,15 @@ async function cmdTicketActivity(chatId: number): Promise<string> {
   return `📊 <b>ბილეთების აქტივობა</b> — დაბალბალანსიანები (&lt; 1,000 ერთ-ერთ სპორტში მაინც)\n\nსულ: <b>${users?.length || 0}</b> მომხმარებელი\n\n${lines.join('\n\n')}`
 }
 
+// ── ვერიფიცირებული მომხმარებლების რაოდენობა (phone ან telegram შევსებული — საიტის საკუთარი განმარტება) ──
+async function cmdVerifiedUsers(chatId: number): Promise<string> {
+  const { data: users } = await sb.from('users').select('id,phone,telegram')
+  const total = users?.length || 0
+  const verified = (users || []).filter((u: any) => u.phone || u.telegram).length
+  const unverified = total - verified
+  return `✅ <b>ვერიფიცირებული მომხმარებლები</b>\n\nვერიფიცირებული: <b>${verified}</b>\nარავერიფიცირებული: <b>${unverified}</b>\nსულ: <b>${total}</b>`
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('OK', { status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Telegram-Bot-Api-Secret-Token, X-Admin-Secret' } })
@@ -992,9 +1001,12 @@ Deno.serve(async (req) => {
       return new Response('OK', { status: 200 })
     }
     let response = ''
-    // ── ზოგადი ბრძანება, სამივე სპორტის ჯვარედინი — არცერთ sport-პრეფიქსს არ ეკუთვნის, ამიტომ ჯაჭვის თავშია ──
+    // ── გენერალური ბრძანებები, სამივე სპორტის ჯვარედინი — არცერთ sport-პრეფიქსს არ ეკუთვნის ──
     if (text.includes('აქტივობ')) {
       response = await cmdTicketActivity(chatId)
+    }
+    else if (text.includes('ვერიფიც')) {
+      response = await cmdVerifiedUsers(chatId)
     }
     // ── NBA ბრძანებები (F1-ის მსგავსად პრეფიქსით — UFC-ის ბრენჩში რომ არ ჩავარდეს) ──
     else if (text.startsWith('nba') || text.startsWith('/nba')) {
@@ -1053,40 +1065,37 @@ Deno.serve(async (req) => {
       }
     }
     else if (text === '/start' || text === 'help' || text === '/help') {
-      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n📊 <b>ბილეთების აქტივობა</b> — დაბალბალანსიანები (ნებისმ. სპორტი) + აქტიური ბილეთები (სამივე სპორტი ერთად)\n\n<b>── UFC ──</b>\n📥 <b>ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>settle</b> — ბილეთების დამუშავება\n🔄 <b>სრულად</b> — ყველაფერი ერთად\n🎫 <b>ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>სტატუსი</b> — მდგომარეობა\n💰 <b>რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)`
+      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── გენერალური ბრძანებები ──</b>\n📊 <b>ბილეთების აქტივობა</b> — დაბალბალანსიანები (ნებისმ. სპორტი) + აქტიური ბილეთები (სამივე სპორტი ერთად)\n✅ <b>ვერიფიცირებული იუზერები</b> — რამდენ მომხმარებელს აქვს ნომერი/ტელეგრამი\n\n<b>── UFC ──</b>\n📥 <b>ufc ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ufc ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>ufc კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>ufc შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>ufc settle</b> — ბილეთების დამუშავება\n🔄 <b>ufc სრულად</b> — ყველაფერი ერთად\n🎫 <b>ufc ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>ufc სტატუსი</b> — მდგომარეობა\n💰 <b>ufc რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)`
     }
-    else if (text.includes('ივენთ') || text.includes('event') || text === '/event') {
-      await sendMsg(chatId, '⏳ ESPN-დან ძებნა...')
-      response = await cmdUpdateEvent(chatId)
-    }
-    else if (text.includes('ფოტო') || text.includes('photo') || text === '/photos') {
-      await sendMsg(chatId, '⏳ ფოტოების განახლება...')
-      response = await cmdUpdatePhotos(chatId)
-    }
-    else if (text.includes('კოეფ') || text.includes('odds') || text === '/odds') {
-      await sendMsg(chatId, '⏳ Odds API...')
-      response = await cmdUpdateOdds(chatId)
-    }
-    else if (text.includes('შედეგ') || text.includes('result') || text === '/results') {
-      await sendMsg(chatId, '⏳ ESPN შედეგები...')
-      response = await cmdFetchResults(chatId)
-    }
-    else if (text.includes('settle') || text.includes('დამუშავება') || text === '/settle') {
-      await sendMsg(chatId, '⏳ Settlement...')
-      response = await cmdSettle(chatId)
-    }
-    else if (text.includes('სრულად') || text.includes('full') || text === '/full') {
-      response = await cmdFull(chatId)
-    }
-    else if (text.includes('ბილეთ') || text.includes('ticket') || text.includes('აქტიურ')) {
-      response = await cmdActiveTickets(chatId)
-    }
-    else if (text.includes('სტატუს') || text.includes('status') || text === '/status') {
-      response = await cmdStatus(chatId)
-    }
-    else if (text.includes('რესეტ') || text.includes('reset') || text === '/reset') {
-      await sendMsg(chatId, '⏳ ბალანსების რესეტი...')
-      response = await cmdResetBalances(chatId, text.includes('force') || text.includes('ძალით'))
+    else if (text.startsWith('ufc') || text.startsWith('/ufc')) {
+      const t = text.replace(/^\/?ufc\s*/, '')
+      if (t.includes('ივენთ') || t.includes('event')) {
+        await sendMsg(chatId, '⏳ ESPN-დან ძებნა...')
+        response = await cmdUpdateEvent(chatId)
+      } else if (t.includes('ფოტო') || t.includes('photo')) {
+        await sendMsg(chatId, '⏳ ფოტოების განახლება...')
+        response = await cmdUpdatePhotos(chatId)
+      } else if (t.includes('კოეფ') || t.includes('odds')) {
+        await sendMsg(chatId, '⏳ Odds API...')
+        response = await cmdUpdateOdds(chatId)
+      } else if (t.includes('შედეგ') || t.includes('result')) {
+        await sendMsg(chatId, '⏳ ESPN შედეგები...')
+        response = await cmdFetchResults(chatId)
+      } else if (t.includes('settle') || t.includes('დამუშავება')) {
+        await sendMsg(chatId, '⏳ Settlement...')
+        response = await cmdSettle(chatId)
+      } else if (t.includes('სრულად') || t.includes('full')) {
+        response = await cmdFull(chatId)
+      } else if (t.includes('ბილეთ') || t.includes('ticket') || t.includes('აქტიურ')) {
+        response = await cmdActiveTickets(chatId)
+      } else if (t.includes('სტატუს') || t.includes('status') || t === '') {
+        response = await cmdStatus(chatId)
+      } else if (t.includes('რესეტ') || t.includes('reset')) {
+        await sendMsg(chatId, '⏳ ბალანსების რესეტი...')
+        response = await cmdResetBalances(chatId, t.includes('force') || t.includes('ძალით'))
+      } else {
+        response = '🤷 ვერ გავიგე. UFC ბრძანებები: <b>help</b>'
+      }
     }
     else {
       response = '🤷 ვერ გავიგე. დაწერე <b>help</b> კომანდების სანახავად.'
