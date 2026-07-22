@@ -909,31 +909,14 @@ async function cmdNbaActiveTickets(chatId: number): Promise<string> {
   return `🎫 <b>აქტიური NBA ბილეთები (${tickets.length})</b>\n\n${lines.join('\n')}`
 }
 
-// ── ბილეთების აქტივობა: დაბალბალანსიანები (ნებისმიერი სპორტი < 1,000) + აქტიური ბილეთები ──
+// ── ბილეთების აქტივობა: ყველა აქტიური ("pending") ბილეთი, სამივე სპორტი ჯვარედინად ──
 async function cmdTicketActivity(chatId: number): Promise<string> {
-  const { data: ufcLow } = await sb.from('users').select('id').lt('balance', 1000)
-  const { data: f1Low } = await sb.from('user_balances').select('user_id').eq('sport', 'f1').lt('balance', 1000)
-  const { data: nbaLow } = await sb.from('user_balances').select('user_id').eq('sport', 'nba').lt('balance', 1000)
+  const { data: ufcTix } = await sb.from('tickets').select('user_id').eq('status', 'pending')
+  const { data: f1Tix } = await sb.from('f1_tickets').select('user_id').eq('status', 'pending')
+  const { data: nbaTix } = await sb.from('nba_tickets').select('user_id').eq('status', 'pending')
 
-  const ids = [...new Set([
-    ...(ufcLow || []).map((u: any) => u.id),
-    ...(f1Low || []).map((u: any) => u.user_id),
-    ...(nbaLow || []).map((u: any) => u.user_id),
-  ])]
-  if (!ids.length) return '✅ ყველა მომხმარებელს აქვს ≥ 1,000 ბალანსი სამივე სპორტში'
-
-  const { data: users } = await sb.from('users').select('id,nick,balance').in('id', ids)
-  const { data: f1Bal } = await sb.from('user_balances').select('user_id,balance').eq('sport', 'f1').in('user_id', ids)
-  const { data: nbaBal } = await sb.from('user_balances').select('user_id,balance').eq('sport', 'nba').in('user_id', ids)
-
-  const f1BalMap: Record<string, number> = {}
-  for (const b of f1Bal || []) f1BalMap[b.user_id] = b.balance
-  const nbaBalMap: Record<string, number> = {}
-  for (const b of nbaBal || []) nbaBalMap[b.user_id] = b.balance
-
-  const { data: ufcTix } = await sb.from('tickets').select('user_id').eq('status', 'pending').in('user_id', ids)
-  const { data: f1Tix } = await sb.from('f1_tickets').select('user_id').eq('status', 'pending').in('user_id', ids)
-  const { data: nbaTix } = await sb.from('nba_tickets').select('user_id').eq('status', 'pending').in('user_id', ids)
+  const grandTotal = (ufcTix?.length || 0) + (f1Tix?.length || 0) + (nbaTix?.length || 0)
+  if (!grandTotal) return '📊 <b>ბილეთების აქტივობა</b>\n\nსულ: <b>0</b> აქტიური ბილეთი'
 
   const countBy = (rows: any[] | null) => {
     const m: Record<string, number> = {}
@@ -944,22 +927,37 @@ async function cmdTicketActivity(chatId: number): Promise<string> {
   const f1Count = countBy(f1Tix)
   const nbaCount = countBy(nbaTix)
 
-  const lines: string[] = []
-  for (const u of users || []) {
-    const f1b = f1BalMap[u.id]
-    const nbab = nbaBalMap[u.id]
+  // ვისაც მინიმუმ ერთი აქტიური ბილეთი აქვს (ნებისმიერ სპორტში)
+  const ids = [...new Set([...Object.keys(ufcCount), ...Object.keys(f1Count), ...Object.keys(nbaCount)])]
+
+  const { data: users } = await sb.from('users').select('id,nick,balance').in('id', ids)
+  const { data: f1Bal } = await sb.from('user_balances').select('user_id,balance').eq('sport', 'f1').in('user_id', ids)
+  const { data: nbaBal } = await sb.from('user_balances').select('user_id,balance').eq('sport', 'nba').in('user_id', ids)
+
+  const f1BalMap: Record<string, number> = {}
+  for (const b of f1Bal || []) f1BalMap[b.user_id] = b.balance
+  const nbaBalMap: Record<string, number> = {}
+  for (const b of nbaBal || []) nbaBalMap[b.user_id] = b.balance
+
+  const rows = (users || []).map((u: any) => {
     const uc = ufcCount[u.id] || 0
     const fc = f1Count[u.id] || 0
     const nc = nbaCount[u.id] || 0
-    const total = uc + fc + nc
-    const balStr = `UFC ${u.balance} · F1 ${f1b != null ? f1b : '—'} · NBA ${nbab != null ? nbab : '—'}`
+    return { u, uc, fc, nc, total: uc + fc + nc }
+  }).sort((a, b) => b.total - a.total)
+
+  const lines: string[] = []
+  for (const r of rows) {
+    const f1b = f1BalMap[r.u.id]
+    const nbab = nbaBalMap[r.u.id]
+    const balStr = `UFC ${r.u.balance} · F1 ${f1b != null ? f1b : '—'} · NBA ${nbab != null ? nbab : '—'}`
     const parts: string[] = []
-    if (uc) parts.push(`UFC — ${uc}`)
-    if (fc) parts.push(`F1 — ${fc}`)
-    if (nc) parts.push(`NBA — ${nc}`)
-    lines.push(`👤 <b>${u.nick || '—'}</b>\n💰 ${balStr}\n🎫 აქტიური ბილეთი: <b>${total}</b>${parts.length ? '\n   ' + parts.join('\n   ') : ''}`)
+    if (r.uc) parts.push(`UFC — ${r.uc}`)
+    if (r.fc) parts.push(`F1 — ${r.fc}`)
+    if (r.nc) parts.push(`NBA — ${r.nc}`)
+    lines.push(`👤 <b>${r.u.nick || '—'}</b>\n💰 ${balStr}\n🎫 აქტიური ბილეთი: <b>${r.total}</b>${parts.length ? '\n   ' + parts.join('\n   ') : ''}`)
   }
-  return `📊 <b>ბილეთების აქტივობა</b> — დაბალბალანსიანები (&lt; 1,000 ერთ-ერთ სპორტში მაინც)\n\nსულ: <b>${users?.length || 0}</b> მომხმარებელი\n\n${lines.join('\n\n')}`
+  return `📊 <b>ბილეთების აქტივობა</b> — აქტიური ბილეთები\n\nსულ: <b>${grandTotal}</b> აქტიური ბილეთი (${rows.length} მომხმარებელი)\n\n${lines.join('\n\n')}`
 }
 
 // ── ვერიფიცირებული მომხმარებლების რაოდენობა (phone ან telegram შევსებული — საიტის საკუთარი განმარტება) ──
@@ -1065,7 +1063,7 @@ Deno.serve(async (req) => {
       }
     }
     else if (text === '/start' || text === 'help' || text === '/help') {
-      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── გენერალური ბრძანებები ──</b>\n📊 <b>ბილეთების აქტივობა</b> — დაბალბალანსიანები (ნებისმ. სპორტი) + აქტიური ბილეთები (სამივე სპორტი ერთად)\n✅ <b>ვერიფიცირებული იუზერები</b> — რამდენ მომხმარებელს აქვს ნომერი/ტელეგრამი\n\n<b>── UFC ──</b>\n📥 <b>ufc ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ufc ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>ufc კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>ufc შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>ufc settle</b> — ბილეთების დამუშავება\n🔄 <b>ufc სრულად</b> — ყველაფერი ერთად\n🎫 <b>ufc ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>ufc სტატუსი</b> — მდგომარეობა\n💰 <b>ufc რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)`
+      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── გენერალური ბრძანებები ──</b>\n📊 <b>ბილეთების აქტივობა</b> — აქტიური ბილეთები (სამივე სპორტი ჯვარედინად)\n✅ <b>ვერიფიცირებული იუზერები</b> — რამდენ მომხმარებელს აქვს ნომერი/ტელეგრამი\n\n<b>── UFC ──</b>\n📥 <b>ufc ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ufc ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>ufc კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>ufc შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>ufc settle</b> — ბილეთების დამუშავება\n🔄 <b>ufc სრულად</b> — ყველაფერი ერთად\n🎫 <b>ufc ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>ufc სტატუსი</b> — მდგომარეობა\n💰 <b>ufc რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)`
     }
     else if (text.startsWith('ufc') || text.startsWith('/ufc')) {
       const t = text.replace(/^\/?ufc\s*/, '')
