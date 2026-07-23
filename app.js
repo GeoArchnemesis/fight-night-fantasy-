@@ -895,7 +895,19 @@ async function doRegister() {
   try { await sb.from('users').update({ phone: phone || null, birth_year: +birthYear, gender }).eq('id', data.user.id); } catch (e) {}
   try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({ registration_ip: ipData.ip, last_login_ip: ipData.ip }).eq('id', data.user.id); } catch (e) {}
   currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: phone || ud?.phone || null, telegram: ud?.telegram || null, birth_year: +birthYear || ud?.birth_year || null, gender: gender || ud?.gender || null };
-  window.dataLayer = window.dataLayer || []; window.dataLayer.push({ event: 'user_registration', method: 'email' });
+  // ერთი საერთო event_id ბრაუზერისთვის (GTM) და სერვერისთვის (Meta CAPI) — Deduplicated
+  var fbEventId = 'reg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event: 'user_registration', method: 'email', fb_event_id: fbEventId });
+  try {
+    var fbpCookie = (document.cookie.match(/(?:^|; )_fbp=([^;]*)/) || [])[1] || '';
+    var fbcCookie = (document.cookie.match(/(?:^|; )_fbc=([^;]*)/) || [])[1] || '';
+    fetch(SUPABASE_URL + '/functions/v1/meta-capi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_id: fbEventId, email: email, phone: phone, fbp: fbpCookie, fbc: fbcCookie, url: location.href })
+    }).catch(function () {});
+  } catch (e) {}
   closeModal(); updateNavForUser(currentUser); await hydrateUserData();
 }
 
