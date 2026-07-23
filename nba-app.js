@@ -808,6 +808,19 @@ async function doRegister() {
   try { await sb.from('users').update({ phone: phone || null, birth_year: +birthYear, gender }).eq('id', data.user.id); } catch (e) {}
   currentUser = await loadUserProfile(data.user.id, email);
   currentUser.phone = currentUser.phone || phone; currentUser.birth_year = currentUser.birth_year || +birthYear; currentUser.gender = currentUser.gender || gender;
+  // ერთი საერთო event_id ბრაუზერისთვის (GTM) და სერვერისთვის (Meta CAPI) — Deduplicated
+  var fbEventId = 'reg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event: 'user_registration', method: 'email', fb_event_id: fbEventId });
+  try {
+    var fbpCookie = (document.cookie.match(/(?:^|; )_fbp=([^;]*)/) || [])[1] || '';
+    var fbcCookie = (document.cookie.match(/(?:^|; )_fbc=([^;]*)/) || [])[1] || '';
+    fetch(SUPABASE_URL + '/functions/v1/meta-capi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_id: fbEventId, email: email, phone: phone, fbp: fbpCookie, fbc: fbcCookie, url: location.href })
+    }).catch(function () {});
+  } catch (e) {}
   closeModal(); updateNavForUser(currentUser); await hydrateUserData();
 }
 async function doSignIn() {
