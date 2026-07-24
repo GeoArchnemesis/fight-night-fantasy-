@@ -763,6 +763,21 @@ function addMobileMenuLinks() {
 function removeMobileMenuLinks() { const p = $('mProfile'); if (p) p.remove(); const l = $('mLogout'); if (l) l.remove(); }
 document.addEventListener('click', e => { const dd = $('navDropdown'); if (dd && !e.target.closest('.nav-user')) dd.classList.remove('show'); });
 
+// მობილური "ფენტეზის ტიპი" dropdown — კლიკით გახსნა/დახურვა (მობილურზე :hover არ არსებობს)
+(function(){
+  var sp = document.getElementById('mnavSport');
+  if (!sp) return;
+  var pop = sp.querySelector('.mnav-pop');
+  sp.addEventListener('click', function(e){
+    if (e.target.closest('.mnav-pop-opt')) return;   // ლინკზე კლიკი — ჩვეულებრივ გაატარე
+    e.stopPropagation();
+    if (pop) pop.classList.toggle('show');
+  });
+  document.addEventListener('click', function(e){
+    if (pop && !e.target.closest('#mnavSport')) pop.classList.remove('show');
+  });
+})();
+
 async function loadUserProfile(userId, fallbackEmail) {
   let ud = null;
   try { const res = await sb.from('users').select('*').eq('id', userId).maybeSingle(); ud = res.data; } catch (e) {}
