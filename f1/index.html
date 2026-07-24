@@ -39,7 +39,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 /* ── MOBILE BOTTOM NAV (mnav) — მხოლოდ მობილურზე ── */
 .mnav{position:fixed !important;top:auto !important;bottom:0 !important;left:0 !important;right:0 !important;height:auto !important;z-index:46;background:#000;border-top:1px solid var(--line);border-bottom:none;display:flex;padding:8px 4px calc(8px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 20px rgba(0,0,0,.5)}
-.mnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;cursor:pointer;padding:6px 2px;min-width:0;text-decoration:none;position:relative}
+.mnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;cursor:pointer;padding:6px 2px;min-width:0;text-decoration:none;position:relative;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none}
 .mnav-ic{width:24px;height:24px;flex-shrink:0;opacity:.75;transition:opacity .15s,transform .15s}
 .mnav-btn:hover .mnav-ic,.mnav-btn.on .mnav-ic{opacity:1}
 .mnav-btn.on .mnav-ic{transform:translateY(-1px)}
@@ -51,6 +51,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .mnav-pop::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--line)}
 .mnav-pop-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:7px;font-family:var(--head);font-weight:700;font-size:.9rem;color:var(--text);cursor:pointer;transition:background .15s;white-space:nowrap;text-decoration:none}
 .mnav-pop-opt.on{background:rgba(245,196,81,.1);color:var(--gold);cursor:default}
+.mnav-pop-opt:not(.on):active{background:rgba(255,255,255,.08)}
 .mnav-pop-tag{font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.04em;color:var(--green);text-transform:uppercase}
 .mnav-pop-tag.soon{color:var(--muted)}
 /* პირველი ღილაკის (ფენტეზის ტიპი) popup მარცხენა კიდეს არ უნდა გადასცდეს */
