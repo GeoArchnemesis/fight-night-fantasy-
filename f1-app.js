@@ -763,21 +763,6 @@ function addMobileMenuLinks() {
 function removeMobileMenuLinks() { const p = $('mProfile'); if (p) p.remove(); const l = $('mLogout'); if (l) l.remove(); }
 document.addEventListener('click', e => { const dd = $('navDropdown'); if (dd && !e.target.closest('.nav-user')) dd.classList.remove('show'); });
 
-// მობილური "ფენტეზის ტიპი" dropdown — კლიკით გახსნა/დახურვა (მობილურზე :hover არ არსებობს)
-(function(){
-  var sp = document.getElementById('mnavSport');
-  if (!sp) return;
-  var pop = sp.querySelector('.mnav-pop');
-  sp.addEventListener('click', function(e){
-    if (e.target.closest('.mnav-pop-opt')) return;   // ლინკზე კლიკი — ჩვეულებრივ გაატარე
-    e.stopPropagation();
-    if (pop) pop.classList.toggle('show');
-  });
-  document.addEventListener('click', function(e){
-    if (pop && !e.target.closest('#mnavSport')) pop.classList.remove('show');
-  });
-})();
-
 async function loadUserProfile(userId, fallbackEmail) {
   let ud = null;
   try { const res = await sb.from('users').select('*').eq('id', userId).maybeSingle(); ud = res.data; } catch (e) {}
@@ -1013,6 +998,21 @@ $on('historyToggle', 'click', () => { const hist = $('historyTickets'), arrow = 
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeSlip(); closeForgotModal(); closeProfile(); closeContactInfoPopup(); } });
 const navLinks = $('navLinks');
 $on('menuBtn', 'click', () => { if (navLinks) navLinks.classList.toggle('open'); });
+// მობილური "ფენტეზის ტიპი" dropdown — კლიკით (მობილურზე :hover არ არსებობს)
+(function(){
+  const sp = document.getElementById('mnavSport');
+  if (!sp) return;
+  const pop = sp.querySelector('.mnav-pop');
+  if (!pop) return;
+  sp.addEventListener('click', (e) => {
+    if (e.target.closest('.mnav-pop-opt')) return;   // F1/NBA/UFC ლინკზე კლიკი — გაატარე
+    e.stopPropagation();
+    pop.classList.toggle('show');
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#mnavSport')) pop.classList.remove('show');
+  });
+})();
 document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', e => {
   const id = a.getAttribute('href').slice(1); const t = document.getElementById(id);
   if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (navLinks) navLinks.classList.remove('open'); }
