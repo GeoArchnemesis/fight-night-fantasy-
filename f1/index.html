@@ -401,7 +401,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- ── MOBILE BOTTOM NAV (mnav) ── -->
 <nav class="mnav" id="mnav">
-  <button class="mnav-btn" id="mnavSport">
+  <div class="mnav-btn" id="mnavSport" role="button" tabindex="0">
     <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNzIgNzIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMTIiIHk9IjE4IiB3aWR0aD0iNDgiIGhlaWdodD0iNyIgcng9IjEuNSIvPjxyZWN0IHg9IjEyIiB5PSIzMyIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjciIHJ4PSIxLjUiLz48cmVjdCB4PSIxMiIgeT0iNDgiIHdpZHRoPSI0OCIgaGVpZ2h0PSI3IiByeD0iMS41Ii8+PC9zdmc+Cg==" alt="">
     <span class="mnav-lbl">ფენტეზის ტიპი</span>
     <div class="mnav-pop">
@@ -409,7 +409,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="mnav-pop-opt on">F1 <span class="mnav-pop-tag">აქტიური</span></div>
       <a class="mnav-pop-opt" href="/nba">NBA <span class="mnav-pop-tag">აქტიური</span></a>
     </div>
-  </button>
+  </div>
   <button class="mnav-btn" onclick="document.getElementById('leaderboard').scrollIntoView({behavior:'smooth'})">
     <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNzIgNzIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTUyLjIsMTEuOGMuMTYsMCwuMjguMTQuMjQuMy0uMi44OC0uOTQsNC4zLTMuNTksMTcuNTItMS41OSw3Ljk0LTUuNSwxMi41Ny0xMi44MywxMi41N3MtMTEuMjUtNC41LTEyLjgzLTEyLjQ0Yy0yLjQxLTExLjg1LTMuNjctMTcuOTQtMy42Ny0xNy45NGgzMi42OFoiLz48cGF0aCBkPSJNMjMsMzEuNXMuMDgtLjI2LTUuNDItMy45M2MtMi41My0xLjY4LTUuNDYtMy45LTUuNDYtNi45NHMyLjUtNS4xMSw1LjU0LTUuMTFoMS41MSIvPjxwYXRoIGQ9Ik00OC43LDMxLjhzLjA4LS4yNiw1LjU4LTMuOTNjMi41My0xLjY4LDUuNTQtMy45LDUuNTQtNi45NHMtMi4zMy01LjEzLTUuMTctNS4xMmgtMi4xNSIvPjxyZWN0IHg9IjI2LjU1IiB5PSI1MC4zMyIgd2lkdGg9IjE4LjMzIiBoZWlnaHQ9IjkuMTciIHJ4PSIxIi8+PGxpbmUgeDE9IjM2IiB4Mj0iMzYiIHkxPSI1MC4zMyIgeTI9IjQyLjIiLz48L3N2Zz4K" alt="">
     <span class="mnav-lbl">ლიდერბორდი</span>
@@ -428,7 +428,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </script>
 
 <!-- ── SCRIPTS ── -->
-<script src="/f1-app.js?v=202"></script>
+<script src="/f1-app.js?v=203"></script>
 <!-- ── REPORT CONTACT POPUP ── -->
 <div id="reportPopup" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(5,4,8,.8);backdrop-filter:blur(6px);justify-content:center;align-items:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--surface,#14121c);border:1px solid var(--line,#2a2734);border-radius:12px;padding:28px;max-width:340px;width:100%;text-align:center">
