@@ -853,21 +853,6 @@ function addMobileMenuLinks() {
 function removeMobileMenuLinks() { const p = document.getElementById('mProfile'); if (p) p.remove(); const l = document.getElementById('mLogout'); if (l) l.remove(); }
 document.addEventListener('click', e => { const dd = document.getElementById('navDropdown'); if (dd && !e.target.closest('.nav-user')) dd.classList.remove('show'); });
 
-// მობილური "ფენტეზის ტიპი" dropdown — კლიკით გახსნა/დახურვა (მობილურზე :hover არ არსებობს)
-(function(){
-  var sp = document.getElementById('mnavSport');
-  if (!sp) return;
-  var pop = sp.querySelector('.mnav-pop');
-  sp.addEventListener('click', function(e){
-    if (e.target.closest('.mnav-pop-opt')) return;   // ლინკზე კლიკი — ჩვეულებრივ გაატარე
-    e.stopPropagation();
-    if (pop) pop.classList.toggle('show');
-  });
-  document.addEventListener('click', function(e){
-    if (pop && !e.target.closest('#mnavSport')) pop.classList.remove('show');
-  });
-})();
-
 async function hydrateUserData() {
   if (!currentUser) return;
   await _fightsReady;
@@ -1198,6 +1183,21 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal
 
 const navLinks = $('navLinks');
 $on('menuBtn', 'click', () => { if (navLinks) navLinks.classList.toggle('open'); });
+// მობილური "ფენტეზის ტიპი" dropdown — კლიკით (მობილურზე :hover არ არსებობს)
+(function(){
+  const sp = document.getElementById('mnavSport');
+  if (!sp) return;
+  const pop = sp.querySelector('.mnav-pop');
+  if (!pop) return;
+  sp.addEventListener('click', (e) => {
+    if (e.target.closest('.mnav-pop-opt')) return;   // F1/NBA/UFC ლინკზე კლიკი — გაატარე
+    e.stopPropagation();
+    pop.classList.toggle('show');
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#mnavSport')) pop.classList.remove('show');
+  });
+})();
 document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', e => {
   const id = a.getAttribute('href').slice(1); const t = document.getElementById(id);
   if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (navLinks) navLinks.classList.remove('open'); }
