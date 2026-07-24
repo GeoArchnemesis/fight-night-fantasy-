@@ -1104,4 +1104,4 @@ Deno.serve(async (req) => {
     console.error('Bot error:', e)
     return new Response('OK', { status: 200 })
   }
-}
+})
