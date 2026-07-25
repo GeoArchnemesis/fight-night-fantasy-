@@ -257,7 +257,7 @@ async function cmdUpdateOdds(chatId: number): Promise<string> {
 }
 
 async function cmdSettle(chatId: number): Promise<string> {
-  const { data: events } = await sb.from('events').select('id,name').in('status', ['upcoming', 'completed'])
+  const { data: events } = await sb.from('events').select('id,name').in('status', ['upcoming', 'completed']).order('event_date', { ascending: false })
   if (!events || events.length === 0) return '❌ ივენთი ვერ მოიძებნა'
   let targetEvent: any = null
   for (const ev of events) {
@@ -334,7 +334,7 @@ async function cmdFetchResults(chatId: number): Promise<string> {
       lines.push(`⚠️ ${match.red?.name} vs ${match.blue?.name}: გამარჯვებულის ID ვერ დაემთხვა (espn_id შეავსე)`)
       continue
     }
-    const exactWinner: string = winnerId === rid ? (match.red?.name || 'Unknown') : (match.blue?.name || 'Unknown')
+    const exactWinner: string = winnerId === rid ? match.red.name : match.blue.name
     await sb.from('fights').update({ status: 'completed', result_winner: exactWinner, result_method: method, result_round: round ? parseInt(round) : null }).eq('id', match.id)
     lines.push(`🏆 ${exactWinner} (${method}, R${round}) [ID✓]`)
     updated++
@@ -916,7 +916,7 @@ async function cmdTicketActivity(chatId: number): Promise<string> {
   const { data: nbaTix } = await sb.from('nba_tickets').select('user_id').eq('status', 'pending')
 
   const grandTotal = (ufcTix?.length || 0) + (f1Tix?.length || 0) + (nbaTix?.length || 0)
-  if (!grandTotal) return '📊 <b>ბილეთები</b>\n\nსულ: <b>0</b> აქტიური ბილეთი'
+  if (!grandTotal) return '📊 <b>ბილეთების აქტივობა</b>\n\nსულ: <b>0</b> აქტიური ბილეთი'
 
   const countBy = (rows: any[] | null) => {
     const m: Record<string, number> = {}
@@ -957,7 +957,7 @@ async function cmdTicketActivity(chatId: number): Promise<string> {
     if (r.nc) parts.push(`NBA — ${r.nc}`)
     lines.push(`👤 <b>${r.u.nick || '—'}</b>\n💰 ${balStr}\n🎫 აქტიური ბილეთი: <b>${r.total}</b>${parts.length ? '\n   ' + parts.join('\n   ') : ''}`)
   }
-  return `📊 <b>ბილეთები</b> — აქტიური ბილეთები\n\n${lines.join('\n\n')}\n\n━━━━━━━━━━━━━━\n📊 <b>სტატისტიკა</b>\nსულ: <b>${grandTotal}</b> აქტიური ბილეთი (${rows.length} მომხმარებელი)`
+  return `📊 <b>ბილეთების აქტივობა</b> — აქტიური ბილეთები\n\nსულ: <b>${grandTotal}</b> აქტიური ბილეთი (${rows.length} მომხმარებელი)\n\n${lines.join('\n\n')}`
 }
 
 // ── ვერიფიცირებული მომხმარებლების რაოდენობა (phone ან telegram შევსებული — საიტის საკუთარი განმარტება) ──
@@ -1000,7 +1000,7 @@ Deno.serve(async (req) => {
     }
     let response = ''
     // ── გენერალური ბრძანებები, სამივე სპორტის ჯვარედინი — არცერთ sport-პრეფიქსს არ ეკუთვნის ──
-    if (text === 'ბილეთები' || text === '/ბილეთები' || text.includes('აქტივობ')) {
+    if (text.includes('აქტივობ')) {
       response = await cmdTicketActivity(chatId)
     }
     else if (text.includes('ვერიფიც')) {
@@ -1063,7 +1063,7 @@ Deno.serve(async (req) => {
       }
     }
     else if (text === '/start' || text === 'help' || text === '/help') {
-      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── გენერალური ბრძანებები ──</b>\n📊 <b>ბილეთები</b> — აქტიური ბილეთები (სამივე სპორტი ჯვარედინად)\n✅ <b>ვერიფიცირებული იუზერები</b> — რამდენ მომხმარებელს აქვს ნომერი/ტელეგრამი\n\n<b>── UFC ──</b>\n📥 <b>ufc ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ufc ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>ufc კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>ufc შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>ufc settle</b> — ბილეთების დამუშავება\n🔄 <b>ufc სრულად</b> — ყველაფერი ერთად\n🎫 <b>ufc ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>ufc სტატუსი</b> — მდგომარეობა\n💰 <b>ufc რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)`
+      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── გენერალური ბრძანებები ──</b>\n📊 <b>ბილეთების აქტივობა</b> — აქტიური ბილეთები (სამივე სპორტი ჯვარედინად)\n✅ <b>ვერიფიცირებული იუზერები</b> — რამდენ მომხმარებელს აქვს ნომერი/ტელეგრამი\n\n<b>── UFC ──</b>\n📥 <b>ufc ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ufc ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>ufc კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>ufc შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>ufc settle</b> — ბილეთების დამუშავება\n🔄 <b>ufc სრულად</b> — ყველაფერი ერთად\n🎫 <b>ufc ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>ufc სტატუსი</b> — მდგომარეობა\n💰 <b>ufc რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)`
     }
     else if (text.startsWith('ufc') || text.startsWith('/ufc')) {
       const t = text.replace(/^\/?ufc\s*/, '')
