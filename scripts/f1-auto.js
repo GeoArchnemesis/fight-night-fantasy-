@@ -123,15 +123,30 @@ async function espnF1Calendar() {
   const data = await getJSON(`${ESPN_F1}?dates=${SEASON}`);
   return data.events || [];
 }
-// ESPN-ის competition ამ kind-ისთვის (race/quali/sprint)
+// ESPN-ის competition ამ kind-ისთვის (race/quali/sprint/sprint_quali/fastest_lap)
+// ESPN abbreviation-ები: race="Race", qual="Qualifying", sr="Sprint", ss="Sprint Shootout/Qualifying"
 function espnComp(ev, kind) {
-  return (ev.competitions || []).find(c => {
-    const a = (c.type?.abbreviation || c.type?.text || '').toLowerCase();
-    if (kind === 'race')   return a === 'race' || a.includes('race');
-    if (kind === 'quali')  return a.includes('qual');
-    if (kind === 'sprint') return a.includes('sprint');
-    return false;
-  });
+  const comps = ev.competitions || [];
+  const abbr = (c) => (c.type?.abbreviation || '').toLowerCase();
+  const txt  = (c) => (c.type?.text || c.type?.abbreviation || '').toLowerCase();
+
+  if (kind === 'race' || kind === 'fastest_lap') {
+    // fastest lap რბოლის დროზე დგინდება — race competition-ს ვიყენებთ
+    return comps.find(c => abbr(c) === 'race' || (txt(c).includes('race') && !txt(c).includes('sprint')));
+  }
+  if (kind === 'quali') {
+    // ჩვეულებრივი კვალიფიკაცია — არა sprint shootout
+    return comps.find(c => (abbr(c) === 'qual' || txt(c).includes('qualif')) && !txt(c).includes('sprint') && !txt(c).includes('shootout'));
+  }
+  if (kind === 'sprint') {
+    // sprint race (არა shootout/qualifying)
+    return comps.find(c => abbr(c) === 'sr' || (txt(c).includes('sprint') && !txt(c).includes('shootout') && !txt(c).includes('qualif')));
+  }
+  if (kind === 'sprint_quali') {
+    // sprint shootout / sprint qualifying
+    return comps.find(c => abbr(c) === 'ss' || txt(c).includes('shootout') || (txt(c).includes('sprint') && txt(c).includes('qualif')));
+  }
+  return null;
 }
 // ESPN-ის რბოლის სახელი ↔ ბაზის f1_races.name (deaccent + პრეფიქსი)
 function espnMatchRace(espnEvents, dbName) {
@@ -265,6 +280,9 @@ async function settleFinished() {
     // შედეგები ESPN-იდან თითო market-ზე
     for (const m of markets) {
       if (m.result_driver_id || m.is_voided) continue;
+      // fastest_lap: ESPN scoreboard-ის winner flag = რბოლის გამარჯვებული, არა უსწრაფესი წრის ავტორი.
+      // ESPN-ს ამ endpoint-ზე fastest lap საიმედოდ არ აქვს → ხელით ჩაიწერება (ავტომატიკა არ ეხება).
+      if (m.kind === 'fastest_lap') { log(`  fastest_lap: ხელით შესაყვანია (ESPN scoreboard-ს არ აქვს)`); continue; }
       const comp = espnComp(espnEv, m.kind);
       if (!comp) { log(`  ${m.kind}: ESPN-ზე ვერ მოიძებნა`); continue; }
       if (comp.status?.type?.state !== 'post') { log(`  ${m.kind}: ჯერ არ დასრულებულა`); continue; }
