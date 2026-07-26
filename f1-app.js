@@ -30,7 +30,7 @@ const KIND_SHORT = { race: 'რბოლა', quali: 'კვალიფიკ�
 // MARKETS: [{ id, kind, start_time(Date), status, resultDriverId, isVoided, entries:[{driverId,name,team,colour,img,odds,enabled}] }]
 let MARKETS = [];
 const START = 1000;
-const state = { balance: START, score: 0, picks: {}, mode: 'express', expressStake: 0, tickets: [], user: null, tkCollapsed: {}, raceName: '', raceId: null };
+const state = { balance: START, score: 0, picks: {}, mode: 'express', expressStake: 0, tickets: [], user: null, tkCollapsed: {}, raceName: '', raceId: null, openMarkets: null };
 let currentUser = null;
 let _balanceKnown = false;
 
@@ -194,6 +194,9 @@ async function loadRaceFromDB() {
       .sort((a, b) => (a.odds == null ? 99 : a.odds) - (b.odds == null ? 99 : b.odds))
   })).sort((a, b) => (order[a.kind] ?? 9) - (order[b.kind] ?? 9));
 
+  // accordion მდგომარეობა თავიდან იდგმება ახალ რბოლაზე (quali გაიხსნება default-ად)
+  state.openMarkets = null;
+
   // hero — ათვლა მომდევნო სესიაზე (კვალიფიკაცია → სპრინტი → რბოლა)
   const SESSION_TAG = { sprint_quali: 'UPCOMING SPRINT QUALI', quali: 'UPCOMING QUALIFYING', sprint: 'UPCOMING SPRINT', race: 'UPCOMING RACE' };
   window.__f1sessions = MARKETS
@@ -222,8 +225,16 @@ function setPick(marketId, driverId) {
   const m = MARKETS.find(x => x.id === marketId); if (!m || !marketOpen(m)) return;
   const e = entryOf(marketId, driverId); if (!e || !e.enabled || e.odds == null) return;
   const cur = state.picks[marketId];
+  const wasSelect = !(cur && cur.driverId === driverId);
   if (cur && cur.driverId === driverId) delete state.picks[marketId];
   else state.picks[marketId] = { marketId, kind: m.kind, driverId, name: e.name, team: e.team, odds: e.odds, stake: (cur && cur.stake) || 0 };
+  // მრბოლელის არჩევისას ეს market ავტომატურად იკეცება (რომ შემდეგ market-ზე გადავიდე),
+  // და შემდეგი ღია market, რომელზეც ჯერ არ აურჩევია, ავტომატურად იშლება.
+  if (wasSelect && state.openMarkets) {
+    state.openMarkets[marketId] = false;
+    const next = MARKETS.find(x => x.id !== marketId && marketOpen(x) && !state.picks[x.id]);
+    if (next) state.openMarkets[next.id] = true;
+  }
   refresh();
 }
 function refresh() { renderMarkets(); renderSlip(); renderBar(); }
@@ -234,13 +245,28 @@ function renderMarkets() {
   if (!MARKETS.length) { wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">ამ ეტაპზე რბოლა ხელმისაწვდომი არ არის.</div>'; return; }
   const noImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 120'%3E%3Crect width='120' height='120' fill='%230E0D14'/%3E%3Ccircle cx='60' cy='48' r='26' fill='%23F31D25' opacity='.85'/%3E%3Crect x='38' y='72' width='44' height='30' rx='6' fill='%23F31D25' opacity='.8'/%3E%3C/svg%3E";
 
+  const chevSvg = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+
+  // accordion მდგომარეობის ინიციალიზაცია: default — quali გახსნილი, დანარჩენი დაკეცილი.
+  // state.openMarkets ინახავს ღია market id-ებს (მომხმარებლის დაწკაპუნება ცვლის).
+  if (!state.openMarkets) {
+    state.openMarkets = {};
+    const firstOpenKind = MARKETS.find(m => m.kind === 'quali') ? 'quali'
+                        : (MARKETS[0] && MARKETS[0].kind);
+    MARKETS.forEach(m => { state.openMarkets[m.id] = (m.kind === firstOpenKind); });
+  } else {
+    // ახალი market-ები (რომ state-ში არ არის) — დაკეცილი
+    MARKETS.forEach(m => { if (!(m.id in state.openMarkets)) state.openMarkets[m.id] = false; });
+  }
+
   wrap.innerHTML = MARKETS.map(m => {
     const open = marketOpen(m);
     const completed = (m.status === 'completed' && m.resultDriverId);
+    const isOpen = !!state.openMarkets[m.id];
     let note = '';
-    if (m.isVoided) note = '<span style="color:var(--muted)">გაუქმებულია</span>';
-    else if (completed) note = '<span style="color:var(--green)">დასრულდა</span>';
-    else if (!open) note = '<span style="color:var(--muted)">ფსონები დაკეტილია</span>';
+    if (m.isVoided) note = '<span class="mk-note" style="color:var(--muted)">გაუქმებულია</span>';
+    else if (completed) note = '<span class="mk-note" style="color:var(--green)">დასრულდა</span>';
+    else if (!open) note = '<span class="mk-note" style="color:var(--muted)">ფსონები დაკეტილია</span>';
 
     const cards = m.entries.map(e => {
       const picked = state.picks[m.id] && state.picks[m.id].driverId === e.driverId;
@@ -256,13 +282,28 @@ function renderMarkets() {
       </button>`;
     }).join('');
 
-    return `<div class="f1-market-group">
-      <div class="f1-market-title ${m.kind}"><span class="dot"></span>${KIND_LABEL[m.kind] || m.kind} ${note ? '· ' + note : ''}</div>
-      <div class="f1-drv-grid">${cards || '<div style="color:var(--muted);padding:12px">კოეფები ჯერ არ არის</div>'}</div>
+    return `<div class="f1-market-group${isOpen ? ' open' : ''}" data-mgroup="${m.id}">
+      <div class="f1-market-title ${m.kind}" data-mtoggle="${m.id}" role="button" tabindex="0" aria-expanded="${isOpen}">
+        <span class="dot"></span>${KIND_LABEL[m.kind] || m.kind}${note ? ' ' + note : ''}${chevSvg}
+      </div>
+      <div class="f1-market-body"><div class="f1-drv-grid-wrap"><div class="f1-drv-grid">${cards || '<div style="color:var(--muted);padding:12px">კოეფები ჯერ არ არის</div>'}</div></div></div>
     </div>`;
   }).join('');
 
-  wrap.querySelectorAll('[data-pick]').forEach(b => { if (!b.disabled) b.onclick = () => setPick(+b.dataset.pick, +b.dataset.drv); });
+  // accordion toggle
+  wrap.querySelectorAll('[data-mtoggle]').forEach(h => {
+    const toggle = () => {
+      const id = +h.dataset.mtoggle;
+      state.openMarkets[id] = !state.openMarkets[id];
+      const grp = wrap.querySelector(`[data-mgroup="${id}"]`);
+      if (grp) grp.classList.toggle('open', state.openMarkets[id]);
+      h.setAttribute('aria-expanded', state.openMarkets[id]);
+    };
+    h.onclick = toggle;
+    h.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggle(); } };
+  });
+
+  wrap.querySelectorAll('[data-pick]').forEach(b => { if (!b.disabled) b.onclick = (ev) => { ev.stopPropagation(); setPick(+b.dataset.pick, +b.dataset.drv); }; });
   wrap.querySelectorAll('.drv-img').forEach(img => { img.addEventListener('error', function onErr() { this.removeEventListener('error', onErr); this.src = noImg; }); });
 }
 
