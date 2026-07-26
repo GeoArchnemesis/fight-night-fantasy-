@@ -254,13 +254,11 @@ function renderMarkets() {
 
   const chevSvg = '<svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
 
-  // accordion მდგომარეობის ინიციალიზაცია: default — quali გახსნილი, დანარჩენი დაკეცილი.
-  // state.openMarkets ინახავს ღია market id-ებს (მომხმარებლის დაწკაპუნება ცვლის).
+  // accordion მდგომარეობის ინიციალიზაცია: default — ყველა market დაკეცილი
+  // (არცერთი ავტომატურად არ იშლება; მომხმარებელი თვითონ ხსნის დაწკაპუნებით).
   if (!state.openMarkets) {
     state.openMarkets = {};
-    const firstOpenKind = MARKETS.find(m => m.kind === 'quali') ? 'quali'
-                        : (MARKETS[0] && MARKETS[0].kind);
-    MARKETS.forEach(m => { state.openMarkets[m.id] = (m.kind === firstOpenKind); });
+    MARKETS.forEach(m => { state.openMarkets[m.id] = false; });
   } else {
     // ახალი market-ები (რომ state-ში არ არის) — დაკეცილი
     MARKETS.forEach(m => { if (!(m.id in state.openMarkets)) state.openMarkets[m.id] = false; });
