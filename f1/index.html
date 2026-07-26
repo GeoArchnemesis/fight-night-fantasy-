@@ -30,10 +30,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="/style.css?v=202">
 <style>
 /* F1-specific (style.css-ის დამატება) */
-.f1-market-group{margin-bottom:28px}
-.f1-market-title{font-family:var(--mono);font-size:.82rem;font-weight:700;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin:0 0 12px;display:flex;align-items:center;gap:10px}
-.f1-market-title .dot{width:8px;height:8px;border-radius:50%;background:var(--red)}
+.f1-market-group{margin-bottom:14px;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--surface,rgba(255,255,255,.02))}
+.f1-market-title{font-family:var(--mono);font-size:.82rem;font-weight:700;letter-spacing:.08em;color:var(--muted);text-transform:uppercase;margin:0;padding:14px 16px;display:flex;align-items:center;gap:10px;cursor:pointer;user-select:none;-webkit-tap-highlight-color:transparent;transition:background .15s}
+.f1-market-title:hover{background:rgba(255,255,255,.03)}
+.f1-market-title .dot{width:8px;height:8px;border-radius:50%;background:var(--red);flex-shrink:0}
 .f1-market-title.quali .dot{background:var(--gold)}
+.f1-market-title .mk-note{margin-left:auto;font-weight:600;letter-spacing:.02em;text-transform:none}
+.f1-market-title .chev{margin-left:8px;width:16px;height:16px;flex-shrink:0;transition:transform .25s ease;opacity:.6}
+.f1-market-group.open .chev{transform:rotate(180deg)}
+.f1-market-body{display:grid;grid-template-rows:0fr;transition:grid-template-rows .28s ease}
+.f1-market-group.open .f1-market-body{grid-template-rows:1fr}
+.f1-market-body>.f1-drv-grid-wrap{overflow:hidden;min-height:0}
+.f1-drv-grid{padding:4px 16px 16px}
 .drv-team{font-family:var(--mono);font-size:.72rem;color:var(--muted)}
 .drv-badge{width:4px;align-self:stretch;border-radius:4px}
 
