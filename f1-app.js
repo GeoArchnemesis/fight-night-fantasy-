@@ -172,8 +172,10 @@ async function loadRaceFromDB() {
   state.raceName = race.name || '';
   window.__raceId = race.id;
 
-  // markets აწყობა (race ჯერ, quali მერე)
-  const order = { quali: 0, sprint_quali: 1, sprint: 2, race: 3, fastest_lap: 4 };
+  // markets აწყობა — რეალური ქრონოლოგიით (start_time-ით). სპრინტ-weekend-ის სესიების რიგია:
+  // სპრინტ-კვალიფიკაცია (პარ.) → სპრინტი (შაბ. დილა) → კვალიფიკაცია (შაბ. საღამო) → რბოლა (კვ.).
+  // fastest_lap რბოლის დროსაა (იგივე start_time) → order-tiebreak-ით რბოლის შემდეგ ჩერდება.
+  const order = { sprint_quali: 0, sprint: 1, quali: 2, race: 3, fastest_lap: 4 };
   MARKETS = (race.f1_markets || []).map(m => ({
     id: m.id, kind: m.kind,
     start_time: m.start_time ? new Date(m.start_time) : null,
@@ -192,13 +194,18 @@ async function loadRaceFromDB() {
         enabled: e.is_enabled !== false
       }))
       .sort((a, b) => (a.odds == null ? 99 : a.odds) - (b.odds == null ? 99 : b.odds))
-  })).sort((a, b) => (order[a.kind] ?? 9) - (order[b.kind] ?? 9));
+  })).sort((a, b) => {
+    const ta = a.start_time ? a.start_time.getTime() : Infinity;
+    const tb = b.start_time ? b.start_time.getTime() : Infinity;
+    if (ta !== tb) return ta - tb;                       // ქრონოლოგიურად, რეალური start_time-ით
+    return (order[a.kind] ?? 9) - (order[b.kind] ?? 9);  // ერთი დროის tiebreak (race vs fastest_lap)
+  });
 
   // accordion მდგომარეობა თავიდან იდგმება ახალ რბოლაზე (quali გაიხსნება default-ად)
   state.openMarkets = null;
 
   // hero — ათვლა მომდევნო სესიაზე (კვალიფიკაცია → სპრინტი → რბოლა)
-  const SESSION_TAG = { sprint_quali: 'UPCOMING SPRINT QUALI', quali: 'UPCOMING QUALIFYING', sprint: 'UPCOMING SPRINT', race: 'UPCOMING RACE' };
+  const SESSION_TAG = { sprint_quali: 'UPCOMING SPRINT QUALIFICATION', quali: 'UPCOMING QUALIFYING', sprint: 'UPCOMING SPRINT', race: 'UPCOMING RACE' };
   window.__f1sessions = MARKETS
     .filter(m => SESSION_TAG[m.kind] && m.start_time)
     .map(m => ({ kind: m.kind, time: m.start_time.getTime(), tag: SESSION_TAG[m.kind] }))
