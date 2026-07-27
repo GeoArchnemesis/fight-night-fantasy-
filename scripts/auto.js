@@ -58,7 +58,7 @@ function countryToFlag(alt) {
     'Bahrain':'🇧🇭','Jordan':'🇯🇴','Lebanon':'🇱🇧','Syria':'🇸🇾',
     'South Africa':'🇿🇦','Nigeria':'🇳🇬','Cameroon':'🇨🇲','Ghana':'🇬🇭',
     'Morocco':'🇲🇦','Egypt':'🇪🇬','Tunisia':'🇹🇳','Algeria':'🇩🇿',
-    'Kenya':'🇰🇪','DR Congo':'🇨🇩','Democratic Republic of the Congo':'🇨🇩', 'Congo':'🇨🇬','Republic of the Congo':'🇨🇬','Senegal':'🇸🇳','Angola':'🇦🇴',
+    'Kenya':'🇰🇪','DR Congo':'🇨🇩','Democratic Republic of Congo':'🇨🇩', 'Congo':'🇨🇬','Republic of the Congo':'🇨🇬','Senegal':'🇸🇳','Angola':'🇦🇴',
   };
   return map[alt] || '🏳️';
 }
