@@ -1075,6 +1075,31 @@ async function cmdFbTickets(L: FbLeague): Promise<string> {
 }
 
 
+async function cmdFbAllStatus(): Promise<string> {
+  let out = '⚽️ <b>ფეხბურთი — მიმოხილვა</b>\n'
+  for (const code of Object.keys(FB_LEAGUES)) {
+    const L = FB_LEAGUES[code]
+    const r = await fbActiveRound(code)
+    if (!r) { out += `\n• <b>${L.name}</b>: ტური არ არის`; continue }
+    const { count: mc } = await sb.from('soccer_matches').select('id', { count: 'exact', head: true }).eq('round_id', r.id).eq('is_voided', false)
+    const { count: pc } = await sb.from('soccer_tickets').select('id', { count: 'exact', head: true }).eq('league', code).eq('status', 'pending')
+    out += `\n• <b>${L.name}</b>: ${r.name || 'ტური ' + r.round_no} — ${mc || 0} მატჩი, ${pc || 0} ბილეთი`
+  }
+  out += '\n\n<i>დეტალურად: მაგ. <b>laliga</b>, <b>laliga კოეფები</b>, <b>ucl გუნდები</b>.</i>'
+  return out
+}
+
+async function cmdFbAllTickets(): Promise<string> {
+  const { data: tickets } = await sb.from('soccer_tickets')
+    .select('id,league,stake,total_odds,type,placed_at,users(nick)')
+    .eq('status', 'pending').order('placed_at', { ascending: false }).limit(30)
+  if (!tickets || !tickets.length) return '📭 აქტიური ფეხბურთის ბილეთი არ არის (არცერთ ლიგაზე)'
+  const nameOf = (c: string) => FB_LEAGUES[c]?.name || c
+  const lines = tickets.map((t: any) =>
+    `• <b>${t.users?.nick || '?'}</b> [${nameOf(t.league)}] — ${t.stake} @ ${Number(t.total_odds).toFixed(2)} → ${Math.round(Number(t.stake) * Number(t.total_odds))} (${t.type})`)
+  return `🎫 <b>ფეხბურთის აქტიური ბილეთები (${tickets.length})</b>\n\n${lines.join('\n')}\n\n<i>დეტალურად ლიგაზე: <b>laliga ბილეთები</b>, <b>ucl ბილეთები</b>…</i>`
+}
+
 // ── ბილეთების აქტივობა: ყველა აქტიური ("pending") ბილეთი, სამივე სპორტი ჯვარედინად ──
 async function cmdTicketActivity(chatId: number): Promise<string> {
   const { data: ufcTix } = await sb.from('tickets').select('user_id').eq('status', 'pending')
@@ -1249,6 +1274,17 @@ Deno.serve(async (req) => {
         response = await cmdF1CreateEvent(chatId)
       } else {
         response = '🤷 ვერ გავიგე. F1 ბრძანებები: <b>help</b>'
+      }
+    }
+    // ── FOOTBALL გენერალური ("ფეხბურთი" / football — ყველა ლიგა ერთად) ──
+    else if (text.startsWith('ფეხბურთ') || text.startsWith('football') || text.startsWith('/football')) {
+      const t = text.replace(/^\/?(football|ფეხბურთ\S*)\s*/, '')
+      if (t.includes('ბილეთ') || t.includes('ticket') || t.includes('აქტიურ')) {
+        response = await cmdFbAllTickets()
+      } else if (t.includes('სტატუს') || t.includes('status') || t === '') {
+        response = await cmdFbAllStatus()
+      } else {
+        response = 'ℹ️ ფეხბურთის კოეფები/გუნდები/შედეგები კონკრეტულ ლიგაზეა.\nმაგ: <b>laliga კოეფები</b>, <b>ucl გუნდები</b>, <b>epl შედეგები</b>.\nლიგები: laliga · epl · seriea · bundesliga · ligue1 · ucl'
       }
     }
     // ── FOOTBALL ბრძანებები (ლიგის პრეფიქსით: laliga/epl/seriea/bundesliga/ligue1/ucl) ──
