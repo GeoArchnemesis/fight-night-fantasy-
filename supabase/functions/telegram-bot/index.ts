@@ -1105,8 +1105,9 @@ async function cmdTicketActivity(chatId: number): Promise<string> {
   const { data: ufcTix } = await sb.from('tickets').select('user_id').eq('status', 'pending')
   const { data: f1Tix } = await sb.from('f1_tickets').select('user_id').eq('status', 'pending')
   const { data: nbaTix } = await sb.from('nba_tickets').select('user_id').eq('status', 'pending')
+  const { data: fbTix } = await sb.from('soccer_tickets').select('user_id,league').eq('status', 'pending')
 
-  const grandTotal = (ufcTix?.length || 0) + (f1Tix?.length || 0) + (nbaTix?.length || 0)
+  const grandTotal = (ufcTix?.length || 0) + (f1Tix?.length || 0) + (nbaTix?.length || 0) + (fbTix?.length || 0)
   if (!grandTotal) return '🎫 <b>ბილეთები</b>\n\nსულ: <b>0</b> აქტიური ბილეთი'
 
   const countBy = (rows: any[] | null) => {
@@ -1117,55 +1118,86 @@ async function cmdTicketActivity(chatId: number): Promise<string> {
   const ufcCount = countBy(ufcTix)
   const f1Count = countBy(f1Tix)
   const nbaCount = countBy(nbaTix)
+  const fbCount = countBy(fbTix)   // ფეხბურთი — ჯამში ყველა ლიგა
+  // ფეხბურთი — თითო ლიგა ცალკე: league -> { user_id: count }
+  const fbByLeague: Record<string, Record<string, number>> = {}
+  for (const r of fbTix || []) {
+    (fbByLeague[r.league] = fbByLeague[r.league] || {})
+    fbByLeague[r.league][r.user_id] = (fbByLeague[r.league][r.user_id] || 0) + 1
+  }
 
-  // ვისაც მინიმუმ ერთი აქტიური ბილეთი აქვს (ნებისმიერ სპორტში)
-  const ids = [...new Set([...Object.keys(ufcCount), ...Object.keys(f1Count), ...Object.keys(nbaCount)])]
+  // ვისაც მინიმუმ ერთი აქტიური ბილეთი აქვს (ნებისმიერ სპორტში, ფეხბურთის ჩათვლით)
+  const ids = [...new Set([...Object.keys(ufcCount), ...Object.keys(f1Count), ...Object.keys(nbaCount), ...Object.keys(fbCount)])]
 
   const { data: users } = await sb.from('users').select('id,nick,balance').in('id', ids)
   const { data: f1Bal } = await sb.from('user_balances').select('user_id,balance').eq('sport', 'f1').in('user_id', ids)
   const { data: nbaBal } = await sb.from('user_balances').select('user_id,balance').eq('sport', 'nba').in('user_id', ids)
+  const { data: fbBal } = await sb.from('user_balances').select('user_id,balance,sport').like('sport', 'soccer_%').in('user_id', ids)
 
   const f1BalMap: Record<string, number> = {}
   for (const b of f1Bal || []) f1BalMap[b.user_id] = b.balance
   const nbaBalMap: Record<string, number> = {}
   for (const b of nbaBal || []) nbaBalMap[b.user_id] = b.balance
+  // ფეხბურთის ბალანსი: user_id -> { league: balance }
+  const fbBalMap: Record<string, Record<string, number>> = {}
+  for (const b of fbBal || []) {
+    const lg = (b.sport as string).replace('soccer_', '')
+    ;(fbBalMap[b.user_id] = fbBalMap[b.user_id] || {})[lg] = b.balance
+  }
+
+  const fbCodes = Object.keys(FB_LEAGUES)   // esp1, eng1, ... ucl (ჩვენების რიგი)
 
   const rows = (users || []).map((u: any) => {
     const uc = ufcCount[u.id] || 0
     const fc = f1Count[u.id] || 0
     const nc = nbaCount[u.id] || 0
-    return { u, uc, fc, nc, total: uc + fc + nc }
+    const bc = fbCount[u.id] || 0
+    return { u, uc, fc, nc, bc, total: uc + fc + nc + bc }
   }).sort((a, b) => b.total - a.total)
 
   const lines: string[] = []
   for (const r of rows) {
     const f1b = f1BalMap[r.u.id]
     const nbab = nbaBalMap[r.u.id]
-    const balStr = `UFC ${r.u.balance} · F1 ${f1b != null ? f1b : '—'} · NBA ${nbab != null ? nbab : '—'}`
+    let balStr = `UFC ${r.u.balance} · F1 ${f1b != null ? f1b : '—'} · NBA ${nbab != null ? nbab : '—'}`
+    // ფეხბურთის ბალანსი — მხოლოდ იმ ლიგებზე, სადაც ამ იუზერს აქტიური ბილეთი აქვს (რომ არ გაბერდეს)
+    const balBits: string[] = []
+    for (const code of fbCodes) {
+      if (fbByLeague[code]?.[r.u.id]) {
+        const bal = fbBalMap[r.u.id]?.[code]
+        balBits.push(`${FB_LEAGUES[code].name} ${bal != null ? bal : '—'}`)
+      }
+    }
+    if (balBits.length) balStr += ' · ' + balBits.join(' · ')
+
     const parts: string[] = []
     if (r.uc) parts.push(`UFC — ${r.uc}`)
     if (r.fc) parts.push(`F1 — ${r.fc}`)
     if (r.nc) parts.push(`NBA — ${r.nc}`)
+    for (const code of fbCodes) {
+      const n = fbByLeague[code]?.[r.u.id]
+      if (n) parts.push(`${FB_LEAGUES[code].name} — ${n}`)
+    }
     lines.push(`👤 <b>${r.u.nick || '—'}</b>\n💰 ${balStr}\n🎫 აქტიური ბილეთი: <b>${r.total}</b>${parts.length ? '\n   ' + parts.join('\n   ') : ''}`)
   }
 
   // ── ჯამი სპორტების მიხედვით ──
-  // თითო სპორტზე: pending ბილეთების რაოდენობა + უნიკალური მომხმარებლების რაოდენობა.
-  // ticket count = მასივის სიგრძე; users = ცალკეული user_id-ების რაოდენობა (count-map-ის გასაღებები).
-  const sportSummary = (label: string, tix: any[] | null, cnt: Record<string, number>): string | null => {
-    const tickets = tix?.length || 0
+  const sportSummary = (label: string, tickets: number, users: number): string | null => {
     if (!tickets) return null
-    const users = Object.keys(cnt).length
     return `${label} — <b>${tickets}</b> ბილეთი · ${users} მომხმარებელი`
   }
   const summaryLines = [
-    sportSummary('🥊 UFC', ufcTix, ufcCount),
-    sportSummary('🏎️ F1', f1Tix, f1Count),
-    sportSummary('🏀 NBA', nbaTix, nbaCount),
+    sportSummary('🥊 UFC', ufcTix?.length || 0, Object.keys(ufcCount).length),
+    sportSummary('🏎️ F1', f1Tix?.length || 0, Object.keys(f1Count).length),
+    sportSummary('🏀 NBA', nbaTix?.length || 0, Object.keys(nbaCount).length),
   ].filter(Boolean) as string[]
-  // სულ უნიკალური მომხმარებელი (ვისაც ერთი აქტიური ბილეთი მაინც აქვს ნებისმიერ სპორტში).
-  // ეს = ids.length. ⚠️ თუ ვინმეს ორ სპორტში აქვს ბილეთი, ჯამში ერთხელ ითვლება,
-  // ამიტომ სპორტების user-რიცხვების შეკრება შეიძლება ამ ჯამზე მეტი გამოვიდეს.
+  // ფეხბურთი — თითო ლიგა ცალკე (მხოლოდ სადაც ბილეთია)
+  for (const code of fbCodes) {
+    const byUser = fbByLeague[code]
+    if (!byUser) continue
+    const tickets = Object.values(byUser).reduce((s, n) => s + n, 0)
+    summaryLines.push(sportSummary(`⚽️ ${FB_LEAGUES[code].name}`, tickets, Object.keys(byUser).length)!)
+  }
   const totalUsers = ids.length
   const summary = `━━━━━━━━━━━━━\n📊 <b>ჯამი სპორტების მიხედვით:</b>\n${summaryLines.join('\n')}\n\n🎫 <b>სულ: ${grandTotal} ბილეთი · ${totalUsers} მომხმარებელი</b>`
 
