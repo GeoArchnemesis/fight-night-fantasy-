@@ -128,7 +128,10 @@ async function fetchCoreOdds(slug, eventId) {
           const over  = num(cur.over.decimal ?? cur.over.value);
           const under = num(cur.under.decimal ?? cur.under.value);
           const line  = num(it.overUnder ?? cur.total?.alternateDisplayValue);
-          if (over && over > 0 && under && under > 0 && line != null) out.ou = { line, over, under };
+          // მხოლოდ 2.5 ხაზი (კოეფი ხაზს უკავშირდება — სხვა ხაზი არ გვინდა)
+          if (over && over > 0 && under && under > 0 && line != null && Math.abs(line - 2.5) < 0.01) {
+            out.ou = { line: 2.5, over, under };
+          }
         }
       }
     }
@@ -253,6 +256,7 @@ async function createNextRound(lg, events) {
       home_team: home.team.displayName, away_team: away.team.displayName,
       home_abbr: home.team.abbreviation || null, away_abbr: away.team.abbreviation || null,
       home_logo: home.team.logo || null, away_logo: away.team.logo || null,
+      home_color: home.team.color || null, away_color: away.team.color || null,
       venue: comp.venue?.fullName || null, kickoff: ev.date, status: 'upcoming',
     }).select('id').maybeSingle();
     if (!m) continue;
@@ -267,16 +271,28 @@ async function createNextRound(lg, events) {
   log(`[${lg.code}] ტური ${roundNo} შეიქმნა — ${created} მატჩი`);
 }
 
-// ── მიმდინარე ტურის მატჩების კოეფების განახლება ──
+// ── მიმდინარე ტურის მატჩების ფერების/emblema-ს backfill ──
+// (კოეფებს The Odds API ანახლებს — soccer-odds.js, 3 დღეში ერთხელ; ESPN კოეფი მხოლოდ
+//  მატჩის შექმნისას ჩაიდება. აქ 30-წუთიან ESPN-განახლებას აღარ ვაკეთებთ, რომ
+//  The Odds API-ის მნიშვნელობები არ გადავაწეროთ.)
 async function refreshOdds(lg, round, events) {
   const { data: matches } = await sb.from('soccer_matches')
-    .select('id,espn_id,status,is_voided,kickoff').eq('round_id', round.id);
+    .select('id,espn_id,status,is_voided,kickoff,home_color,away_color').eq('round_id', round.id);
   for (const mt of matches || []) {
     if (mt.status === 'completed' || mt.is_voided) continue;
     if (mt.kickoff && new Date(mt.kickoff).getTime() <= Date.now()) continue; // დაწყებულს არ ვეხებით
+    if (mt.home_color != null && mt.away_color != null) continue;             // ფერი უკვე აქვს
     const ev = events.find(e => e.id === mt.espn_id);
     if (!ev) continue;
-    await ensureMarkets(lg, mt.id, ev);
+    const comp = ev.competitions[0];
+    const h = comp.competitors.find(c => c.homeAway === 'home');
+    const a = comp.competitors.find(c => c.homeAway === 'away');
+    const upd = {};
+    if (h?.team?.color) upd.home_color = h.team.color;
+    if (a?.team?.color) upd.away_color = a.team.color;
+    if (h?.team?.logo) upd.home_logo = h.team.logo;
+    if (a?.team?.logo) upd.away_logo = a.team.logo;
+    if (Object.keys(upd).length) await sb.from('soccer_matches').update(upd).eq('id', mt.id);
   }
 }
 
