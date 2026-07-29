@@ -1,0 +1,28 @@
+name: Soccer Odds (The Odds API)
+
+on:
+  schedule:
+    - cron: '0 9 */3 * *'    # ≈3 დღეში ერთხელ, 09:00 UTC (API ლიმიტის დაზოგვა)
+  workflow_dispatch:          # ხელით გაშვება (მაგ. ახალი ტურის შემდეგ)
+
+jobs:
+  odds:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install @supabase/supabase-js@2.49.1
+
+      - name: Fetch football odds (The Odds API)
+        run: node scripts/soccer-odds.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          ODDS_API_KEY: ${{ secrets.ODDS_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
