@@ -135,7 +135,8 @@ async function loadEventFromDB() {
     .eq('event_id', ev.id).order('bout_order', { ascending: true });
   if (fErr) return ev;
 
-  FIGHTS = (fights || []).map(f => {
+  // ვოიდ/გაუქმებული ბრძოლები საიტზე არ ჩანს (stake settlement-ზე ბრუნდება; ბილეთის ისტორიაში მაინც ჩანს "დაბრუნდა"-დ)
+  FIGHTS = (fights || []).filter(f => f.is_voided !== true).map(f => {
     let resultWinner = null;
     if (f.status === 'completed' && f.result_winner) {
       if (f.result_winner === f.red?.name) resultWinner = 'red';
