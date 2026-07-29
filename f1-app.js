@@ -176,7 +176,8 @@ async function loadRaceFromDB() {
   // სპრინტ-კვალიფიკაცია (პარ.) → სპრინტი (შაბ. დილა) → კვალიფიკაცია (შაბ. საღამო) → რბოლა (კვ.).
   // fastest_lap რბოლის დროსაა (იგივე start_time) → order-tiebreak-ით რბოლის შემდეგ ჩერდება.
   const order = { sprint_quali: 0, sprint: 1, quali: 2, race: 3, fastest_lap: 4 };
-  MARKETS = (race.f1_markets || []).map(m => ({
+  // ვოიდ/გაუქმებული მარკეტი საიტზე არ ჩანს (stake settlement-ზე ბრუნდება; ბილეთის ისტორიაში მაინც ჩანს "დაბრუნდა"-დ)
+  MARKETS = (race.f1_markets || []).filter(m => m.is_voided !== true).map(m => ({
     id: m.id, kind: m.kind,
     start_time: m.start_time ? new Date(m.start_time) : null,
     status: m.status || 'upcoming',
