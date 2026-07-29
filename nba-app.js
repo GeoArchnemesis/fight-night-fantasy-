@@ -156,7 +156,8 @@ async function loadGamesFromDB() {
       .select('id,home_team,away_team,home_abbr,away_abbr,home_logo,away_logo,home_odds,away_odds,start_time,status,result_winner,is_voided')
       .gte('start_time', from).lte('start_time', to)
       .order('start_time');
-    GAMES = (data || []).map(g => ({
+    // ვოიდ/გაუქმებული თამაში საიტზე არ ჩანს (stake settlement-ზე ბრუნდება; ბილეთის ისტორიაში მაინც ჩანს "დაბრუნდა"-დ)
+    GAMES = (data || []).filter(g => g.is_voided !== true).map(g => ({
       id: g.id,
       home: g.home_team, away: g.away_team,
       homeAbbr: g.home_abbr || g.home_team, awayAbbr: g.away_abbr || g.away_team,
