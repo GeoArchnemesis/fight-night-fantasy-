@@ -11,16 +11,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Fight Night Fantasy — აირჩიე ფენტეზი</title>
-<meta name="description" content="Fight Night Fantasy — აირჩიე ფენტეზის ტიპი: UFC, Formula 1 ან NBA. დადე მომგებიანი ბილეთები, გალიდერდი ლიდერბორდზე და მიიღე ყოველთვიური ფულადი პრიზები." />
+<meta name="description" content="Fight Night Fantasy — აირჩიე ფენტეზის ტიპი: UFC, Formula 1, NBA ან ფეხბურთი. დადე მომგებიანი ბილეთები, გალიდერდი ლიდერბორდზე და მიიღე ყოველთვიური ფულადი პრიზები." />
 <link rel="canonical" href="https://fnf.ge/" />
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://fnf.ge/" />
 <meta property="og:title" content="Fight Night Fantasy — აირჩიე ფენტეზი" />
-<meta property="og:description" content="აირჩიე ფენტეზის ტიპი: UFC, Formula 1 ან NBA. გალიდერდი ლიდერბორდზე და მოიგე ფულადი პრიზები." />
+<meta property="og:description" content="აირჩიე ფენტეზის ტიპი: UFC, Formula 1, NBA ან ფეხბურთი. გალიდერდი ლიდერბორდზე და მოიგე ფულადი პრიზები." />
 <meta property="og:image" content="https://fnf.ge/og-image.png" />
 <meta name="twitter:card" content="summary" />
 <meta name="twitter:title" content="Fight Night Fantasy — აირჩიე ფენტეზი" />
-<meta name="twitter:description" content="აირჩიე ფენტეზის ტიპი: UFC, Formula 1 ან NBA. გალიდერდი ლიდერბორდზე და მოიგე ფულადი პრიზები." />
+<meta name="twitter:description" content="აირჩიე ფენტეზის ტიპი: UFC, Formula 1, NBA ან ფეხბურთი. გალიდერდი ლიდერბორდზე და მოიგე ფულადი პრიზები." />
 <meta name="twitter:image" content="https://fnf.ge/og-image.png" />
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
@@ -29,23 +29,33 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="/style.css?v=201" />
 <style>
   body.landing{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;background:radial-gradient(1200px 600px at 50% -10%, rgba(243,29,37,.14), transparent 60%), var(--bg,#0a0910);position:relative;overflow-x:hidden}
-  .land-logo{display:flex;align-items:center;gap:12px;margin-bottom:8px}
-  .land-logo img{width:44px;height:44px;border-radius:9px}
-  .land-logo .wordmark{font-family:var(--head);font-weight:900;font-size:1.15rem;letter-spacing:.02em}
+  .land-logo{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .land-logo img{width:clamp(54px,7vw,66px);height:clamp(54px,7vw,66px);border-radius:13px}
+  .land-logo .wordmark{font-family:var(--head);font-weight:900;font-size:clamp(1.4rem,3.6vw,2rem);letter-spacing:.02em}
   .land-logo .bw{color:var(--text,#fff)}.land-logo .bn{color:var(--red,#f31d25)}.land-logo .bf{color:var(--text,#fff)}
-  .land-title{font-family:var(--head);font-weight:900;font-size:clamp(1.6rem,5vw,2.6rem);text-align:center;margin:18px 0 6px;color:var(--text,#fff)}
-  .land-desc{color:var(--muted,#9a97a8);text-align:center;max-width:440px;margin-bottom:34px;font-size:.98rem;line-height:1.5}
-  .land-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;width:100%;max-width:1020px}
-  .land-card{position:relative;display:block;border:1px solid var(--line,#26232f);border-radius:18px;background-color:var(--surface,#14121b);background-repeat:no-repeat;background-position:center;background-size:cover;text-decoration:none;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;overflow:hidden;min-height:240px}
+  .land-title{font-family:var(--head);font-weight:900;font-size:clamp(1.6rem,5vw,2.6rem);text-align:center;margin:22px 0 26px;color:var(--text,#fff)}
+  .land-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;width:100%;max-width:1040px}
+  .land-card{position:relative;display:block;border:1px solid var(--line,#26232f);border-radius:16px;background-color:var(--surface,#14121b);background-repeat:no-repeat;background-position:center;background-size:cover;text-decoration:none;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;overflow:hidden;aspect-ratio:3/2}
   .land-card.ufc{background-image:url('https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/object/public/site/landing-ufc')}
   .land-card.f1{background-image:url('https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/object/public/site/landing-f1')}
   .land-card.nba{background-image:url('https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/object/public/site/landing-nba')}
-  .land-card:hover{transform:translateY(-6px);box-shadow:0 24px 60px -20px rgba(0,0,0,.7)}
+  .land-card.fb-laliga{background-image:url('https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/object/public/site/landing-laliga')}
+  .land-card.fb-epl{background-image:url('https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/object/public/site/landing-epl')}
+  .land-card.fb-seriea{background-image:url('https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/object/public/site/landing-seriea')}
+  .land-card.fb-bundesliga{background-image:url('https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/object/public/site/landing-bundesliga')}
+  .land-card.fb-ligue1{background-image:url('https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/object/public/site/landing-ligue1')}
+  .land-card.fb-ucl{background-image:url('https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/object/public/site/landing-ucl')}
+  .land-card:hover{transform:translateY(-5px);box-shadow:0 22px 55px -20px rgba(0,0,0,.7)}
   .land-card.ufc:hover{border-color:var(--red,#f31d25)}
   .land-card.f1:hover{border-color:#30d1b4}
   .land-card.nba:hover{border-color:#ff8c42}
-  .land-foot{margin-top:34px;color:var(--muted,#9a97a8);font-size:.8rem;text-align:center}
-  @media(max-width:860px){.land-cards{grid-template-columns:1fr;max-width:360px}.land-card{min-height:160px}}
+  .land-card[class*="fb-"]:hover{border-color:#4da3ff}
+  .fb-cap{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-weight:800;font-size:clamp(.72rem,1.7vw,.95rem);text-align:center;font-family:var(--head)}
+  .land-foot{margin-top:30px;color:var(--muted,#9a97a8);font-size:.8rem;text-align:center}
+  @media(max-width:860px){
+    .land-cards{grid-template-columns:repeat(2,1fr);gap:11px;max-width:440px}
+    .land-title{margin:16px 0 20px}
+  }
 </style>
 </head>
 <body class="landing">
@@ -63,6 +73,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <a href="/ufc/" class="land-card ufc" aria-label="UFC"></a>
   <a href="/f1/" class="land-card f1" aria-label="Formula 1"></a>
   <a href="/nba/" class="land-card nba" aria-label="NBA"></a>
+  <a href="/football/laliga/" class="land-card fb-laliga" aria-label="ლა ლიგა"><span class="fb-cap"></span></a>
+  <a href="/football/epl/" class="land-card fb-epl" aria-label="პრემიერ ლიგა"><span class="fb-cap"> </span></a>
+  <a href="/football/seriea/" class="land-card fb-seriea" aria-label="სერია A"><span class="fb-cap"> </span></a>
+  <a href="/football/bundesliga/" class="land-card fb-bundesliga" aria-label="ბუნდესლიგა"><span class="fb-cap"></span></a>
+  <a href="/football/ligue1/" class="land-card fb-ligue1" aria-label="ლიგა 1"><span class="fb-cap"> </span></a>
+  <a href="/football/ucl/" class="land-card fb-ucl" aria-label="ჩემპიონთა ლიგა"><span class="fb-cap"> </span></a>
 </div>
 
 
