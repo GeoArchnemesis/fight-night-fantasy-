@@ -1011,7 +1011,7 @@ function toggleEye(inputId) {
   .fb-matches{display:flex;flex-direction:column;gap:12px}
   .fb-match{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:14px 14px 12px}
   .fb-match.done{opacity:.75}
-  .fb-head{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;margin-bottom:4px}
+  .fb-head{display:grid;grid-template-columns:1fr 1fr 1fr;align-items:center;gap:8px;margin-bottom:4px}
   .fb-side{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;min-width:0}
   .fb-crest{width:44px;height:44px;object-fit:contain}
   .fb-tname{font-weight:800;font-size:.95rem;line-height:1.15;color:var(--text);word-break:break-word;text-shadow:0 1px 2px rgba(0,0,0,.5)}
