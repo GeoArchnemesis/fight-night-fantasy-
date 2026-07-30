@@ -86,6 +86,24 @@ function showCashoutPopup(amt, stake, blocked) {
   });
 }
 
+// ქეშაუთის შედეგის/შეცდომის in-page popup (ნაცვლად native alert-ისა, რომ „საიტის
+// გარედან" ფანჯარა არ ჩნდებოდეს). Promise აბრუნებს — დახურვამდე ელოდeba.
+function showCashoutMsg(html, isError) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
+    overlay.innerHTML = `
+      <div style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:32px;max-width:360px;width:100%;text-align:center">
+        <div style="font-size:1.1rem;font-weight:700;margin-bottom:22px;color:${isError ? 'var(--red)' : 'var(--gold)'}">${isError ? '⚠️ ' : '✅ '}${html}</div>
+        <button id="coMsgClose" style="padding:10px 28px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);cursor:pointer;font-family:inherit">დახურვა</button>
+      </div>`;
+    document.body.appendChild(overlay);
+    const close = () => { document.body.removeChild(overlay); resolve(); };
+    document.getElementById('coMsgClose').onclick = close;
+    overlay.onclick = e => { if (e.target === overlay) close(); };
+  });
+}
+
 async function doCashout(idx) {
   const t = state.tickets[idx];
   if (!t || t.status !== 'open') return;
@@ -93,16 +111,16 @@ async function doCashout(idx) {
   const amt = cashoutAmount(t);   // მხოლოდ ჩვენებისთვის — რეალურ თანხას სერვერი წყვეტს
   const confirmed = await showCashoutPopup(amt, t.stake, false);
   if (!confirmed) return;
-  if (!t._dbId) { alert('ბილეთის ID ვერ მოიძებნა'); return; }
+  if (!t._dbId) { await showCashoutMsg('ბილეთის ID ვერ მოიძებნა', true); return; }
   const { data: res, error } = await sb.rpc('cashout_ticket', { p_ticket_id: t._dbId });
-  if (error || !res || !res.ok) { alert(betError(res, error)); return; }
+  if (error || !res || !res.ok) { await showCashoutMsg(betError(res, error), true); return; }
   t.status = 'cashout';
   updateBalance(res.balance);
   renderTickets();
   // სერვერის რეალური თანხა/პროცენტი (#11)
   if (res.refund != null) {
     const pct = Math.round((res.pct != null ? res.pct : (res.refund / (t.stake || 1))) * 100);
-    alert('ქეშაუთი შესრულდა — დაგიბრუნდა ' + fmt(res.refund) + ' ქულა (' + pct + '%)');
+    await showCashoutMsg('ქეშაუთი შესრულდა — დაგიბრუნდა ' + fmt(res.refund) + ' ქულა (' + pct + '%)', false);
   }
 }
 
