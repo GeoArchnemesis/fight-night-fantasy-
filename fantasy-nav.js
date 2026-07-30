@@ -30,7 +30,9 @@
     '.fx-sub-caret{font-size:.72em;opacity:.6;transition:transform .2s}',
     '.fx-sub:hover .fx-sub-caret,.fx-sub.open .fx-sub-caret{transform:rotate(90deg)}',
     '.fx-sub-pop{position:absolute;left:calc(100% + 8px);top:-7px;display:none;flex-direction:column;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:190px;z-index:70;box-shadow:0 12px 34px rgba(0,0,0,.45)}',
-    '.fx-sub:hover>.fx-sub-pop,.fx-sub.open>.fx-sub-pop{display:flex}',
+    // უხილავი „ხიდი" ღრიჭოზე — მაუსი ნელა რომ გადადის, hover არ იკარგება
+    '.fx-sub-pop::before{content:"";position:absolute;left:-12px;top:0;width:14px;height:100%}',
+    '.fx-sub:hover>.fx-sub-pop,.fx-sub.open>.fx-sub-pop,.fx-sub.fx-hover>.fx-sub-pop{display:flex}',
     '.fx-sub-pop a.on{background:rgba(245,196,81,.1);color:var(--gold)}',
     // ── MOBILE: გვერდზე ამომავალი ქვემენიუ ──
     '.mnav-sub{position:relative}',
@@ -62,6 +64,10 @@
         e.preventDefault(); e.stopPropagation();   // არსებულმა navFx handler-მა dropdown არ დახუროს
         sub.classList.toggle('open');
       });
+      // hover-intent: ნელა მოძრაობისას ღრიჭოს გავლა არ დახუროს (300ms დაყოვნება)
+      var closeT;
+      sub.addEventListener('mouseenter', function () { clearTimeout(closeT); sub.classList.add('fx-hover'); });
+      sub.addEventListener('mouseleave', function () { closeT = setTimeout(function () { sub.classList.remove('fx-hover'); }, 300); });
     }
 
     // ── MOBILE: .mnav-pop ──
