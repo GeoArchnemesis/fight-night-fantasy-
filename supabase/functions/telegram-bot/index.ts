@@ -909,13 +909,205 @@ async function cmdNbaActiveTickets(chatId: number): Promise<string> {
   return `🎫 <b>აქტიური NBA ბილეთები (${tickets.length})</b>\n\n${lines.join('\n')}`
 }
 
+// ============================== FOOTBALL (6 ლიგა) ==============================
+// DB: soccer_* (ავსებს soccer-auto.js). ბრძანებები თითო ლიგაზე: laliga / epl / seriea / bundesliga / ligue1 / ucl
+const FB_LEAGUES: Record<string, { name: string; slug: string; aliases: string[] }> = {
+  esp1: { name: 'La Liga',          slug: 'esp.1',          aliases: ['laliga', 'la liga', 'ლალიგა'] },
+  eng1: { name: 'Premier League',   slug: 'eng.1',          aliases: ['epl', 'premier', 'პრემიერ'] },
+  ita1: { name: 'Serie A',          slug: 'ita.1',          aliases: ['seriea', 'serie a', 'სერია'] },
+  ger1: { name: 'Bundesliga',       slug: 'ger.1',          aliases: ['bundesliga', 'ბუნდეს'] },
+  fra1: { name: 'Ligue 1',          slug: 'fra.1',          aliases: ['ligue1', 'ligue 1', 'ლიგა 1', 'ლიგა1'] },
+  ucl:  { name: 'Champions League', slug: 'uefa.champions', aliases: ['ucl', 'champions', 'ჩემპიონ'] },
+}
+type FbLeague = { code: string; name: string; slug: string; cmd: string; rest: string }
+function matchFootballLeague(text: string): FbLeague | null {
+  for (const code of Object.keys(FB_LEAGUES)) {
+    const L = FB_LEAGUES[code]
+    for (const k of [code, ...L.aliases]) {
+      if (text === k || text === '/' + k || text.startsWith(k) || text.startsWith('/' + k)) {
+        const esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const rest = text.replace(new RegExp('^\\/?' + esc + '\\s*'), '')
+        return { code, name: L.name, slug: L.slug, cmd: L.aliases[0], rest }
+      }
+    }
+  }
+  return null
+}
+async function fbActiveRound(league: string): Promise<any> {
+  const { data } = await sb.from('soccer_rounds').select('id,round_no,name,status')
+    .eq('league', league).eq('status', 'upcoming').order('id').limit(1)
+  return (data && data[0]) || null
+}
+function fbPrice(mk: any, oc: string): string {
+  const e = (mk?.soccer_market_entries || []).find((z: any) => z.outcome === oc)
+  return (e && e.is_enabled && e.price != null) ? Number(e.price).toFixed(2) : '—'
+}
+
+async function cmdFbStatus(L: FbLeague): Promise<string> {
+  const r = await fbActiveRound(L.code)
+  if (!r) return `⚽️ <b>${L.name}</b>\n\n📭 აქტიური ტური არ არის.${L.code === 'ucl' ? ' (ჩემპიონთა ლიგა სექტემბრიდან იწყება)' : ''}\nავტომატიკა ტურს ~30 წუთში შექმნის.`
+  const { data: matches } = await sb.from('soccer_matches')
+    .select('home_team,away_team,kickoff,status').eq('round_id', r.id).eq('is_voided', false).order('kickoff')
+  const { count: pending } = await sb.from('soccer_tickets')
+    .select('id', { count: 'exact', head: true }).eq('league', L.code).eq('status', 'pending')
+  const upcoming = (matches || []).filter((m: any) => m.status === 'upcoming')
+  const done = (matches || []).filter((m: any) => m.status === 'completed')
+  let out = `⚽️ <b>${L.name} — ${r.name || 'ტური ' + r.round_no}</b>\n`
+  out += `\n📊 მატჩი: ${matches?.length || 0} (დასრულ.: ${done.length})`
+  if (upcoming.length) {
+    out += '\n\n<b>მომდევნო მატჩები (Tbilisi):</b>\n'
+    out += upcoming.slice(0, 12).map((m: any) => `• ${tbTime(m.kickoff)} — ${m.home_team} — ${m.away_team}`).join('\n')
+  }
+  out += `\n\n🎫 pending ბილეთი: ${pending || 0}`
+  return out
+}
+
+async function cmdFbOdds(L: FbLeague): Promise<string> {
+  const r = await fbActiveRound(L.code)
+  if (!r) return `⚽️ <b>${L.name}</b>\n\n📭 აქტიური ტური არ არის.`
+  const { data: matches } = await sb.from('soccer_matches')
+    .select('home_team,away_team,kickoff,status,soccer_markets(kind,line,soccer_market_entries(outcome,price,is_enabled))')
+    .eq('round_id', r.id).eq('is_voided', false).eq('status', 'upcoming').order('kickoff')
+  if (!matches || !matches.length) return `⚽️ <b>${L.name}</b>\n\n📭 მიმავალი მატჩი არ არის`
+  const lines = matches.map((m: any) => {
+    const mk = m.soccer_markets || []
+    const x2 = mk.find((x: any) => x.kind === '1x2')
+    const ou = mk.find((x: any) => x.kind === 'over_under')
+    let s = `• ${tbTime(m.kickoff)} <b>${m.home_team} — ${m.away_team}</b>\n   1X2: ${fbPrice(x2, '1')} / ${fbPrice(x2, 'x')} / ${fbPrice(x2, '2')}`
+    if (ou) s += `\n   ტოტალი ${ou.line}: ${fbPrice(ou, 'over')} / ${fbPrice(ou, 'under')}`
+    return s
+  })
+  return `📊 <b>${L.name} — კოეფები</b>\n\n${lines.join('\n')}`
+}
+
+async function cmdFbEvent(L: FbLeague): Promise<string> {
+  const from = espnDateStr(new Date())
+  const to = espnDateStr(new Date(Date.now() + 21 * 86400000))
+  let data: any
+  try {
+    const rr = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${L.slug}/scoreboard?dates=${from}-${to}`)
+    if (!rr.ok) return `❌ ESPN: HTTP ${rr.status}`
+    data = await rr.json()
+  } catch (e) { return `❌ ESPN: ${(e as Error).message}` }
+  const evs = (data.events || []).filter((e: any) => e.status?.type?.state === 'pre').slice(0, 15)
+  if (!evs.length) return `⚽️ <b>${L.name}</b>\n\n📭 ESPN-ზე მომავალი მატჩი არ ჩანს${L.code === 'ucl' ? ' — ჩემპიონთა ლიგა სექტემბრიდან იწყება.' : '.'}`
+  const lines = evs.map((e: any) => {
+    const c = e.competitions?.[0]
+    const h = c?.competitors?.find((x: any) => x.homeAway === 'home')
+    const a = c?.competitors?.find((x: any) => x.homeAway === 'away')
+    return `• ${tbTime(e.date)} — ${h?.team?.displayName || '?'} — ${a?.team?.displayName || '?'}`
+  })
+  return `📥 <b>${L.name} — ESPN ფიქსტურები</b>\n\n${lines.join('\n')}\n\n<i>ავტომატიკა ამათგან ტურს თავად შექმნის.</i>`
+}
+
+async function cmdFbFixtures(L: FbLeague): Promise<string> {
+  const r = await fbActiveRound(L.code)
+  if (r) {
+    const { data: matches } = await sb.from('soccer_matches')
+      .select('home_team,away_team,kickoff,status,home_score,away_score,result')
+      .eq('round_id', r.id).eq('is_voided', false).order('kickoff')
+    if (matches && matches.length) {
+      const lines = matches.map((m: any) => {
+        const done = m.status === 'completed' && m.result
+        const score = done ? ` — <b>${m.home_score}:${m.away_score}</b>` : ''
+        return `• ${tbTime(m.kickoff)} — ${m.home_team} — ${m.away_team}${score}`
+      })
+      return `⚽️ <b>${L.name} — ${r.name || 'ტური ' + r.round_no}</b>\n\n${lines.join('\n')}`
+    }
+  }
+  return await cmdFbEvent(L)   // აქტიური ტური არ არის → ESPN-იდან ვაჩვენოთ რა ხელმისაწვდომია
+}
+
+async function cmdFbResults(L: FbLeague): Promise<string> {
+  const { data: matches } = await sb.from('soccer_matches')
+    .select('home_team,away_team,home_score,away_score,result,kickoff,is_voided')
+    .eq('league', L.code).eq('status', 'completed').order('kickoff', { ascending: false }).limit(15)
+  if (!matches || !matches.length) return `⚽️ <b>${L.name}</b>\n\n📭 დასრულებული მატჩი ჯერ არ არის`
+  const lines = matches.map((m: any) => m.is_voided
+    ? `• ${m.home_team} — ${m.away_team}: ⚖️ ვოიდი`
+    : `• ${m.home_team} <b>${m.home_score}:${m.away_score}</b> ${m.away_team} → ${m.result === '1' ? '1' : m.result === 'x' ? 'X' : '2'}`)
+  return `🏆 <b>${L.name} — შედეგები</b>\n\n${lines.join('\n')}`
+}
+
+async function cmdFbSettle(L: FbLeague): Promise<string> {
+  const r = await fbActiveRound(L.code)
+  if (!r) return `⚽️ <b>${L.name}</b>\n\n📭 დასასეთლი აქტიური ტური არ არის`
+  const { data: res, error } = await sb.rpc('settle_soccer_round', { p_round_id: r.id })
+  if (error || !res?.ok) return `❌ settlement ჩავარდა: ${res?.error || error?.message || 'უცნობი'}`
+  let out = `🏁 <b>${L.name} Settlement</b>\n\n✅ ${res.won} მოგებული\n❌ ${res.lost} წაგებული`
+  if (res.voided > 0) out += `\n↩️ ${res.voided} void`
+  out += `\n⏭ ${res.skipped} ელოდება`
+  if (res.round_completed) out += `\n\n🎉 ტური დასრულდა — ბალანსი განულდა (1000).`
+  return out
+}
+
+async function cmdFbReset(L: FbLeague, force: boolean): Promise<string> {
+  if (!force) {
+    const { count } = await sb.from('soccer_tickets')
+      .select('id', { count: 'exact', head: true }).eq('league', L.code).eq('status', 'pending')
+    if ((count || 0) > 0) return `⛔ ${count} pending ${L.name} ბილეთია.\nჯერ <b>${L.cmd} settle</b>, ან ძალით: <b>${L.cmd} reset force</b>`
+  }
+  const { data: res, error } = await sb.rpc('soccer_reset_round', { p_league: L.code, p_completed_round_id: 0 })
+  if (error || !res?.ok) return `❌ შეცდომა: ${res?.error || error?.message}`
+  return `💰 <b>${L.name} ბალანსები დარესეტდა</b>\n\n${res.reset} მომხმარებელი → 1,000${res.deducted_users ? `\n${res.deducted_users}-ს pending ჩამოეჭრა` : ''}`
+}
+
+async function cmdFbTickets(L: FbLeague): Promise<string> {
+  const { data: tickets } = await sb.from('soccer_tickets')
+    .select('id,stake,total_odds,type,placed_at,users(nick),soccer_selections(outcome,odds,soccer_markets!market_id(kind,line,soccer_matches!match_id(home_team,away_team,home_abbr,away_abbr)))')
+    .eq('league', L.code).eq('status', 'pending').order('placed_at', { ascending: false }).limit(20)
+  if (!tickets || !tickets.length) return `📭 აქტიური ${L.name} ბილეთი არ არის`
+  const pick = (kind: string, oc: string, m: any, line: any) => {
+    if (kind === 'over_under') return (oc === 'over' ? 'მეტი ' : 'ნაკლ. ') + (line ?? '')
+    if (oc === '1') return m?.home_abbr || m?.home_team || '1'
+    if (oc === 'x') return 'X'
+    return m?.away_abbr || m?.away_team || '2'
+  }
+  const lines = tickets.map((t: any) => {
+    const sels = (t.soccer_selections || []).map((s: any) => {
+      const mk = s.soccer_markets, m = mk?.soccer_matches
+      return `${m?.home_abbr || m?.home_team || '?'}-${m?.away_abbr || m?.away_team || '?'}→${pick(mk?.kind, s.outcome, m, mk?.line)}(${s.odds})`
+    }).join(', ')
+    const win = Math.round(Number(t.stake) * Number(t.total_odds))
+    return `• <b>${t.users?.nick || '?'}</b> — ${t.stake} @ ${Number(t.total_odds).toFixed(2)} → ${win}\n  ${sels}`
+  })
+  return `🎫 <b>აქტიური ${L.name} ბილეთები (${tickets.length})</b>\n\n${lines.join('\n')}`
+}
+
+
+async function cmdFbAllStatus(): Promise<string> {
+  let out = '⚽️ <b>ფეხბურთი — მიმოხილვა</b>\n'
+  for (const code of Object.keys(FB_LEAGUES)) {
+    const L = FB_LEAGUES[code]
+    const r = await fbActiveRound(code)
+    if (!r) { out += `\n• <b>${L.name}</b>: ტური არ არის`; continue }
+    const { count: mc } = await sb.from('soccer_matches').select('id', { count: 'exact', head: true }).eq('round_id', r.id).eq('is_voided', false)
+    const { count: pc } = await sb.from('soccer_tickets').select('id', { count: 'exact', head: true }).eq('league', code).eq('status', 'pending')
+    out += `\n• <b>${L.name}</b>: ${r.name || 'ტური ' + r.round_no} — ${mc || 0} მატჩი, ${pc || 0} ბილეთი`
+  }
+  out += '\n\n<i>დეტალურად: მაგ. <b>laliga</b>, <b>laliga კოეფები</b>, <b>ucl გუნდები</b>.</i>'
+  return out
+}
+
+async function cmdFbAllTickets(): Promise<string> {
+  const { data: tickets } = await sb.from('soccer_tickets')
+    .select('id,league,stake,total_odds,type,placed_at,users(nick)')
+    .eq('status', 'pending').order('placed_at', { ascending: false }).limit(30)
+  if (!tickets || !tickets.length) return '📭 აქტიური ფეხბურთის ბილეთი არ არის (არცერთ ლიგაზე)'
+  const nameOf = (c: string) => FB_LEAGUES[c]?.name || c
+  const lines = tickets.map((t: any) =>
+    `• <b>${t.users?.nick || '?'}</b> [${nameOf(t.league)}] — ${t.stake} @ ${Number(t.total_odds).toFixed(2)} → ${Math.round(Number(t.stake) * Number(t.total_odds))} (${t.type})`)
+  return `🎫 <b>ფეხბურთის აქტიური ბილეთები (${tickets.length})</b>\n\n${lines.join('\n')}\n\n<i>დეტალურად ლიგაზე: <b>laliga ბილეთები</b>, <b>ucl ბილეთები</b>…</i>`
+}
+
 // ── ბილეთების აქტივობა: ყველა აქტიური ("pending") ბილეთი, სამივე სპორტი ჯვარედინად ──
 async function cmdTicketActivity(chatId: number): Promise<string> {
   const { data: ufcTix } = await sb.from('tickets').select('user_id').eq('status', 'pending')
   const { data: f1Tix } = await sb.from('f1_tickets').select('user_id').eq('status', 'pending')
   const { data: nbaTix } = await sb.from('nba_tickets').select('user_id').eq('status', 'pending')
+  const { data: fbTix } = await sb.from('soccer_tickets').select('user_id,league').eq('status', 'pending')
 
-  const grandTotal = (ufcTix?.length || 0) + (f1Tix?.length || 0) + (nbaTix?.length || 0)
+  const grandTotal = (ufcTix?.length || 0) + (f1Tix?.length || 0) + (nbaTix?.length || 0) + (fbTix?.length || 0)
   if (!grandTotal) return '🎫 <b>ბილეთები</b>\n\nსულ: <b>0</b> აქტიური ბილეთი'
 
   const countBy = (rows: any[] | null) => {
@@ -926,55 +1118,86 @@ async function cmdTicketActivity(chatId: number): Promise<string> {
   const ufcCount = countBy(ufcTix)
   const f1Count = countBy(f1Tix)
   const nbaCount = countBy(nbaTix)
+  const fbCount = countBy(fbTix)   // ფეხბურთი — ჯამში ყველა ლიგა
+  // ფეხბურთი — თითო ლიგა ცალკე: league -> { user_id: count }
+  const fbByLeague: Record<string, Record<string, number>> = {}
+  for (const r of fbTix || []) {
+    (fbByLeague[r.league] = fbByLeague[r.league] || {})
+    fbByLeague[r.league][r.user_id] = (fbByLeague[r.league][r.user_id] || 0) + 1
+  }
 
-  // ვისაც მინიმუმ ერთი აქტიური ბილეთი აქვს (ნებისმიერ სპორტში)
-  const ids = [...new Set([...Object.keys(ufcCount), ...Object.keys(f1Count), ...Object.keys(nbaCount)])]
+  // ვისაც მინიმუმ ერთი აქტიური ბილეთი აქვს (ნებისმიერ სპორტში, ფეხბურთის ჩათვლით)
+  const ids = [...new Set([...Object.keys(ufcCount), ...Object.keys(f1Count), ...Object.keys(nbaCount), ...Object.keys(fbCount)])]
 
   const { data: users } = await sb.from('users').select('id,nick,balance').in('id', ids)
   const { data: f1Bal } = await sb.from('user_balances').select('user_id,balance').eq('sport', 'f1').in('user_id', ids)
   const { data: nbaBal } = await sb.from('user_balances').select('user_id,balance').eq('sport', 'nba').in('user_id', ids)
+  const { data: fbBal } = await sb.from('user_balances').select('user_id,balance,sport').like('sport', 'soccer_%').in('user_id', ids)
 
   const f1BalMap: Record<string, number> = {}
   for (const b of f1Bal || []) f1BalMap[b.user_id] = b.balance
   const nbaBalMap: Record<string, number> = {}
   for (const b of nbaBal || []) nbaBalMap[b.user_id] = b.balance
+  // ფეხბურთის ბალანსი: user_id -> { league: balance }
+  const fbBalMap: Record<string, Record<string, number>> = {}
+  for (const b of fbBal || []) {
+    const lg = (b.sport as string).replace('soccer_', '')
+    ;(fbBalMap[b.user_id] = fbBalMap[b.user_id] || {})[lg] = b.balance
+  }
+
+  const fbCodes = Object.keys(FB_LEAGUES)   // esp1, eng1, ... ucl (ჩვენების რიგი)
 
   const rows = (users || []).map((u: any) => {
     const uc = ufcCount[u.id] || 0
     const fc = f1Count[u.id] || 0
     const nc = nbaCount[u.id] || 0
-    return { u, uc, fc, nc, total: uc + fc + nc }
+    const bc = fbCount[u.id] || 0
+    return { u, uc, fc, nc, bc, total: uc + fc + nc + bc }
   }).sort((a, b) => b.total - a.total)
 
   const lines: string[] = []
   for (const r of rows) {
     const f1b = f1BalMap[r.u.id]
     const nbab = nbaBalMap[r.u.id]
-    const balStr = `UFC ${r.u.balance} · F1 ${f1b != null ? f1b : '—'} · NBA ${nbab != null ? nbab : '—'}`
+    let balStr = `UFC ${r.u.balance} · F1 ${f1b != null ? f1b : '—'} · NBA ${nbab != null ? nbab : '—'}`
+    // ფეხბურთის ბალანსი — მხოლოდ იმ ლიგებზე, სადაც ამ იუზერს აქტიური ბილეთი აქვს (რომ არ გაბერდეს)
+    const balBits: string[] = []
+    for (const code of fbCodes) {
+      if (fbByLeague[code]?.[r.u.id]) {
+        const bal = fbBalMap[r.u.id]?.[code]
+        balBits.push(`${FB_LEAGUES[code].name} ${bal != null ? bal : '—'}`)
+      }
+    }
+    if (balBits.length) balStr += ' · ' + balBits.join(' · ')
+
     const parts: string[] = []
     if (r.uc) parts.push(`UFC — ${r.uc}`)
     if (r.fc) parts.push(`F1 — ${r.fc}`)
     if (r.nc) parts.push(`NBA — ${r.nc}`)
+    for (const code of fbCodes) {
+      const n = fbByLeague[code]?.[r.u.id]
+      if (n) parts.push(`${FB_LEAGUES[code].name} — ${n}`)
+    }
     lines.push(`👤 <b>${r.u.nick || '—'}</b>\n💰 ${balStr}\n🎫 აქტიური ბილეთი: <b>${r.total}</b>${parts.length ? '\n   ' + parts.join('\n   ') : ''}`)
   }
 
   // ── ჯამი სპორტების მიხედვით ──
-  // თითო სპორტზე: pending ბილეთების რაოდენობა + უნიკალური მომხმარებლების რაოდენობა.
-  // ticket count = მასივის სიგრძე; users = ცალკეული user_id-ების რაოდენობა (count-map-ის გასაღებები).
-  const sportSummary = (label: string, tix: any[] | null, cnt: Record<string, number>): string | null => {
-    const tickets = tix?.length || 0
+  const sportSummary = (label: string, tickets: number, users: number): string | null => {
     if (!tickets) return null
-    const users = Object.keys(cnt).length
     return `${label} — <b>${tickets}</b> ბილეთი · ${users} მომხმარებელი`
   }
   const summaryLines = [
-    sportSummary('🥊 UFC', ufcTix, ufcCount),
-    sportSummary('🏎️ F1', f1Tix, f1Count),
-    sportSummary('🏀 NBA', nbaTix, nbaCount),
+    sportSummary('🥊 UFC', ufcTix?.length || 0, Object.keys(ufcCount).length),
+    sportSummary('🏎️ F1', f1Tix?.length || 0, Object.keys(f1Count).length),
+    sportSummary('🏀 NBA', nbaTix?.length || 0, Object.keys(nbaCount).length),
   ].filter(Boolean) as string[]
-  // სულ უნიკალური მომხმარებელი (ვისაც ერთი აქტიური ბილეთი მაინც აქვს ნებისმიერ სპორტში).
-  // ეს = ids.length. ⚠️ თუ ვინმეს ორ სპორტში აქვს ბილეთი, ჯამში ერთხელ ითვლება,
-  // ამიტომ სპორტების user-რიცხვების შეკრება შეიძლება ამ ჯამზე მეტი გამოვიდეს.
+  // ფეხბურთი — თითო ლიგა ცალკე (მხოლოდ სადაც ბილეთია)
+  for (const code of fbCodes) {
+    const byUser = fbByLeague[code]
+    if (!byUser) continue
+    const tickets = Object.values(byUser).reduce((s, n) => s + n, 0)
+    summaryLines.push(sportSummary(`⚽️ ${FB_LEAGUES[code].name}`, tickets, Object.keys(byUser).length)!)
+  }
   const totalUsers = ids.length
   const summary = `━━━━━━━━━━━━━\n📊 <b>ჯამი სპორტების მიხედვით:</b>\n${summaryLines.join('\n')}\n\n🎫 <b>სულ: ${grandTotal} ბილეთი · ${totalUsers} მომხმარებელი</b>`
 
@@ -1085,8 +1308,43 @@ Deno.serve(async (req) => {
         response = '🤷 ვერ გავიგე. F1 ბრძანებები: <b>help</b>'
       }
     }
+    // ── FOOTBALL გენერალური ("ფეხბურთი" / football — ყველა ლიგა ერთად) ──
+    else if (text.startsWith('ფეხბურთ') || text.startsWith('football') || text.startsWith('/football')) {
+      const t = text.replace(/^\/?(football|ფეხბურთ\S*)\s*/, '')
+      if (t.includes('ბილეთ') || t.includes('ticket') || t.includes('აქტიურ')) {
+        response = await cmdFbAllTickets()
+      } else if (t.includes('სტატუს') || t.includes('status') || t === '') {
+        response = await cmdFbAllStatus()
+      } else {
+        response = 'ℹ️ ფეხბურთის კოეფები/გუნდები/შედეგები კონკრეტულ ლიგაზეა.\nმაგ: <b>laliga კოეფები</b>, <b>ucl გუნდები</b>, <b>epl შედეგები</b>.\nლიგები: laliga · epl · seriea · bundesliga · ligue1 · ucl'
+      }
+    }
+    // ── FOOTBALL ბრძანებები (ლიგის პრეფიქსით: laliga/epl/seriea/bundesliga/ligue1/ucl) ──
+    else if (matchFootballLeague(text)) {
+      const L = matchFootballLeague(text)!
+      const t = L.rest
+      if (t.includes('ბილეთ') || t.includes('ticket') || t.includes('აქტიურ')) {
+        response = await cmdFbTickets(L)
+      } else if (t.includes('კოეფ') || t.includes('odds')) {
+        response = await cmdFbOdds(L)
+      } else if (t.includes('გუნდ') || t.includes('team') || t.includes('მატჩ') || t.includes('fixture') || t.includes('ფიქსტ')) {
+        response = await cmdFbFixtures(L)
+      } else if (t.includes('ივენთ') || t.includes('event')) {
+        await sendMsg(chatId, '⏳ ESPN-დან ფიქსტურები...')
+        response = await cmdFbEvent(L)
+      } else if (t.includes('შედეგ') || t.includes('result')) {
+        response = await cmdFbResults(L)
+      } else if (t.includes('settle') || t.includes('დამუშავ')) {
+        await sendMsg(chatId, '⏳ Football settlement...')
+        response = await cmdFbSettle(L)
+      } else if (t.includes('რესეტ') || t.includes('reset')) {
+        response = await cmdFbReset(L, t.includes('force') || t.includes('ძალით'))
+      } else {
+        response = await cmdFbStatus(L)
+      }
+    }
     else if (text === '/start' || text === 'help' || text === '/help') {
-      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── გენერალური ბრძანებები ──</b>\n🎫 <b>ბილეთები</b> — აქტიური ბილეთები (სამივე სპორტი ჯვარედინად + ჯამი სპორტების მიხედვით)\n✅ <b>ვერიფიცირებული იუზერები</b> — რამდენ მომხმარებელს აქვს ნომერი/ტელეგრამი\n\n<b>── UFC ──</b>\n📥 <b>ufc ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ufc ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>ufc კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>ufc შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>ufc settle</b> — ბილეთების დამუშავება\n🔄 <b>ufc სრულად</b> — ყველაფერი ერთად\n🎫 <b>ufc ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>ufc სტატუსი</b> — მდგომარეობა\n💰 <b>ufc რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)`
+      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── გენერალური ბრძანებები ──</b>\n🎫 <b>ბილეთები</b> — აქტიური ბილეთები (სამივე სპორტი ჯვარედინად + ჯამი სპორტების მიხედვით)\n✅ <b>ვერიფიცირებული იუზერები</b> — რამდენ მომხმარებელს აქვს ნომერი/ტელეგრამი\n\n<b>── UFC ──</b>\n📥 <b>ufc ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ufc ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>ufc კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>ufc შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>ufc settle</b> — ბილეთების დამუშავება\n🔄 <b>ufc სრულად</b> — ყველაფერი ერთად\n🎫 <b>ufc ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>ufc სტატუსი</b> — მდგომარეობა\n💰 <b>ufc რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)\n\n<b>── ⚽️ ფეხბურთი ──</b>\n<i>ლიგები: laliga · epl · seriea · bundesliga · ligue1 · ucl</i>\n📋 <b>laliga</b> — სტატუსი (ტური/მატჩები/ბილეთები)\n📊 <b>laliga კოეფები</b> — მიმდინარე ტურის კოეფები (1X2 + ტოტალი)\n⚽️ <b>laliga გუნდები</b> — ტურის მატჩები\n📥 <b>laliga ივენთი</b> — ESPN ფიქსტურები (რისი წამოღებაც შეიძლება)\n🏆 <b>laliga შედეგები</b> — დასრულებული მატჩები\n🏁 <b>laliga settle</b> — ტურის settlement\n🎫 <b>laliga ბილეთები</b> — აქტიური ბილეთები\n💰 <b>laliga რესეტი</b> — ბალანსები → 1,000\n<i>იგივე ბრძანებები ყველა ლიგაზე (მაგ. ucl კოეფები, epl გუნდები).</i>`
     }
     else if (text.startsWith('ufc') || text.startsWith('/ufc')) {
       const t = text.replace(/^\/?ufc\s*/, '')
