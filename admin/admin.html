@@ -168,7 +168,7 @@
 <div class="card">
   <h2>🖼️ სადესანტო ბექგრაუნდები (fnf.ge)</h2>
   <div style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">
-    UFC, F1 და NBA ბარათების ფონური ფოტოები მთავარ გვერდზე. რეკომენდ.: 1200×800, JPG/WebP, &lt;300KB. ცვლილება ჩანს ~1 წუთში.
+    UFC, F1, NBA და 6 ფეხბურთის ლიგის ბარათების ფონური ფოტოები მთავარ გვერდზე (bucket: site → landing-ufc / landing-laliga / landing-epl …). რეკომენდ.: 1200×800, JPG/WebP, &lt;300KB. ცვლილება ჩანს ~1 წუთში.
   </div>
   <div style="display:flex;flex-wrap:wrap;gap:24px;">
     <div style="flex:1;min-width:220px;">
@@ -188,6 +188,42 @@
       <img id="bgPreviewNba" alt="NBA" onerror="this.removeAttribute('src')" style="width:100%;max-width:280px;aspect-ratio:3/2;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:block;margin-bottom:8px;" />
       <input type="file" id="bgFileNba" accept="image/*" style="margin-bottom:8px;display:block;" />
       <button class="btn btn-primary" onclick="uploadLandingBg('nba')">⬆️ NBA ფოტოს ატვირთვა</button>
+    </div>
+    <div style="flex:1;min-width:220px;">
+      <div style="font-weight:700;margin-bottom:8px;">ლა ლიგა</div>
+      <img id="bgPreviewLaliga" alt="La Liga" onerror="this.removeAttribute('src')" style="width:100%;max-width:280px;aspect-ratio:3/2;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:block;margin-bottom:8px;" />
+      <input type="file" id="bgFileLaliga" accept="image/*" style="margin-bottom:8px;display:block;" />
+      <button class="btn btn-primary" onclick="uploadLandingBg('laliga')">⬆️ ლა ლიგა ატვირთვა</button>
+    </div>
+    <div style="flex:1;min-width:220px;">
+      <div style="font-weight:700;margin-bottom:8px;">პრემიერ ლიგა</div>
+      <img id="bgPreviewEpl" alt="Premier League" onerror="this.removeAttribute('src')" style="width:100%;max-width:280px;aspect-ratio:3/2;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:block;margin-bottom:8px;" />
+      <input type="file" id="bgFileEpl" accept="image/*" style="margin-bottom:8px;display:block;" />
+      <button class="btn btn-primary" onclick="uploadLandingBg('epl')">⬆️ პრემიერ ლიგა ატვირთვა</button>
+    </div>
+    <div style="flex:1;min-width:220px;">
+      <div style="font-weight:700;margin-bottom:8px;">სერია A</div>
+      <img id="bgPreviewSeriea" alt="Serie A" onerror="this.removeAttribute('src')" style="width:100%;max-width:280px;aspect-ratio:3/2;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:block;margin-bottom:8px;" />
+      <input type="file" id="bgFileSeriea" accept="image/*" style="margin-bottom:8px;display:block;" />
+      <button class="btn btn-primary" onclick="uploadLandingBg('seriea')">⬆️ სერია A ატვირთვა</button>
+    </div>
+    <div style="flex:1;min-width:220px;">
+      <div style="font-weight:700;margin-bottom:8px;">ბუნდესლიგა</div>
+      <img id="bgPreviewBundesliga" alt="Bundesliga" onerror="this.removeAttribute('src')" style="width:100%;max-width:280px;aspect-ratio:3/2;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:block;margin-bottom:8px;" />
+      <input type="file" id="bgFileBundesliga" accept="image/*" style="margin-bottom:8px;display:block;" />
+      <button class="btn btn-primary" onclick="uploadLandingBg('bundesliga')">⬆️ ბუნდესლიგა ატვირთვა</button>
+    </div>
+    <div style="flex:1;min-width:220px;">
+      <div style="font-weight:700;margin-bottom:8px;">ლიგა 1</div>
+      <img id="bgPreviewLigue1" alt="Ligue 1" onerror="this.removeAttribute('src')" style="width:100%;max-width:280px;aspect-ratio:3/2;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:block;margin-bottom:8px;" />
+      <input type="file" id="bgFileLigue1" accept="image/*" style="margin-bottom:8px;display:block;" />
+      <button class="btn btn-primary" onclick="uploadLandingBg('ligue1')">⬆️ ლიგა 1 ატვირთვა</button>
+    </div>
+    <div style="flex:1;min-width:220px;">
+      <div style="font-weight:700;margin-bottom:8px;">ჩემპიონთა ლიგა</div>
+      <img id="bgPreviewUcl" alt="Champions League" onerror="this.removeAttribute('src')" style="width:100%;max-width:280px;aspect-ratio:3/2;object-fit:cover;border-radius:8px;border:1px solid var(--line);background:var(--surface);display:block;margin-bottom:8px;" />
+      <input type="file" id="bgFileUcl" accept="image/*" style="margin-bottom:8px;display:block;" />
+      <button class="btn btn-primary" onclick="uploadLandingBg('ucl')">⬆️ ჩემპიონთა ლიგა ატვირთვა</button>
     </div>
   </div>
 </div>
@@ -259,6 +295,11 @@ function loadLandingBgPreviews() {
   const u = document.getElementById('bgPreviewUfc'); if (u) u.src = landingBgUrl('ufc');
   const f = document.getElementById('bgPreviewF1'); if (f) f.src = landingBgUrl('f1');
   const n = document.getElementById('bgPreviewNba'); if (n) n.src = landingBgUrl('nba');
+  ['laliga','epl','seriea','bundesliga','ligue1','ucl'].forEach(function(k){
+    var cap = k.charAt(0).toUpperCase() + k.slice(1);
+    var el = document.getElementById('bgPreview' + cap);
+    if (el) el.src = landingBgUrl(k);
+  });
 }
 async function uploadLandingBg(sport) {
   const cap = sport.charAt(0).toUpperCase() + sport.slice(1);   // ufc→Ufc, f1→F1, nba→Nba
