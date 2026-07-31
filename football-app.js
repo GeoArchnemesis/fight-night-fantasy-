@@ -464,7 +464,7 @@ async function loadUserTickets() {
         soccer_selections(outcome,odds,result,
           market:soccer_markets!market_id(kind,line,
             match:soccer_matches!match_id(home_team,away_team,home_abbr,away_abbr,kickoff,status,is_voided)))`)
-      .eq('user_id', currentUser.id).order('placed_at', { ascending: false });
+      .eq('user_id', currentUser.id).eq('league', LEAGUE).order('placed_at', { ascending: false });
     if (error || !rows) return;
     const statusMap = { pending: 'open', open: 'open', won: 'won', lost: 'lost', cashout: 'cashout', voided: 'void', void: 'void' };
     // settle_soccer_round result-ები: ok/no/void
