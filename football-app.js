@@ -398,6 +398,24 @@ function betError(res, error) {
   };
   return map[e] || ('ფსონი ვერ დაიდო: ' + (e || 'უცნობი შეცდომა'));
 }
+// ── ticketPlaced → Meta CAPI (server), browser-ის იგივე fb_event_id-ით (dedup) ──
+function fbTrackTicket() {
+  var fbEventId = 'tkt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+  try {
+    var fbpCookie = (document.cookie.match(/(?:^|; )_fbp=([^;]*)/) || [])[1] || '';
+    var fbcCookie = (document.cookie.match(/(?:^|; )_fbc=([^;]*)/) || [])[1] || '';
+    fetch(SUPABASE_URL + '/functions/v1/meta-capi', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event_name: 'ticketPlaced', event_id: fbEventId,
+        email: (currentUser && currentUser.email) || '', phone: (currentUser && currentUser.phone) || '',
+        fbp: fbpCookie, fbc: fbcCookie, url: location.href
+      })
+    }).catch(function () {});
+  } catch (e) {}
+  return fbEventId;
+}
+
 async function placeBets() {
   const pb = $('placeBtn');
   if (!currentUser) { closeSlip(); openModal('join'); return; }
@@ -424,6 +442,7 @@ async function placeBets() {
       state.tickets.unshift({ _dbId: res.ticket_id, type: 'express',
         sels: arr.map(s => ({ pickName: s.name, matchup: s.matchup, odds: s.odds, res: null, gameStart: s.start })),
         stake: st, odds: finalOdds, status: 'open', placedAt: serverNow() });
+      window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'express', num_picks: arr.length, fb_event_id: fbTrackTicket()});
     } else {
       const ts = totalStakeSingle();
       if (ts <= 0) return;
@@ -439,6 +458,7 @@ async function placeBets() {
           state.tickets.unshift({ _dbId: res.ticket_id, type: 'single',
             sels: [{ pickName: s.name, matchup: s.matchup, odds: s.odds, res: null, gameStart: s.start }],
             stake: s.stake, odds: finalOdds, status: 'open', placedAt: serverNow() });
+          window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'single', num_picks:1, fb_event_id: fbTrackTicket()});
         }
       }
       if (!placedAny) { updateTotals(); return; }
