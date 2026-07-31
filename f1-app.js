@@ -408,7 +408,8 @@ function fbTrackTicket() {
       body: JSON.stringify({
         event_name: 'ticketPlaced', event_id: fbEventId,
         email: (currentUser && currentUser.email) || '', phone: (currentUser && currentUser.phone) || '',
-        fbp: fbpCookie, fbc: fbcCookie, url: location.href
+        fbp: fbpCookie, fbc: fbcCookie, url: location.href,
+        external_id: (currentUser && currentUser.id) || ''
       })
     }).catch(function () {});
   } catch (e) {}
@@ -437,7 +438,7 @@ async function placeBets() {
       state.tickets.unshift({ _dbId: res.ticket_id, type: 'express',
         sels: arr.map(s => ({ kind: s.kind, driverName: s.name, odds: s.odds, res: null })),
         stake: st, odds: finalOdds, status: 'open', placedAt: serverNow() });
-      window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'express', num_picks: arr.length, fb_event_id: fbTrackTicket()});
+      window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'express', num_picks: arr.length, fb_event_id: fbTrackTicket(), external_id: (currentUser && currentUser.id) || ''});
     } else {
       const ts = totalStakeSingle();
       if (ts <= 0) return;
@@ -453,7 +454,7 @@ async function placeBets() {
           state.tickets.unshift({ _dbId: res.ticket_id, type: 'single',
             sels: [{ kind: s.kind, driverName: s.name, odds: s.odds, res: null }],
             stake: s.stake, odds: finalOdds, status: 'open', placedAt: serverNow() });
-          window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'single', num_picks:1, fb_event_id: fbTrackTicket()});
+          window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'single', num_picks:1, fb_event_id: fbTrackTicket(), external_id: (currentUser && currentUser.id) || ''});
         }
       }
       if (!placedAny) { updateTotals(); return; }
@@ -879,14 +880,14 @@ async function doRegister() {
   // ერთი საერთო event_id ბრაუზერისთვის (GTM) და სერვერისთვის (Meta CAPI) — Deduplicated
   var fbEventId = 'reg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
   window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({ event: 'user_registration', method: 'email', fb_event_id: fbEventId });
+  window.dataLayer.push({ event: 'user_registration', method: 'email', fb_event_id: fbEventId, external_id: (currentUser && currentUser.id) || '' });
   try {
     var fbpCookie = (document.cookie.match(/(?:^|; )_fbp=([^;]*)/) || [])[1] || '';
     var fbcCookie = (document.cookie.match(/(?:^|; )_fbc=([^;]*)/) || [])[1] || '';
     fetch(SUPABASE_URL + '/functions/v1/meta-capi', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_id: fbEventId, email: email, phone: phone, fbp: fbpCookie, fbc: fbcCookie, url: location.href })
+      body: JSON.stringify({ event_id: fbEventId, email: email, phone: phone, fbp: fbpCookie, fbc: fbcCookie, url: location.href, external_id: (currentUser && currentUser.id) || '' })
     }).catch(function () {});
   } catch (e) {}
   closeModal(); updateNavForUser(currentUser); await hydrateUserData();
