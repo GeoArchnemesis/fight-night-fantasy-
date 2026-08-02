@@ -164,7 +164,7 @@ async function loadGamesFromDB() {
     GAMES = [];
     if (ROUND) {
       const { data } = await sb.from('soccer_matches')
-        .select(`id,home_team,away_team,home_abbr,away_abbr,home_logo,away_logo,home_color,away_color,kickoff,status,result,home_score,away_score,is_voided,
+        .select(`id,home_team,away_team,home_abbr,away_abbr,home_logo,away_logo,home_color,away_color,competition,stage,kickoff,status,result,home_score,away_score,is_voided,
                  soccer_markets(id,kind,line,status,is_voided,result_outcome,
                    soccer_market_entries(outcome,label,price,is_enabled))`)
         .eq('round_id', ROUND.id).order('kickoff', { ascending: true });
@@ -185,6 +185,7 @@ async function loadGamesFromDB() {
             homeAbbr: m.home_abbr || m.home_team, awayAbbr: m.away_abbr || m.away_team,
             homeLogo: m.home_logo || null, awayLogo: m.away_logo || null,
             homeColor: m.home_color || null, awayColor: m.away_color || null,
+            competition: m.competition || null, stage: m.stage || null,
             start: m.kickoff ? new Date(m.kickoff) : null,
             status: m.status || 'upcoming',
             result: m.result || null,
@@ -262,8 +263,11 @@ function renderGames() {
     const started = g.start && g.start.getTime() <= serverNow() && !completed;
     const hc = teamColor(g.homeColor), ac = teamColor(g.awayColor);
 
+    const compLabel = g.competition
+      ? `<span class="fb-comp">${g.competition}${g.stage ? ' · ' + g.stage : ''}</span>`
+      : '<span class="fb-vs">—</span>';
     const mid = completed ? `<span class="fb-score">${g.homeScore ?? ''} : ${g.awayScore ?? ''}</span>`
-      : started ? '<span class="fb-live">🔴 ცოცხლად</span>' : '<span class="fb-vs">—</span>';
+      : started ? '<span class="fb-live">🔴 ცოცხლად</span>' : compLabel;
 
     const x = g.x2 || {};
     const px = state.picks[x.marketId];
@@ -1038,6 +1042,7 @@ function toggleEye(inputId) {
   .fb-tname{font-weight:800;font-size:.95rem;line-height:1.15;color:var(--text);word-break:break-word;text-shadow:0 1px 2px rgba(0,0,0,.5)}
   .fb-mid{text-align:center;font-family:var(--mono);font-weight:700;font-size:.82rem}
   .fb-vs{color:var(--muted);opacity:.7}
+  .fb-comp{color:#4da3ff;font-size:.72rem;font-weight:700;line-height:1.25;letter-spacing:.02em}
   .fb-live{color:#ff9d3c}
   .fb-score{color:var(--green);font-size:1.05rem}
   .fb-when{text-align:center;font-family:var(--mono);font-size:.74rem;color:var(--muted);margin:6px 0 12px}
