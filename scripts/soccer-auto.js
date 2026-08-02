@@ -31,6 +31,60 @@ const WINDOW_PAST_DAYS   = 4;   // შედეგებისთვის უ�
 const WINDOW_FUTURE_DAYS = 25;  // fixtures-ისთვის წინ
 const ENABLE_OU       = true;   // Over/Under best-effort (ESPN core API)
 
+// ── football-data.org: matchday (ლიგის ოფიციალური ტური) ──
+const FD_KEY = process.env.FOOTBALL_DATA_KEY || '';
+const FD_CODES = { esp1: 'PD', eng1: 'PL', ita1: 'SA', ger1: 'BL1', fra1: 'FL1', ucl: 'CL' };
+// ── შიდა თასები (ESPN) — ლიგის კოდით ინახება, ბალანსი საერთოა ──
+const CUPS = {
+  esp1: { slug: 'esp.copa_del_rey',    name: 'Copa del Rey' },
+  eng1: { slug: 'eng.fa',              name: 'FA Cup' },
+  ita1: { slug: 'ita.coppa_italia',    name: 'Coppa Italia' },
+  ger1: { slug: 'ger.dfb_pokal',       name: 'DFB Pokal' },
+  fra1: { slug: 'fra.coupe_de_france', name: 'Coupe de France' },
+  ucl:  null,
+};
+const _FD_STOP = new Set(['fc','cf','sc','afc','ac','as','ss','rc','cd','ud','club','calcio','de','the','cp','ogc','rcd']);
+function _fdNorm(x){ return (x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9 ]/g,' ').replace(/\s+/g,' ').trim(); }
+function _fdTok(x){ return _fdNorm(x).split(' ').filter(w => w.length > 2 && !_FD_STOP.has(w)); }
+function _fdOverlap(a,b){ const A=_fdTok(a), B=new Set(_fdTok(b)); if(!A.length) return 0; let c=0; for(const t of A) if(B.has(t)) c++; return c/A.length; }
+const _mdCache = {};
+async function loadMatchdays(lg){
+  const code = FD_CODES[lg.code];
+  if (!FD_KEY || !code) return [];
+  if (_mdCache[lg.code]) return _mdCache[lg.code];
+  try {
+    const r = await fetch(`https://api.football-data.org/v4/competitions/${code}/matches?season=${SEASON}`, { headers: { 'X-Auth-Token': FD_KEY } });
+    if (!r.ok) { log(`[${lg.code}] football-data HTTP ${r.status}`); _mdCache[lg.code] = []; return []; }
+    const j = await r.json();
+    const list = (j.matches || []).filter(m => m.matchday != null)
+      .map(m => ({ md: m.matchday, h: m.homeTeam.name, a: m.awayTeam.name, d: (m.utcDate || '').slice(0, 10) }));
+    _mdCache[lg.code] = list; return list;
+  } catch (e) { log(`[${lg.code}] football-data fetch: ${e.message}`); _mdCache[lg.code] = []; return []; }
+}
+function matchdayOf(fdList, homeName, awayName, dateIso){
+  if (!fdList || !fdList.length) return null;
+  const D = new Date((dateIso || '').slice(0, 10)).getTime();
+  let best = null, bs = 0;
+  for (const f of fdList) {
+    const dd = Math.abs((D - new Date(f.d).getTime()) / 86400000);
+    if (!isFinite(dd) || dd > 1) continue;
+    const s = Math.min(Math.max(_fdOverlap(homeName, f.h), _fdOverlap(f.h, homeName)),
+                       Math.max(_fdOverlap(awayName, f.a), _fdOverlap(f.a, awayName)));
+    if (s > bs) { bs = s; best = f; }
+  }
+  return (best && bs >= 0.5) ? best.md : null;
+}
+// ESPN cup event → ქართული ეტაპი
+function stageLabel(ev){
+  const slug = (ev.season?.slug || ev.competitions?.[0]?.type?.text || '').toLowerCase();
+  const map = [['final','ფინალი'],['semi','1/2 ფინალი'],['quarter','1/4 ფინალი'],
+    ['round-of-16','1/8 ფინალი'],['round-of-32','1/16 ფინალი'],
+    ['fifth','მე-5 რაუნდი'],['fourth','მე-4 რაუნდი'],['third','მე-3 რაუნდი'],
+    ['second','მე-2 რაუნდი'],['first','1-ლი რაუნდი'],['preliminary','საკვალიფიკაციო']];
+  for (const [k, v] of map) if (slug.includes(k)) return v;
+  return null;
+}
+
 // მატჩი თითო ტურზე (გუნდები / 2) — ტურის საზღვრის საიმედო განსაზღვრა
 // (ESPN round-ს არ აბრუნებს; gap ცუდად მუშაობს, რადგან ჟორნადები ხშირად ზედიზედაა)
 const PER_ROUND = { esp1: 10, eng1: 10, ita1: 10, ger1: 9, fra1: 9, ucl: 18 };
@@ -203,35 +257,51 @@ async function ensureMarkets(lg, matchId, ev) {
 
 // ── ახალი ტურის შექმნა (მხოლოდ როცა აქტიური ტური არ არის) ──
 async function createNextRound(lg, events) {
-  const upcoming = events
-    .filter(e => e.status?.type?.state === 'pre')
-    .map(e => ({ ev: e, t: new Date(e.date).getTime() }))
-    .filter(x => isFinite(x.t))
-    .sort((a, b) => a.t - b.t);
-  if (!upcoming.length) { log(`[${lg.code}] მომავალი მატჩი არ არის`); return; }
+  const pre = events.filter(e => e.status?.type?.state === 'pre')
+    .map(e => ({ ev: e, t: new Date(e.date).getTime(), cup: e._cup || null }))
+    .filter(x => isFinite(x.t)).sort((a, b) => a.t - b.t);
+  const leagueUp = pre.filter(x => !x.cup);
+  const cupUp = pre.filter(x => x.cup);
+  if (!leagueUp.length && !cupUp.length) { log(`[${lg.code}] მომავალი მატჩი არ არის`); return; }
 
-  // კლასტერი: ყველაზე ადრეული perRound მატჩი (გუნდები/2). ვჩერდებით თუ:
-  //  • perRound შეივსო, ან • დიდი შუალედი (ROUND_MAX_GAP_DAYS), ან
-  //  • გუნდი მეორდება (= შემდეგი ტური დაიწყო — გადადებული მატჩების წინააღმდეგ დაცვა).
+  // ლიგის კლასტერი (count-based, როგორც იყო). თუ ლიგას მატჩი არ აქვს — თასით ვიწყებთ.
   const perRound = PER_ROUND[lg.code] || DEFAULT_PER_ROUND;
   const maxGap = ROUND_MAX_GAP_DAYS * 86400000;
   const teamsOf = (ev) => (ev.competitions?.[0]?.competitors || []).map(c => c.team?.id || c.team?.displayName);
-  const seenTeams = new Set();
-  const cluster = [];
-  for (const item of upcoming) {
+  const base = leagueUp.length ? leagueUp : cupUp;
+  const seen = new Set(); const cluster = [];
+  for (const item of base) {
     if (cluster.length >= perRound) break;
     if (cluster.length && (item.t - cluster[cluster.length - 1].t > maxGap)) break;
     const teams = teamsOf(item.ev);
-    if (teams.some(id => seenTeams.has(id))) break;
-    cluster.push(item);
-    teams.forEach(id => seenTeams.add(id));
+    if (teams.some(id => seen.has(id))) break;
+    cluster.push(item); teams.forEach(id => seen.add(id));
   }
-  if (!cluster.length) cluster.push(upcoming[0]);
+  if (!cluster.length) cluster.push(base[0]);
 
+  // ტურის თარიღული ფანჯარა → ამ პერიოდის თასის მატჩებს ვამატებთ (რიცხვის მიხედვით ერთად)
+  const winMin = cluster[0].t - maxGap;
+  const winMax = cluster[cluster.length - 1].t + maxGap;
+  const items = [...cluster];
+  for (const c of cupUp) {
+    if (c.t >= winMin && c.t <= winMax && !items.some(x => x.ev.id === c.ev.id)) items.push(c);
+  }
+  items.sort((a, b) => a.t - b.t);
+
+  // matchday (football-data) → ტურის ნომერი; fallback: count-based
+  const fdList = await loadMatchdays(lg);
+  let matchday = null;
+  const firstLeague = items.find(x => !x.cup);
+  if (firstLeague) {
+    const c = firstLeague.ev.competitions[0];
+    const H = c.competitors.find(z => z.homeAway === 'home')?.team?.displayName;
+    const A = c.competitors.find(z => z.homeAway === 'away')?.team?.displayName;
+    matchday = matchdayOf(fdList, H, A, firstLeague.ev.date);
+  }
   const { data: last } = await sb.from('soccer_rounds')
     .select('round_no').eq('league', lg.code).eq('season', SEASON)
     .order('round_no', { ascending: false }).limit(1).maybeSingle();
-  const roundNo = (last?.round_no || 0) + 1;
+  const roundNo = matchday || ((last?.round_no || 0) + 1);
   const name = `${lg.name} — ტური ${roundNo}`;
 
   const { data: r, error } = await sb.from('soccer_rounds')
@@ -239,17 +309,19 @@ async function createNextRound(lg, events) {
     .select('id').maybeSingle();
   if (error || !r) { log(`[${lg.code}] round insert error: ${error?.message}`); return; }
 
-  let created = 0;
-  for (const { ev } of cluster) {
-    const comp = ev.competitions[0];
+  let created = 0, cupCreated = 0;
+  for (const item of items) {
+    const ev = item.ev; const comp = ev.competitions[0];
     const home = comp.competitors.find(c => c.homeAway === 'home');
     const away = comp.competitors.find(c => c.homeAway === 'away');
     if (!home || !away) continue;
 
-    // dedup (league, espn_id)
     const { data: exist } = await sb.from('soccer_matches')
       .select('id').eq('league', lg.code).eq('espn_id', ev.id).maybeSingle();
     if (exist) continue;
+
+    const competition = item.cup ? item.cup.name : lg.name;
+    const stage = item.cup ? stageLabel(ev) : null;
 
     const { data: m } = await sb.from('soccer_matches').insert({
       round_id: r.id, league: lg.code, espn_id: ev.id,
@@ -258,17 +330,21 @@ async function createNextRound(lg, events) {
       home_logo: home.team.logo || null, away_logo: away.team.logo || null,
       home_color: home.team.color || null, away_color: away.team.color || null,
       venue: comp.venue?.fullName || null, kickoff: ev.date, status: 'upcoming',
+      competition, stage,
     }).select('id').maybeSingle();
     if (!m) continue;
 
     await ensureMarkets(lg, m.id, ev);
-    created++;
+    if (item.cup) cupCreated++; else created++;
   }
 
+  const cupName = CUPS[lg.code]?.name || 'თასი';
   await sendTelegram(
-    `⚽️ <b>${lg.name} — ახალი ტური (${roundNo})</b>\n\n${created} მატჩი დაემატა.\nკოეფები ავტომატურად აიტვირთა (1X2${ENABLE_OU ? ' + ტოტალი სადაც არის' : ''}).`
+    `⚽️ <b>${lg.name} — ახალი ტური (${roundNo})</b>\n\n${created} ლიგის მატჩი` +
+    (cupCreated ? ` + ${cupCreated} ${cupName} მატჩი` : '') +
+    `.\nკოეფები ავტომატურად აიტვირთა.`
   );
-  log(`[${lg.code}] ტური ${roundNo} შეიქმნა — ${created} მატჩი`);
+  log(`[${lg.code}] ტური ${roundNo} — ${created} ლიგა + ${cupCreated} თასი`);
 }
 
 // ── მიმდინარე ტურის მატჩების ფერების/emblema-ს backfill ──
@@ -353,7 +429,11 @@ async function processResults(lg, round, events) {
 
 // ── ერთი ლიგის სრული ციკლი ──
 async function syncLeague(lg) {
-  const events = await fetchWindow(lg.espn_slug);
+  const leagueEvents = await fetchWindow(lg.espn_slug);
+  const cup = CUPS[lg.code];
+  let cupEvents = [];
+  if (cup) { try { cupEvents = (await fetchWindow(cup.slug)).map(e => { e._cup = cup; return e; }); } catch (e) {} }
+  const events = [...leagueEvents, ...cupEvents];   // თასის მატჩებიც (espn_id-ით მუშაობს results/odds)
   if (!events.length) { log(`[${lg.code}] ESPN-მ მოვლენა არ დააბრუნა`); }
 
   let round = await activeRound(lg.code);
