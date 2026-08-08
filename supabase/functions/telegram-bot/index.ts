@@ -244,11 +244,11 @@ async function cmdSyncFights(chatId: number): Promise<string> {
   const { data: dbFights } = await sb.from('fights')
     .select('id,bout_order,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
     .eq('event_id', ev.id)
-  const knownIds = new Set<string>()
+  const _pk = (a: any, b: any) => [String(a || ''), String(b || '')].sort().join('|')
+  const knownPairs = new Set<string>()
   let maxOrder = 0
   for (const f of (dbFights || []) as any[]) {
-    if (f.red?.espn_id) knownIds.add(String(f.red.espn_id))
-    if (f.blue?.espn_id) knownIds.add(String(f.blue.espn_id))
+    if (!f.is_voided) knownPairs.add(_pk(f.red?.espn_id, f.blue?.espn_id))
     if ((f.bout_order || 0) > maxOrder) maxOrder = f.bout_order
   }
 
@@ -259,11 +259,10 @@ async function cmdSyncFights(chatId: number): Promise<string> {
   let added = 0
   const addedNames: string[] = []
   for (const c of comps) {
-    const ids = (c.competitors || []).map((x: any) => String(x.id || '')).filter(Boolean)
-    if (!ids.length || ids.some((id: string) => knownIds.has(id))) continue
     const redC = c.competitors.find((x: any) => x.order === 1) || c.competitors[0]
     const blueC = c.competitors.find((x: any) => x.order === 2) || c.competitors[1]
     if (!redC || !blueC) continue
+    if (knownPairs.has(_pk(redC.id, blueC.id))) continue
     const rounds = c.format?.regulation?.periods || 3
     const redDet = redC?.id ? await fetchAthleteDetails(redC.id) : {}
     const blueDet = blueC?.id ? await fetchAthleteDetails(blueC.id) : {}
@@ -278,7 +277,7 @@ async function cmdSyncFights(chatId: number): Promise<string> {
       weight_class: c.type?.abbreviation || 'Unknown', max_rounds: rounds,
       bout_order: maxOrder, is_title_bout: rounds === 5, red_odds: null, blue_odds: null, show_details: false, status: 'upcoming',
     })
-    if (!error) { added++; addedNames.push(`${red.name} vs ${blue.name}`); knownIds.add(String(redC.id)); knownIds.add(String(blueC.id)) }
+    if (!error) { added++; addedNames.push(`${red.name} vs ${blue.name}`); knownPairs.add(_pk(redC.id, blueC.id)) }
   }
 
   const extras: string[] = []
