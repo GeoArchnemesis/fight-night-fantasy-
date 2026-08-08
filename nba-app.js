@@ -671,7 +671,7 @@ async function loadLeaderboard(period) {
 }
 function renderLbTabs() {
   const tabs = $('lbTabs'); if (!tabs) return;
-  const periods = [{ key: '1m', label: '1 თვე' }, { key: '3m', label: '3 თვე' }, { key: '6m', label: '6 თვე' }, { key: '1y', label: '1 წელი' }, { key: 'goat', label: 'G.O.A.T' }];
+  const periods = [{ key: '1m', label: 'მიმდინარე თვე' }, { key: 'goat', label: 'G.O.A.T' }];
   tabs.innerHTML = periods.map(p => `<button class="lb-tab ${_currentLbPeriod === p.key ? 'on' : ''}" data-period="${p.key}">${p.label}</button>`).join('');
   tabs.querySelectorAll('.lb-tab').forEach(b => { b.onclick = () => loadLeaderboard(b.dataset.period); });
 }
