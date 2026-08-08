@@ -2,7 +2,7 @@
 // Fight Night Fantasy — Telegram Bot (Supabase Edge Function)
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 const corsHeaders = { 'Content-Type': 'application/json' }
-const ESPN_BASE = 'https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard'
+const ESPN_BASE = 'https://site.web.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard'
 const sb = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -215,6 +215,83 @@ async function cmdUpdateEvent(chatId: number): Promise<string> {
     if (!error) saved++
   }
   return `✅ <b>ივენთი შეიქმნა</b>\n\n${event.name}\n📍 ${location}\n🥊 ${saved} ბრძოლა`
+}
+
+// ── არსებულ ივენთს ESPN-ს ვადარებთ: დაკლებულ ბრძოლებს ვამატებთ, ზედმეტს ვაფრთხილებთ ──
+// ახალ ივენთს არ ვქმნით, არსებულ ბრძოლებს/ბალანსს არ ვცვლით.
+async function cmdSyncFights(chatId: number): Promise<string> {
+  let { data: evRows } = await sb.from('events').select('id,name,event_date')
+    .eq('status', 'upcoming').gte('event_date', new Date(Date.now() - 2 * 864e5).toISOString())
+    .order('event_date', { ascending: true }).limit(1)
+  if (!evRows?.length) {
+    const r = await sb.from('events').select('id,name,event_date').eq('status', 'upcoming').order('event_date', { ascending: false }).limit(1)
+    evRows = r.data
+  }
+  if (!evRows?.length) return 'ℹ️ upcoming ივენთი ვერ მოიძებნა.'
+  const ev = evRows[0]
+
+  let espnData: any = null
+  try {
+    const dateStr = new Date(ev.event_date).toISOString().slice(0, 10).replace(/-/g, '')
+    let res = await fetch(`${ESPN_BASE}?dates=${dateStr}`)
+    if (res.ok) espnData = await res.json()
+    if (!espnData?.events?.length) { res = await fetch(ESPN_BASE); if (res.ok) espnData = await res.json() }
+  } catch (e) { return `❌ ESPN კავშირი ვერ მოხერხდა: ${(e as Error).message}` }
+  if (!espnData?.events?.length) return '❌ ESPN-ზე ივენთი ვერ მოიძებნა.'
+
+  const event = espnData.events.find((e: any) => e.name === ev.name) || espnData.events[0]
+
+  const { data: dbFights } = await sb.from('fights')
+    .select('id,bout_order,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
+    .eq('event_id', ev.id)
+  const knownIds = new Set<string>()
+  let maxOrder = 0
+  for (const f of (dbFights || []) as any[]) {
+    if (f.red?.espn_id) knownIds.add(String(f.red.espn_id))
+    if (f.blue?.espn_id) knownIds.add(String(f.blue.espn_id))
+    if ((f.bout_order || 0) > maxOrder) maxOrder = f.bout_order
+  }
+
+  const comps = [...event.competitions].reverse()
+  const espnIds = new Set<string>()
+  for (const c of comps) for (const x of (c.competitors || [])) if (x.id) espnIds.add(String(x.id))
+
+  let added = 0
+  const addedNames: string[] = []
+  for (const c of comps) {
+    const ids = (c.competitors || []).map((x: any) => String(x.id || '')).filter(Boolean)
+    if (!ids.length || ids.some((id: string) => knownIds.has(id))) continue
+    const redC = c.competitors.find((x: any) => x.order === 1) || c.competitors[0]
+    const blueC = c.competitors.find((x: any) => x.order === 2) || c.competitors[1]
+    if (!redC || !blueC) continue
+    const rounds = c.format?.regulation?.periods || 3
+    const redDet = redC?.id ? await fetchAthleteDetails(redC.id) : {}
+    const blueDet = blueC?.id ? await fetchAthleteDetails(blueC.id) : {}
+    const red = { name: redC?.athlete?.fullName || '', flag: countryToFlag(redC?.athlete?.flag?.alt || ''), country: redC?.athlete?.flag?.alt || '', record: redC?.records?.[0]?.summary || '', espn_id: redC?.id || '', ...redDet }
+    const blue = { name: blueC?.athlete?.fullName || '', flag: countryToFlag(blueC?.athlete?.flag?.alt || ''), country: blueC?.athlete?.flag?.alt || '', record: blueC?.records?.[0]?.summary || '', espn_id: blueC?.id || '', ...blueDet }
+    const redId = await upsertFighter(red)
+    const blueId = await upsertFighter(blue)
+    if (!redId || !blueId) continue
+    maxOrder++
+    const { error } = await sb.from('fights').insert({
+      event_id: ev.id, red_fighter_id: redId, blue_fighter_id: blueId,
+      weight_class: c.type?.abbreviation || 'Unknown', max_rounds: rounds,
+      bout_order: maxOrder, is_title_bout: rounds === 5, red_odds: null, blue_odds: null, show_details: false, status: 'upcoming',
+    })
+    if (!error) { added++; addedNames.push(`${red.name} vs ${blue.name}`); knownIds.add(String(redC.id)); knownIds.add(String(blueC.id)) }
+  }
+
+  const extras: string[] = []
+  for (const f of (dbFights || []) as any[]) {
+    const rid = String(f.red?.espn_id || ''), bid = String(f.blue?.espn_id || '')
+    if (!((rid && espnIds.has(rid)) || (bid && espnIds.has(bid)))) extras.push(`${f.red?.name || '?'} vs ${f.blue?.name || '?'}`)
+  }
+
+  let out = `🔄 <b>ბრძოლების სინქი — ${ev.name}</b>\n\nESPN-ზე: ${comps.length} · ბაზაში იყო: ${(dbFights || []).length}`
+  out += added > 0 ? `\n\n➕ დაემატა ${added}:\n${addedNames.map(n => '🥊 ' + n).join('\n')}` : '\n\n✅ ახალი ბრძოლა არ იყო — ყველა ბაზაშია.'
+  if (extras.length) out += `\n\n⚠️ ბაზაშია, ESPN-ზე აღარ (შესაძლოა გაუქმდა):\n${extras.map(n => '• ' + n).join('\n')}\n<i>ავტომატურად არ წავშალე — ბილეთი შეიძლება ეხებოდეს. საჭიროებისას ხელით void.</i>`
+  if (added > 0) out += `\n\n➡️ კოეფები მომდევნო "ufc კოეფ"-ზე ჩაიწერება.`
+  return out
 }
 
 async function cmdUpdateOdds(chatId: number): Promise<string> {
@@ -1344,11 +1421,14 @@ Deno.serve(async (req) => {
       }
     }
     else if (text === '/start' || text === 'help' || text === '/help') {
-      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── გენერალური ბრძანებები ──</b>\n🎫 <b>ბილეთები</b> — აქტიური ბილეთები (სამივე სპორტი ჯვარედინად + ჯამი სპორტების მიხედვით)\n✅ <b>ვერიფიცირებული იუზერები</b> — რამდენ მომხმარებელს აქვს ნომერი/ტელეგრამი\n\n<b>── UFC ──</b>\n📥 <b>ufc ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🖼️ <b>ufc ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>ufc კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>ufc შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>ufc settle</b> — ბილეთების დამუშავება\n🔄 <b>ufc სრულად</b> — ყველაფერი ერთად\n🎫 <b>ufc ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>ufc სტატუსი</b> — მდგომარეობა\n💰 <b>ufc რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)\n\n<b>── ⚽️ ფეხბურთი ──</b>\n<i>ლიგები: laliga · epl · seriea · bundesliga · ligue1 · ucl</i>\n📋 <b>laliga</b> — სტატუსი (ტური/მატჩები/ბილეთები)\n📊 <b>laliga კოეფები</b> — მიმდინარე ტურის კოეფები (1X2 + ტოტალი)\n⚽️ <b>laliga გუნდები</b> — ტურის მატჩები\n📥 <b>laliga ივენთი</b> — ESPN ფიქსტურები (რისი წამოღებაც შეიძლება)\n🏆 <b>laliga შედეგები</b> — დასრულებული მატჩები\n🏁 <b>laliga settle</b> — ტურის settlement\n🎫 <b>laliga ბილეთები</b> — აქტიური ბილეთები\n💰 <b>laliga რესეტი</b> — ბალანსები → 1,000\n<i>იგივე ბრძანებები ყველა ლიგაზე (მაგ. ucl კოეფები, epl გუნდები).</i>`
+      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── გენერალური ბრძანებები ──</b>\n🎫 <b>ბილეთები</b> — აქტიური ბილეთები (სამივე სპორტი ჯვარედინად + ჯამი სპორტების მიხედვით)\n✅ <b>ვერიფიცირებული იუზერები</b> — რამდენ მომხმარებელს აქვს ნომერი/ტელეგრამი\n\n<b>── UFC ──</b>\n📥 <b>ufc ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🔃 <b>ufc ბრძოლები</b> — არსებულ ივენთს ESPN-ს ადარებს, დაკლებულ ბრძოლებს ამატებს\n🖼️ <b>ufc ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>ufc კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>ufc შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>ufc settle</b> — ბილეთების დამუშავება\n🔄 <b>ufc სრულად</b> — ყველაფერი ერთად\n🎫 <b>ufc ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>ufc სტატუსი</b> — მდგომარეობა\n💰 <b>ufc რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)\n\n<b>── ⚽️ ფეხბურთი ──</b>\n<i>ლიგები: laliga · epl · seriea · bundesliga · ligue1 · ucl</i>\n📋 <b>laliga</b> — სტატუსი (ტური/მატჩები/ბილეთები)\n📊 <b>laliga კოეფები</b> — მიმდინარე ტურის კოეფები (1X2 + ტოტალი)\n⚽️ <b>laliga გუნდები</b> — ტურის მატჩები\n📥 <b>laliga ივენთი</b> — ESPN ფიქსტურები (რისი წამოღებაც შეიძლება)\n🏆 <b>laliga შედეგები</b> — დასრულებული მატჩები\n🏁 <b>laliga settle</b> — ტურის settlement\n🎫 <b>laliga ბილეთები</b> — აქტიური ბილეთები\n💰 <b>laliga რესეტი</b> — ბალანსები → 1,000\n<i>იგივე ბრძანებები ყველა ლიგაზე (მაგ. ucl კოეფები, epl გუნდები).</i>`
     }
     else if (text.startsWith('ufc') || text.startsWith('/ufc')) {
       const t = text.replace(/^\/?ufc\s*/, '')
-      if (t.includes('ივენთ') || t.includes('event')) {
+      if (t.includes('სინქ') || t.includes('ბრძოლ') || t === 'განახლება') {
+        await sendMsg(chatId, '⏳ ESPN-ს ვადარებ არსებულ ივენთს...')
+        response = await cmdSyncFights(chatId)
+      } else if (t.includes('ივენთ') || t.includes('event')) {
         await sendMsg(chatId, '⏳ ESPN-დან ძებნა...')
         response = await cmdUpdateEvent(chatId)
       } else if (t.includes('ფოტო') || t.includes('photo')) {
