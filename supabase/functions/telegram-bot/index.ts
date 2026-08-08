@@ -1,1261 +1,1467 @@
-// ============================================================
-//  UFC Fantasy — app.js  (v20 — server-authoritative odds/cashout/settlement)
-// ============================================================
-(function () {
-if (window.__FNF_APP_LOADED__) {
-  console.warn('[FNF] app.js უკვე ჩატვირთულია — დუბლიკატი გაშვება იგნორირდება');
-  return;
-}
-window.__FNF_APP_LOADED__ = true;
-// პროფილის გვერდი (/profile) ამ გასაღებით ხვდება, საიდან მოვიდა მომხმარებელი
-try { localStorage.setItem('fnf_sport', 'ufc'); } catch (e) {}
+// supabase/functions/telegram-bot/index.ts
+// Fight Night Fantasy — Telegram Bot (Supabase Edge Function)
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+const corsHeaders = { 'Content-Type': 'application/json' }
+const ESPN_BASE = 'https://site.web.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard'
+const sb = createClient(
+  Deno.env.get('SUPABASE_URL')!,
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+)
+const TG_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN')!
+const ODDS_API_KEY = Deno.env.get('ODDS_API_KEY') || ''
+const ADMIN_CHAT_ID = Deno.env.get('TELEGRAM_CHAT_ID') || ''
+const TG_WEBHOOK_SECRET = Deno.env.get('TELEGRAM_WEBHOOK_SECRET') || ''
+const ADMIN_NOTIFY_SECRET = Deno.env.get('ADMIN_NOTIFY_SECRET') || ''
 
-const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
-const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, lock: (name, t, fn) => fn() }
-});
-
-// ── helpers ──
-const r2  = x => Math.round(x * 100) / 100;
-const fmt = n => Number.isFinite(+n) ? Math.round(+n).toLocaleString('en-US') : '0';
-const METHODS = ['ნოკაუტი', 'მტკივნეული', 'გადაწყვეტილება'];
-const EN_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-const $ = id => document.getElementById(id);
-function $on(id, ev, fn) { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); }
-
-// ── state ──
-let FIGHTS = [];
-const START = 1000;
-const state = { balance: START, score: 0, picks: {}, mode: 'express', expressStake: 0, tickets: [], user: null, openDetail: {}, tkCollapsed: {}, eventName: '' };
-let currentUser = null;
-let _balanceKnown = false;
-
-// ── SERVER TIME (მოწყობილობის საათის აცდენის კომპენსაცია) ──
-// _timeOffset = სერვერსა და მოწყობილობის საათს შორის სხვაობა (ms).
-// 0 = ჩვეულებრივი Date.now(). თუ sync ვერ მოხდა, 0-ზე რჩება და ყველაფერი ისე მუშაობს, როგორც ადრე.
-let _timeOffset = 0;
-function serverNow() { return Date.now() + _timeOffset; }
-async function syncServerTime() {
-  try {
-    // timeout guard: თუ სერვერი 4 წამში არ უპასუხა, აღარ ველოდებით — offset რჩება 0-ზე (= Date.now()),
-    // საიტი ჩვეულებრივ იტვირთება. ასე sync-მა ვერასდროს დაბლოკოს გვერდის ჩატვირთვა.
-    const timeout = new Promise(resolve => setTimeout(() => resolve({ __timedOut: true }), 4000));
-    const res = await Promise.race([sb.rpc('server_now'), timeout]);
-    if (!res || res.__timedOut) return;
-    const { data, error } = res;
-    if (error || data == null) return;
-    const serverMs = new Date(data).getTime();
-    if (!Number.isFinite(serverMs)) return;
-    _timeOffset = serverMs - Date.now();
-  } catch (e) { /* ვერ მოვიდა — offset რჩება 0-ზე, fallback = Date.now() */ }
+async function sendMsg(chatId: string | number, text: string) {
+  await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+    method: 'POST', headers: corsHeaders,
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' })
+  })
 }
 
-// ── BETTING RULES ──
-function isBettingClosed() { const ed = window.__eventDate; if (!ed) return false; return (ed - serverNow()) < 60000; }
-function isEventInProgress() { const ed = window.__eventDate; if (!ed) return false; return (ed - serverNow()) < 0; }
-function canCashout() { const ed = window.__eventDate; if (!ed) return true; return (ed - serverNow()) > 3600000; }
-function cashoutAmount(t) { const age = serverNow() - (t.placedAt || serverNow()); return age <= 3600000 ? t.stake : Math.round(t.stake * 0.8); }
-function cashoutLabel(t) { const age = serverNow() - (t.placedAt || serverNow()); return age <= 3600000 ? '↩ ქეშაუთი (უფასო)' : '↩ ქეშაუთი (80%)'; }
-
-// ── CASHOUT POPUP ──
-function showCashoutPopup(amt, stake, blocked) {
-  return new Promise(resolve => {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-    overlay.innerHTML = blocked ? `
-      <div style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:32px;max-width:360px;width:100%;text-align:center">
-        <div style="font-size:1.2rem;font-weight:700;margin-bottom:10px;color:var(--red)">ქეშაუთი შეუძლებელია</div>
-        <div style="color:var(--muted);margin-bottom:24px;font-size:.9rem">ივენთის დაწყებამდე 1 საათზე ნაკლებია დარჩენილი</div>
-        <button id="coClose" style="padding:10px 28px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);cursor:pointer;font-family:inherit">დახურვა</button>
-      </div>` : `
-      <div style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:32px;max-width:360px;width:100%;text-align:center">
-        <div style="font-size:1.2rem;font-weight:700;margin-bottom:10px">ქეშაუთის დადასტურება</div>
-        <div style="color:var(--muted);margin-bottom:8px">დარწმუნებული ხართ რომ გსურთ ქეშაუთი?</div>
-        <div style="color:var(--gold);font-size:1.05rem;font-weight:700;margin-bottom:24px">დაგიბრუნდება: ${fmt(amt)} ქულა${amt < stake ? ' (80%)' : ' (სრულად)'}</div>
-        <div style="display:flex;gap:12px;justify-content:center">
-          <button id="coCancelBtn" style="padding:10px 24px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);cursor:pointer;font-family:inherit">გაუქმება</button>
-          <button id="coConfirmBtn" style="padding:10px 24px;border-radius:8px;border:none;background:var(--red);color:#fff;cursor:pointer;font-family:inherit;font-weight:700">დადასტურება</button>
-        </div>
-      </div>`;
-    document.body.appendChild(overlay);
-    const close = val => { document.body.removeChild(overlay); resolve(val); };
-    if (blocked) { document.getElementById('coClose').onclick = () => close(false); }
-    else { document.getElementById('coConfirmBtn').onclick = () => close(true); document.getElementById('coCancelBtn').onclick = () => close(false); }
-    overlay.onclick = e => { if (e.target === overlay) close(false); };
-  });
-}
-
-// ქეშაუთის შედეგის/შეცდომის in-page popup (ნაცვლად native alert-ისა, რომ „საიტის
-// გარედან" ფანჯარა არ ჩნდებოდეს). Promise აბრუნებს — დახურვამდე ელოდeba.
-function showCashoutMsg(html, isError) {
-  return new Promise(resolve => {
-    const overlay = document.createElement('div');
-    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px';
-    overlay.innerHTML = `
-      <div style="background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:32px;max-width:360px;width:100%;text-align:center">
-        <div style="font-size:1.1rem;font-weight:700;margin-bottom:22px;color:${isError ? 'var(--red)' : 'var(--gold)'}">${isError ? '⚠️ ' : '✅ '}${html}</div>
-        <button id="coMsgClose" style="padding:10px 28px;border-radius:8px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);cursor:pointer;font-family:inherit">დახურვა</button>
-      </div>`;
-    document.body.appendChild(overlay);
-    const close = () => { document.body.removeChild(overlay); resolve(); };
-    document.getElementById('coMsgClose').onclick = close;
-    overlay.onclick = e => { if (e.target === overlay) close(); };
-  });
-}
-
-async function doCashout(idx) {
-  const t = state.tickets[idx];
-  if (!t || t.status !== 'open') return;
-  if (!canCashout()) { await showCashoutPopup(null, null, true); return; }
-  const amt = cashoutAmount(t);   // მხოლოდ ჩვენებისთვის — რეალურ თანხას სერვერი წყვეტს
-  const confirmed = await showCashoutPopup(amt, t.stake, false);
-  if (!confirmed) return;
-  if (!t._dbId) { await showCashoutMsg('ბილეთის ID ვერ მოიძებნა', true); return; }
-  const { data: res, error } = await sb.rpc('cashout_ticket', { p_ticket_id: t._dbId });
-  if (error || !res || !res.ok) { await showCashoutMsg(betError(res, error), true); return; }
-  t.status = 'cashout';
-  updateBalance(res.balance);
-  renderTickets();
-  // სერვერის რეალური თანხა/პროცენტი (#11)
-  if (res.refund != null) {
-    const pct = Math.round((res.pct != null ? res.pct : (res.refund / (t.stake || 1))) * 100);
-    await showCashoutMsg('ქეშაუთი შესრულდა — დაგიბრუნდა ' + fmt(res.refund) + ' ქულა (' + pct + '%)', false);
+function countryToFlag(alt: string): string {
+  const map: Record<string, string> = {
+    'USA':'🇺🇸','Canada':'🇨🇦','Mexico':'🇲🇽','Brazil':'🇧🇷','Argentina':'🇦🇷',
+    'Colombia':'🇨🇴','Peru':'🇵🇪','Chile':'🇨🇱','Ecuador':'🇪🇨','Venezuela':'🇻🇪',
+    'Uruguay':'🇺🇾','Jamaica':'🇯🇲','Trinidad and Tobago':'🇹🇹','Dominican Republic':'🇩🇴',
+    'Puerto Rico':'🇵🇷','Guyana':'🇬🇾','Cuba':'🇨🇺','Aruba':'🇦🇼','Panama':'🇵🇦',
+    'United Kingdom':'🇬🇧','England':'🏴󠁧󠁢󠁥󠁮󠁧󠁿','Scotland':'🏴󠁧󠁢󠁳󠁣󠁴󠁿','Wales':'🏴󠁧󠁢󠁷󠁬󠁳󠁿',
+    'Ireland':'🇮🇪','France':'🇫🇷','Germany':'🇩🇪','Italy':'🇮🇹','Spain':'🇪🇸',
+    'Netherlands':'🇳🇱','Poland':'🇵🇱','Sweden':'🇸🇪','Norway':'🇳🇴','Denmark':'🇩🇰',
+    'Finland':'🇫🇮','Belgium':'🇧🇪','Austria':'🇦🇹','Switzerland':'🇨🇭',
+    'Portugal':'🇵🇹','Czech Republic':'🇨🇿','Czechia':'🇨🇿','Hungary':'🇭🇺',
+    'Romania':'🇷🇴','Serbia':'🇷🇸','Croatia':'🇭🇷','Bosnia and Herzegovina':'🇧🇦',
+    'Bulgaria':'🇧🇬','Greece':'🇬🇷','Lithuania':'🇱🇹','Latvia':'🇱🇻','Estonia':'🇪🇪',
+    'Moldova':'🇲🇩','Albania':'🇦🇱','North Macedonia':'🇲🇰','Montenegro':'🇲🇪',
+    'Slovakia':'🇸🇰','Slovenia':'🇸🇮','Iceland':'🇮🇸','Kosovo':'🇽🇰',
+    'Russia':'🇷🇺','Ukraine':'🇺🇦','Georgia':'🇬🇪','Armenia':'🇦🇲','Azerbaijan':'🇦🇿',
+    'Kazakhstan':'🇰🇿','Uzbekistan':'🇺🇿','Kyrgyzstan':'🇰🇬','Tajikistan':'🇹🇯',
+    'Turkmenistan':'🇹🇲','Belarus':'🇧🇾',
+    'China':'🇨🇳','Japan':'🇯🇵','South Korea':'🇰🇷','Thailand':'🇹🇭','Philippines':'🇵🇭',
+    'Indonesia':'🇮🇩','India':'🇮🇳','Mongolia':'🇲🇳','Myanmar':'🇲🇲','Vietnam':'🇻🇳',
+    'Malaysia':'🇲🇾','Singapore':'🇸🇬','Taiwan':'🇹🇼','Pakistan':'🇵🇰',
+    'Afghanistan':'🇦🇫','Iraq':'🇮🇶','Iran':'🇮🇷','Israel':'🇮🇱',
+    'Australia':'🇦🇺','New Zealand':'🇳🇿','Fiji':'🇫🇯','Samoa':'🇼🇸',
+    'Turkey':'🇹🇷','Türkiye':'🇹🇷','Saudi Arabia':'🇸🇦','UAE':'🇦🇪',
+    'Bahrain':'🇧🇭','Jordan':'🇯🇴','Lebanon':'🇱🇧','Syria':'🇸🇾',
+    'South Africa':'🇿🇦','Nigeria':'🇳🇬','Cameroon':'🇨🇲','Ghana':'🇬🇭',
+    'Morocco':'🇲🇦','Egypt':'🇪🇬','Tunisia':'🇹🇳','Algeria':'🇩🇿',
+    'Kenya':'🇰🇪','DR Congo':'🇨🇩','Senegal':'🇸🇳','Angola':'🇦🇴',
   }
+  return map[alt] || '🏳️'
 }
 
-// ── DB LOAD (ივენთის შერჩევა გასწორებული) ──
-async function loadEventFromDB() {
-  const nowIso = new Date(serverNow()).toISOString();
-  const { data: upRows } = await sb.from('events').select('*').gte('event_date', nowIso).order('event_date', { ascending: true }).limit(1);
-  const { data: pastRows } = await sb.from('events').select('*').lt('event_date', nowIso).order('event_date', { ascending: false }).limit(1);
-  const now = serverNow();
-  const upcoming = upRows && upRows[0];
-  const recent = pastRows && pastRows[0];
+function nameSimilarity(a: string, b: string): number {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, ' ').trim().split(/\s+/).filter(Boolean)
+  const wa = norm(a), wb = norm(b)
+  let matches = 0
+  for (const w of wa) {
+    if (wb.some(x => x.startsWith(w.slice(0, 4)) || w.startsWith(x.slice(0, 4)))) matches++
+  }
+  return matches / Math.max(wa.length, wb.length, 1)
+}
 
-  // ── ჩვენების წესი (#5) ──
-  // upcoming ივენთი ჩანს როგორც კი ბაზაშია — auto.js მას წინას დასრულებიდან
-  // ~1 საათში ქმნის. სანამ ახალი არ შექმნილა, ბოლო დასრულებული ჩანს შედეგებით.
-  // (ძველი "ორშაბათამდე ჩვენების" ლოგიკა მოხსნილია — auto.js-ს ეწინააღმდეგებოდა
-  //  და კვირის ფსონის ფანჯარას კარგავდა.)
-  let ev = null;
-  if (upcoming) ev = upcoming;
-  else if (recent) ev = recent;
-  if (!ev) return null;
+async function fetchAthleteDetails(espnId: string) {
+  try {
+    const res = await fetch(`https://sports.core.api.espn.com/v2/sports/mma/athletes/${espnId}`)
+    const a = await res.json()
+    return { age: a.age || null, height_cm: a.height ? Math.round(a.height * 2.54) : null, weight_kg: a.weight ? Math.round(a.weight * 0.4536) : null, reach_cm: a.reach ? Math.round(a.reach * 2.54) : null }
+  } catch { return { age: null, height_cm: null, weight_kg: null, reach_cm: null } }
+}
 
-  window.__currentEventId = ev.id;
-  state.eventName = ev.name || '';
+function parseESPNMethod(comp: any): string {
+  const sources = [comp.headlines?.[0]?.description || '', comp.notes?.[0]?.headline || '', comp.status?.type?.description || '']
+  for (const src of sources) {
+    if (!src) continue
+    const s = src.toLowerCase()
+    if (s.includes('ko') || s.includes('tko')) return 'KO/TKO'
+    if (s.includes('sub')) return 'Submission'
+    if (s.includes('dec') || s.includes('decision') || s.includes('unanimous') || s.includes('split')) return 'Decision'
+    if (s.includes('no contest')) return 'No Contest'
+    if (s.includes('dq')) return 'DQ'
+  }
+  return ''
+}
 
-  const { data: fights, error: fErr } = await sb.from('fights')
-    .select(`id,bout_order,weight_class,max_rounds,is_title_bout,red_odds,blue_odds,show_details,status,result_winner,result_method,result_round,is_voided,
-             red:fighters!red_fighter_id(name,flag,rank,record,age,height_cm,weight_kg,reach_cm,ufc_slug,ko_pct,sub_pct,dec_pct,image_url),
-             blue:fighters!blue_fighter_id(name,flag,rank,record,age,height_cm,weight_kg,reach_cm,ufc_slug,ko_pct,sub_pct,dec_pct,image_url)`)
-    .eq('event_id', ev.id).order('bout_order', { ascending: true });
-  if (fErr) return ev;
+async function upsertFighter(f: any): Promise<number | null> {
+  const slug = f.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
+  const imageUrl = f.espn_id ? `https://a.espncdn.com/i/headshots/mma/players/full/${f.espn_id}.png` : null
+  const { data: existing } = await sb.from('fighters').select('id').eq('name', f.name).maybeSingle()
+  if (existing) {
+    const upd: any = {}
+    if (f.age) upd.age = f.age; if (f.height_cm) upd.height_cm = f.height_cm
+    if (f.weight_kg) upd.weight_kg = f.weight_kg; if (f.reach_cm) upd.reach_cm = f.reach_cm
+    if (f.record) upd.record = f.record; if (f.espn_id) upd.espn_id = f.espn_id
+    if (imageUrl) upd.image_url = imageUrl
+    if (Object.keys(upd).length) await sb.from('fighters').update(upd).eq('id', existing.id)
+    return existing.id
+  }
+  const { data, error } = await sb.from('fighters').insert({
+    name: f.name, flag: f.flag, country: f.country, record: f.record || null,
+    ufc_slug: slug, espn_id: f.espn_id || null, image_url: imageUrl,
+    age: f.age || null, height_cm: f.height_cm || null, weight_kg: f.weight_kg || null, reach_cm: f.reach_cm || null,
+  }).select().maybeSingle()
+  if (error) return null
+  return data?.id || null
+}
 
-  // ვოიდ/გაუქმებული ბრძოლები საიტზე არ ჩანს (stake settlement-ზე ბრუნდება; ბილეთის ისტორიაში მაინც ჩანს "დაბრუნდა"-დ)
-  FIGHTS = (fights || []).filter(f => f.is_voided !== true).map(f => {
-    let resultWinner = null;
-    if (f.status === 'completed' && f.result_winner) {
-      if (f.result_winner === f.red?.name) resultWinner = 'red';
-      else if (f.result_winner === f.blue?.name) resultWinner = 'blue';
-      else resultWinner = null;
+// მხოლოდ ფოტოების განახლება — ივენთს/ბრძოლებს/კოეფიციენტებს/ბილეთებს არ ეხება
+async function cmdUpdatePhotos(chatId: number): Promise<string> {
+  // 1. მიმდინარე ივენთი DB-დან (უახლესი მომავალი, ან ბოლო)
+  const nowIso = new Date().toISOString()
+  let { data: evRows } = await sb.from('events').select('id,name').gte('event_date', nowIso).order('event_date', { ascending: true }).limit(1)
+  if (!evRows || evRows.length === 0) {
+    const past = await sb.from('events').select('id,name').lt('event_date', nowIso).order('event_date', { ascending: false }).limit(1)
+    evRows = past.data
+  }
+  if (!evRows || evRows.length === 0) return '❌ ივენთი ვერ მოიძებნა ბაზაში'
+  const dbEvent = evRows[0]
+
+  // 2. ESPN-იდან იგივე სახელის ივენთი
+  const today = new Date()
+  let espnData: any = null
+  for (let i = 0; i <= 30; i++) {
+    const d = new Date(today); d.setDate(d.getDate() + i)
+    const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '')
+    try {
+      const res = await fetch(`${ESPN_BASE}?dates=${dateStr}`)
+      const data = await res.json()
+      if (data.events && data.events.length > 0 && data.events[0].name === dbEvent.name) { espnData = data; break }
+      if (data.events && data.events.length > 0 && !espnData) espnData = data
+    } catch {}
+  }
+  if (!espnData) return '❌ ESPN-ზე ივენთი ვერ მოიძებნა'
+  const event = espnData.events[0]
+
+  // 3. ყველა მებრძოლს მხოლოდ image_url + espn_id განუახლე (name-ით)
+  let updated = 0, missing = 0
+  const comps = event.competitions || []
+  for (const c of comps) {
+    for (const comp of (c.competitors || [])) {
+      const name = comp?.athlete?.fullName || ''
+      const espnId = comp?.id || ''
+      if (!name || !espnId) { missing++; continue }
+      const imageUrl = `https://a.espncdn.com/i/headshots/mma/players/full/${espnId}.png`
+      const { data: existing } = await sb.from('fighters').select('id').eq('name', name).maybeSingle()
+      if (!existing) { missing++; continue }
+      await sb.from('fighters').update({ image_url: imageUrl, espn_id: espnId }).eq('id', existing.id)
+      updated++
     }
-    return {
-      _dbId: f.id, wc: f.weight_class, rounds: f.max_rounds + ' Rounds', maxRound: f.max_rounds,
-      showDetails: f.show_details !== false, status: f.status || 'upcoming', resultWinner,
-      isVoided: f.is_voided === true,
-      resultMethod: f.result_method || null, resultRound: f.result_round || null,
-      red: { name: f.red.name, flag: f.red.flag || '🏳️', odds: f.red_odds == null ? null : Number(f.red_odds), img: f.red.image_url || null,
-        record: f.red.record || '-', age: String(f.red.age || '-'), ht: (f.red.height_cm || '-') + ' სმ', wt: (f.red.weight_kg || '-') + ' კგ', reach: (f.red.reach_cm || '-') + ' სმ' },
-      blue: { name: f.blue.name, flag: f.blue.flag || '🏳️', odds: f.blue_odds == null ? null : Number(f.blue_odds), img: f.blue.image_url || null,
-        record: f.blue.record || '-', age: String(f.blue.age || '-'), ht: (f.blue.height_cm || '-') + ' სმ', wt: (f.blue.weight_kg || '-') + ' კგ', reach: (f.blue.reach_cm || '-') + ' სმ' }
-    };
-  });
-
-  // ESPN ივენთის დროს 1 საათით ადრე იძლევა — ჩვენებაზე ვასწორებთ (+1სთ).
-  // ბაზაში event_date უცვლელი რჩება, რომ ავტომატიკამ შედეგები სწორი თარიღით იპოვოს.
-  const ESPN_FIX_MS = 60 * 60 * 1000;
-  const dt = new Date(new Date(ev.event_date).getTime() + ESPN_FIX_MS);
-  window.__eventDate = dt;
-  const diff = dt - serverNow();
-  let label = 'UPCOMING EVENT';
-  if (ev.status === 'completed') label = 'EVENT FINISHED';
-  else if (diff <= 0) label = '🔴 LIVE NOW';
-  const tagEl = document.querySelector('.event-tag');
-  if (tagEl) { const fs = tagEl.querySelector('span'); if (fs) fs.textContent = label; }
-  const locEl = $('eventLocation2'); if (locEl) locEl.textContent = (ev.location || '').toUpperCase();
-  const dateEl = $('eventDate'); if (dateEl) dateEl.textContent = '· ' + EN_MONTHS[dt.getMonth()] + ' ' + dt.getDate();
-
-  // ივენთი დასრულებულია → countdown-ის ნაცვლად ტექსტი
-  const cdEl = $('countdown');
-  const endedEl = $('eventEndedMsg');
-  const eventFullyOver = (ev.status === 'completed');
-  if (cdEl) cdEl.style.display = eventFullyOver ? 'none' : '';
-  if (endedEl) endedEl.style.display = eventFullyOver ? 'block' : 'none';
-
-  return ev;
-}
-
-// ── ODDS HELPERS ──
-function fightHasOdds(f) { return f && f.red.odds != null && f.blue.odds != null && f.red.odds > 0 && f.blue.odds > 0; }
-function roundOdds(i, r) { const f = FIGHTS[i]; if (!fightHasOdds(f)) return 0; const base = (f.red.odds + f.blue.odds) / 2; return r2(base * (1 + r * 0.15)); }
-function methodOdds(i, m) { const f = FIGHTS[i]; if (!fightHasOdds(f)) return 0; const base = (f.red.odds + f.blue.odds) / 2;
-  if (m === 'გადაწყვეტილება') return r2(base * 0.9); if (m === 'ნოკაუტი') return r2(base * 1.4); if (m === 'მტკივნეული') return r2(base * 1.6); return 1.5; }
-function pickOdds(i) { const p = state.picks[i]; const f = FIGHTS[i]; if (!p || !fightHasOdds(f)) return 0;
-  if (!p.round && !p.method) return p.fighter === 'red' ? f.red.odds : f.blue.odds;
-  let o = 1; if (p.round) o *= roundOdds(i, p.round); if (p.method) o *= methodOdds(i, p.method); return r2(o); }
-function selName(i) { const p = state.picks[i]; const a = [];
-  if (p.fighter) a.push((p.fighter === 'red' ? FIGHTS[i].red.name : FIGHTS[i].blue.name) + ' მოგება');
-  if (p.round) a.push(p.round + '-ე რაუნდი'); if (p.method) a.push(p.method); return a.join(' · '); }
-function selMk(i) { const p = state.picks[i]; return (p.round && p.method) ? 'რაუნდი + მეთოდი' : p.method ? 'გამარჯვების მეთოდი' : p.round ? 'დასრულების რაუნდი' : 'ბრძოლის გამარჯვებული'; }
-
-// ── PICK MANAGEMENT ──
-function ensure(i) { if (!state.picks[i]) state.picks[i] = { fighter: null, round: null, method: null, stake: 0 }; return state.picks[i]; }
-function clean(i) { const p = state.picks[i]; if (p && !p.fighter && !p.round && !p.method) delete state.picks[i]; }
-function setWinner(i, fr) { if (!fightHasOdds(FIGHTS[i])) return; const p = state.picks[i];
-  if (p && p.fighter === fr && !p.round && !p.method) delete state.picks[i];
-  else state.picks[i] = { fighter: fr, round: null, method: null, stake: (p && p.stake) || 0 }; refresh(); }
-function setFighterDetail(i, fr) { if (!fightHasOdds(FIGHTS[i])) return; const p = ensure(i); p.fighter = fr; clean(i); refresh(); }
-function setRound(i, r) { if (!fightHasOdds(FIGHTS[i])) return; const p = ensure(i);
-  if (p.method === 'გადაწყვეტილება') p.method = null; p.round = p.round === r ? null : r; clean(i); refresh(); }
-function setMethod(i, m) { if (!fightHasOdds(FIGHTS[i])) return; const p = ensure(i);
-  if (m === 'გადაწყვეტილება') { p.method = p.method === m ? null : m; if (p.method) p.round = null; }
-  else { p.method = p.method === m ? null : m; } clean(i); refresh(); }
-function toggleDetail(i) { state.openDetail[i] = !state.openDetail[i]; renderMarkets(); }
-function refresh() { renderMarkets(); renderSlip(); renderBar(); }
-
-// ── RENDER MARKETS ──
-function renderMarkets() {
-  if (FIGHTS.length === 0) { document.getElementById('markets').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">ამ ეტაპზე ბრძოლები არ არის ხელმისაწვდომი.</div>'; return; }
-  const betting = !isBettingClosed();
-  if (!betting) document.getElementById('betbar').classList.remove('show');
-  const noImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%230E0D14'/%3E%3Ccircle cx='100' cy='85' r='42' fill='%23F31D25' opacity='.9'/%3E%3Crect x='75' y='110' width='50' height='40' rx='8' fill='%23F31D25' opacity='.85'/%3E%3Ctext x='100' y='185' text-anchor='middle' font-size='14' fill='%23555'%3EMMA%3C/text%3E%3C/svg%3E";
-
-  document.getElementById('markets').innerHTML = FIGHTS.map((f, i) => {
-    const p = state.picks[i], fr = p ? p.fighter : null, open = state.openDetail[i];
-    const mainOn = p && p.fighter && !p.round && !p.method;
-    const fcls = fr || '';
-    const hasOdds = fightHasOdds(f);
-    const canBet = betting && hasOdds;
-    const winner = (f.status === 'completed') ? f.resultWinner : null;
-    const isCompleted = !!winner;
-
-    const roundChips = Array.from({ length: f.maxRound }, (_, k) => k + 1).map(r =>
-      `<button class="mkt-chip ${fcls} ${p && p.round === r ? 'on' : ''}" data-round="${i}" data-val="${r}" ${!canBet ? 'disabled' : ''}><span class="ml">${r}</span><span class="mo">${roundOdds(i, r).toFixed(2)}</span></button>`).join('');
-    const methodChips = METHODS.map(m =>
-      `<button class="mkt-chip ${fcls} ${p && p.method === m ? 'on' : ''}" data-method="${i}" data-val="${m}" ${!canBet ? 'disabled' : ''}><span class="ml">${m}</span><span class="mo">${methodOdds(i, m).toFixed(2)}</span></button>`).join('');
-    const taleRow = (lab, a, b) => `<div class="tale-row"><span class="tv l">${a}</span><span class="tl">${lab}</span><span class="tv r">${b}</span></div>`;
-
-    const pickBtn = (side, d) => {
-      const has = d.odds != null && d.odds > 0;
-      const flag = `<span class="p-flag">${d.flag}</span>`, name = `<span class="p-name">${d.name}</span>`, od = `<span class="p-od">${has ? d.odds.toFixed(2) : '—'}</span>`;
-      const inner = side === 'red' ? flag + name + od : od + name + flag;
-      const winnerCls = isCompleted && winner === side ? ' winner' : '';
-      const onCls = betting && mainOn && fr === side ? ' on' : '';
-      const canPick = betting && has;
-      return `<button class="pick ${side}${onCls}${winnerCls}" ${canPick ? `data-winner="${i}" data-fr="${side}"` : ''}${canPick ? '' : ' disabled'}>${inner}</button>`;
-    };
-
-    let hint;
-    if (betting && !hasOdds) hint = '<div class="picks-hint" style="color:var(--gold)">კოეფიციენტები ჯერ არ არის — მალე დაემატება</div>';
-    else if (betting) hint = '<div class="picks-hint">აირჩიე ფავორიტი მებრძოლი</div>';
-    else if (isCompleted) hint = '<div class="picks-hint" style="color:var(--green)">დასრულდა</div>';
-    else hint = '<div class="picks-hint">ფსონები დაკეტილია</div>';
-
-    return `
-    <div class="bout">
-      <div class="bout-head"><span class="rank left">${f.red.record}</span><span class="bout-class"><span class="wc">${f.wc}</span><span class="rd">${f.rounds}</span></span><span class="rank right">${f.blue.record}</span></div>
-      <div class="bout-stage">
-        <div class="stage-img left"><img src="${f.red.img || noImg}" alt="${f.red.name}" decoding="async" width="323" height="235" ${i === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}></div>
-        <div class="stage-mid"><div class="tale-wrap">${taleRow('ასაკი', f.red.age, f.blue.age)}${taleRow('სიმაღლე', f.red.ht, f.blue.ht)}${taleRow('წონა', f.red.wt, f.blue.wt)}${taleRow('წვდომი', f.red.reach, f.blue.reach)}</div></div>
-        <div class="stage-img right"><img src="${f.blue.img || noImg}" alt="${f.blue.name}" decoding="async" width="323" height="235" ${i === 0 ? 'fetchpriority="high"' : 'loading="lazy"'}></div>
-      </div>
-      <div class="picks-wrap">${hint}<div class="bout-picks">${pickBtn('red', f.red)}${pickBtn('blue', f.blue)}</div></div>
-      ${canBet && f.showDetails ? `<button class="more-btn" data-more="${i}">${open ? 'ნაკლები დეტალი ▲' : 'მეტი დეტალი ▾'}</button>` : ''}
-      <div class="extra ${open && canBet ? 'show' : ''}">
-        <div class="extra-group"><div class="extra-title">აირჩიე მებრძოლი</div><div class="fighter-pick">
-          <button class="fp-btn red ${fr === 'red' ? 'on' : ''}" data-fighter="${i}" data-fr="red" ${!canBet ? 'disabled' : ''}>${f.red.name}</button>
-          <button class="fp-btn blue ${fr === 'blue' ? 'on' : ''}" data-fighter="${i}" data-fr="blue" ${!canBet ? 'disabled' : ''}>${f.blue.name}</button>
-        </div></div>
-        <div class="extra-group center"><div class="extra-title">გამარჯვების მეთოდი</div><div class="mkt-chips">${methodChips}</div></div>
-        <div class="extra-group center"><div class="extra-title">რომელ რაუნდში დასრულდება ბრძოლა</div><div class="mkt-chips">${roundChips}</div></div>
-        ${p ? `<div class="combo-bar ${fcls}"><span>ჯამური კოეფიციენტი</span><span class="cv">${pickOdds(i).toFixed(2)}</span></div>` : ''}
-      </div>
-    </div>`;
-  }).join('');
-
-  document.querySelectorAll('[data-winner]').forEach(b => { if (!b.disabled) b.onclick = () => setWinner(+b.dataset.winner, b.dataset.fr); });
-  document.querySelectorAll('[data-fighter]').forEach(b => { if (!b.disabled) b.onclick = () => setFighterDetail(+b.dataset.fighter, b.dataset.fr); });
-  document.querySelectorAll('[data-round]').forEach(b => { if (!b.disabled) b.onclick = () => setRound(+b.dataset.round, +b.dataset.val); });
-  document.querySelectorAll('[data-method]').forEach(b => { if (!b.disabled) b.onclick = () => setMethod(+b.dataset.method, b.dataset.val); });
-  document.querySelectorAll('[data-more]').forEach(b => b.onclick = () => toggleDetail(+b.dataset.more));
-  document.querySelectorAll('.stage-img img').forEach(img => { img.addEventListener('error', function onErr() { this.removeEventListener('error', onErr); this.src = noImg; }); });
-}
-
-// ── SLIP ──
-function picksArr() { return Object.keys(state.picks).map(i => +i).map(i => ({ i, ...state.picks[i], odds: pickOdds(i), name: selName(i), mk: selMk(i) })); }
-function comboOdds() { return r2(picksArr().reduce((p, s) => p * (Number.isFinite(s.odds) && s.odds > 0 ? s.odds : 1), 1)); }
-function setMode(m) { state.mode = m; renderSlip(); }
-function digits(inp) { const v = inp.value.replace(/[^0-9]/g, ''); inp.value = v; return +v || 0; }
-
-function renderSlip() {
-  const arr = picksArr();
-  document.getElementById('slipBadge').textContent = arr.length;
-  document.getElementById('tabExpress').classList.toggle('on', state.mode === 'express');
-  document.getElementById('tabSingle').classList.toggle('on', state.mode === 'single');
-  const body = document.getElementById('slipBody'), foot = document.getElementById('slipFoot');
-  if (arr.length === 0) { body.innerHTML = '<div class="slip-empty">ბილეთი ცარიელია.<br>დააჭირე კოეფიციენტს ბრძოლების სიაში.</div>'; foot.innerHTML = ''; return; }
-  body.innerHTML = arr.map(s => `
-    <div class="sel ${s.fighter || ''}">
-      <div class="sel-top"><div><div class="sel-name">${s.name}</div><div class="sel-mk">${s.mk} · კოეფ. ${s.odds.toFixed(2)}</div></div>
-        <button class="sel-rm" data-rm="${s.i}" aria-label="წაშლა">&times;</button></div>
-      ${state.mode === 'single' ? `<div class="stake-row"><input class="stake-in" type="text" inputmode="numeric" placeholder="ფსონი (ქულა)" value="${s.stake || ''}" data-stake="${s.i}"><span class="sel-ret">მოგება: <b data-ret="${s.i}">${s.stake ? fmt(s.stake * s.odds) : '0'}</b></span></div>` : ''}
-    </div>`).join('');
-  body.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { delete state.picks[+b.dataset.rm]; refresh(); renderSlip(); });
-  body.querySelectorAll('[data-stake]').forEach(inp => inp.oninput = () => {
-    const i = +inp.dataset.stake, v = digits(inp);
-    if (state.picks[i]) state.picks[i].stake = v;
-    const r = body.querySelector('[data-ret="' + i + '"]'); if (r) r.textContent = fmt(v * pickOdds(i));
-    updateTotals();
-  });
-  renderFoot();
-}
-
-function totalStakeSingle() { return picksArr().reduce((s, x) => s + (x.stake || 0), 0); }
-
-function renderFoot() {
-  const foot = document.getElementById('slipFoot');
-  if (state.mode === 'express') {
-    const co = comboOdds(), st = state.expressStake;
-    foot.innerHTML = `
-      <div class="tot-row"><span class="lab">ჯამური კოეფიციენტი</span><span style="font-weight:700">${co.toFixed(2)}</span></div>
-      <div class="tot-row"><span class="lab">ფსონი</span><input class="foot-stake" type="text" inputmode="numeric" placeholder="0" value="${st || ''}" id="expStake"></div>
-      <div class="tot-row"><span class="lab">შესაძლო მოგება</span><span class="green" id="foWin">${fmt(st * co)} ქულა</span></div>
-      <div class="stake-err" id="foErr" style="display:none">არასაკმარისი ქულები</div>
-      <button class="btn btn-primary" id="placeBtn">ბილეთის დადება</button>`;
-    const es = document.getElementById('expStake'); if (es) es.oninput = () => { state.expressStake = digits(es); updateTotals(); };
-  } else {
-    foot.innerHTML = `
-      <div class="tot-row"><span class="lab">ფსონი</span><span style="font-weight:700" id="foTot">${fmt(totalStakeSingle())} ქულა</span></div>
-      <div class="tot-row"><span class="lab">შესაძლო მოგება</span><span class="green" id="foWin">${fmt(picksArr().reduce((s, x) => s + (x.stake || 0) * x.odds, 0))} ქულა</span></div>
-      <div class="stake-err" id="foErr" style="display:none">არასაკმარისი ქულები</div>
-      <button class="btn btn-primary" id="placeBtn">ბილეთის დადება</button>`;
   }
-  document.getElementById('placeBtn').onclick = placeBets;
-  updateTotals();
+  return `✅ <b>ფოტოები განახლდა</b>\n\n${event.name}\n🖼️ ${updated} მებრძოლი განახლდა${missing ? `\n⚠️ ${missing} ვერ მოიძებნა` : ''}`
 }
 
-function updateTotals() {
-  renderBar();
-  const pb = document.getElementById('placeBtn'), err = document.getElementById('foErr'), win = document.getElementById('foWin');
-  if (!pb) return;
-  if (state.mode === 'express') {
-    const co = comboOdds(), n = state.expressStake, over = n > state.balance;
-    const es = document.getElementById('expStake'); if (es) es.classList.toggle('over', over);
-    if (win) win.textContent = fmt(n * co) + ' ქულა';
-    if (err) err.style.display = over ? 'block' : 'none';
-    pb.disabled = n <= 0 || over;
-  } else {
-    const ts = totalStakeSingle(), tr = picksArr().reduce((s, x) => s + (x.stake || 0) * x.odds, 0), over = ts > state.balance;
-    const tot = document.getElementById('foTot'); if (tot) { tot.textContent = fmt(ts) + ' ქულა'; tot.style.color = over ? 'var(--red-soft)' : ''; }
-    if (win) win.textContent = fmt(tr) + ' ქულა';
-    if (err) err.style.display = over ? 'block' : 'none';
-    document.querySelectorAll('#slipBody .stake-in').forEach(x => x.classList.toggle('over', over));
-    pb.disabled = ts <= 0 || over;
+async function cmdUpdateEvent(chatId: number): Promise<string> {
+  const today = new Date()
+  let espnData: any = null
+  for (let i = 0; i <= 30; i++) {
+    const d = new Date(today); d.setDate(d.getDate() + i)
+    const dateStr = d.toISOString().slice(0, 10).replace(/-/g, '')
+    try {
+      const res = await fetch(`${ESPN_BASE}?dates=${dateStr}`)
+      const data = await res.json()
+      if (data.events && data.events.length > 0) { espnData = data; break }
+    } catch {}
   }
+  if (!espnData) return '❌ მომდევნო 30 დღეში UFC ივენთი ვერ მოიძებნა'
+  const event = espnData.events[0]
+  const venue = event.competitions[0]?.venue
+  const city = venue?.address?.city || '', country = venue?.address?.country || ''
+  const location = city && country ? `${city}, ${country}` : city || country
+  // #8: დუბლის შემოწმება case-insensitive-ად (ilike) — auto.js-ის იდენტურად
+  const { data: existingRows, error: existingErr } = await sb.from('events')
+    .select('id').ilike('name', event.name).order('id', { ascending: true })
+  if (existingErr) return `❌ ივენთის შემოწმება ვერ მოხერხდა: ${existingErr.message}`
+  if (existingRows && existingRows.length > 0) {
+    return `ℹ️ ივენთი უკვე არსებობს (${existingRows.length} ჩანაწერი):\n<b>${event.name}</b>`
+  }
+  // #9: ჯერ ივენთი იქმნება — ბალანსების რესეტი მხოლოდ წარმატებული insert-ის შემდეგ
+  const { data: evData, error: evErr } = await sb.from('events').insert({
+    name: event.name, location, event_date: event.date, status: 'upcoming'
+  }).select().maybeSingle()
+  if (evErr) {
+    // #8: unique index-მა (events_name_lower_unique) დაიჭირა პარალელური insert
+    if ((evErr as any).code === '23505') return `ℹ️ ივენთი პარალელურად შეიქმნა — დუბლი აღკვეთილია:\n<b>${event.name}</b>`
+    return `❌ ივენთის შეცდომა: ${evErr.message}`
+  }
+  // #7: ბალანსის reset მხოლოდ მაშინ, თუ ძველ ივენთებზე pending ბილეთი აღარ დარჩა
+  // (თორემ ჩამოჭრილი stake-ები "უფასო" ხდება). Settlement ჯერ უნდა დასრულდეს.
+  const { count: leftoverPending } = await sb.from('tickets')
+    .select('id', { count: 'exact', head: true }).eq('status', 'pending')
+  if ((leftoverPending || 0) > 0) {
+    return `⚠️ ივენთი შეიქმნა, მაგრამ ბალანსები არ დარესეტდა — ${leftoverPending} pending ბილეთია ძველ ივენთზე.\nჯერ გაუშვი settlement (<b>settle</b>), მერე <b>reset</b>.`
+  }
+  await sb.from('users').update({ balance: 1000 }).gte('id', '00000000-0000-0000-0000-000000000000')
+  const comps = [...event.competitions].reverse()
+  let saved = 0
+  for (let idx = 0; idx < comps.length; idx++) {
+    const c = comps[idx]
+    const redC = c.competitors.find((x: any) => x.order === 1) || c.competitors[0]
+    const blueC = c.competitors.find((x: any) => x.order === 2) || c.competitors[1]
+    const rounds = c.format?.regulation?.periods || 3
+    const redDet = redC?.id ? await fetchAthleteDetails(redC.id) : {}
+    const blueDet = blueC?.id ? await fetchAthleteDetails(blueC.id) : {}
+    const red = { name: redC?.athlete?.fullName || '', flag: countryToFlag(redC?.athlete?.flag?.alt || ''), country: redC?.athlete?.flag?.alt || '', record: redC?.records?.[0]?.summary || '', espn_id: redC?.id || '', ...redDet }
+    const blue = { name: blueC?.athlete?.fullName || '', flag: countryToFlag(blueC?.athlete?.flag?.alt || ''), country: blueC?.athlete?.flag?.alt || '', record: blueC?.records?.[0]?.summary || '', espn_id: blueC?.id || '', ...blueDet }
+    const redId = await upsertFighter(red)
+    const blueId = await upsertFighter(blue)
+    if (!redId || !blueId) continue
+    const { error } = await sb.from('fights').insert({
+      event_id: evData!.id, red_fighter_id: redId, blue_fighter_id: blueId,
+      weight_class: c.type?.abbreviation || 'Unknown', max_rounds: rounds,
+      bout_order: idx + 1, red_odds: null, blue_odds: null, show_details: false, status: 'upcoming',
+    })
+    if (!error) saved++
+  }
+  return `✅ <b>ივენთი შეიქმნა</b>\n\n${event.name}\n📍 ${location}\n🥊 ${saved} ბრძოლა`
 }
 
-// ── PLACE BETS ──
-// ── ticketPlaced → Meta CAPI (server), browser-ის იგივე fb_event_id-ით (dedup) ──
-function fbTrackTicket() {
-  var fbEventId = 'tkt_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+// ── არსებულ ივენთს ESPN-ს ვადარებთ: დაკლებულ ბრძოლებს ვამატებთ, ზედმეტს ვაფრთხილებთ ──
+// ახალ ივენთს არ ვქმნით, არსებულ ბრძოლებს/ბალანსს არ ვცვლით.
+async function cmdSyncFights(chatId: number): Promise<string> {
+  let { data: evRows } = await sb.from('events').select('id,name,event_date')
+    .eq('status', 'upcoming').gte('event_date', new Date(Date.now() - 2 * 864e5).toISOString())
+    .order('event_date', { ascending: true }).limit(1)
+  if (!evRows?.length) {
+    const r = await sb.from('events').select('id,name,event_date').eq('status', 'upcoming').order('event_date', { ascending: false }).limit(1)
+    evRows = r.data
+  }
+  if (!evRows?.length) return 'ℹ️ upcoming ივენთი ვერ მოიძებნა.'
+  const ev = evRows[0]
+
+  let espnData: any = null
   try {
-    var fbpCookie = (document.cookie.match(/(?:^|; )_fbp=([^;]*)/) || [])[1] || '';
-    var fbcCookie = (document.cookie.match(/(?:^|; )_fbc=([^;]*)/) || [])[1] || '';
-    fetch(SUPABASE_URL + '/functions/v1/meta-capi', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event_name: 'ticketPlaced', event_id: fbEventId,
-        email: (currentUser && currentUser.email) || '', phone: (currentUser && currentUser.phone) || '',
-        fbp: fbpCookie, fbc: fbcCookie, url: location.href,
-        external_id: (currentUser && currentUser.id) || ''
+    const dateStr = new Date(ev.event_date).toISOString().slice(0, 10).replace(/-/g, '')
+    let res = await fetch(`${ESPN_BASE}?dates=${dateStr}`)
+    if (res.ok) espnData = await res.json()
+    if (!espnData?.events?.length) { res = await fetch(ESPN_BASE); if (res.ok) espnData = await res.json() }
+  } catch (e) { return `❌ ESPN კავშირი ვერ მოხერხდა: ${(e as Error).message}` }
+  if (!espnData?.events?.length) return '❌ ESPN-ზე ივენთი ვერ მოიძებნა.'
+
+  const event = espnData.events.find((e: any) => e.name === ev.name) || espnData.events[0]
+
+  const { data: dbFights } = await sb.from('fights')
+    .select('id,bout_order,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
+    .eq('event_id', ev.id)
+  const _pk = (a: any, b: any) => [String(a || ''), String(b || '')].sort().join('|')
+  const knownPairs = new Set<string>()
+  let maxOrder = 0
+  for (const f of (dbFights || []) as any[]) {
+    if (!f.is_voided) knownPairs.add(_pk(f.red?.espn_id, f.blue?.espn_id))
+    if ((f.bout_order || 0) > maxOrder) maxOrder = f.bout_order
+  }
+
+  const comps = [...event.competitions].reverse()
+  const espnIds = new Set<string>()
+  for (const c of comps) for (const x of (c.competitors || [])) if (x.id) espnIds.add(String(x.id))
+
+  let added = 0
+  const addedNames: string[] = []
+  for (const c of comps) {
+    const redC = c.competitors.find((x: any) => x.order === 1) || c.competitors[0]
+    const blueC = c.competitors.find((x: any) => x.order === 2) || c.competitors[1]
+    if (!redC || !blueC) continue
+    if (knownPairs.has(_pk(redC.id, blueC.id))) continue
+    const rounds = c.format?.regulation?.periods || 3
+    const redDet = redC?.id ? await fetchAthleteDetails(redC.id) : {}
+    const blueDet = blueC?.id ? await fetchAthleteDetails(blueC.id) : {}
+    const red = { name: redC?.athlete?.fullName || '', flag: countryToFlag(redC?.athlete?.flag?.alt || ''), country: redC?.athlete?.flag?.alt || '', record: redC?.records?.[0]?.summary || '', espn_id: redC?.id || '', ...redDet }
+    const blue = { name: blueC?.athlete?.fullName || '', flag: countryToFlag(blueC?.athlete?.flag?.alt || ''), country: blueC?.athlete?.flag?.alt || '', record: blueC?.records?.[0]?.summary || '', espn_id: blueC?.id || '', ...blueDet }
+    const redId = await upsertFighter(red)
+    const blueId = await upsertFighter(blue)
+    if (!redId || !blueId) continue
+    maxOrder++
+    const { error } = await sb.from('fights').insert({
+      event_id: ev.id, red_fighter_id: redId, blue_fighter_id: blueId,
+      weight_class: c.type?.abbreviation || 'Unknown', max_rounds: rounds,
+      bout_order: maxOrder, is_title_bout: rounds === 5, red_odds: null, blue_odds: null, show_details: false, status: 'upcoming',
+    })
+    if (!error) { added++; addedNames.push(`${red.name} vs ${blue.name}`); knownPairs.add(_pk(redC.id, blueC.id)) }
+  }
+
+  const extras: string[] = []
+  for (const f of (dbFights || []) as any[]) {
+    const rid = String(f.red?.espn_id || ''), bid = String(f.blue?.espn_id || '')
+    if (!((rid && espnIds.has(rid)) || (bid && espnIds.has(bid)))) extras.push(`${f.red?.name || '?'} vs ${f.blue?.name || '?'}`)
+  }
+
+  let out = `🔄 <b>ბრძოლების სინქი — ${ev.name}</b>\n\nESPN-ზე: ${comps.length} · ბაზაში იყო: ${(dbFights || []).length}`
+  out += added > 0 ? `\n\n➕ დაემატა ${added}:\n${addedNames.map(n => '🥊 ' + n).join('\n')}` : '\n\n✅ ახალი ბრძოლა არ იყო — ყველა ბაზაშია.'
+  if (extras.length) out += `\n\n⚠️ ბაზაშია, ESPN-ზე აღარ (შესაძლოა გაუქმდა):\n${extras.map(n => '• ' + n).join('\n')}\n<i>ავტომატურად არ წავშალე — ბილეთი შეიძლება ეხებოდეს. საჭიროებისას ხელით void.</i>`
+  if (added > 0) out += `\n\n➡️ კოეფები მომდევნო "ufc კოეფ"-ზე ჩაიწერება.`
+  return out
+}
+
+async function cmdUpdateOdds(chatId: number): Promise<string> {
+  if (!ODDS_API_KEY) return '❌ ODDS_API_KEY არ არის კონფიგურირებული'
+  const { data: upcomingEvents } = await sb.from('events').select('id,name').eq('status', 'upcoming').order('event_date', { ascending: true }).limit(1)
+  if (!upcomingEvents || upcomingEvents.length === 0) return '❌ upcoming ივენთი ვერ მოიძებნა'
+  const ev = upcomingEvents[0]
+  const { data: fights } = await sb.from('fights').select('id,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)').eq('event_id', ev.id).eq('status', 'upcoming')
+  if (!fights || fights.length === 0) return '❌ ბრძოლები ვერ მოიძებნა'
+  const url = `https://api.the-odds-api.com/v4/sports/mma_mixed_martial_arts/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h&oddsFormat=decimal`
+  const oddsRes = await fetch(url)
+  const oddsData = await oddsRes.json()
+  let updated = 0
+  const lines: string[] = []
+  for (const fight of fights) {
+    const redName = (fight as any).red?.name || '', blueName = (fight as any).blue?.name || ''
+    let bestGame: any = null, bestScore = 0
+    for (const game of oddsData) {
+      const score = Math.max(
+        nameSimilarity(game.home_team, redName) + nameSimilarity(game.away_team, blueName),
+        nameSimilarity(game.home_team, blueName) + nameSimilarity(game.away_team, redName)
+      )
+      if (score > bestScore) { bestScore = score; bestGame = game }
+    }
+    if (bestScore < 1.0 || !bestGame) continue   // #14
+    const preferred = ['pinnacle', 'betonlineag', 'betsson', 'nordicbet', 'coolbet']
+    let bm: any = null
+    for (const key of preferred) { bm = bestGame.bookmakers.find((b: any) => b.key === key); if (bm) break }
+    if (!bm) bm = bestGame.bookmakers?.[0]
+    const h2h = bm?.markets?.find((m: any) => m.key === 'h2h')
+    if (!h2h) continue
+    const redOdds = h2h.outcomes.find((o: any) => nameSimilarity(o.name, redName) > 0.4)?.price
+    const blueOdds = h2h.outcomes.find((o: any) => nameSimilarity(o.name, blueName) > 0.4)?.price
+    if (!redOdds || !blueOdds) continue
+    await sb.from('fights').update({ red_odds: Math.round(redOdds * 100) / 100, blue_odds: Math.round(blueOdds * 100) / 100 }).eq('id', fight.id)
+    lines.push(`${redName.split(' ').pop()} <b>${redOdds.toFixed(2)}</b> | ${blueName.split(' ').pop()} <b>${blueOdds.toFixed(2)}</b>`)
+    updated++
+  }
+  return `📊 <b>კოეფიციენტები განახლდა</b>\n${ev.name}\n\n${updated}/${fights.length} ბრძოლა\n\n${lines.join('\n')}`
+}
+
+async function cmdSettle(chatId: number): Promise<string> {
+  const { data: events } = await sb.from('events').select('id,name').in('status', ['upcoming', 'completed']).order('event_date', { ascending: false })
+  if (!events || events.length === 0) return '❌ ივენთი ვერ მოიძებნა'
+  let targetEvent: any = null
+  for (const ev of events) {
+    const { data: f } = await sb.from('fights').select('id').eq('event_id', ev.id).eq('status', 'completed').limit(1)
+    if (f && f.length > 0) { targetEvent = ev; break }
+  }
+  if (!targetEvent) return '❌ completed ბრძოლა ვერ მოიძებნა — ჯერ შედეგები შეიყვანე'
+
+  // #5: settlement მთლიანად სერვერზე, ერთ ატომურ ტრანზაქციაში (settle_event_tickets RPC).
+  // ბილეთების/ქულების/refund-ის/ივენთის-დახურვის მთელი ლოგიკა ერთ ადგილასაა —
+  // auto.js-იც და ადმინ პანელიც (admin_settle_event) იმავე ფუნქციას იყენებენ.
+  const { data: res, error } = await sb.rpc('settle_event_tickets', { p_event_id: targetEvent.id })
+  if (error || !res?.ok) return `❌ Settlement ჩავარდა: ${res?.error || error?.message || 'უცნობი შეცდომა'}`
+
+  return `🏁 <b>Settlement დასრულდა</b>\n${targetEvent.name}\n\n✅ ${res.won} მოგებული\n❌ ${res.lost} წაგებული\n⏭ ${res.skipped} გამოტოვებული${res.voided > 0 ? `\n↩️ ${res.voided} სრული void (stake დაბრუნდა)` : ''}${res.unmatched_winner > 0 ? `\n🚨 ${res.unmatched_winner} leg: გამარჯვებულის სახელი ვერ დაემთხვა — ხელით შეამოწმე` : ''}`
+}
+
+async function cmdFetchResults(chatId: number): Promise<string> {
+  const { data: allEvents } = await sb.from('events').select('id,name,event_date').in('status', ['upcoming', 'completed']).order('event_date', { ascending: false })
+  if (!allEvents || allEvents.length === 0) return '❌ ივენთი ვერ მოიძებნა'
+  let ev: any = null
+  for (const e of allEvents) {
+    const { data: upFights } = await sb.from('fights').select('id').eq('event_id', e.id).eq('status', 'upcoming').limit(1)
+    if (upFights && upFights.length > 0) { ev = e; break }
+  }
+  if (!ev) ev = allEvents[0]
+  const dateStr = new Date(ev.event_date).toISOString().slice(0, 10).replace(/-/g, '')
+  const res = await fetch(`${ESPN_BASE}?dates=${dateStr}`)
+  const data = await res.json()
+  if (!data.events || !data.events.length) return '❌ ESPN: ივენთი ვერ მოიძებნა'
+  // ორმაგი card-ის დღეს სწორ ივენთს სახელით ვირჩევთ
+  const espnEvent = data.events.find((e: any) => e.name === ev.name) || data.events[0]
+  if (espnEvent.status?.type?.state === 'pre') return 'ℹ️ ივენთი ჯერ არ დაწყებულა'
+  // espn_id აუცილებელია ID-ზე დაფუძნებული დამთხვევისა და ჩანაცვლების დეტექციისთვის (auto.js-ის სარკე)
+  const { data: dbFights } = await sb.from('fights')
+    .select('id,status,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
+    .eq('event_id', ev.id)
+  if (!dbFights) return '❌ ბრძოლები ვერ მოიძებნა DB-ში'
+  let updated = 0, voidedCount = 0
+  const lines: string[] = []
+  for (const comp of espnEvent.competitions) {
+    if (comp.status?.type?.state !== 'post') continue
+    const winner = comp.competitors.find((c: any) => c.winner)
+    if (!winner) continue
+    const winnerName = winner.athlete?.fullName || ''
+    const method = parseESPNMethod(comp)
+    const round = comp.status?.period || ''
+
+    // ── #13: დამთხვევა მხოლოდ ID-ით — სახელით fallback მოხსნილია ──
+    const espnIds = (comp.competitors || []).map((c: any) => String(c.id || '')).filter(Boolean)
+    if (!espnIds.length) { lines.push(`⚠️ competitor ID-ები არ არის ("${winnerName}") — გამოტოვება`); continue }
+    const match: any = dbFights.find((f: any) => {
+      const rid = String(f.red?.espn_id || '')
+      const bid = String(f.blue?.espn_id || '')
+      return (rid && espnIds.includes(rid)) || (bid && espnIds.includes(bid))
+    })
+    if (!match) { lines.push(`⚠️ ბრძოლა ID-ით ვერ დაემთხვა ("${winnerName}") — შეამოწმე fighters.espn_id`); continue }
+
+    const rid = String(match.red?.espn_id || '')
+    const bid = String(match.blue?.espn_id || '')
+    const winnerId = String(winner.id || '')
+    const winnerKnown = !!winnerId && ((winnerId === rid) || (winnerId === bid))
+
+    // ── ჩანაცვლების დეტექცია: გამარჯვებულის ID ამ ბრძოლის არცერთ მხარეს არ ეკუთვნის → void ──
+    if (rid && bid && !winnerKnown) {
+      await sb.from('fights').update({ status: 'completed', is_voided: true }).eq('id', match.id)
+      lines.push(`⚖️ ${match.red?.name} vs ${match.blue?.name} → void (ჩანაცვლება)`)
+      voidedCount++
+      continue
+    }
+
+    // ── #13/#4: გამარჯვებული მხოლოდ ID-ით — ვერ დადგინდა → ვტოვებთ (settlement skip-ავს) ──
+    if (!winnerKnown) {
+      lines.push(`⚠️ ${match.red?.name} vs ${match.blue?.name}: გამარჯვებულის ID ვერ დაემთხვა (espn_id შეავსე)`)
+      continue
+    }
+    const exactWinner: string = winnerId === rid ? match.red.name : match.blue.name
+    await sb.from('fights').update({ status: 'completed', result_winner: exactWinner, result_method: method, result_round: round ? parseInt(round) : null }).eq('id', match.id)
+    lines.push(`🏆 ${exactWinner} (${method}, R${round}) [ID✓]`)
+    updated++
+  }
+  if (updated === 0 && voidedCount === 0) return 'ℹ️ დასრულებული ბრძოლები ვერ მოიძებნა'
+  return `🏆 <b>შედეგები განახლდა</b>\n${ev.name}\n\n${lines.join('\n')}${voidedCount ? `\n\n⚖️ ${voidedCount} ბრძოლა ნეიტრალდა (ჩანაცვლება)` : ''}`
+}
+
+async function cmdFull(chatId: number): Promise<string> {
+  const lines: string[] = ['🔄 <b>სრული ციკლი დაიწყო...</b>\n']
+  await sendMsg(chatId, '⏳ 1/4 — ივენთის შემოწმება...')
+  const evResult = await cmdUpdateEvent(chatId)
+  lines.push(evResult)
+  await sendMsg(chatId, '⏳ 2/4 — კოეფიციენტები...')
+  const oddsResult = await cmdUpdateOdds(chatId)
+  lines.push('\n' + oddsResult)
+  await sendMsg(chatId, '⏳ 3/4 — ESPN შედეგები...')
+  const resultsResult = await cmdFetchResults(chatId)
+  lines.push('\n' + resultsResult)
+  await sendMsg(chatId, '⏳ 4/4 — Settlement...')
+  const settleResult = await cmdSettle(chatId)
+  lines.push('\n' + settleResult)
+  return lines.join('\n')
+}
+
+async function cmdStatus(chatId: number): Promise<string> {
+  const { data: ev } = await sb.from('events').select('name,event_date,status').order('event_date', { ascending: false }).limit(1).maybeSingle()
+  const { data: users } = await sb.from('users').select('id')
+  const { data: tickets } = await sb.from('tickets').select('id,status')
+  const pending = tickets?.filter(t => t.status === 'pending').length || 0
+  const won = tickets?.filter(t => t.status === 'won').length || 0
+  const lost = tickets?.filter(t => t.status === 'lost').length || 0
+  const eventDate = ev ? new Date(ev.event_date) : null
+  const hoursUntil = eventDate ? Math.round((eventDate.getTime() - Date.now()) / 3600000) : '?'
+  return `📊 <b>სტატუსი</b>\n\n📅 ${ev?.name || '—'}\n⏰ ${hoursUntil > 0 ? hoursUntil + ' საათი დარჩა' : 'დასრულებულია'}\n📌 სტატუსი: ${ev?.status || '—'}\n\n👥 ${users?.length || 0} მომხმარებელი\n🎫 ${pending} pending | ${won} won | ${lost} lost`
+}
+
+async function cmdResetBalances(chatId: number, force = false): Promise<string> {
+  // #7: აქტიური ივენთის pending ბილეთების დროს რესეტი stake-ებს "უფასოს" გახდიდა
+  // (ჩამოჭრა უქმდება, ბილეთი კი ცოცხალი რჩება). ამიტომ დაცვა — გადალახვა: "reset force"
+  if (!force) {
+    const { data: activeEvents } = await sb.from('events').select('id').neq('status', 'completed')
+    const ids = (activeEvents || []).map((e: any) => e.id)
+    if (ids.length) {
+      const { count: pendCount } = await sb.from('tickets').select('id', { count: 'exact', head: true }).in('event_id', ids).eq('status', 'pending')
+      if ((pendCount || 0) > 0) {
+        return `⛔ აქტიურ ივენთზე ${pendCount} pending ბილეთია — რესეტი მათ stake-ებს ეფექტურად გააუქმებდა.\n\nთუ მაინც გინდა, დაწერე: <b>reset force</b>`
+      }
+    }
+  }
+  const { count, error } = await sb.from('users').update({ balance: 1000 }).gte('id', '00000000-0000-0000-0000-000000000000').select('id', { count: 'exact', head: true })
+  if (error) return `❌ შეცდომა: ${error.message}`
+  return `💰 <b>ბალანსები დარესეტდა</b>\n\n${count || 0} მომხმარებლის ბალანსი → 1,000 ქულა`
+}
+
+// ── MAIN HANDLER ─────────────────────────────────────────────
+
+// ═══════════════════════════════ F1 კომანდები ═══════════════════════════════
+const CLOUDBET_API_KEY = Deno.env.get('CLOUDBET_API_KEY') || ''
+const CB_BASE = 'https://sports-api.cloudbet.com/pub/v2/odds'
+
+function f1SlugToName(slug: string): string {
+  return slug.replace(/^s-/, '').replace(/-/g, ' ').trim().toLowerCase()
+}
+function f1Deaccent(s: string): string {
+  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+}
+
+async function latestF1Race(onlyUpcoming = false): Promise<any> {
+  let q = sb.from('f1_races').select('id,name,status,completed_at').order('id', { ascending: false }).limit(1)
+  if (onlyUpcoming) q = sb.from('f1_races').select('id,name,status,completed_at').eq('status', 'upcoming').order('id', { ascending: false }).limit(1)
+  const { data } = await q
+  return data && data[0] ? data[0] : null
+}
+
+// settle/result-ისთვის: ის upcoming რბოლა, რომლის race-market-ის start_time უკვე
+// გასულია (დასამუშავებელი). თუ ასეთი არაა, უახლესი upcoming. ასე settle/result
+// ახალ, ჯერ-არ-დაწყებულ რბოლას აღარ მოხვდება (#13).
+async function raceDueForSettlement(): Promise<any> {
+  const { data: races } = await sb.from('f1_races')
+    .select('id,name,status,completed_at,f1_markets(kind,start_time)')
+    .eq('status', 'upcoming').order('id', { ascending: false })
+  if (!races || !races.length) return null
+  const now = Date.now()
+  const due = races.find((r: any) => {
+    const rm = (r.f1_markets || []).find((m: any) => m.kind === 'race')
+    return rm && rm.start_time && new Date(rm.start_time).getTime() <= now
+  })
+  const pick = due || races[0]
+  return { id: pick.id, name: pick.name, status: pick.status, completed_at: pick.completed_at }
+}
+
+
+const ESPN_F1 = 'https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard'
+const SEASON = new Date().getUTCFullYear()   // მიმდინარე წელი — ხელით ცვლა არ სჭირდება
+
+// ESPN-იდან მომდევნო F1 რბოლის შექმნა (OpenF1 401-ს აბრუნებს — ეს მისი ჩამნაცვლებელია)
+
+// ── აქტიური (pending) ბილეთები — UFC ──
+async function cmdActiveTickets(chatId: number): Promise<string> {
+  const { data: tickets } = await sb.from('tickets')
+    .select('id,user_id,stake,potential_win,type,status').eq('status', 'pending').order('user_id')
+  if (!tickets || !tickets.length) return '🎫 აქტიური UFC ბილეთი არ არის'
+
+  // მომხმარებლების ნიკები
+  const uids = [...new Set(tickets.map(t => t.user_id))]
+  const { data: users } = await sb.from('users').select('id,nick').in('id', uids)
+  const nick: Record<string, string> = {}
+  for (const u of users || []) nick[u.id] = u.nick || '—'
+
+  // selections თითო ბილეთზე (მებრძოლი + kind)
+  const tids = tickets.map(t => t.id)
+  const { data: sels } = await sb.from('ticket_selections')
+    .select('ticket_id,picked_fighter,fight:fights!fight_id(red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name))').in('ticket_id', tids)
+  const byTicket: Record<number, string[]> = {}
+  for (const s of sels || []) {
+    const f: any = s.fight
+    const pick = s.picked_fighter === 'red' ? f?.red?.name : f?.blue?.name
+    ;(byTicket[s.ticket_id] = byTicket[s.ticket_id] || []).push(pick || '—')
+  }
+
+  // ჯგუფება მომხმარებლის მიხედვით
+  const byUser: Record<string, any[]> = {}
+  for (const t of tickets) (byUser[t.user_id] = byUser[t.user_id] || []).push(t)
+
+  let totalStake = 0
+  const lines: string[] = []
+  for (const uid of Object.keys(byUser)) {
+    const uts = byUser[uid]
+    lines.push(`\n👤 <b>${nick[uid]}</b> — ${uts.length} ბილეთი`)
+    for (const t of uts) {
+      totalStake += t.stake || 0
+      const picks = (byTicket[t.id] || []).join(', ')
+      const kind = t.type === 'express' ? 'ექსპრესი' : 'სინგლი'
+      lines.push(`  🎫 #${t.id} (${kind}) — ${t.stake} → ${t.potential_win}\n     ${picks}`)
+    }
+  }
+  return `🎫 <b>UFC აქტიური ბილეთები</b>\n\nსულ: <b>${tickets.length}</b> ბილეთი | ${Object.keys(byUser).length} მომხმარებელი | ჯამური ფსონი: <b>${totalStake}</b>\n${lines.join('\n')}`
+}
+
+// ── აქტიური (pending) ბილეთები — F1 ──
+async function cmdF1ActiveTickets(chatId: number): Promise<string> {
+  const { data: tickets } = await sb.from('f1_tickets')
+    .select('id,user_id,stake,potential_win,type,status').eq('status', 'pending').order('user_id')
+  if (!tickets || !tickets.length) return '🎫 აქტიური F1 ბილეთი არ არის'
+
+  const uids = [...new Set(tickets.map(t => t.user_id))]
+  const { data: users } = await sb.from('users').select('id,nick').in('id', uids)
+  const nick: Record<string, string> = {}
+  for (const u of users || []) nick[u.id] = u.nick || '—'
+
+  const tids = tickets.map(t => t.id)
+  const { data: sels } = await sb.from('f1_selections')
+    .select('ticket_id,driver:f1_drivers!driver_id(name),market:f1_markets!market_id(kind)').in('ticket_id', tids)
+  const byTicket: Record<number, string[]> = {}
+  const KIND: Record<string, string> = { race: 'რბოლა', quali: 'კვალიფ.', fastest_lap: 'სწრ.წრე', sprint: 'სპრინტი', sprint_quali: 'სპრ.კვალ.' }
+  for (const s of sels || []) {
+    const d: any = s.driver, m: any = s.market
+    ;(byTicket[s.ticket_id] = byTicket[s.ticket_id] || []).push(`${d?.name || '—'} (${KIND[m?.kind] || m?.kind || '—'})`)
+  }
+
+  const byUser: Record<string, any[]> = {}
+  for (const t of tickets) (byUser[t.user_id] = byUser[t.user_id] || []).push(t)
+
+  let totalStake = 0
+  const lines: string[] = []
+  for (const uid of Object.keys(byUser)) {
+    const uts = byUser[uid]
+    lines.push(`\n👤 <b>${nick[uid]}</b> — ${uts.length} ბილეთი`)
+    for (const t of uts) {
+      totalStake += t.stake || 0
+      const picks = (byTicket[t.id] || []).join(', ')
+      const kind = t.type === 'express' ? 'ექსპრესი' : 'სინგლი'
+      lines.push(`  🎫 #${t.id} (${kind}) — ${t.stake} → ${t.potential_win}\n     ${picks}`)
+    }
+  }
+  return `🎫 <b>F1 აქტიური ბილეთები</b>\n\nსულ: <b>${tickets.length}</b> ბილეთი | ${Object.keys(byUser).length} მომხმარებელი | ჯამური ფსონი: <b>${totalStake}</b>\n${lines.join('\n')}`
+}
+
+async function cmdF1CreateEvent(chatId: number): Promise<string> {
+  let cal: any
+  try {
+    const r = await fetch(`${ESPN_F1}?dates=${SEASON}`, { signal: AbortSignal.timeout(15000) })
+    cal = await r.json()
+  } catch (e) { return `❌ ESPN-თან კავშირი ვერ მოხერხდა: ${(e as Error).message}` }
+  const events = (cal.events || []).filter((e: any) => e.status?.type?.state === 'pre')
+  if (!events.length) return '📭 ESPN-ზე მომავალი F1 რბოლა ვერ მოიძებნა'
+  events.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime())
+  const ev = events[0]
+  const raceName = ev.name
+  const location = ev.circuit?.address?.country || ev.circuit?.place?.country || null
+
+  const { data: exist } = await sb.from('f1_races').select('id,status').ilike('name', raceName).maybeSingle()
+  if (exist) return `ℹ️ "${raceName}" უკვე ბაზაშია (id ${exist.id}, ${exist.status}).`
+
+  const { data: race, error: rErr } = await sb.from('f1_races')
+    .insert({ name: raceName, location, season: SEASON, status: 'upcoming' })
+    .select('id').maybeSingle()
+  if (rErr || !race) return `❌ რბოლის შექმნა ვერ მოხერხდა: ${rErr?.message || 'უცნობი'}`
+
+  const comps = ev.competitions || []
+  const compTime = (test: (a: string) => boolean) => {
+    const c = comps.find((x: any) => test((x.type?.abbreviation || x.type?.text || '').toLowerCase()))
+    return c?.date || null
+  }
+  // სპრინტ-weekend? ESPN აღნიშნავს SS (sprint quali) + SR (sprint race)
+  const isSprint = comps.some((x: any) => {
+    const a = (x.type?.abbreviation || x.type?.text || '').toLowerCase()
+    return a === 'ss' || a === 'sr' || a.includes('sprint')
+  })
+
+  // markets: quali + race + fastest_lap ყოველთვის; sprint-ის ორი — თუ სპრინტ-weekend-ია
+  const marketDefs: any[] = [
+    { kind: 'quali',       start_time: compTime(a => a.includes('qual') && !a.includes('ss')) },
+    { kind: 'race',        start_time: compTime(a => a === 'race' || (a.includes('race') && !a.includes('sprint') && a !== 'sr')) },
+    { kind: 'fastest_lap', start_time: compTime(a => a === 'race' || a.includes('race')) },
+  ]
+  if (isSprint) {
+    marketDefs.push({ kind: 'sprint_quali', start_time: compTime(a => a === 'ss' || a.includes('sprint') && a.includes('qual')) })
+    marketDefs.push({ kind: 'sprint',       start_time: compTime(a => a === 'sr' || (a.includes('sprint') && !a.includes('qual'))) })
+  }
+
+  const { data: mkts, error: mErr } = await sb.from('f1_markets')
+    .insert(marketDefs.map(d => ({ race_id: race.id, kind: d.kind, start_time: d.start_time, status: 'upcoming', is_voided: false })))
+    .select('id,kind')
+  if (mErr || !mkts) return `⚠️ რბოლა შეიქმნა (id ${race.id}), მაგრამ markets ვერ ჩაიწერა: ${mErr?.message}`
+
+  // ყველა მძღოლი entry-ებად თითო market-ში — price=null (კოეფი დაკეტილი),
+  // is_enabled=false (ფსონი ვერ დაიდება სანამ კოეფი არ ჩაიწერება), მაგრამ საიტზე ჩანან
+  const { data: drivers } = await sb.from('f1_drivers').select('id')
+  if (drivers && drivers.length) {
+    const entries: any[] = []
+    for (const m of mkts) for (const d of drivers)
+      entries.push({ market_id: m.id, driver_id: d.id, price: null, is_enabled: false })
+    const { error: eErr } = await sb.from('f1_market_entries').insert(entries)
+    if (eErr) return `⚠️ რბოლა+markets შეიქმნა, მაგრამ მძღოლები ვერ ჩაიწერა: ${eErr.message}`
+  }
+
+  const fmtT = (t: string | null) => t ? new Date(t).toLocaleString('ka-GE', { timeZone: 'Asia/Tbilisi' }) : '—'
+  const mkList = mkts.map((m: any) => '• ' + m.kind).join('\n')
+  return `🏎️ <b>F1 რბოლა შეიქმნა</b>\n\n<b>${raceName}</b>\n📍 ${location || '—'}\n${isSprint ? '⚡ სპრინტ-weekend\n' : ''}\n<b>ბაზრები:</b>\n${mkList}\n\n🕒 ქვალიფიკაცია: ${fmtT(compTime(a => a.includes('qual')))}\n🏁 რბოლა: ${fmtT(compTime(a => a === 'race'))}\n\n✅ ${drivers?.length || 0} მძღოლი ჩაიწერა (კოეფები დაკეტილია)`
+}
+
+async function cmdF1Status(chatId: number): Promise<string> {
+  const race = await latestF1Race()
+  if (!race) return '🏎️ ბაზაში რბოლა არ არის'
+  const { data: markets } = await sb.from('f1_markets')
+    .select('id,kind,status,start_time,is_voided,result_driver_id').eq('race_id', race.id).order('id')
+  const { count: pend } = await sb.from('f1_tickets').select('id', { count: 'exact', head: true })
+    .eq('race_id', race.id).eq('status', 'pending')
+  const lines = (markets || []).map((m: any) => {
+    const res = m.is_voided ? '⚖️ void' : (m.result_driver_id ? '✅ შედეგი ჩაწერილია' : (m.status === 'completed' ? 'completed' : '⏳'))
+    const st = m.start_time ? new Date(m.start_time).toLocaleString('ka-GE', { timeZone: 'Asia/Tbilisi' }) : '—'
+    return `• <b>${m.kind}</b> | ${st} | ${res}`
+  }).join('\n')
+  return `🏎️ <b>${race.name}</b> (${race.status})\n\n${lines || 'მარკეტები არ არის'}\n\n🎫 pending ბილეთი: ${pend || 0}`
+}
+
+async function cmdF1Odds(chatId: number): Promise<string> {
+  if (!CLOUDBET_API_KEY) return '⚠️ CLOUDBET_API_KEY არ არის დაყენებული Edge Function-ზე.\nგაუშვი: <code>supabase secrets set CLOUDBET_API_KEY=...</code> და ფუნქცია თავიდან დარედეპლოიდე.'
+  const race = await latestF1Race(true)
+  if (!race) return '🏎️ upcoming რბოლა არ არის — კოეფების განახლება არაფერზეა'
+  const { data: markets } = await sb.from('f1_markets').select('id,kind,cb_key').eq('race_id', race.id)
+  const withKey = (markets || []).filter((m: any) => m.cb_key)
+  if (!withKey.length) return `⚠️ ${race.name}-ის მარკეტებს cb_key არ აქვთ — Cloudbet-ზე ვერ მივაბამ`
+  const { data: drivers } = await sb.from('f1_drivers').select('id,name')
+  const byName: Record<string, any> = {}
+  for (const d of drivers || []) byName[f1Deaccent(d.name)] = d
+  const out: string[] = []
+  for (const m of withKey) {
+    try {
+      const r = await fetch(`${CB_BASE}/competitions/${m.cb_key}`, { headers: { 'X-API-Key': CLOUDBET_API_KEY } })
+      if (!r.ok) { out.push(`${m.kind}: ❌ Cloudbet ${r.status}`); continue }
+      const d = await r.json()
+      const ev = (d.events || [])[0]
+      const mkt = ev && ev.markets && ev.markets['motorsport.outright.v3']
+      const sels = mkt && mkt.submarkets && mkt.submarkets.default && mkt.submarkets.default.selections
+      if (!sels) { out.push(`${m.kind}: კოეფები ვერ მოიძებნა`); continue }
+      let matched = 0
+      for (const s of sels) {
+        if (s.outcome === 's-the-field') continue
+        const drv = byName[f1Deaccent(f1SlugToName(s.outcome))]
+        if (!drv) continue
+        await sb.from('f1_market_entries').upsert({
+          market_id: m.id, driver_id: drv.id, price: s.price, probability: s.probability,
+          is_enabled: s.status === 'SELECTION_ENABLED', updated_at: new Date().toISOString(),
+        }, { onConflict: 'market_id,driver_id' })
+        matched++
+      }
+      out.push(`${m.kind}: ✅ ${matched} კოეფი განახლდა`)
+    } catch (e) { out.push(`${m.kind}: ❌ ${(e as Error).message}`) }
+  }
+  return `📊 <b>F1 კოეფები — ${race.name}</b>\n\n${out.join('\n')}`
+}
+
+// ხელით შედეგის ჩაწერა: "f1 შედეგი race 1" (kind + მძღოლის ნომერი) — OpenF1-ის ჩამნაცვლებელი
+
+// ESPN-იდან F1 შედეგების ავტომატური წამოღება — ხელით მძღოლის ნომრის შეყვანა აღარ სჭირდება.
+// ESPN აბრუნებს race/quali გამარჯვებულს (winner:true), მას სახელით ვამთხვევთ f1_drivers-ს.
+async function cmdF1ResultAuto(chatId: number): Promise<string> {
+  const race = await raceDueForSettlement()
+  if (!race) return '🏎️ დასამუშავებელი რბოლა ვერ მოიძებნა'
+
+  // ESPN-ის კალენდრიდან ამ რბოლის ჩანაწერი (სახელით)
+  let cal: any
+  try {
+    const r = await fetch(`${ESPN_F1}?dates=${SEASON}`, { signal: AbortSignal.timeout(15000) })
+    cal = await r.json()
+  } catch (e) { return `❌ ESPN-თან კავშირი ვერ მოხერხდა: ${(e as Error).message}` }
+
+  // სახელით დამთხვევა (ESPN-ის სახელი DB-ს სახელს შეიძლება ოდნავ განსხვავდებოდეს)
+  const norm = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '')   // deaccent: Hülkenberg→hulkenberg, Pérez→perez
+  const espnEv = (cal.events || []).find((e: any) => norm(e.name).includes(norm(race.name).slice(0, 8)) || norm(race.name).includes(norm(e.name).slice(0, 8)))
+  if (!espnEv) return `⚠️ ESPN-ზე "${race.name}" ვერ მოიძებნა — შედეგი ხელით: <b>f1 შედეგი race [ნომერი]</b>`
+
+  // DB მძღოლები სახელით ძებნისთვის
+  const { data: drivers } = await sb.from('f1_drivers').select('id,name')
+  const dmap: Record<string, any> = {}
+  for (const d of drivers || []) dmap[norm(d.name)] = d
+  const findDrv = (espnName: string) => {
+    const n = norm(espnName)
+    if (dmap[n]) return dmap[n]
+    // გვარით (ბოლო სიტყვა)
+    const last = norm((espnName || '').split(' ').pop() || '')
+    return (drivers || []).find((d: any) => norm(d.name).includes(last) && last.length >= 4) || null
+  }
+
+  const { data: markets } = await sb.from('f1_markets')
+    .select('id,kind,result_driver_id').eq('race_id', race.id)
+  if (!markets || !markets.length) return `⚠️ ${race.name}-ს მარკეტები არ აქვს`
+
+  const out: string[] = []
+  for (const mkt of markets) {
+    if (mkt.result_driver_id) { out.push(`${mkt.kind}: უკვე ჩაწერილია`); continue }
+    // ESPN competition ამ kind-ისთვის
+    const comp = (espnEv.competitions || []).find((c: any) => {
+      const a = (c.type?.abbreviation || c.type?.text || '').toLowerCase()
+      if (mkt.kind === 'race') return a === 'race' || a.includes('race')
+      if (mkt.kind === 'quali') return a.includes('qual')
+      if (mkt.kind === 'sprint') return a.includes('sprint')
+      return false
+    })
+    if (!comp) { out.push(`${mkt.kind}: ESPN-ზე ვერ მოიძებნა`); continue }
+    if (comp.status?.type?.state !== 'post') { out.push(`${mkt.kind}: ჯერ არ დასრულებულა`); continue }
+    const winner = (comp.competitors || []).find((x: any) => x.winner) || (comp.competitors || [])[0]
+    const wName = winner?.athlete?.displayName || winner?.athlete?.fullName
+    const drv = wName ? findDrv(wName) : null
+    if (!drv) { out.push(`${mkt.kind}: გამარჯვებული "${wName}" ბაზაში ვერ მოიძებნა`); continue }
+    await sb.from('f1_markets').update({ result_driver_id: drv.id, status: 'completed' }).eq('id', mkt.id)
+    out.push(`${mkt.kind}: 🏆 ${drv.name}`)
+  }
+  return `🏁 <b>${race.name} — ESPN შედეგები</b>\n\n${out.join('\n')}\n\nბილეთების დასათვლელად: <b>f1 settle</b>`
+}
+
+async function cmdF1Result(chatId: number, text: string): Promise<string> {
+  const m = text.match(/(race|quali|sprint)\s+(\d{1,2})/)
+  if (!m) return '📝 ფორმატი: <b>f1 შედეგი race 1</b>\n(kind: race / quali / sprint, მერე გამარჯვებული მძღოლის ნომერი)\n\nმძღოლების ნომრები: <b>f1 მძღოლები</b>'
+  const kind = m[1], num = parseInt(m[2])
+  const race = await raceDueForSettlement()
+  if (!race) return '🏎️ რბოლა ვერ მოიძებნა'
+  const { data: mkt } = await sb.from('f1_markets').select('id,kind,result_driver_id').eq('race_id', race.id).eq('kind', kind).maybeSingle()
+  if (!mkt) return `⚠️ ${race.name}-ს "${kind}" მარკეტი არ აქვს`
+  const { data: drv } = await sb.from('f1_drivers').select('id,name').eq('car_number', num).maybeSingle()
+  if (!drv) return `⚠️ მძღოლი #${num} ბაზაში ვერ მოიძებნა`
+  await sb.from('f1_markets').update({ result_driver_id: drv.id, status: 'completed' }).eq('id', mkt.id)
+  return `🏆 <b>${race.name}</b> — ${kind}: გამარჯვებული <b>${drv.name}</b> (#${num})\n\nბილეთების დასათვლელად: <b>f1 settle</b>`
+}
+
+async function cmdF1Drivers(chatId: number): Promise<string> {
+  const { data } = await sb.from('f1_drivers').select('car_number,name').order('car_number')
+  if (!data || !data.length) return 'მძღოლები ვერ მოიძებნა'
+  return '🏎️ <b>მძღოლები</b>\n\n' + data.map((d: any) => `#${d.car_number ?? '—'} ${d.name}`).join('\n')
+}
+
+async function cmdF1Settle(chatId: number): Promise<string> {
+  const race = await raceDueForSettlement()
+  if (!race) return '🏎️ რბოლა ვერ მოიძებნა'
+  const { data: res, error } = await sb.rpc('settle_f1_race_tickets', { p_race_id: race.id })
+  if (error || !res?.ok) return `❌ F1 settlement ჩავარდა: ${res?.error || error?.message || 'უცნობი'}`
+  let tail = ''
+  // ყველა მარკეტი დასრულებულია → რბოლა completed + ბალანსების reset (f1-auto.js-ის ლოგიკის სარკე)
+  const { data: mkts } = await sb.from('f1_markets').select('status,is_voided').eq('race_id', race.id)
+  const allDone = (mkts || []).length > 0 && (mkts || []).every((x: any) => x.status === 'completed' || x.is_voided)
+  if (allDone && race.status !== 'completed') {
+    const patch: any = { status: 'completed' }
+    if (!race.completed_at) patch.completed_at = new Date().toISOString()
+    await sb.from('f1_races').update(patch).eq('id', race.id)
+    const { data: rr } = await sb.rpc('f1_reset_balances', { p_completed_race_id: race.id })
+    tail = `\n\n✅ რბოლა → completed\n💰 F1 ბალანსები → 1,000 (${rr?.reset || 0} მომხმარებელი)`
+  }
+  return `🏁 <b>F1 Settlement — ${race.name}</b>\n\n✅ ${res.won} მოგებული\n❌ ${res.lost} წაგებული\n⏭ ${res.skipped} გამოტოვებული${res.voided > 0 ? `\n↩️ ${res.voided} void` : ''}${tail}`
+}
+
+async function cmdF1Reset(chatId: number, force = false): Promise<string> {
+  if (!force) {
+    const { data: up } = await sb.from('f1_races').select('id').eq('status', 'upcoming')
+    const ids = (up || []).map((r: any) => r.id)
+    if (ids.length) {
+      const { count } = await sb.from('f1_tickets').select('id', { count: 'exact', head: true }).in('race_id', ids).eq('status', 'pending')
+      if ((count || 0) > 0) return `⛔ upcoming რბოლაზე ${count} pending ბილეთია.\nთუ მაინც გინდა: <b>f1 reset force</b>`
+    }
+  }
+  const race = await latestF1Race()
+  const { data: r, error } = await sb.rpc('f1_reset_balances', { p_completed_race_id: race ? race.id : 0 })
+  if (error || !r?.ok) return `❌ შეცდომა: ${r?.error || error?.message}`
+  return `💰 <b>F1 ბალანსები დარესეტდა</b>\n\n${r.reset || 0} მომხმარებელი → 1,000${r.deducted_users ? `\n${r.deducted_users}-ს pending ჩამოეჭრა` : ''}`
+}
+
+async function cmdF1Full(chatId: number): Promise<string> {
+  await sendMsg(chatId, '⏳ F1 სრული ციკლი...')
+  const odds = await cmdF1Odds(chatId)
+  await sendMsg(chatId, odds)
+  const settle = await cmdF1Settle(chatId)
+  await sendMsg(chatId, settle)
+  return await cmdF1Status(chatId)
+}
+
+// ═══════════════════════════════ NBA კომანდები ═══════════════════════════════
+// nba-auto.js-ის სარკე: ID-ით matching, კოეფის timestamp მხოლოდ წარმატებაზე,
+// completed თამაშებს არასდროს ვეხებით.
+
+const ESPN_NBA = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard'
+
+function espnDateStr(d: Date): string { return d.toISOString().slice(0, 10).replace(/-/g, '') }
+function tbTime(t: string | null): string {
+  return t ? new Date(t).toLocaleString('ka-GE', { timeZone: 'Asia/Tbilisi', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
+}
+function nbaTeamMatch(a: string, b: string): number {
+  const na = (a || '').trim().toLowerCase(), nb = (b || '').trim().toLowerCase()
+  if (na && na === nb) return 2
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z]/g, ' ').trim().split(/\s+/).filter(Boolean)
+  const wa = norm(a || ''), wb = norm(b || '')
+  let m = 0
+  for (const w of wa) if (wb.some(x => x.startsWith(w.slice(0, 4)) || w.startsWith(x.slice(0, 4)))) m++
+  return m / Math.max(wa.length, wb.length, 1)
+}
+
+async function cmdNbaStatus(chatId: number): Promise<string> {
+  const nowIso = new Date().toISOString()
+  const { data: up } = await sb.from('nba_games')
+    .select('home_team,away_team,home_odds,away_odds,start_time')
+    .eq('status', 'upcoming').eq('is_voided', false).gt('start_time', nowIso)
+    .order('start_time').limit(10)
+  const { data: live } = await sb.from('nba_games')
+    .select('home_team,away_team').eq('status', 'upcoming').eq('is_voided', false).lte('start_time', nowIso)
+  const { count: pending } = await sb.from('nba_tickets')
+    .select('id', { count: 'exact', head: true }).eq('status', 'pending')
+
+  let out = '🏀 <b>NBA სტატუსი</b>\n'
+  if (live && live.length) out += `\n🔴 მიმდინარე: ${live.map((g: any) => `${g.away_team} @ ${g.home_team}`).join('; ')}\n`
+  if (up && up.length) {
+    out += '\n<b>მომდევნო თამაშები (Tbilisi):</b>\n'
+    out += up.map((g: any) => `• ${tbTime(g.start_time)} — ${g.away_team} @ ${g.home_team}${g.home_odds ? ` (${g.away_odds}/${g.home_odds})` : ' (კოეფი არაა)'}`).join('\n')
+  } else if (!live?.length) {
+    out += '\n📭 დაგეგმილი თამაში არ არის (off-season?)'
+  }
+  out += `\n\n🎫 pending ბილეთი: ${pending || 0}`
+  return out
+}
+
+async function cmdNbaOdds(chatId: number): Promise<string> {
+  if (!ODDS_API_KEY) return '⚠️ ODDS_API_KEY არ არის'
+  const nowIso = new Date().toISOString()
+  const winIso = new Date(Date.now() + 72 * 3600000).toISOString()
+  const { data: games } = await sb.from('nba_games')
+    .select('id,home_team,away_team').eq('status', 'upcoming').eq('is_voided', false)
+    .gt('start_time', nowIso).lt('start_time', winIso)
+  if (!games || !games.length) return '📭 კოეფებისთვის თამაში არ არის (72სთ ფანჯარა)'
+
+  let oddsData: any
+  try {
+    const r = await fetch(`https://api.the-odds-api.com/v4/sports/basketball_nba/odds/?apiKey=${ODDS_API_KEY}&regions=eu&markets=h2h&oddsFormat=decimal`)
+    if (!r.ok) return `❌ Odds API: HTTP ${r.status}`
+    oddsData = await r.json()
+  } catch (e) { return `❌ Odds API: ${(e as Error).message}` }
+
+  let updated = 0
+  for (const g of games) {
+    let best: any = null, bestScore = 0
+    for (const og of oddsData) {
+      const s = nbaTeamMatch(og.home_team, g.home_team) + nbaTeamMatch(og.away_team, g.away_team)
+      if (s > bestScore) { bestScore = s; best = og }
+    }
+    if (bestScore < 2.0 || !best) continue
+    const preferred = ['pinnacle', 'betonlineag', 'betsson', 'nordicbet', 'coolbet']
+    let bm: any = null
+    for (const key of preferred) { bm = best.bookmakers?.find((b: any) => b.key === key); if (bm) break }
+    if (!bm) bm = best.bookmakers?.[0]
+    const h2h = bm?.markets?.find((m: any) => m.key === 'h2h')
+    if (!h2h) continue
+    const ho = h2h.outcomes.find((o: any) => nbaTeamMatch(o.name, g.home_team) >= 1)?.price
+    const ao = h2h.outcomes.find((o: any) => nbaTeamMatch(o.name, g.away_team) >= 1)?.price
+    if (!ho || !ao) continue
+    await sb.from('nba_games').update({
+      home_odds: Math.round(ho * 100) / 100,
+      away_odds: Math.round(ao * 100) / 100,
+      odds_updated_at: new Date().toISOString(),
+    }).eq('id', g.id)
+    updated++
+  }
+  return `📊 <b>NBA კოეფები</b>\n\n${updated}/${games.length} თამაში განახლდა`
+}
+
+async function cmdNbaResults(chatId: number): Promise<string> {
+  const nowIso = new Date().toISOString()
+  const { data: started } = await sb.from('nba_games')
+    .select('id,espn_event_id,home_team,away_team,start_time')
+    .eq('status', 'upcoming').eq('is_voided', false).lte('start_time', nowIso)
+  if (!started || !started.length) return '📭 დაწყებული/დასამუშავებელი თამაში არ არის'
+
+  const minStart = new Date(Math.min(...started.map((g: any) => new Date(g.start_time).getTime())) - 86400000)
+  const maxD = new Date(Date.now() + 86400000)
+  let data: any
+  try {
+    const r = await fetch(`${ESPN_NBA}?dates=${espnDateStr(minStart)}-${espnDateStr(maxD)}&limit=200`)
+    if (!r.ok) return `❌ ESPN: HTTP ${r.status}`
+    data = await r.json()
+  } catch (e) { return `❌ ESPN: ${(e as Error).message}` }
+
+  const byId = new Map((data.events || []).map((ev: any) => [String(ev.id), ev]))
+  let written = 0, lines: string[] = []
+  for (const g of started) {
+    const ev: any = byId.get(g.espn_event_id)
+    if (!ev || !ev.status?.type?.completed) continue
+    const comp = ev.competitions?.[0]
+    const winnerComp = comp?.competitors?.find((c: any) => c.winner === true)
+    if (!winnerComp) { lines.push(`⚠ ${g.away_team} @ ${g.home_team}: winner ვერ დადგინდა`); continue }
+    const side = winnerComp.homeAway === 'home' ? 'home' : 'away'
+    const { error } = await sb.from('nba_games').update({ status: 'completed', result_winner: side }).eq('id', g.id)
+    if (!error) { written++; lines.push(`🏆 ${g.away_team} @ ${g.home_team} → ${side === 'home' ? g.home_team : g.away_team}`) }
+  }
+
+  let tail = ''
+  if (written > 0) {
+    const { data: res, error } = await sb.rpc('settle_nba_tickets')
+    if (error || !res?.ok) tail = `\n\n🚨 Settlement ჩავარდა: ${res?.error || error?.message}`
+    else tail = `\n\n🏁 Settlement: ✅${res.won} ❌${res.lost}${res.voided > 0 ? ` ↩️${res.voided}` : ''} ⏭${res.skipped}`
+  }
+  return `🏀 <b>NBA შედეგები</b>\n\n${lines.length ? lines.join('\n') : 'ახალი დასრულებული არ არის'}${tail}`
+}
+
+async function cmdNbaSettle(chatId: number): Promise<string> {
+  const { data: res, error } = await sb.rpc('settle_nba_tickets')
+  if (error || !res?.ok) return `❌ NBA settlement ჩავარდა: ${res?.error || error?.message || 'უცნობი'}`
+  return `🏁 <b>NBA Settlement</b>\n\n✅ ${res.won} მოგებული\n❌ ${res.lost} წაგებული${res.voided > 0 ? `\n↩️ ${res.voided} void` : ''}\n⏭ ${res.skipped} ელოდება`
+}
+
+async function cmdNbaReset(chatId: number, force: boolean): Promise<string> {
+  if (!force) {
+    const { count } = await sb.from('nba_tickets')
+      .select('id', { count: 'exact', head: true }).eq('status', 'pending')
+    if ((count || 0) > 0) return `⛔ ${count} pending NBA ბილეთია.\nჯერ <b>nba settle</b>, ან ძალით: <b>nba reset force</b>\n(რესეტი იდემპოტენტურია — pending stake-ები ისევ ჩამოიჭრება)`
+  }
+  const { data: res, error } = await sb.rpc('nba_reset_balances')
+  if (error || !res?.ok) return `❌ შეცდომა: ${res?.error || error?.message}`
+  return `💰 <b>NBA ბალანსები დარესეტდა</b>\n\n${res.reset} მომხმარებელი → 1,000${res.deducted_users ? `\n${res.deducted_users}-ს pending ჩამოეჭრა` : ''}`
+}
+
+async function cmdNbaActiveTickets(chatId: number): Promise<string> {
+  const { data: tickets } = await sb.from('nba_tickets')
+    .select('id,stake,total_odds,potential_win,type,placed_at,users(nick),nba_selections(picked_side,odds,nba_games(home_team,away_team,home_abbr,away_abbr))')
+    .eq('status', 'pending').order('placed_at', { ascending: false }).limit(20)
+  if (!tickets || !tickets.length) return '📭 აქტიური NBA ბილეთი არ არის'
+  const lines = tickets.map((t: any) => {
+    const sels = (t.nba_selections || []).map((s: any) => {
+      const g = s.nba_games
+      const pick = s.picked_side === 'home' ? (g?.home_abbr || g?.home_team) : (g?.away_abbr || g?.away_team)
+      return `${g?.away_abbr || g?.away_team}@${g?.home_abbr || g?.home_team}→${pick}(${s.odds})`
+    }).join(', ')
+    return `• <b>${t.users?.nick || '?'}</b> — ${t.stake} @ ${t.total_odds} → ${t.potential_win}\n  ${sels}`
+  })
+  return `🎫 <b>აქტიური NBA ბილეთები (${tickets.length})</b>\n\n${lines.join('\n')}`
+}
+
+// ============================== FOOTBALL (6 ლიგა) ==============================
+// DB: soccer_* (ავსებს soccer-auto.js). ბრძანებები თითო ლიგაზე: laliga / epl / seriea / bundesliga / ligue1 / ucl
+const FB_LEAGUES: Record<string, { name: string; slug: string; aliases: string[] }> = {
+  esp1: { name: 'La Liga',          slug: 'esp.1',          aliases: ['laliga', 'la liga', 'ლალიგა'] },
+  eng1: { name: 'Premier League',   slug: 'eng.1',          aliases: ['epl', 'premier', 'პრემიერ'] },
+  ita1: { name: 'Serie A',          slug: 'ita.1',          aliases: ['seriea', 'serie a', 'სერია'] },
+  ger1: { name: 'Bundesliga',       slug: 'ger.1',          aliases: ['bundesliga', 'ბუნდეს'] },
+  fra1: { name: 'Ligue 1',          slug: 'fra.1',          aliases: ['ligue1', 'ligue 1', 'ლიგა 1', 'ლიგა1'] },
+  ucl:  { name: 'Champions League', slug: 'uefa.champions', aliases: ['ucl', 'champions', 'ჩემპიონ'] },
+}
+type FbLeague = { code: string; name: string; slug: string; cmd: string; rest: string }
+function matchFootballLeague(text: string): FbLeague | null {
+  for (const code of Object.keys(FB_LEAGUES)) {
+    const L = FB_LEAGUES[code]
+    for (const k of [code, ...L.aliases]) {
+      if (text === k || text === '/' + k || text.startsWith(k) || text.startsWith('/' + k)) {
+        const esc = k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const rest = text.replace(new RegExp('^\\/?' + esc + '\\s*'), '')
+        return { code, name: L.name, slug: L.slug, cmd: L.aliases[0], rest }
+      }
+    }
+  }
+  return null
+}
+async function fbActiveRound(league: string): Promise<any> {
+  const { data } = await sb.from('soccer_rounds').select('id,round_no,name,status')
+    .eq('league', league).eq('status', 'upcoming').order('id').limit(1)
+  return (data && data[0]) || null
+}
+function fbPrice(mk: any, oc: string): string {
+  const e = (mk?.soccer_market_entries || []).find((z: any) => z.outcome === oc)
+  return (e && e.is_enabled && e.price != null) ? Number(e.price).toFixed(2) : '—'
+}
+
+async function cmdFbStatus(L: FbLeague): Promise<string> {
+  const r = await fbActiveRound(L.code)
+  if (!r) return `⚽️ <b>${L.name}</b>\n\n📭 აქტიური ტური არ არის.${L.code === 'ucl' ? ' (ჩემპიონთა ლიგა სექტემბრიდან იწყება)' : ''}\nავტომატიკა ტურს ~30 წუთში შექმნის.`
+  const { data: matches } = await sb.from('soccer_matches')
+    .select('home_team,away_team,kickoff,status').eq('round_id', r.id).eq('is_voided', false).order('kickoff')
+  const { count: pending } = await sb.from('soccer_tickets')
+    .select('id', { count: 'exact', head: true }).eq('league', L.code).eq('status', 'pending')
+  const upcoming = (matches || []).filter((m: any) => m.status === 'upcoming')
+  const done = (matches || []).filter((m: any) => m.status === 'completed')
+  let out = `⚽️ <b>${L.name} — ${r.name || 'ტური ' + r.round_no}</b>\n`
+  out += `\n📊 მატჩი: ${matches?.length || 0} (დასრულ.: ${done.length})`
+  if (upcoming.length) {
+    out += '\n\n<b>მომდევნო მატჩები (Tbilisi):</b>\n'
+    out += upcoming.slice(0, 12).map((m: any) => `• ${tbTime(m.kickoff)} — ${m.home_team} — ${m.away_team}`).join('\n')
+  }
+  out += `\n\n🎫 pending ბილეთი: ${pending || 0}`
+  return out
+}
+
+async function cmdFbOdds(L: FbLeague): Promise<string> {
+  const r = await fbActiveRound(L.code)
+  if (!r) return `⚽️ <b>${L.name}</b>\n\n📭 აქტიური ტური არ არის.`
+  const { data: matches } = await sb.from('soccer_matches')
+    .select('home_team,away_team,kickoff,status,soccer_markets(kind,line,soccer_market_entries(outcome,price,is_enabled))')
+    .eq('round_id', r.id).eq('is_voided', false).eq('status', 'upcoming').order('kickoff')
+  if (!matches || !matches.length) return `⚽️ <b>${L.name}</b>\n\n📭 მიმავალი მატჩი არ არის`
+  const lines = matches.map((m: any) => {
+    const mk = m.soccer_markets || []
+    const x2 = mk.find((x: any) => x.kind === '1x2')
+    const ou = mk.find((x: any) => x.kind === 'over_under')
+    let s = `• ${tbTime(m.kickoff)} <b>${m.home_team} — ${m.away_team}</b>\n   1X2: ${fbPrice(x2, '1')} / ${fbPrice(x2, 'x')} / ${fbPrice(x2, '2')}`
+    if (ou) s += `\n   ტოტალი ${ou.line}: ${fbPrice(ou, 'over')} / ${fbPrice(ou, 'under')}`
+    return s
+  })
+  return `📊 <b>${L.name} — კოეფები</b>\n\n${lines.join('\n')}`
+}
+
+async function cmdFbEvent(L: FbLeague): Promise<string> {
+  const from = espnDateStr(new Date())
+  const to = espnDateStr(new Date(Date.now() + 21 * 86400000))
+  let data: any
+  try {
+    const rr = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${L.slug}/scoreboard?dates=${from}-${to}`)
+    if (!rr.ok) return `❌ ESPN: HTTP ${rr.status}`
+    data = await rr.json()
+  } catch (e) { return `❌ ESPN: ${(e as Error).message}` }
+  const evs = (data.events || []).filter((e: any) => e.status?.type?.state === 'pre').slice(0, 15)
+  if (!evs.length) return `⚽️ <b>${L.name}</b>\n\n📭 ESPN-ზე მომავალი მატჩი არ ჩანს${L.code === 'ucl' ? ' — ჩემპიონთა ლიგა სექტემბრიდან იწყება.' : '.'}`
+  const lines = evs.map((e: any) => {
+    const c = e.competitions?.[0]
+    const h = c?.competitors?.find((x: any) => x.homeAway === 'home')
+    const a = c?.competitors?.find((x: any) => x.homeAway === 'away')
+    return `• ${tbTime(e.date)} — ${h?.team?.displayName || '?'} — ${a?.team?.displayName || '?'}`
+  })
+  return `📥 <b>${L.name} — ESPN ფიქსტურები</b>\n\n${lines.join('\n')}\n\n<i>ავტომატიკა ამათგან ტურს თავად შექმნის.</i>`
+}
+
+async function cmdFbFixtures(L: FbLeague): Promise<string> {
+  const r = await fbActiveRound(L.code)
+  if (r) {
+    const { data: matches } = await sb.from('soccer_matches')
+      .select('home_team,away_team,kickoff,status,home_score,away_score,result')
+      .eq('round_id', r.id).eq('is_voided', false).order('kickoff')
+    if (matches && matches.length) {
+      const lines = matches.map((m: any) => {
+        const done = m.status === 'completed' && m.result
+        const score = done ? ` — <b>${m.home_score}:${m.away_score}</b>` : ''
+        return `• ${tbTime(m.kickoff)} — ${m.home_team} — ${m.away_team}${score}`
       })
-    }).catch(function () {});
-  } catch (e) {}
-  return fbEventId;
+      return `⚽️ <b>${L.name} — ${r.name || 'ტური ' + r.round_no}</b>\n\n${lines.join('\n')}`
+    }
+  }
+  return await cmdFbEvent(L)   // აქტიური ტური არ არის → ESPN-იდან ვაჩვენოთ რა ხელმისაწვდომია
 }
 
-async function placeBets() {
-  const pb = document.getElementById('placeBtn');
-  if (!currentUser) { closeSlip(); openModal('join'); return; }
-  if (isBettingClosed()) { closeSlip(); alert('ფსონების მიღება დასრულებულია'); return; }
-  const arr = picksArr(); if (arr.length === 0) return;
-  if (arr.some(s => !(Number.isFinite(s.odds) && s.odds > 0))) { alert('ერთ-ერთ ბრძოლას კოეფიციენტი ჯერ არ აქვს — წაშალე იგი ბილეთიდან'); return; }
-  const eventId = window.__currentEventId || null;
-  if (!eventId) { closeSlip(); alert('ივენთი ვერ მოიძებნა'); return; }
+async function cmdFbResults(L: FbLeague): Promise<string> {
+  const { data: matches } = await sb.from('soccer_matches')
+    .select('home_team,away_team,home_score,away_score,result,kickoff,is_voided')
+    .eq('league', L.code).eq('status', 'completed').order('kickoff', { ascending: false }).limit(15)
+  if (!matches || !matches.length) return `⚽️ <b>${L.name}</b>\n\n📭 დასრულებული მატჩი ჯერ არ არის`
+  const lines = matches.map((m: any) => m.is_voided
+    ? `• ${m.home_team} — ${m.away_team}: ⚖️ ვოიდი`
+    : `• ${m.home_team} <b>${m.home_score}:${m.away_score}</b> ${m.away_team} → ${m.result === '1' ? '1' : m.result === 'x' ? 'X' : '2'}`)
+  return `🏆 <b>${L.name} — შედეგები</b>\n\n${lines.join('\n')}`
+}
 
-  // ორმაგი დაკლიკვის ბლოკი + რეალური ბალანსი DB-დან (თავიდან ავიცილოთ ცრუ 1000)
-  if (pb) pb.disabled = true;
-  await refreshBalance();
+async function cmdFbSettle(L: FbLeague): Promise<string> {
+  const r = await fbActiveRound(L.code)
+  if (!r) return `⚽️ <b>${L.name}</b>\n\n📭 დასასეთლი აქტიური ტური არ არის`
+  const { data: res, error } = await sb.rpc('settle_soccer_round', { p_round_id: r.id })
+  if (error || !res?.ok) return `❌ settlement ჩავარდა: ${res?.error || error?.message || 'უცნობი'}`
+  let out = `🏁 <b>${L.name} Settlement</b>\n\n✅ ${res.won} მოგებული\n❌ ${res.lost} წაგებული`
+  if (res.voided > 0) out += `\n↩️ ${res.voided} void`
+  out += `\n⏭ ${res.skipped} ელოდება`
+  if (res.round_completed) out += `\n\n🎉 ტური დასრულდა — ბალანსი განულდა (1000).`
+  return out
+}
 
+async function cmdFbReset(L: FbLeague, force: boolean): Promise<string> {
+  if (!force) {
+    const { count } = await sb.from('soccer_tickets')
+      .select('id', { count: 'exact', head: true }).eq('league', L.code).eq('status', 'pending')
+    if ((count || 0) > 0) return `⛔ ${count} pending ${L.name} ბილეთია.\nჯერ <b>${L.cmd} settle</b>, ან ძალით: <b>${L.cmd} reset force</b>`
+  }
+  const { data: res, error } = await sb.rpc('soccer_reset_round', { p_league: L.code, p_completed_round_id: 0 })
+  if (error || !res?.ok) return `❌ შეცდომა: ${res?.error || error?.message}`
+  return `💰 <b>${L.name} ბალანსები დარესეტდა</b>\n\n${res.reset} მომხმარებელი → 1,000${res.deducted_users ? `\n${res.deducted_users}-ს pending ჩამოეჭრა` : ''}`
+}
+
+async function cmdFbTickets(L: FbLeague): Promise<string> {
+  const { data: tickets } = await sb.from('soccer_tickets')
+    .select('id,stake,total_odds,type,placed_at,users(nick),soccer_selections(outcome,odds,soccer_markets!market_id(kind,line,soccer_matches!match_id(home_team,away_team,home_abbr,away_abbr)))')
+    .eq('league', L.code).eq('status', 'pending').order('placed_at', { ascending: false }).limit(20)
+  if (!tickets || !tickets.length) return `📭 აქტიური ${L.name} ბილეთი არ არის`
+  const pick = (kind: string, oc: string, m: any, line: any) => {
+    if (kind === 'over_under') return (oc === 'over' ? 'მეტი ' : 'ნაკლ. ') + (line ?? '')
+    if (oc === '1') return m?.home_abbr || m?.home_team || '1'
+    if (oc === 'x') return 'X'
+    return m?.away_abbr || m?.away_team || '2'
+  }
+  const lines = tickets.map((t: any) => {
+    const sels = (t.soccer_selections || []).map((s: any) => {
+      const mk = s.soccer_markets, m = mk?.soccer_matches
+      return `${m?.home_abbr || m?.home_team || '?'}-${m?.away_abbr || m?.away_team || '?'}→${pick(mk?.kind, s.outcome, m, mk?.line)}(${s.odds})`
+    }).join(', ')
+    const win = Math.round(Number(t.stake) * Number(t.total_odds))
+    return `• <b>${t.users?.nick || '?'}</b> — ${t.stake} @ ${Number(t.total_odds).toFixed(2)} → ${win}\n  ${sels}`
+  })
+  return `🎫 <b>აქტიური ${L.name} ბილეთები (${tickets.length})</b>\n\n${lines.join('\n')}`
+}
+
+
+async function cmdFbAllStatus(): Promise<string> {
+  let out = '⚽️ <b>ფეხბურთი — მიმოხილვა</b>\n'
+  for (const code of Object.keys(FB_LEAGUES)) {
+    const L = FB_LEAGUES[code]
+    const r = await fbActiveRound(code)
+    if (!r) { out += `\n• <b>${L.name}</b>: ტური არ არის`; continue }
+    const { count: mc } = await sb.from('soccer_matches').select('id', { count: 'exact', head: true }).eq('round_id', r.id).eq('is_voided', false)
+    const { count: pc } = await sb.from('soccer_tickets').select('id', { count: 'exact', head: true }).eq('league', code).eq('status', 'pending')
+    out += `\n• <b>${L.name}</b>: ${r.name || 'ტური ' + r.round_no} — ${mc || 0} მატჩი, ${pc || 0} ბილეთი`
+  }
+  out += '\n\n<i>დეტალურად: მაგ. <b>laliga</b>, <b>laliga კოეფები</b>, <b>ucl გუნდები</b>.</i>'
+  return out
+}
+
+async function cmdFbAllTickets(): Promise<string> {
+  const { data: tickets } = await sb.from('soccer_tickets')
+    .select('id,league,stake,total_odds,type,placed_at,users(nick)')
+    .eq('status', 'pending').order('placed_at', { ascending: false }).limit(30)
+  if (!tickets || !tickets.length) return '📭 აქტიური ფეხბურთის ბილეთი არ არის (არცერთ ლიგაზე)'
+  const nameOf = (c: string) => FB_LEAGUES[c]?.name || c
+  const lines = tickets.map((t: any) =>
+    `• <b>${t.users?.nick || '?'}</b> [${nameOf(t.league)}] — ${t.stake} @ ${Number(t.total_odds).toFixed(2)} → ${Math.round(Number(t.stake) * Number(t.total_odds))} (${t.type})`)
+  return `🎫 <b>ფეხბურთის აქტიური ბილეთები (${tickets.length})</b>\n\n${lines.join('\n')}\n\n<i>დეტალურად ლიგაზე: <b>laliga ბილეთები</b>, <b>ucl ბილეთები</b>…</i>`
+}
+
+// ── ბილეთების აქტივობა: ყველა აქტიური ("pending") ბილეთი, სამივე სპორტი ჯვარედინად ──
+async function cmdTicketActivity(chatId: number): Promise<string> {
+  const { data: ufcTix } = await sb.from('tickets').select('user_id').eq('status', 'pending')
+  const { data: f1Tix } = await sb.from('f1_tickets').select('user_id').eq('status', 'pending')
+  const { data: nbaTix } = await sb.from('nba_tickets').select('user_id').eq('status', 'pending')
+  const { data: fbTix } = await sb.from('soccer_tickets').select('user_id,league').eq('status', 'pending')
+
+  const grandTotal = (ufcTix?.length || 0) + (f1Tix?.length || 0) + (nbaTix?.length || 0) + (fbTix?.length || 0)
+  if (!grandTotal) return '🎫 <b>ბილეთები</b>\n\nსულ: <b>0</b> აქტიური ბილეთი'
+
+  const countBy = (rows: any[] | null) => {
+    const m: Record<string, number> = {}
+    for (const r of rows || []) m[r.user_id] = (m[r.user_id] || 0) + 1
+    return m
+  }
+  const ufcCount = countBy(ufcTix)
+  const f1Count = countBy(f1Tix)
+  const nbaCount = countBy(nbaTix)
+  const fbCount = countBy(fbTix)   // ფეხბურთი — ჯამში ყველა ლიგა
+  // ფეხბურთი — თითო ლიგა ცალკე: league -> { user_id: count }
+  const fbByLeague: Record<string, Record<string, number>> = {}
+  for (const r of fbTix || []) {
+    (fbByLeague[r.league] = fbByLeague[r.league] || {})
+    fbByLeague[r.league][r.user_id] = (fbByLeague[r.league][r.user_id] || 0) + 1
+  }
+
+  // ვისაც მინიმუმ ერთი აქტიური ბილეთი აქვს (ნებისმიერ სპორტში, ფეხბურთის ჩათვლით)
+  const ids = [...new Set([...Object.keys(ufcCount), ...Object.keys(f1Count), ...Object.keys(nbaCount), ...Object.keys(fbCount)])]
+
+  const { data: users } = await sb.from('users').select('id,nick,balance').in('id', ids)
+  const { data: f1Bal } = await sb.from('user_balances').select('user_id,balance').eq('sport', 'f1').in('user_id', ids)
+  const { data: nbaBal } = await sb.from('user_balances').select('user_id,balance').eq('sport', 'nba').in('user_id', ids)
+  const { data: fbBal } = await sb.from('user_balances').select('user_id,balance,sport').like('sport', 'soccer_%').in('user_id', ids)
+
+  const f1BalMap: Record<string, number> = {}
+  for (const b of f1Bal || []) f1BalMap[b.user_id] = b.balance
+  const nbaBalMap: Record<string, number> = {}
+  for (const b of nbaBal || []) nbaBalMap[b.user_id] = b.balance
+  // ფეხბურთის ბალანსი: user_id -> { league: balance }
+  const fbBalMap: Record<string, Record<string, number>> = {}
+  for (const b of fbBal || []) {
+    const lg = (b.sport as string).replace('soccer_', '')
+    ;(fbBalMap[b.user_id] = fbBalMap[b.user_id] || {})[lg] = b.balance
+  }
+
+  const fbCodes = Object.keys(FB_LEAGUES)   // esp1, eng1, ... ucl (ჩვენების რიგი)
+
+  const rows = (users || []).map((u: any) => {
+    const uc = ufcCount[u.id] || 0
+    const fc = f1Count[u.id] || 0
+    const nc = nbaCount[u.id] || 0
+    const bc = fbCount[u.id] || 0
+    return { u, uc, fc, nc, bc, total: uc + fc + nc + bc }
+  }).sort((a, b) => b.total - a.total)
+
+  const lines: string[] = []
+  for (const r of rows) {
+    const f1b = f1BalMap[r.u.id]
+    const nbab = nbaBalMap[r.u.id]
+    let balStr = `UFC ${r.u.balance} · F1 ${f1b != null ? f1b : '—'} · NBA ${nbab != null ? nbab : '—'}`
+    // ფეხბურთის ბალანსი — მხოლოდ იმ ლიგებზე, სადაც ამ იუზერს აქტიური ბილეთი აქვს (რომ არ გაბერდეს)
+    const balBits: string[] = []
+    for (const code of fbCodes) {
+      if (fbByLeague[code]?.[r.u.id]) {
+        const bal = fbBalMap[r.u.id]?.[code]
+        balBits.push(`${FB_LEAGUES[code].name} ${bal != null ? bal : '—'}`)
+      }
+    }
+    if (balBits.length) balStr += ' · ' + balBits.join(' · ')
+
+    const parts: string[] = []
+    if (r.uc) parts.push(`UFC — ${r.uc}`)
+    if (r.fc) parts.push(`F1 — ${r.fc}`)
+    if (r.nc) parts.push(`NBA — ${r.nc}`)
+    for (const code of fbCodes) {
+      const n = fbByLeague[code]?.[r.u.id]
+      if (n) parts.push(`${FB_LEAGUES[code].name} — ${n}`)
+    }
+    lines.push(`👤 <b>${r.u.nick || '—'}</b>\n💰 ${balStr}\n🎫 აქტიური ბილეთი: <b>${r.total}</b>${parts.length ? '\n   ' + parts.join('\n   ') : ''}`)
+  }
+
+  // ── ჯამი სპორტების მიხედვით ──
+  const sportSummary = (label: string, tickets: number, users: number): string | null => {
+    if (!tickets) return null
+    return `${label} — <b>${tickets}</b> ბილეთი · ${users} მომხმარებელი`
+  }
+  const summaryLines = [
+    sportSummary('🥊 UFC', ufcTix?.length || 0, Object.keys(ufcCount).length),
+    sportSummary('🏎️ F1', f1Tix?.length || 0, Object.keys(f1Count).length),
+    sportSummary('🏀 NBA', nbaTix?.length || 0, Object.keys(nbaCount).length),
+  ].filter(Boolean) as string[]
+  // ფეხბურთი — თითო ლიგა ცალკე (მხოლოდ სადაც ბილეთია)
+  for (const code of fbCodes) {
+    const byUser = fbByLeague[code]
+    if (!byUser) continue
+    const tickets = Object.values(byUser).reduce((s, n) => s + n, 0)
+    summaryLines.push(sportSummary(`⚽️ ${FB_LEAGUES[code].name}`, tickets, Object.keys(byUser).length)!)
+  }
+  const totalUsers = ids.length
+  const summary = `━━━━━━━━━━━━━\n📊 <b>ჯამი სპორტების მიხედვით:</b>\n${summaryLines.join('\n')}\n\n🎫 <b>სულ: ${grandTotal} ბილეთი · ${totalUsers} მომხმარებელი</b>`
+
+  return `🎫 <b>ბილეთები</b> — აქტიური ბილეთები\n\nსულ: <b>${grandTotal}</b> აქტიური ბილეთი (${totalUsers} მომხმარებელი)\n\n${lines.join('\n\n')}\n\n${summary}`
+}
+
+// ── ვერიფიცირებული მომხმარებლების რაოდენობა (phone ან telegram შევსებული — საიტის საკუთარი განმარტება) ──
+async function cmdVerifiedUsers(chatId: number): Promise<string> {
+  const { data: users } = await sb.from('users').select('id,phone,telegram')
+  const total = users?.length || 0
+  const verified = (users || []).filter((u: any) => u.phone || u.telegram).length
+  const unverified = total - verified
+  return `✅ <b>ვერიფიცირებული მომხმარებლები</b>\n\nვერიფიცირებული: <b>${verified}</b>\nარავერიფიცირებული: <b>${unverified}</b>\nსულ: <b>${total}</b>`
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response('OK', { status: 200, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Telegram-Bot-Api-Secret-Token, X-Admin-Secret' } })
+  }
+  if (req.method !== 'POST') {
+    return new Response('OK', { status: 200 })
+  }
   try {
-    if (state.mode === 'express') {
-      const st = state.expressStake;
-      if (st <= 0) { return; }
-      if (st > state.balance) { updateTotals(); alert('არასაკმარისი ქულები ბალანსზე (გაქვს ' + fmt(state.balance) + ')'); return; }
-      const odds = comboOdds();
-      // #1: p_total_odds/odds მხოლოდ ჩვენებისთვის მიდის — სერვერი (place_bet RPC) თვითონ ითვლის და კლიენტისას იგნორირებს
-      const selections = arr.map(s => ({ fight_id: FIGHTS[s.i]?._dbId, picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds }));
-      const { data: res, error } = await sb.rpc('place_bet', { p_event_id: eventId, p_type: 'express', p_stake: st, p_total_odds: odds, p_selections: selections });
-      if (error || !res || !res.ok) { await refreshBalance(); updateTotals(); alert(betError(res, error)); return; }
-      updateBalance(res.balance);
-      const finalOdds = res.total_odds != null ? Number(res.total_odds) : odds;
-      state.tickets.unshift({ _dbId: res.ticket_id, type: 'express',
-        sels: arr.map(s => ({ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name, redName: FIGHTS[s.i]?.red.name, blueName: FIGHTS[s.i]?.blue.name })),
-        stake: st, odds: finalOdds, status: 'open', placedAt: serverNow() });
-      window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'express', event_name: state.eventName||'', num_picks: arr.length, fb_event_id: fbTrackTicket(), external_id: (currentUser && currentUser.id) || ''});
-    } else {
-      const ts = totalStakeSingle();
-      if (ts <= 0) { return; }
-      if (ts > state.balance) { updateTotals(); alert('არასაკმარისი ქულები ბალანსზე (გაქვს ' + fmt(state.balance) + ')'); return; }
-      let placedAny = false;
-      for (const s of arr) {
-        if (s.stake > 0) {
-          const selections = [{ fight_id: FIGHTS[s.i]?._dbId, picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds }];
-          const { data: res, error } = await sb.rpc('place_bet', { p_event_id: eventId, p_type: 'single', p_stake: s.stake, p_total_odds: s.odds, p_selections: selections });
-          if (error || !res || !res.ok) { await refreshBalance(); alert(betError(res, error)); continue; }
-          updateBalance(res.balance); placedAny = true;
-          const finalOdds = res.total_odds != null ? Number(res.total_odds) : s.odds;
-          state.tickets.unshift({ _dbId: res.ticket_id, type: 'single',
-            sels: [{ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name, redName: FIGHTS[s.i]?.red.name, blueName: FIGHTS[s.i]?.blue.name }],
-            stake: s.stake, odds: finalOdds, status: 'open', placedAt: serverNow() });
-          window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'single', event_name: state.eventName||'', num_picks:1, fb_event_id: fbTrackTicket(), external_id: (currentUser && currentUser.id) || ''});
+    const body = await req.json()
+    if (body.notify) {
+      const providedSecret = req.headers.get('X-Admin-Secret') || ''
+      if (!ADMIN_NOTIFY_SECRET || providedSecret !== ADMIN_NOTIFY_SECRET) {
+        return new Response(JSON.stringify({ ok: false, error: 'unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Access-Control-Allow-Origin': '*' } })
+      }
+      if (ADMIN_CHAT_ID) await sendMsg(ADMIN_CHAT_ID, body.notify)
+      return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { ...corsHeaders, 'Access-Control-Allow-Origin': '*' } })
+    }
+    const tgSecret = req.headers.get('X-Telegram-Bot-Api-Secret-Token') || ''
+    if (!TG_WEBHOOK_SECRET || tgSecret !== TG_WEBHOOK_SECRET) {
+      return new Response('OK', { status: 200 })
+    }
+    const msg = body.message
+    if (!msg || !msg.text) return new Response('OK', { status: 200 })
+    const chatId = msg.chat.id
+    const text = msg.text.toLowerCase().trim()
+    if (!ADMIN_CHAT_ID || String(chatId) !== String(ADMIN_CHAT_ID)) {
+      await sendMsg(chatId, '⛔ არ გაქვს წვდომა')
+      return new Response('OK', { status: 200 })
+    }
+    let response = ''
+    // ── გენერალური ბრძანებები, სამივე სპორტის ჯვარედინი — არცერთ sport-პრეფიქსს არ ეკუთვნის ──
+    // "ბილეთები" — მხოლოდ ზუსტი დამთხვევა, რომ "ufc ბილეთები"/"f1 ბილეთები"/"nba ბილეთები"
+    // შესაბამის sport-ბრენჩში ჩავარდეს და არა აქ (ეს ბლოკი პირველია რიგში).
+    if (text === 'ბილეთები' || text === 'ბილეთი' || text === 'tickets' || text === 'ticket' || text.includes('აქტივობ')) {
+      response = await cmdTicketActivity(chatId)
+    }
+    else if (text.includes('ვერიფიც')) {
+      response = await cmdVerifiedUsers(chatId)
+    }
+    // ── NBA ბრძანებები (F1-ის მსგავსად პრეფიქსით — UFC-ის ბრენჩში რომ არ ჩავარდეს) ──
+    else if (text.startsWith('nba') || text.startsWith('/nba')) {
+      const t = text.replace(/^\/?nba\s*/, '')
+      if (t.includes('ბილეთ') || t.includes('ticket') || t.includes('აქტიურ')) {
+        response = await cmdNbaActiveTickets(chatId)
+      } else if (t.includes('სტატუს') || t.includes('status') || t === '') {
+        response = await cmdNbaStatus(chatId)
+      } else if (t.includes('კოეფ') || t.includes('odds')) {
+        await sendMsg(chatId, '⏳ Odds API...')
+        response = await cmdNbaOdds(chatId)
+      } else if (t.includes('შედეგ') || t.includes('result')) {
+        await sendMsg(chatId, '⏳ ESPN-დან NBA შედეგები...')
+        response = await cmdNbaResults(chatId)
+      } else if (t.includes('settle') || t.includes('დამუშავ')) {
+        await sendMsg(chatId, '⏳ NBA Settlement...')
+        response = await cmdNbaSettle(chatId)
+      } else if (t.includes('რესეტ') || t.includes('reset')) {
+        response = await cmdNbaReset(chatId, t.includes('force') || t.includes('ძალით'))
+      } else {
+        response = '🤷 ვერ გავიგე. NBA ბრძანებები: <b>help</b>'
+      }
+    }
+    // ── F1 ბრძანებები (ჯერ ეს — "f1 კოეფ" UFC-ის ბრენჩში რომ არ ჩავარდეს) ──
+    else if (text.startsWith('f1') || text.startsWith('/f1')) {
+      const t = text.replace(/^\/?f1\s*/, '')
+      if (t.includes('ბილეთ') || t.includes('ticket') || t.includes('აქტიურ')) {
+        response = await cmdF1ActiveTickets(chatId)
+      } else if (t.includes('სტატუს') || t.includes('status') || t === '') {
+        response = await cmdF1Status(chatId)
+      } else if (t.includes('კოეფ') || t.includes('odds')) {
+        await sendMsg(chatId, '⏳ Cloudbet კოეფები...')
+        response = await cmdF1Odds(chatId)
+      } else if (t.includes('შედეგ') || t.includes('result')) {
+        // ნომრით → ხელით; ნომრის გარეშე → ESPN-იდან ავტომატურად
+        if (/(race|quali|sprint)\s+\d/.test(t)) {
+          response = await cmdF1Result(chatId, t)
+        } else {
+          await sendMsg(chatId, '⏳ ESPN-დან F1 შედეგების წამოღება...')
+          response = await cmdF1ResultAuto(chatId)
         }
+      } else if (t.includes('მძღოლ') || t.includes('driver')) {
+        response = await cmdF1Drivers(chatId)
+      } else if (t.includes('settle') || t.includes('დამუშავ')) {
+        await sendMsg(chatId, '⏳ F1 Settlement...')
+        response = await cmdF1Settle(chatId)
+      } else if (t.includes('რესეტ') || t.includes('reset')) {
+        response = await cmdF1Reset(chatId, t.includes('force') || t.includes('ძალით'))
+      } else if (t.includes('სრულად') || t.includes('full')) {
+        response = await cmdF1Full(chatId)
+      } else if (t.includes('ივენთ') || t.includes('რბოლ') || t.includes('race') || t.includes('event')) {
+        await sendMsg(chatId, '⏳ ESPN-დან F1 რბოლის ძებნა...')
+        response = await cmdF1CreateEvent(chatId)
+      } else {
+        response = '🤷 ვერ გავიგე. F1 ბრძანებები: <b>help</b>'
       }
-      if (!placedAny) { updateTotals(); return; }
     }
-    state.picks = {}; state.expressStake = 0;
-    closeSlip(); refresh(); renderSlip(); renderTickets();
+    // ── FOOTBALL გენერალური ("ფეხბურთი" / football — ყველა ლიგა ერთად) ──
+    else if (text.startsWith('ფეხბურთ') || text.startsWith('football') || text.startsWith('/football')) {
+      const t = text.replace(/^\/?(football|ფეხბურთ\S*)\s*/, '')
+      if (t.includes('ბილეთ') || t.includes('ticket') || t.includes('აქტიურ')) {
+        response = await cmdFbAllTickets()
+      } else if (t.includes('სტატუს') || t.includes('status') || t === '') {
+        response = await cmdFbAllStatus()
+      } else {
+        response = 'ℹ️ ფეხბურთის კოეფები/გუნდები/შედეგები კონკრეტულ ლიგაზეა.\nმაგ: <b>laliga კოეფები</b>, <b>ucl გუნდები</b>, <b>epl შედეგები</b>.\nლიგები: laliga · epl · seriea · bundesliga · ligue1 · ucl'
+      }
+    }
+    // ── FOOTBALL ბრძანებები (ლიგის პრეფიქსით: laliga/epl/seriea/bundesliga/ligue1/ucl) ──
+    else if (matchFootballLeague(text)) {
+      const L = matchFootballLeague(text)!
+      const t = L.rest
+      if (t.includes('ბილეთ') || t.includes('ticket') || t.includes('აქტიურ')) {
+        response = await cmdFbTickets(L)
+      } else if (t.includes('კოეფ') || t.includes('odds')) {
+        response = await cmdFbOdds(L)
+      } else if (t.includes('გუნდ') || t.includes('team') || t.includes('მატჩ') || t.includes('fixture') || t.includes('ფიქსტ')) {
+        response = await cmdFbFixtures(L)
+      } else if (t.includes('ივენთ') || t.includes('event')) {
+        await sendMsg(chatId, '⏳ ESPN-დან ფიქსტურები...')
+        response = await cmdFbEvent(L)
+      } else if (t.includes('შედეგ') || t.includes('result')) {
+        response = await cmdFbResults(L)
+      } else if (t.includes('settle') || t.includes('დამუშავ')) {
+        await sendMsg(chatId, '⏳ Football settlement...')
+        response = await cmdFbSettle(L)
+      } else if (t.includes('რესეტ') || t.includes('reset')) {
+        response = await cmdFbReset(L, t.includes('force') || t.includes('ძალით'))
+      } else {
+        response = await cmdFbStatus(L)
+      }
+    }
+    else if (text === '/start' || text === 'help' || text === '/help') {
+      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── გენერალური ბრძანებები ──</b>\n🎫 <b>ბილეთები</b> — აქტიური ბილეთები (სამივე სპორტი ჯვარედინად + ჯამი სპორტების მიხედვით)\n✅ <b>ვერიფიცირებული იუზერები</b> — რამდენ მომხმარებელს აქვს ნომერი/ტელეგრამი\n\n<b>── UFC ──</b>\n📥 <b>ufc ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🔃 <b>ufc ბრძოლები</b> — არსებულ ივენთს ESPN-ს ადარებს, დაკლებულ ბრძოლებს ამატებს\n🖼️ <b>ufc ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>ufc კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>ufc შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>ufc settle</b> — ბილეთების დამუშავება\n🔄 <b>ufc სრულად</b> — ყველაფერი ერთად\n🎫 <b>ufc ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>ufc სტატუსი</b> — მდგომარეობა\n💰 <b>ufc რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)\n\n<b>── ⚽️ ფეხბურთი ──</b>\n<i>ლიგები: laliga · epl · seriea · bundesliga · ligue1 · ucl</i>\n📋 <b>laliga</b> — სტატუსი (ტური/მატჩები/ბილეთები)\n📊 <b>laliga კოეფები</b> — მიმდინარე ტურის კოეფები (1X2 + ტოტალი)\n⚽️ <b>laliga გუნდები</b> — ტურის მატჩები\n📥 <b>laliga ივენთი</b> — ESPN ფიქსტურები (რისი წამოღებაც შეიძლება)\n🏆 <b>laliga შედეგები</b> — დასრულებული მატჩები\n🏁 <b>laliga settle</b> — ტურის settlement\n🎫 <b>laliga ბილეთები</b> — აქტიური ბილეთები\n💰 <b>laliga რესეტი</b> — ბალანსები → 1,000\n<i>იგივე ბრძანებები ყველა ლიგაზე (მაგ. ucl კოეფები, epl გუნდები).</i>`
+    }
+    else if (text.startsWith('ufc') || text.startsWith('/ufc')) {
+      const t = text.replace(/^\/?ufc\s*/, '')
+      if (t.includes('სინქ') || t.includes('ბრძოლ') || t === 'განახლება') {
+        await sendMsg(chatId, '⏳ ESPN-ს ვადარებ არსებულ ივენთს...')
+        response = await cmdSyncFights(chatId)
+      } else if (t.includes('ივენთ') || t.includes('event')) {
+        await sendMsg(chatId, '⏳ ESPN-დან ძებნა...')
+        response = await cmdUpdateEvent(chatId)
+      } else if (t.includes('ფოტო') || t.includes('photo')) {
+        await sendMsg(chatId, '⏳ ფოტოების განახლება...')
+        response = await cmdUpdatePhotos(chatId)
+      } else if (t.includes('კოეფ') || t.includes('odds')) {
+        await sendMsg(chatId, '⏳ Odds API...')
+        response = await cmdUpdateOdds(chatId)
+      } else if (t.includes('შედეგ') || t.includes('result')) {
+        await sendMsg(chatId, '⏳ ESPN შედეგები...')
+        response = await cmdFetchResults(chatId)
+      } else if (t.includes('settle') || t.includes('დამუშავება')) {
+        await sendMsg(chatId, '⏳ Settlement...')
+        response = await cmdSettle(chatId)
+      } else if (t.includes('სრულად') || t.includes('full')) {
+        response = await cmdFull(chatId)
+      } else if (t.includes('ბილეთ') || t.includes('ticket') || t.includes('აქტიურ')) {
+        response = await cmdActiveTickets(chatId)
+      } else if (t.includes('სტატუს') || t.includes('status') || t === '') {
+        response = await cmdStatus(chatId)
+      } else if (t.includes('რესეტ') || t.includes('reset')) {
+        await sendMsg(chatId, '⏳ ბალანსების რესეტი...')
+        response = await cmdResetBalances(chatId, t.includes('force') || t.includes('ძალით'))
+      } else {
+        response = '🤷 ვერ გავიგე. UFC ბრძანებები: <b>help</b>'
+      }
+    }
+    else {
+      response = '🤷 ვერ გავიგე. დაწერე <b>help</b> კომანდების სანახავად.'
+    }
+    await sendMsg(chatId, response)
+    return new Response('OK', { status: 200 })
   } catch (e) {
-    console.warn('placeBets failed:', e);
-    await refreshBalance(); updateTotals();
-    alert('ფსონი ვერ დაიდო — სცადე თავიდან');
-  } finally {
-    const pb2 = document.getElementById('placeBtn'); if (pb2) pb2.disabled = false;
-    updateTotals();
+    console.error('Bot error:', e)
+    return new Response('OK', { status: 200 })
   }
-}
-
-// ── TICKETS ──
-function renderTickets() {
-  const activeList = $('activeTickets'), historyList = $('historyTickets'), singleList = $('ticketsList');
-  const activeTickets = state.tickets.filter(t => t.status === 'open');
-  // #6: void (სრულად ანულირებული) ბილეთიც ისტორიაში ჩანს — stake დაბრუნებულია
-  const historyTickets = state.tickets.filter(t => ['won','lost','cashout','void'].includes(t.status)).sort((a, b) => (b.placedAt || 0) - (a.placedAt || 0));
-
-  const summaryEl = $('tkSummary'); if (summaryEl) summaryEl.textContent = state.tickets.length + ' ბილეთი';
-  const activeBadge = $('activeBadge'); if (activeBadge) activeBadge.textContent = activeTickets.length;
-  const historyBadge = $('historyBadge'); if (historyBadge) historyBadge.textContent = historyTickets.length;
-
-  const stLabel = { open: 'მიმდინარე', won: 'მოგებული', lost: 'წაგებული', cashout: 'ქეშაუთი', pending: 'მიმდინარე', void: 'ანულირებული' };
-  const cashoutOk = canCashout();
-
-  // #15: leg-ის შედეგი მხოლოდ სერვერის მიერ ჩაწერილია (result სვეტი) — კლიენტი აღარ „ხვდება"
-  const selResult = (s) => (s.res === 'ok' || s.res === 'no' || s.res === 'void') ? s.res : null;
-
-  const renderTicketCard = (t) => {
-    const realIdx = state.tickets.indexOf(t);
-    const key = t._dbId != null ? String(t._dbId) : ('idx' + realIdx);
-    const showCashout = t.status === 'open' && cashoutOk;
-    const totalOdds = Number(t.odds || 0).toFixed(2);
-    const potentialWin = Math.round((t.stake || 0) * (t.odds || 0));
-    const isCollapsed = state.tkCollapsed[key] !== false;
-    // #6: void leg-ები ბილეთიდან ქრება — მხოლოდ აქტიური პოზიციები ჩანს
-    const visSels = t.sels.filter(s => selResult(s) !== 'void');
-    const statusColor = t.status === 'won' ? 'var(--green)' : (t.status === 'lost' ? 'var(--red-soft)' : (t.status === 'cashout' ? 'var(--gold)' : (t.status === 'void' ? 'var(--muted)' : '#ff9d3c')));
-    const winColor = t.status === 'won' ? 'var(--green)' : t.status === 'lost' ? 'var(--red-soft)' : 'var(--gold)';
-    const winText = t.status === 'won' ? '+' + fmt(potentialWin) : fmt(potentialWin);
-    const collapsedView = `<div class="tk-collapsed-info">
-        <div class="tkc-col"><span class="tkc-lbl">პოზიცია</span><span class="tkc-val">${visSels.length}</span></div>
-        <div class="tkc-col"><span class="tkc-lbl">ფსონი</span><span class="tkc-val">${fmt(t.stake)}</span></div>
-        <div class="tkc-col"><span class="tkc-lbl">კოეფ.</span><span class="tkc-val">${totalOdds}</span></div>
-        <div class="tkc-col"><span class="tkc-lbl">${t.status === 'cashout' ? 'ქეშაუთი' : t.status === 'void' ? 'დაბრუნდა' : 'შესაძლო მოგება'}</span><span class="tkc-val" style="color:${winColor}">${t.status === 'cashout' ? '✓' : t.status === 'void' ? fmt(t.stake) : winText}</span></div>
-      </div>`;
-    return `
-    <div class="ticket tk-${t.status} ${isCollapsed ? 'collapsed' : ''}">
-      <div class="tk-head" data-tktoggle="${key}" style="cursor:pointer">
-        <div class="tk-head-left"><span class="tk-status ${t.status}" style="color:${statusColor}">${stLabel[t.status] || t.status}</span><span class="tk-type">${t.type === 'express' ? 'ექსპრესი · ' + visSels.length + ' მოვლენა' : 'სინგლი'}</span></div>
-        <span class="tk-arrow ${isCollapsed ? '' : 'open'}">▾</span>
-      </div>
-      ${isCollapsed ? collapsedView : `
-      <div class="tk-sels">
-        ${visSels.length === 0 ? '<div class="tk-empty" style="padding:10px">ყველა პოზიცია გაუქმდა — ფსონი დაბრუნებულია</div>' : visSels.map(s => {
-          const parts = s.name.split(' · '); const fighterName = (parts[0] || '').replace(' მოგება', ''); const extras = parts.slice(1).join(' · ');
-          const isRed = s.fighter === 'red';
-          const f = (s.i >= 0 && s.i < FIGHTS.length) ? FIGHTS[s.i] : null;
-          const redName = s.redName || (f ? f.red.name : ''); const blueName = s.blueName || (f ? f.blue.name : '');
-          const pickLabel = extras || 'გამარჯვებული';
-          const res = selResult(s); const resCls = res === 'ok' ? 'ok' : res === 'no' ? 'no' : ''; const resTxt = res === 'ok' ? '✓' : res === 'no' ? '✗' : '';
-          return `<div class="tk-sel"><div class="tk-sel-main">
-              <div class="tk-sel-fighters"><span class="tk-sel-dot red"></span><span class="tk-sel-red">${redName || 'Red'}</span><span class="tk-sel-vs">vs</span><span class="tk-sel-blue">${blueName || 'Blue'}</span><span class="tk-sel-dot blue"></span></div>
-              <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}">${fighterName} — ${pickLabel}</div></div>
-            <div class="tk-sel-right">${resTxt ? `<span class="tk-sel-result ${resCls}">${resTxt}</span>` : ''}<span class="tk-sel-odds">${Number(s.odds || 0).toFixed(2)}</span></div></div>`;
-        }).join('')}
-      </div>
-      <div class="tk-foot"><span class="tk-foot-type">${t.type === 'express' ? 'ექსპრესი' : 'სინგლი'}</span><span class="tk-foot-pay">
-          ${t.status === 'won' ? '<span style="color:var(--green)">+' + fmt(potentialWin) + ' ქულა</span>'
-            : t.status === 'lost' ? '<span style="color:var(--red-soft)">' + fmt(potentialWin) + ' ქულა</span>'
-            : t.status === 'cashout' ? '<span style="color:var(--gold)">ქეშაუთი</span>'
-            : t.status === 'void' ? '<span style="color:var(--muted)">' + fmt(t.stake) + ' ქულა დაბრუნდა</span>'
-            : '<span class="tk-foot-label">შეს. მოგება</span><span style="color:var(--gold)">' + fmt(potentialWin) + '</span>'}
-        </span></div>
-      ${showCashout ? `<button class="cashout-btn" data-co="${realIdx}">${cashoutLabel(t)}</button>` : ''}
-      `}
-    </div>`;
-  };
-
-  if (activeList && historyList) {
-    activeList.innerHTML = activeTickets.length === 0 ? '<div class="tk-empty">აქტიური ბილეთი არ არის. აირჩიე კოეფიციენტი და დადე პირველი ფსონი.</div>' : activeTickets.map(renderTicketCard).join('');
-    historyList.innerHTML = historyTickets.length === 0 ? '<div class="tk-empty">ისტორია ცარიელია.</div>' : historyTickets.map(renderTicketCard).join('');
-  } else if (singleList) {
-    const all = [...activeTickets, ...historyTickets];
-    singleList.innerHTML = all.length === 0 ? '<div class="tk-empty">ბილეთი ჯერ არ გაქვს. აირჩიე კოეფიციენტი და დადე პირველი ფსონი.</div>' : all.map(renderTicketCard).join('');
-  }
-  document.querySelectorAll('[data-co]').forEach(b => b.onclick = (e) => { e.stopPropagation(); doCashout(+b.dataset.co); });
-  document.querySelectorAll('[data-tktoggle]').forEach(b => b.onclick = () => { const key = b.dataset.tktoggle; state.tkCollapsed[key] = state.tkCollapsed[key] === false ? true : false; renderTickets(); });
-}
-
-// ── BALANCE / BAR ──
-function updateBalance(val) { if (!Number.isFinite(+val)) return; _balanceKnown = true; state.balance = +val; const el = document.getElementById('balNav'); if (el) el.textContent = fmt(val); }
-// რეალური ბალანსი DB-დან — რომ UI ყოველთვის სიმართლეს აჩვენებდეს
-async function refreshBalance() {
-  if (!currentUser) return;
-  try { const { data } = await sb.from('users').select('balance').eq('id', currentUser.id).maybeSingle();
-    if (data && data.balance != null) { currentUser.balance = data.balance; updateBalance(data.balance); } } catch (e) {}
-}
-// სერვერის შეცდომების ქართული თარგმანი
-function betError(res, error) {
-  const e = (res && res.error) || (error && error.message) || '';
-  const map = {
-    'insufficient balance': 'არასაკმარისი ქულები ბალანსზე',
-    'betting closed': 'ფსონების მიღება დასრულებულია',
-    'odds not available': 'ამ ბრძოლას კოეფიციენტი ჯერ არ აქვს',
-    'invalid selection or odds not available yet': 'ამ ბრძოლას კოეფიციენტი ჯერ არ აქვს',
-    'not authenticated': 'გთხოვ, გაიარე ავტორიზაცია',
-    'fight not open': 'ეს ბრძოლა ფსონისთვის დაკეტილია',
-    'fight is not open for betting': 'ეს ბრძოლა ფსონისთვის დაკეტილია',
-    'event not found': 'ივენთი ვერ მოიძებნა',
-    'cashout closed': 'ქეშაუთი დახურულია',
-    'ticket not open': 'ბილეთი უკვე დამუშავებულია',
-    'ticket not found': 'ბილეთი ვერ მოიძებნა'
-  };
-  return map[e] || ('ფსონი ვერ დაიდო: ' + (e || 'უცნობი შეცდომა'));
-}
-function renderBar() {
-  const n = picksArr().length;
-  document.getElementById('bbCoef').textContent = (n ? comboOdds() : 1).toFixed(2);
-  document.getElementById('balNav').textContent = _balanceKnown ? fmt(state.balance) : '…';
-  document.getElementById('bbCount').textContent = n;
-  document.getElementById('betbar').classList.toggle('show', n > 0 && !isBettingClosed());
-}
-
-// ── LEADERBOARD ──
-const LEADERBOARD = [];
-const AVATAR_ICONS = ['🥊','🏆','🔥','⚡','💪','🦁','🐺','👊','💎','🎯','⭐','🦅'];
-let _contactPopupShown = false;
-function hasContact(user) { return !!(user && (user.phone || user.telegram)); }
-// ინდივიდუალურად ამოწმებს რა აკლია იუზერს — რომელიმე თუ აკლია, popup ამოხტება
-function needsProfileInfo(user) {
-  if (!user) return false;
-  return !(user.phone || user.telegram) || !user.birth_year || !user.gender;
-}
-
-function showContactInfoPopup() {
-  if (_contactPopupShown || !currentUser) return; _contactPopupShown = true;
-  const m = document.getElementById('contactInfoModal'); if (!m) return;
-  const ciPhoneEl = document.getElementById('ciPhone'); if (ciPhoneEl) ciPhoneEl.value = currentUser.phone || '';
-  const ciTgEl = document.getElementById('ciTelegram'); if (ciTgEl) ciTgEl.value = currentUser.telegram || '';
-  const ciByEl = document.getElementById('ciBirthYear'); if (ciByEl) ciByEl.value = currentUser.birth_year || '';
-  document.querySelectorAll('input[name="ciGender"]').forEach(r => { r.checked = (currentUser.gender === r.value); });
-
-  // მხოლოდ ის ვაჩვენოთ, რაც აკლია
-  const contactWrap = document.getElementById('ciContactWrap');
-  if (contactWrap) contactWrap.style.display = hasContact(currentUser) ? 'none' : 'block';
-  const byField = document.getElementById('ciBirthYearField'); if (byField) byField.style.display = currentUser.birth_year ? 'none' : 'block';
-  const gField = document.getElementById('ciGenderField'); if (gField) gField.style.display = currentUser.gender ? 'none' : 'block';
-
-  const ciErr = document.getElementById('ciError'); if (ciErr) ciErr.style.display = 'none';
-  m.classList.add('show');
-}
-function closeContactInfoPopup() { const m = document.getElementById('contactInfoModal'); if (m) m.classList.remove('show'); }
-
-async function saveContactInfo() {
-  const phone = (document.getElementById('ciPhone') && document.getElementById('ciPhone').value || '').trim();
-  const telegram = (document.getElementById('ciTelegram') && document.getElementById('ciTelegram').value || '').trim();
-  const birthYearRaw = (document.getElementById('ciBirthYear') && document.getElementById('ciBirthYear').value || '').trim();
-  const genderEl = document.querySelector('input[name="ciGender"]:checked');
-  const gender = genderEl ? genderEl.value : '';
-  const errEl = document.getElementById('ciError');
-  const showErr = msg => { if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; } };
-
-  // ვამოწმებთ მხოლოდ იმას, რაც აკლია (ანუ რაც ჩანს popup-ში)
-  if (!hasContact(currentUser)) {
-    if (!phone && !telegram) { showErr('შეიყვანე მინიმუმ ერთი: ნომერი ან ტელეგრამი'); return; }
-  }
-  if (!currentUser.birth_year) {
-    if (!birthYearRaw || !/^\d{4}$/.test(birthYearRaw) || +birthYearRaw < 1900 || +birthYearRaw > 2015) { showErr('შეიყვანე სწორი დაბადების წელი (მაგ. 1998)'); return; }
-  }
-  if (!currentUser.gender && !gender) { showErr('აირჩიე სქესი'); return; }
-
-  const updates = {};
-  if (phone) updates.phone = phone;
-  if (telegram) updates.telegram = telegram.replace(/^@/, '');
-  if (!currentUser.birth_year && birthYearRaw) updates.birth_year = +birthYearRaw;
-  if (!currentUser.gender && gender) updates.gender = gender;
-
-  if (Object.keys(updates).length === 0) { closeContactInfoPopup(); return; }
-
-  try {
-    const { data, error } = await sb.from('users').update(updates).eq('id', currentUser.id).select('id,phone,telegram,birth_year,gender');
-    if (error) { showErr((error.message && error.message.toLowerCase().includes('column')) ? 'სვეტები DB-ში ჯერ არ არსებობს — გაუშვი migration' : ('შენახვა ვერ მოხერხდა: ' + error.message)); return; }
-    if (!data || data.length === 0) { showErr('შენახვა დაბლოკილია (RLS).'); return; }
-    currentUser.phone = data[0].phone || null;
-    currentUser.telegram = data[0].telegram || null;
-    currentUser.birth_year = data[0].birth_year || null;
-    currentUser.gender = data[0].gender || null;
-  } catch (e) { showErr('შეცდომა: ' + e.message); return; }
-  closeContactInfoPopup(); renderLeaderboard();
-}
-$on('ciSave', 'click', saveContactInfo);
-$on('ciSkip', 'click', closeContactInfoPopup);
-$on('contactInfoModal', 'click', e => { if (e.target.id === 'contactInfoModal') closeContactInfoPopup(); });
-
-function renderLeaderboard() {
-  const fullSorted = LEADERBOARD.map((r, i) => ({ ...r, rank: i + 1 }));
-  const meIdx = currentUser ? fullSorted.findIndex(r => r.id === currentUser.id) : -1;
-  let display;
-  if (meIdx >= 0 && meIdx < 10) display = fullSorted.slice(0, 10);
-  else if (meIdx >= 10) display = fullSorted.slice(0, 9).concat([fullSorted[meIdx]]);
-  else display = fullSorted.slice(0, 10);
-  const checkSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M6 12l4 4 8-8"/></svg>';
-  const lbRows = document.getElementById('lbRows'); if (!lbRows) return;
-  lbRows.innerHTML = display.map(r => {
-    const you = currentUser && r.id === currentUser.id;
-    const sign = r.pts > 0 ? '+' : '';
-    const verified = (r.verified !== undefined) ? !!r.verified : !!(r.phone || r.telegram);
-    const badge = verified ? '<span class="lb-verified-badge" title="ვერიფიცირებული">' + checkSvg + '</span>' : '';
-    const nm = r.name || '—';
-    const nmSize = nm.length > 16 ? '.78rem' : nm.length > 12 ? '.88rem' : '1rem';
-    const ptsStr = sign + fmt(r.pts);
-    const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
-    return `<div class="lb-row ${you ? 'you' : ''}${verified ? ' verified-row' : ''}">
-      <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
-      <span class="lb-user"><span class="lb-ava-glove">${r.icon || '🥊'}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name" style="font-size:${nmSize}">${nm}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
-      <span class="lb-roi"></span><span class="lb-pts" style="font-size:${ptsSize}">${ptsStr}</span></div>`;
-  }).join('');
-  renderLbFullButton(fullSorted);
-}
-
-function renderLbFullButton(fullSorted) {
-  const lbWrap = document.querySelector('#leaderboard .lb'); if (!lbWrap) return;
-  let btn = document.getElementById('lbFullBtn');
-  if (fullSorted.length > 10) {
-    if (!btn) { btn = document.createElement('button'); btn.id = 'lbFullBtn'; btn.className = 'lb-full-btn'; btn.textContent = 'სრულად'; lbWrap.parentNode.appendChild(btn); }
-    btn.onclick = () => openLbPopup(fullSorted); btn.style.display = 'block';
-  } else if (btn) { btn.style.display = 'none'; }
-}
-
-function openLbPopup(fullSorted) {
-  const overlay = document.createElement('div'); overlay.className = 'lb-popup-bg';
-  const checkSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="M6 12l4 4 8-8"/></svg>';
-  const rowsHtml = fullSorted.map(r => {
-    const you = currentUser && r.id === currentUser.id; const sign = r.pts > 0 ? '+' : '';
-    const verified = (r.verified !== undefined) ? !!r.verified : !!(r.phone || r.telegram);
-    const badge = verified ? '<span class="lb-verified-badge" title="ვერიფიცირებული">' + checkSvg + '</span>' : '';
-    const nm = r.name || '—';
-    const nmSize = nm.length > 16 ? '.78rem' : nm.length > 12 ? '.88rem' : '1rem';
-    const ptsStr = sign + fmt(r.pts);
-    const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
-    return `<div class="lb-row ${you ? 'you' : ''}${verified ? ' verified-row' : ''}">
-      <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
-      <span class="lb-user"><span class="lb-ava-glove">${r.icon || '🥊'}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name" style="font-size:${nmSize}">${nm}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
-      <span class="lb-pts" style="font-size:${ptsSize}">${ptsStr}</span></div>`;
-  }).join('');
-  overlay.innerHTML = `<div class="lb-popup"><div class="lb-popup-head"><h3>სრული ლიდერბორდი</h3><button class="x" id="lbPopupClose" aria-label="დახურვა">&times;</button></div><div class="lb-popup-body">${rowsHtml}</div></div>`;
-  document.body.appendChild(overlay);
-  const close = () => document.body.removeChild(overlay);
-  document.getElementById('lbPopupClose').onclick = close;
-  overlay.onclick = e => { if (e.target === overlay) close(); };
-}
-
-let _currentLbPeriod = 'goat';
-function periodStartDate(period) {
-  // #19: სერვერის დროზე — რომ ლიდერბორდის პერიოდი ყველა მომხმარებელს ერთნაირი ჰქონდეს
-  const now = new Date(serverNow()); const y = now.getFullYear(), m = now.getMonth();
-  if (period === '1m') return new Date(y, m, 1);
-  if (period === '3m') return new Date(y, m - 2, 1);
-  if (period === '6m') return new Date(y, m - 5, 1);
-  if (period === '1y') return new Date(y - 1, m, 1);
-  return new Date(2020, 0, 1);
-}
-
-async function loadLeaderboard(period) {
-  if (period) _currentLbPeriod = period;
-  try {
-    let rows;
-    if (_currentLbPeriod === 'goat') {
-      const { data, error } = await sb.from('leaderboard_view').select('*').order('score', { ascending: false });
-      if (error || !data) return;
-      rows = data.map(u => ({ id: u.id, name: u.nick || '—', pts: Number(u.score) || 0, icon: u.icon || '🥊', verified: (u.verified !== undefined) ? !!u.verified : !!(u.phone || u.telegram) }));
-    } else {
-      const since = periodStartDate(_currentLbPeriod).toISOString();
-      let { data: hist, error: hErr } = await sb.from('score_history').select('user_id, amount, created_at').gte('created_at', since);
-      if (hErr) { const retry = await sb.from('score_history').select('user_id, amount, created_at'); hist = retry.data; hErr = retry.error; }
-      if (hErr || !hist) { LEADERBOARD.length = 0; renderLeaderboard(); renderLbTabs(); return; }
-      const { data: usersData } = await sb.from('leaderboard_view').select('*');
-      const userMap = {};
-      (usersData || []).forEach(u => { userMap[u.id] = { nick: u.nick || '—', icon: u.icon || '🥊', verified: (u.verified !== undefined) ? !!u.verified : !!(u.phone || u.telegram) }; });
-      const map = {};
-      hist.forEach(h => { const uid = h.user_id; if (!map[uid]) map[uid] = { id: uid, name: userMap[uid]?.nick || '—', icon: userMap[uid]?.icon || '🥊', pts: 0, verified: userMap[uid]?.verified || false }; map[uid].pts += Number(h.amount) || 0; });
-      rows = Object.values(map).filter(r => r.pts > 0).sort((a, b) => b.pts - a.pts);
-    }
-    LEADERBOARD.length = 0; rows.forEach(r => LEADERBOARD.push(r));
-    renderLeaderboard(); renderLbTabs();
-  } catch (e) { console.warn('loadLeaderboard failed:', e); }
-}
-
-function renderLbTabs() {
-  const tabs = document.getElementById('lbTabs'); if (!tabs) return;
-  const periods = [{ key: '1m', label: 'მიმდინარე თვე' }, { key: 'goat', label: 'G.O.A.T' }];
-  tabs.innerHTML = periods.map(p => `<button class="lb-tab ${_currentLbPeriod === p.key ? 'on' : ''}" data-period="${p.key}">${p.label}</button>`).join('');
-  tabs.querySelectorAll('.lb-tab').forEach(b => { b.onclick = () => loadLeaderboard(b.dataset.period); });
-}
-
-// ── LIVE RESULTS ──
-async function loadLiveResults() {
-  const eventId = window.__currentEventId; if (!eventId) return;
-  const ed = window.__eventDate; const diffH = ed ? (serverNow() - ed.getTime()) / 3600000 : 0;
-  if (ed && diffH < 0) return; if (ed && diffH > 48) return;
-  try {
-    const { data: fights } = await sb.from('fights').select('id,status,result_winner,is_voided,result_method,result_round,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)').eq('event_id', eventId);
-    if (!fights) return;
-    let changed = false;
-    fights.forEach(f => {
-      const idx = FIGHTS.findIndex(x => x._dbId === f.id); if (idx < 0) return;
-      let rw = null;
-      if (f.status === 'completed' && f.result_winner) { if (f.result_winner === f.red?.name) rw = 'red'; else if (f.result_winner === f.blue?.name) rw = 'blue'; else rw = null; }
-      const iv = f.is_voided === true;
-      if (FIGHTS[idx].resultWinner !== rw || FIGHTS[idx].status !== f.status || FIGHTS[idx].isVoided !== iv) { FIGHTS[idx].resultWinner = rw; FIGHTS[idx].status = f.status || 'upcoming'; FIGHTS[idx].isVoided = iv; FIGHTS[idx].resultMethod = f.result_method || null; FIGHTS[idx].resultRound = f.result_round || null; changed = true; }
-    });
-    if (changed) { renderMarkets(); if (currentUser) { try { await loadUserTickets(); renderTickets(); } catch (e) {} } await loadLeaderboard(); }
-  } catch (e) { console.warn('loadLiveResults failed:', e); }
-}
-
-// ── LOAD USER TICKETS ──
-async function loadUserTickets() {
-  if (!currentUser) return;
-  try {
-    const { data: rows, error } = await sb.from('tickets')
-      .select(`id,type,stake,total_odds,status,placed_at,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds,result,fight:fights!fight_id(id,status,result_winner,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)))`)
-      .eq('user_id', currentUser.id).order('placed_at', { ascending: false });
-    if (error || !rows) return;
-    const statusMap = { pending: 'open', open: 'open', won: 'won', lost: 'lost', cashout: 'cashout', void: 'void' };
-    state.tickets = rows.map(tk => ({
-      _dbId: tk.id, type: tk.type,
-      sels: (tk.ticket_selections || []).map(s => {
-        const i = FIGHTS.findIndex(f => f._dbId === s.fight_id);
-        const ffight = s.fight || null;
-        const redName = ffight?.red?.name || '', blueName = ffight?.blue?.name || '';
-        const fighterName = s.picked_fighter === 'red' ? redName : blueName;
-        // #15: მხოლოდ settlement-ის მიერ ჩაწერილი საბოლოო შედეგი — კლიენტი აღარ ითვლის
-        const res = s.result || null;
-        return { i, fighter: s.picked_fighter, round: s.picked_round, method: s.picked_method, odds: Number(s.odds), name: rebuildSelNameDB(fighterName, s), redName, blueName, res };
-      }),
-      stake: Number(tk.stake), odds: Number(tk.total_odds), status: statusMap[tk.status] || tk.status,
-      placedAt: tk.placed_at ? new Date(tk.placed_at).getTime() : serverNow()
-    }));
-  } catch (e) { console.warn('loadUserTickets failed:', e); }
-}
-function rebuildSelNameDB(fighterName, s) {
-  const a = [];
-  if (fighterName) a.push(fighterName + ' მოგება'); else if (s.picked_fighter) a.push((s.picked_fighter === 'red' ? 'Red' : 'Blue') + ' მოგება');
-  if (s.picked_round) a.push(s.picked_round + '-ე რაუნდი'); if (s.picked_method) a.push(s.picked_method);
-  return a.join(' · ') || '—';
-}
-
-// ── SLIP OPEN/CLOSE ──
-function openSlip() { document.getElementById('slipBg').classList.add('show'); document.getElementById('slip').classList.add('show'); }
-function closeSlip() { document.getElementById('slipBg').classList.remove('show'); document.getElementById('slip').classList.remove('show'); }
-
-// ── COUNTDOWN ──
-const cd_d = document.getElementById('cd-d'), cd_h = document.getElementById('cd-h'), cd_m = document.getElementById('cd-m'), cd_s = document.getElementById('cd-s');
-function tick() {
-  const ed = window.__eventDate; const p = n => String(n).padStart(2, '0');
-  if (!ed) { [cd_d, cd_h, cd_m, cd_s].forEach(el => { if (el) el.textContent = '--'; }); return; }
-  const diff = ed - serverNow();
-  if (diff <= 0) { [cd_d, cd_h, cd_m, cd_s].forEach(el => { if (el) el.textContent = '00'; }); return; }
-  const d = Math.floor(diff / 864e5), h = Math.floor(diff % 864e5 / 36e5), m = Math.floor(diff % 36e5 / 6e4), s = Math.floor(diff % 6e4 / 1e3);
-  if (cd_d) cd_d.textContent = p(d); if (cd_h) cd_h.textContent = p(h); if (cd_m) cd_m.textContent = p(m); if (cd_s) cd_s.textContent = p(s);
-}
-tick(); setInterval(tick, 1000);
-
-// ── AUTH ──
-const modal = document.getElementById('modal');
-let modalMode = 'join';
-
-function passwordError(pass) {
-  if (pass.length < 6) return 'პაროლი მინ. 6 სიმბოლო';
-  if (!/[A-Z]/.test(pass)) return 'პაროლში მინ. 1 დიდი ასო (A-Z)';
-  if (!/[a-z]/.test(pass)) return 'პაროლში მინ. 1 პატარა ასო (a-z)';
-  if (!/[0-9]/.test(pass)) return 'პაროლში მინ. 1 ციფრი (0-9)';
-  return null;
-}
-// ცოცხალი პაროლის ჩეკლისტი — ჩაწერისას თითო მოთხოვნა მწვანდება
-function updatePassChecklist() {
-  const p = ($('inPass') && $('inPass').value) || '';
-  const set = (id, cond) => { const el = $(id); if (el) el.classList.toggle('ok', cond); };
-  set('pcLen',   p.length >= 6);
-  set('pcUpper', /[A-Z]/.test(p));
-  set('pcLower', /[a-z]/.test(p));
-  set('pcDigit', /[0-9]/.test(p));
-}
-$on('inPass', 'input', updatePassChecklist);
-function authError(msg) { const el = document.getElementById('authError'); if (el) { el.textContent = msg; el.style.display = msg ? 'block' : 'none'; } }
-
-function openModal(mode) {
-  modalMode = mode; authError('');
-  const authErrEl = document.getElementById('authError'); if (authErrEl) authErrEl.style.color = 'var(--red)';
-  const passEl = document.getElementById('inPass'); if (passEl) { passEl.value = ''; passEl.setAttribute('autocomplete', mode === 'join' ? 'new-password' : 'current-password'); }
-  const titleEl = document.getElementById('modalTitle'); if (titleEl) titleEl.textContent = mode === 'join' ? 'შემოუერთდი ლიგას' : 'კეთილი იყოს დაბრუნება';
-  const subEl = document.getElementById('modalSub'); if (subEl) subEl.textContent = ' ';
-  const nameFieldEl = document.getElementById('nameField'); if (nameFieldEl) nameFieldEl.style.display = mode === 'join' ? 'block' : 'none';
-  const confirmFieldEl = document.getElementById('confirmField'); if (confirmFieldEl) confirmFieldEl.style.display = mode === 'join' ? 'block' : 'none';
-  const phoneFieldEl = document.getElementById('phoneField'); if (phoneFieldEl) phoneFieldEl.style.display = mode === 'join' ? 'block' : 'none';
-  const birthYearFieldEl = document.getElementById('birthYearField'); if (birthYearFieldEl) birthYearFieldEl.style.display = mode === 'join' ? 'block' : 'none';
-  const genderFieldEl = document.getElementById('genderField'); if (genderFieldEl) genderFieldEl.style.display = mode === 'join' ? 'block' : 'none';
-  const nameEl = document.getElementById('inName'); if (nameEl) nameEl.value = '';
-  const regPhoneEl = document.getElementById('inRegPhone'); if (regPhoneEl) regPhoneEl.value = '';
-  const birthYearEl = document.getElementById('inBirthYear'); if (birthYearEl) birthYearEl.value = '';
-  document.querySelectorAll('input[name="gender"]').forEach(r => r.checked = false);
-  updatePassChecklist();
-  const passHintEl = document.getElementById('passHint'); if (passHintEl) passHintEl.style.display = mode === 'join' ? 'block' : 'none';
-  const submitEl = document.getElementById('modalSubmit'); if (submitEl) submitEl.textContent = mode === 'join' ? 'რეგისტრაცია' : 'შესვლა';
-  const switchWrap = document.getElementById('modalSwitch'); if (switchWrap) switchWrap.innerHTML = mode === 'join' ? 'უკვე გაქვს ანგარიში? <button id="switchMode">შესვლა</button>' : 'ახალი ხარ აქ? <button id="switchMode">რეგისტრაცია</button>';
-  const switchBtn = document.getElementById('switchMode'); if (switchBtn) switchBtn.onclick = () => openModal(mode === 'join' ? 'signin' : 'join');
-  const forgotWrap = $('forgotWrap'); if (forgotWrap) forgotWrap.style.display = mode === 'signin' ? 'block' : 'none';
-  if (modal) modal.classList.add('show');
-}
-function closeModal() { modal.classList.remove('show'); authError(''); }
-function updateSecHead() {
-  const secHead = document.querySelector('#card .sec-head'); if (!secHead) return;
-  secHead.style.display = (!currentUser || isEventInProgress()) ? 'none' : '';
-}
-function updateNavForUser(user) {
-  document.body.classList.toggle('logged-in', !!user);   // მობილურის ქვედა ბარი (.mnav) ამ კლასზეა დამოკიდებული
-  const joinBtn = document.getElementById('joinBtn'), signinBtn = document.getElementById('signinBtn'), balancePill = document.querySelector('.balance-pill');
-  let navUser = document.getElementById('navUser');
-  if (user) {
-    if (joinBtn) joinBtn.style.display = 'none';
-    if (signinBtn) signinBtn.style.display = 'none';
-    if (!navUser) {
-      navUser = document.createElement('div'); navUser.id = 'navUser'; navUser.className = 'nav-user';
-      navUser.innerHTML = `<span class="nav-ava">${user.icon || '🥊'}</span><span class="nav-nick">${user.nick}</span>
-        <div class="nav-dropdown" id="navDropdown"><button class="nav-dd-item" id="ddProfile">პროფილი</button><button class="nav-dd-item danger" id="ddLogout">გამოსვლა</button></div>`;
-      if (joinBtn && joinBtn.parentNode) joinBtn.parentNode.insertBefore(navUser, joinBtn);
-      navUser.onclick = (e) => { if (e.target.closest('.nav-dropdown')) return; document.getElementById('navDropdown').classList.toggle('show'); };
-      document.getElementById('ddProfile').onclick = () => { document.getElementById('navDropdown').classList.remove('show'); openProfile(); };
-      document.getElementById('ddLogout').onclick = () => { document.getElementById('navDropdown').classList.remove('show'); doLogout(); };
-    } else { navUser.querySelector('.nav-nick').textContent = user.nick; navUser.querySelector('.nav-ava').textContent = user.icon || '🥊'; }
-    navUser.style.display = 'flex';
-    if (balancePill) balancePill.classList.add('visible');
-    addMobileMenuLinks();
-    // #14: ბალანსი მხოლოდ მაშინ ჩანს, როცა რეალურად ვიცით — თორემ '…' რჩება refreshBalance-მდე
-    if (user.balance != null) updateBalance(user.balance);
-    else { _balanceKnown = false; const bEl = $('balNav'); if (bEl) bEl.textContent = '…'; }
-    updateSecHead();
-  } else {
-    if (joinBtn) joinBtn.style.display = '';
-    if (signinBtn) signinBtn.style.display = '';
-    if (navUser) navUser.style.display = 'none';
-    if (balancePill) balancePill.classList.remove('visible');
-    removeMobileMenuLinks(); _balanceKnown = false; state.balance = 1000;
-  }
-}
-
-function addMobileMenuLinks() {
-  const navLinks = document.getElementById('navLinks'); if (!navLinks) return;
-  if (!document.getElementById('mProfile')) { const p = document.createElement('a'); p.href = '#'; p.id = 'mProfile'; p.className = 'nav-mobile-only'; p.textContent = 'პროფილი'; p.onclick = (e) => { e.preventDefault(); navLinks.classList.remove('open'); openProfile(); }; navLinks.insertBefore(p, navLinks.firstChild); }
-  if (!document.getElementById('mLogout')) { const l = document.createElement('a'); l.href = '#'; l.id = 'mLogout'; l.className = 'nav-mobile-only danger'; l.textContent = 'გამოსვლა'; l.onclick = (e) => { e.preventDefault(); navLinks.classList.remove('open'); doLogout(); }; navLinks.appendChild(l); }
-}
-function removeMobileMenuLinks() { const p = document.getElementById('mProfile'); if (p) p.remove(); const l = document.getElementById('mLogout'); if (l) l.remove(); }
-document.addEventListener('click', e => { const dd = document.getElementById('navDropdown'); if (dd && !e.target.closest('.nav-user')) dd.classList.remove('show'); });
-
-async function hydrateUserData() {
-  if (!currentUser) return;
-  await _fightsReady;
-  try { await refreshBalance(); } catch (e) {}
-  try { await loadUserTickets(); } catch (e) { console.warn(e); }
-  renderTickets();
-  try { renderLeaderboard(); } catch (e) {}
-  updateSecHead();
-  if (needsProfileInfo(currentUser)) setTimeout(showContactInfoPopup, 1500);
-}
-
-async function doRegister() {
-  const nick = (document.getElementById('inName').value || '').trim();
-  const email = (document.getElementById('inEmail').value || '').trim();
-  const pass = document.getElementById('inPass').value || '';
-  const passConfirm = document.getElementById('inPassConfirm').value || '';
-  const phone = (document.getElementById('inRegPhone') && document.getElementById('inRegPhone').value || '').trim();
-  const birthYear = (document.getElementById('inBirthYear') && document.getElementById('inBirthYear').value || '').trim();
-  const genderEl = document.querySelector('input[name="gender"]:checked');
-  const gender = genderEl ? genderEl.value : '';
-  if (!nick || !/^[a-zA-Z0-9._]{3,20}$/.test(nick)) { authError('სახელი: 3-20 სიმბოლო (ასოები, ციფრები, . _)'); return; }
-  // ნიქის უნიკალურობა — is_nick_taken RPC (RLS-safe, anon-ისთვისაც მუშაობს)
-  try { const { data: taken } = await sb.rpc('is_nick_taken', { p_nick: nick, p_exclude_user_id: null }); if (taken) { authError('ეს სახელი უკვე დაკავებულია — სცადე სხვა'); return; } } catch (e) {}
-  if (!email) { authError('შეიყვანე ელ. ფოსტა'); return; }
-  const pErr = passwordError(pass); if (pErr) { authError(pErr); return; }
-  if (pass !== passConfirm) { authError('პაროლები არ ემთხვევა'); return; }
-  if (!phone) { authError('შეიყვანე მობილურის ნომერი'); return; }
-  if (!birthYear || !/^\d{4}$/.test(birthYear) || +birthYear < 1900 || +birthYear > 2015) { authError('შეიყვანე სწორი დაბადების წელი (მაგ. 1998)'); return; }
-  if (!gender) { authError('აირჩიე სქესი'); return; }
-  const btn = document.getElementById('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
-  const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick, phone, birth_year: +birthYear, gender } } });
-  btn.disabled = false; btn.textContent = 'რეგისტრაცია';
-  if (error) { const msg = error.message || ''; if (msg.includes('already registered') || msg.includes('already been registered')) authError('ეს ელ. ფოსტა უკვე რეგისტრირებულია — სცადე შესვლა'); else if (msg.includes('Database error')) authError('ეს სახელი უკვე დაკავებულია — სცადე სხვა'); else authError(msg); return; }
-  if (!data.session) { const el = document.getElementById('authError'); el.style.color = 'var(--green)'; el.textContent = 'რეგისტრაცია წარმატებულია! ანგარიშის გასააქტიურებლად დაადასტურე ელ.ფოსტა — შეამოწმე საფოსტო ყუთი (ასევე spam/junk).'; el.style.display = 'block'; return; }
-  await new Promise(r => setTimeout(r, 1000));
-  let ud = null;
-  try { const res = await sb.from('users').select('*').eq('id', data.user.id).maybeSingle(); ud = res.data; } catch (e) {}
-  // #7: პროფილის ველების შენახვა ipify-სგან დამოუკიდებლად — AdBlock-მა IP fetch რომ დაბლოკოს,
-  // phone/birth_year/gender მაინც შეინახება
-  try { await sb.from('users').update({ phone: phone || null, birth_year: +birthYear, gender }).eq('id', data.user.id); } catch (e) {}
-  try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({ registration_ip: ipData.ip, last_login_ip: ipData.ip }).eq('id', data.user.id); } catch (e) {}
-  currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: phone || ud?.phone || null, telegram: ud?.telegram || null, birth_year: +birthYear || ud?.birth_year || null, gender: gender || ud?.gender || null };
-  // ერთი საერთო event_id ბრაუზერისთვის (GTM) და სერვერისთვის (Meta CAPI) — Deduplicated
-  var fbEventId = 'reg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({ event: 'user_registration', method: 'email', fb_event_id: fbEventId, external_id: (currentUser && currentUser.id) || '' });
-  try {
-    var fbpCookie = (document.cookie.match(/(?:^|; )_fbp=([^;]*)/) || [])[1] || '';
-    var fbcCookie = (document.cookie.match(/(?:^|; )_fbc=([^;]*)/) || [])[1] || '';
-    fetch(SUPABASE_URL + '/functions/v1/meta-capi', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_id: fbEventId, email: email, phone: phone, fbp: fbpCookie, fbc: fbcCookie, url: location.href, external_id: (currentUser && currentUser.id) || '' })
-    }).catch(function () {});
-  } catch (e) {}
-  closeModal(); updateNavForUser(currentUser); await hydrateUserData();
-}
-
-async function doSignIn() {
-  const email = (document.getElementById('inEmail').value || '').trim();
-  const pass = document.getElementById('inPass').value || '';
-  if (!email || !pass) { authError('შეიყვანე ელ. ფოსტა და პაროლი'); return; }
-  const btn = document.getElementById('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
-  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
-  btn.disabled = false; btn.textContent = 'შესვლა';
-  if (error) { authError('არასწორი მეილი ან პაროლი'); return; }
-  let ud = null;
-  try { const res = await sb.from('users').select('*').eq('id', data.user.id).maybeSingle(); ud = res.data; } catch (e) {}
-  currentUser = { id: data.user.id, email, nick: ud?.nick || email, balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null, birth_year: ud?.birth_year || null, gender: ud?.gender || null };
-  closeModal(); updateNavForUser(currentUser); await hydrateUserData();
-}
-
-async function doLogout() { await sb.auth.signOut(); currentUser = null; state.tickets = []; renderTickets(); updateNavForUser(null); }
-
-async function handleGoogleAuth() {
-  const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin + window.location.pathname } });
-  if (error) console.warn(error.message);
-}
-
-// ── INIT ──
-let _fightsLoaded = false;
-let _resolveFights;
-const _fightsReady = new Promise(res => { _resolveFights = res; });
-let _sessionApplying = false;
-
-async function loadFightsAndRender() {
-  if (_fightsLoaded) return; _fightsLoaded = true;
-  try { await loadEventFromDB(); } catch (e) { console.warn('loadEventFromDB failed:', e); }
-  renderMarkets(); renderSlip(); renderBar(); updateNavForUser(currentUser);
-  try { await loadLeaderboard(); } catch (e) { console.warn('loadLeaderboard failed:', e); }
-  _resolveFights();
-  renderTickets();
-  loadLiveResults(); setInterval(loadLiveResults, 2 * 60 * 1000);
-  updateSecHead();
-}
-
-async function applySession(session) {
-  if (!session || currentUser || _sessionApplying) return;
-  _sessionApplying = true;
-  try {
-    let ud = null;
-    try { const res = await sb.from('users').select('*').eq('id', session.user.id).maybeSingle(); ud = res.data; } catch (e) { console.warn('users select failed:', e); }
-    currentUser = { id: session.user.id, email: session.user.email,
-      nick: ud?.nick || session.user.user_metadata?.nick || (session.user.email || '').split('@')[0],
-      balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0,
-      icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null, birth_year: ud?.birth_year || null, gender: ud?.gender || null };
-    try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({ last_login_ip: ipData.ip }).eq('id', session.user.id); } catch (e) {}
-    updateNavForUser(currentUser);
-    await hydrateUserData();
-  } catch (e) { console.warn('applySession failed:', e); }
-  finally { _sessionApplying = false; }
-}
-
-sb.auth.onAuthStateChange((event, session) => {
-  setTimeout(() => {
-    if (event === 'SIGNED_OUT') { currentUser = null; state.tickets = []; renderTickets(); updateNavForUser(null); }
-    else { applySession(session); if (event === 'PASSWORD_RECOVERY') openResetPasswordModal(); }
-  }, 0);
-});
-
-// ── PROFILE MODAL ──
-function openProfile() {
-  if (!currentUser) return;
-  const pm = document.getElementById('profileModal');
-  document.getElementById('profNick').value = currentUser.nick || '';
-  document.getElementById('profEmail').value = currentUser.email || '';
-  document.getElementById('profPhone').value = currentUser.phone || '';
-  document.getElementById('profTelegram').value = currentUser.telegram || '';
-  document.getElementById('profOldPass').value = '';
-  document.getElementById('profNewPass').value = '';
-  profileMsg('', '');
-  const picker = document.getElementById('iconPicker');
-  picker.innerHTML = AVATAR_ICONS.map(ic => `<button class="icon-opt ${(currentUser.icon || '🥊') === ic ? 'active' : ''}" data-icon="${ic}">${ic}</button>`).join('');
-  picker.querySelectorAll('.icon-opt').forEach(b => b.onclick = () => { picker.querySelectorAll('.icon-opt').forEach(x => x.classList.remove('active')); b.classList.add('active'); });
-  pm.classList.add('show'); loadVerificationStatus();
-}
-function closeProfile() { document.getElementById('profileModal').classList.remove('show'); }
-
-// ── ID VERIFICATION ──
-let verifSelectedFile = null;
-async function loadVerificationStatus() {
-  const statusEl = document.getElementById('verifStatus'); const wrap = document.getElementById('verifUploadWrap');
-  if (!statusEl || !wrap) return;
-  verifSelectedFile = null;
-  const preview = document.getElementById('verifPreview'); if (preview) preview.style.display = 'none';
-  const submitBtn = document.getElementById('verifSubmitBtn'); if (submitBtn) submitBtn.style.display = 'none';
-  const photoInput = document.getElementById('verifPhotoInput'); if (photoInput) photoInput.value = '';
-  const { data: rows, error } = await sb.from('verifications').select('status,admin_note,submitted_at').eq('user_id', currentUser.id).order('submitted_at', { ascending: false }).limit(1);
-  if (error) { const ps = document.querySelector('#verifStatus')?.closest('.profile-section'); if (ps) ps.style.display = 'none'; return; }
-  const last = rows && rows[0];
-  if (!last) { statusEl.textContent = ''; wrap.style.display = 'block'; return; }
-  if (last.status === 'pending') { statusEl.textContent = '⏳ შენი ვერიფიკაცია განხილვის პროცესშია — ჩვეულებრივ 24 საათში მოგივა პასუხი.'; statusEl.style.color = 'var(--gold)'; wrap.style.display = 'none'; }
-  else if (last.status === 'approved') { statusEl.textContent = '✅ ვერიფიცირებული ხარ — პრიზის მიღება შესაძლებელია.'; statusEl.style.color = 'var(--green)'; wrap.style.display = 'none'; }
-  else if (last.status === 'rejected') { statusEl.textContent = '❌ წინა მცდელობა უარყოფილია' + (last.admin_note ? (': ' + last.admin_note) : '') + ' — სცადე ხელახლა, უფრო გარკვევით ფოტოთი.'; statusEl.style.color = 'var(--red)'; wrap.style.display = 'block'; }
-}
-function pickVerificationPhoto() { const el = document.getElementById('verifPhotoInput'); if (el) el.click(); }
-function onVerificationFileSelected() {
-  const input = document.getElementById('verifPhotoInput'); const file = input.files && input.files[0]; if (!file) return;
-  if (file.size > 8 * 1024 * 1024) { alert('ფაილი ძალიან დიდია (მაქს. 8MB)'); input.value = ''; return; }
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { alert('მხოლოდ JPG/PNG/WEBP ფორმატია დაშვებული'); input.value = ''; return; }
-  verifSelectedFile = file;
-  const preview = document.getElementById('verifPreview'); preview.src = URL.createObjectURL(file); preview.style.display = 'block';
-  document.getElementById('verifSubmitBtn').style.display = 'block';
-}
-async function submitVerificationPhoto() {
-  if (!verifSelectedFile || !currentUser) return;
-  const btn = document.getElementById('verifSubmitBtn'); btn.disabled = true; btn.textContent = 'იტვირთება...';
-  const ext = (verifSelectedFile.name.split('.').pop() || 'jpg').toLowerCase();
-  const path = `${currentUser.id}/${Date.now()}.${ext}`;
-  const { error: upErr } = await sb.storage.from('id-verification').upload(path, verifSelectedFile, { contentType: verifSelectedFile.type, upsert: false });
-  if (upErr) { btn.disabled = false; btn.textContent = 'ვერიფიკაციის გაგზავნა'; alert('ატვირთვა ვერ მოხერხდა: ' + upErr.message); return; }
-  const { error: insErr } = await sb.from('verifications').insert({ user_id: currentUser.id, photo_path: path, status: 'pending' });
-  btn.disabled = false; btn.textContent = 'ვერიფიკაციის გაგზავნა';
-  if (insErr) { alert('ვერიფიკაციის გაგზავნა ვერ მოხერხდა: ' + insErr.message); return; }
-  await loadVerificationStatus();
-}
-$on('verifPickBtn', 'click', pickVerificationPhoto);
-$on('verifPhotoInput', 'change', onVerificationFileSelected);
-$on('verifSubmitBtn', 'click', submitVerificationPhoto);
-
-function profileMsg(msg, color) { const el = document.getElementById('profileMsg'); if (msg) { el.textContent = msg; el.style.color = color || 'var(--green)'; el.style.display = 'block'; } else { el.style.display = 'none'; } }
-
-async function saveProfile() {
-  if (!currentUser) return;
-  const nick = (document.getElementById('profNick').value || '').trim();
-  const email = (document.getElementById('profEmail').value || '').trim();
-  const phone = (document.getElementById('profPhone').value || '').trim();
-  const telegram = (document.getElementById('profTelegram').value || '').trim().replace(/^@/, '');
-  const oldPass = document.getElementById('profOldPass').value || '';
-  const newPass = document.getElementById('profNewPass').value || '';
-  const selectedIcon = document.querySelector('#iconPicker .icon-opt.active');
-  const icon = selectedIcon ? selectedIcon.dataset.icon : currentUser.icon || '🥊';
-  if (nick && !/^[a-zA-Z0-9._]{3,20}$/.test(nick)) { profileMsg('სახელი: 3-20 სიმბოლო (ასოები, ციფრები, . _)', 'var(--red)'); return; }
-  try {
-    const nickChanged = nick && nick !== currentUser.nick;
-    if (nickChanged) {
-      let taken = false;
-      const rpcRes = await sb.rpc('is_nick_taken', { p_nick: nick, p_exclude_user_id: currentUser.id });
-      if (rpcRes.error) { const { data: fb } = await sb.from('leaderboard_view').select('id').eq('nick', nick).neq('id', currentUser.id).maybeSingle(); taken = !!fb; }
-      else taken = !!rpcRes.data;
-      if (taken) { profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს', 'var(--red)'); return; }
-    }
-    const phoneChanged = phone !== (currentUser.phone || '');
-    const telegramChanged = telegram !== (currentUser.telegram || '');
-    if (nickChanged || icon !== currentUser.icon || phoneChanged || telegramChanged) {
-      const upd = { nick: nick || currentUser.nick, icon };
-      if (phoneChanged) upd.phone = phone || null; if (telegramChanged) upd.telegram = telegram || null;
-      let { data: updData, error: updErr } = await sb.from('users').update(upd).eq('id', currentUser.id).select('id');
-      if (updErr) {
-        if (updErr.message && updErr.message.includes('column') && (phoneChanged || telegramChanged)) {
-          const retry = await sb.from('users').update({ nick: nick || currentUser.nick, icon }).eq('id', currentUser.id).select('id');
-          if (retry.error) { profileMsg('შენახვა ვერ მოხერხდა: ' + retry.error.message, 'var(--red)'); return; }
-          updData = retry.data;
-        } else if (String(updErr.message || '').toLowerCase().includes('duplicate') || updErr.code === '23505') { profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს', 'var(--red)'); return; }
-        else { profileMsg('შენახვა ვერ მოხერხდა: ' + updErr.message, 'var(--red)'); return; }
-      }
-      if (!updData || updData.length === 0) { profileMsg('შენახვა დაბლოკილია (RLS). გაუშვი კონსოლიდირებული SQL Supabase-ში.', 'var(--red)'); return; }
-      if (nickChanged) currentUser.nick = nick;
-      currentUser.icon = icon;
-      if (phoneChanged) currentUser.phone = phone || null;
-      if (telegramChanged) currentUser.telegram = telegram || null;
-    }
-    if (email && email !== currentUser.email) {
-      const { error } = await sb.auth.updateUser({ email });
-      if (error) { profileMsg('მეილის შეცვლა ვერ მოხერხდა: ' + error.message, 'var(--red)'); return; }
-      currentUser.email = email;
-    }
-    if (newPass) {
-      const pErr = passwordError(newPass); if (pErr) { profileMsg('ახალი ' + pErr, 'var(--red)'); return; }
-      if (!oldPass) { profileMsg('შეიყვანე ძველი პაროლი', 'var(--red)'); return; }
-      const { error: signErr } = await sb.auth.signInWithPassword({ email: currentUser.email, password: oldPass });
-      if (signErr) { profileMsg('ძველი პაროლი არასწორია', 'var(--red)'); document.getElementById('profOldPass').value = ''; document.getElementById('profNewPass').value = ''; return; }
-      const { error: upErr } = await sb.auth.updateUser({ password: newPass });
-      if (upErr) { profileMsg('პაროლის შეცვლა ვერ მოხერხდა', 'var(--red)'); return; }
-    }
-    updateNavForUser(currentUser); renderLeaderboard(); profileMsg('წარმატებით შეინახა!', 'var(--green)');
-  } catch (e) { profileMsg('შეცდომა: ' + e.message, 'var(--red)'); }
-}
-
-// ── FORGOT / RESET PASSWORD ──
-function openForgotPassword() {
-  closeModal();
-  const fm = document.getElementById('forgotModal');
-  document.getElementById('forgotEmail').value = '';
-  document.getElementById('forgotError').style.display = 'none';
-  document.getElementById('forgotSuccess').style.display = 'none';
-  document.getElementById('forgotSubmit').style.display = 'block';
-  document.querySelector('#forgotModal .field').style.display = 'block';
-  fm.classList.add('show');
-}
-function closeForgotModal() { document.getElementById('forgotModal').classList.remove('show'); }
-
-function openResetPasswordModal() {
-  closeModal(); closeForgotModal();
-  document.getElementById('recoveryNewPass').value = '';
-  document.getElementById('recoveryNewPassConfirm').value = '';
-  document.getElementById('recoveryError').style.display = 'none';
-  document.getElementById('recoverySuccess').style.display = 'none';
-  document.querySelectorAll('#resetPasswordModal .field').forEach(f => f.style.display = 'block');
-  document.getElementById('recoverySubmit').style.display = 'block';
-  document.getElementById('resetPasswordModal').classList.add('show');
-}
-async function submitNewPassword() {
-  const p1 = document.getElementById('recoveryNewPass').value, p2 = document.getElementById('recoveryNewPassConfirm').value;
-  const errEl = document.getElementById('recoveryError'); errEl.style.display = 'none';
-  const pErr = passwordError(p1); if (pErr) { errEl.textContent = pErr; errEl.style.display = 'block'; return; }
-  if (p1 !== p2) { errEl.textContent = 'პაროლები არ ემთხვევა'; errEl.style.display = 'block'; return; }
-  const btn = document.getElementById('recoverySubmit'); btn.disabled = true; btn.textContent = '…';
-  const { error } = await sb.auth.updateUser({ password: p1 });
-  btn.disabled = false; btn.textContent = 'პასვორდის დაყენება';
-  if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
-  document.querySelectorAll('#resetPasswordModal .field').forEach(f => f.style.display = 'none');
-  btn.style.display = 'none';
-  document.getElementById('recoverySuccess').style.display = 'block';
-  setTimeout(() => { document.getElementById('resetPasswordModal').classList.remove('show'); }, 2500);
-}
-async function sendPasswordReset() {
-  const email = (document.getElementById('forgotEmail').value || '').trim();
-  const errEl = document.getElementById('forgotError');
-  if (!email) { errEl.textContent = 'შეიყვანე ელ. ფოსტა'; errEl.style.display = 'block'; return; }
-  const btn = document.getElementById('forgotSubmit'); btn.textContent = '…'; btn.disabled = true;
-  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + window.location.pathname });
-  btn.disabled = false; btn.textContent = 'გამოგზავნა';
-  if (error) { errEl.textContent = error.message; errEl.style.display = 'block'; return; }
-  document.querySelector('#forgotModal .field').style.display = 'none';
-  document.getElementById('forgotSubmit').style.display = 'none';
-  document.getElementById('forgotSuccess').style.display = 'block';
-  errEl.style.display = 'none';
-}
-
-// ── TOGGLE PASSWORD VISIBILITY ──
-function toggleEye(inputId) {
-  const inp = document.getElementById(inputId); if (!inp) return;
-  const isPass = inp.type === 'password'; inp.type = isPass ? 'text' : 'password';
-  const btn = inp.parentElement.querySelector('.eye-toggle');
-  if (btn) btn.innerHTML = isPass
-    ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
-    : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
-}
-
-// ── EVENT LISTENERS ──
-$on('openSlip', 'click', openSlip);
-$on('closeSlip', 'click', closeSlip);
-$on('slipBg', 'click', closeSlip);
-$on('tabExpress', 'click', () => setMode('express'));
-$on('tabSingle', 'click', () => setMode('single'));
-$on('joinBtn', 'click', () => openModal('join'));
-$on('signinBtn', 'click', () => openModal('signin'));
-$on('modalClose', 'click', closeModal);
-if (modal) modal.onclick = e => { if (e.target === modal) closeModal(); };
-$on('modalSubmit', 'click', () => modalMode === 'join' ? doRegister() : doSignIn());
-$on('googleBtn', 'click', handleGoogleAuth);
-$on('forgotBtn', 'click', openForgotPassword);
-$on('forgotModalClose', 'click', closeForgotModal);
-$on('forgotModal', 'click', e => { if (e.target.id === 'forgotModal') closeForgotModal(); });
-$on('forgotSubmit', 'click', sendPasswordReset);
-$on('recoverySubmit', 'click', submitNewPassword);
-$on('backToLogin', 'click', () => { closeForgotModal(); openModal('signin'); });
-$on('profileClose', 'click', closeProfile);
-$on('profileModal', 'click', e => { if (e.target.id === 'profileModal') closeProfile(); });
-$on('profileSave', 'click', saveProfile);
-$on('profileLogout', 'click', () => { closeProfile(); doLogout(); });
-
-$on('activeToggle', 'click', () => { const act = $('activeTickets'), arrow = $('activeArrow'); if (!act) return; const isOpen = act.style.display !== 'none'; act.style.display = isOpen ? 'none' : 'flex'; if (arrow) arrow.classList.toggle('open', !isOpen); });
-$on('historyToggle', 'click', () => { const hist = $('historyTickets'), arrow = $('historyArrow'); if (!hist) return; const isOpen = hist.style.display !== 'none'; hist.style.display = isOpen ? 'none' : 'flex'; if (arrow) arrow.classList.toggle('open', !isOpen); });
-
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeSlip(); closeForgotModal(); closeProfile(); closeContactInfoPopup(); } });
-
-const navLinks = $('navLinks');
-$on('menuBtn', 'click', () => { if (navLinks) navLinks.classList.toggle('open'); });
-// მობილური "ფენტეზის ტიპი" dropdown — კლიკით (მობილურზე :hover არ არსებობს)
-(function(){
-  const sp = document.getElementById('mnavSport');
-  if (!sp) return;
-  const pop = sp.querySelector('.mnav-pop');
-  if (!pop) return;
-  sp.addEventListener('click', (e) => {
-    if (e.target.closest('.mnav-pop-opt')) return;   // F1/NBA/UFC ლინკზე კლიკი — გაატარე
-    e.stopPropagation();
-    pop.classList.toggle('show');
-  });
-  document.addEventListener('click', (e) => {
-    if (!e.target.closest('#mnavSport')) pop.classList.remove('show');
-  });
-})();
-document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click', e => {
-  const id = a.getAttribute('href').slice(1); const t = document.getElementById(id);
-  if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (navLinks) navLinks.classList.remove('open'); }
-}));
-
-// ── INIT (server-time → getSession → fights → session) ──
-const loadingEl = document.getElementById('markets');
-if (loadingEl) loadingEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">იტვირთება ბრძოლები…</div>';
-
-async function init() {
-  try { await syncServerTime(); } catch (e) {}   // სერვერის დროის სინქრონიზაცია — ჯერ ეს, მერე ყველაფერი
-  let session = null;
-  try { const { data } = await sb.auth.getSession(); session = data.session; } catch (e) {}
-  if (session) { const jb = $('joinBtn'), sb2 = $('signinBtn'); if (jb) jb.style.display = 'none'; if (sb2) sb2.style.display = 'none'; }
-  await loadFightsAndRender();
-  if (session && !currentUser) { try { await applySession(session); } catch (e) {} }
-}
-init();
-
-// inline onclick handler-ებისთვის (HTML-ში onclick="toggleEye(...)")
-window.toggleEye = toggleEye;
-
-})(); // ── END IIFE ──
+})
