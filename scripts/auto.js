@@ -18,7 +18,7 @@ const ODDS_API_KEY      = process.env.ODDS_API_KEY || '';
 const BACKUP_SHEET_URL  = process.env.BACKUP_SHEET_URL || '';
 const TG_TOKEN          = process.env.TELEGRAM_BOT_TOKEN || '';
 const TG_CHAT           = process.env.TELEGRAM_CHAT_ID || '';
-const ESPN_BASE         = 'https://site.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard';
+const ESPN_BASE         = 'https://site.web.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard';
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('❌ SUPABASE_URL და SUPABASE_KEY აუცილებელია');
@@ -95,7 +95,7 @@ function parseESPNMethod(comp) {
 //  SQL RPC-ში (#5): ატომურია და #4-ის null-fallback-იც იქაა გასწორებული.)
 
 async function fetchJSON(url) {
-  const res = await fetch(url, { signal: AbortSignal.timeout(15000) });   // 15წმ timeout — გაჭედილი request GitHub Action-ს არ დაითრევს
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(15000) });   // 15წმ timeout + UA (ESPN 403-ის თავიდან აცილება)
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${url}`);
   return res.json();
 }
@@ -283,11 +283,11 @@ async function syncNewFights(eventId, eventName, eventDate) {
   const { data: dbFights } = await sb.from('fights')
     .select('id,status,is_voided,bout_order,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
     .eq('event_id', eventId);
-  const knownIds = new Set();
+  const _pk = (a, b) => [String(a || ''), String(b || '')].sort().join('|');
+  const knownPairs = new Set();
   let maxOrder = 0;
   for (const f of (dbFights || [])) {
-    if (f.red?.espn_id)  knownIds.add(String(f.red.espn_id));
-    if (f.blue?.espn_id) knownIds.add(String(f.blue.espn_id));
+    if (!f.is_voided) knownPairs.add(_pk(f.red?.espn_id, f.blue?.espn_id));   // მხოლოდ ღია წყვილები
     if ((f.bout_order || 0) > maxOrder) maxOrder = f.bout_order;
   }
 
@@ -295,14 +295,11 @@ async function syncNewFights(eventId, eventName, eventDate) {
   let added = 0;
   const addedNames = [];
   for (const c of comps) {
-    const ids = (c.competitors || []).map(x => String(x.id || '')).filter(Boolean);
-    if (!ids.length) continue;
-    // თუ ერთი მხარე მაინც უკვე ბაზაშია → ბრძოლა (ან მისი ჩანაცვლება) უკვე გვაქვს — ვტოვებთ
-    if (ids.some(id => knownIds.has(id))) continue;
-
     const redC  = c.competitors.find(x => x.order === 1) || c.competitors[0];
     const blueC = c.competitors.find(x => x.order === 2) || c.competitors[1];
     if (!redC || !blueC) continue;
+    // ეს ზუსტი წყვილი უკვე გვაქვს (არა-void) → ვტოვებთ. ჩანაცვლება = ახალი წყვილი → დაემატება.
+    if (knownPairs.has(_pk(redC.id, blueC.id))) continue;
     const rounds = c.format?.regulation?.periods || 3;
     const redDetails  = redC?.id  ? await fetchAthleteDetails(redC.id)  : {};
     const blueDetails = blueC?.id ? await fetchAthleteDetails(blueC.id) : {};
@@ -329,7 +326,7 @@ async function syncNewFights(eventId, eventName, eventDate) {
     });
     if (!fErr) {
       added++; addedNames.push(`${red.name} vs ${blue.name}`);
-      knownIds.add(String(redC.id)); knownIds.add(String(blueC.id));
+      knownPairs.add(_pk(redC.id, blueC.id));
       log(`  ➕ ახალი ბრძოლა დაემატა: ${red.name} vs ${blue.name}`);
     }
   }
@@ -344,16 +341,18 @@ async function syncNewFights(eventId, eventName, eventDate) {
   let voided = 0;
   if (event.competitions && event.competitions.length > 0) {
     const cardIds = new Set();
+    const cardNames = new Set();
+    const _nn = (x) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
     for (const c of event.competitions) {
-      for (const x of (c.competitors || [])) if (x.id) cardIds.add(String(x.id));
+      for (const x of (c.competitors || [])) { if (x.id) cardIds.add(String(x.id)); const nm = x.athlete?.fullName; if (nm) cardNames.add(_nn(nm)); }
     }
     for (const f of (dbFights || [])) {
       if (f.status !== 'upcoming' || f.is_voided) continue;        // მხოლოდ ღია ბრძოლა
       const rid = String(f.red?.espn_id || '');
       const bid = String(f.blue?.espn_id || '');
       if (!rid && !bid) continue;                                   // espn_id აკლია — ვერ ვამოწმებთ
-      const redOn  = rid && cardIds.has(rid);
-      const blueOn = bid && cardIds.has(bid);
+      const redOn  = (rid && cardIds.has(rid)) || (f.red?.name && cardNames.has(_nn(f.red.name)));
+      const blueOn = (bid && cardIds.has(bid)) || (f.blue?.name && cardNames.has(_nn(f.blue.name)));
       let reason = '';
       if (!redOn && !blueOn)      reason = 'ორივე მებრძოლი ESPN card-იდან მოხსნილია (ბრძოლა გაუქმდა)';
       else if (redOn !== blueOn)  reason = 'ერთი მებრძოლი შეიცვალა ESPN-ზე (ჩანაცვლება)';
