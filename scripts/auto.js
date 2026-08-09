@@ -19,6 +19,7 @@ const BACKUP_SHEET_URL  = process.env.BACKUP_SHEET_URL || '';
 const TG_TOKEN          = process.env.TELEGRAM_BOT_TOKEN || '';
 const TG_CHAT           = process.env.TELEGRAM_CHAT_ID || '';
 const ESPN_BASE         = 'https://site.web.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard';
+const SKIP_EVENT_RE     = /contender series|dwcs/i;   // Dana White's Contender Series — არ ვქმნით (developmental show)
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('❌ SUPABASE_URL და SUPABASE_KEY აუცილებელია');
@@ -139,7 +140,7 @@ async function findNextESPNEvent() {
       const data = await fetchJSON(`${ESPN_BASE}?dates=${dateStr}`);
       if (data.events && data.events.length > 0) {
         // გავფილტროთ ის ივენთები, რომლებიც უკვე ბაზაშია
-        const fresh = data.events.filter(ev => !existingNames.has((ev.name || '').trim().toLowerCase()));
+        const fresh = data.events.filter(ev => !existingNames.has((ev.name || '').trim().toLowerCase()) && !SKIP_EVENT_RE.test(ev.name || ''));
         if (fresh.length > 0) {
           // დავაბრუნოთ ობიექტი მხოლ ახალი ივენთებით (createEventFromESPN events[0]-ს იღებს)
           return { ...data, events: fresh };
