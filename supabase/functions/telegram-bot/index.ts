@@ -3,6 +3,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 const corsHeaders = { 'Content-Type': 'application/json' }
 const ESPN_BASE = 'https://site.web.api.espn.com/apis/site/v2/sports/mma/ufc/scoreboard'
+const SKIP_EVENT_RE = /contender series|dwcs/i   // DWCS — არ ვქმნით
 const sb = createClient(
   Deno.env.get('SUPABASE_URL')!,
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
@@ -161,7 +162,8 @@ async function cmdUpdateEvent(chatId: number): Promise<string> {
     try {
       const res = await fetch(`${ESPN_BASE}?dates=${dateStr}`)
       const data = await res.json()
-      if (data.events && data.events.length > 0) { espnData = data; break }
+      const fresh = (data.events || []).filter((ev: any) => !SKIP_EVENT_RE.test(ev.name || ''))
+      if (fresh.length > 0) { espnData = { ...data, events: fresh }; break }
     } catch {}
   }
   if (!espnData) return '❌ მომდევნო 30 დღეში UFC ივენთი ვერ მოიძებნა'
