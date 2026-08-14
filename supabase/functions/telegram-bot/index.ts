@@ -288,7 +288,26 @@ async function cmdSyncFights(chatId: number): Promise<string> {
     if (!((rid && espnIds.has(rid)) || (bid && espnIds.has(bid)))) extras.push(`${f.red?.name || '?'} vs ${f.blue?.name || '?'}`)
   }
 
+  // ── bout_order-ის სრული გასწორება ESPN-ის რიგით (append-ის ნაცვლად რეალური პოზიცია) ──
+  const _nn = (x: any) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim()
+  const posMap = new Map<string, number>()
+  comps.forEach((c: any, idx: number) => {
+    const nm = (c.competitors || []).map((x: any) => _nn(x.athlete?.fullName)).filter(Boolean).sort()
+    if (nm.length === 2) posMap.set(nm.join('|'), idx + 1)
+  })
+  const { data: allF } = await sb.from('fights')
+    .select('id,bout_order,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
+    .eq('event_id', ev.id)
+  let maxPos = comps.length, reordered = 0
+  for (const f of (allF || []) as any[]) {
+    const key = [_nn(f.red?.name), _nn(f.blue?.name)].sort().join('|')
+    let pos = posMap.get(key)
+    if (pos == null) { maxPos++; pos = maxPos }
+    if (f.bout_order !== pos) { await sb.from('fights').update({ bout_order: pos }).eq('id', f.id); reordered++ }
+  }
+
   let out = `🔄 <b>ბრძოლების სინქი — ${ev.name}</b>\n\nESPN-ზე: ${comps.length} · ბაზაში იყო: ${(dbFights || []).length}`
+  if (reordered > 0) out += `\n🔢 რიგი (bout_order) გასწორდა ${reordered} ბრძოლაზე`
   out += added > 0 ? `\n\n➕ დაემატა ${added}:\n${addedNames.map(n => '🥊 ' + n).join('\n')}` : '\n\n✅ ახალი ბრძოლა არ იყო — ყველა ბაზაშია.'
   if (extras.length) out += `\n\n⚠️ ბაზაშია, ESPN-ზე აღარ (შესაძლოა გაუქმდა):\n${extras.map(n => '• ' + n).join('\n')}\n<i>ავტომატურად არ წავშალე — ბილეთი შეიძლება ეხებოდეს. საჭიროებისას ხელით void.</i>`
   if (added > 0) out += `\n\n➡️ კოეფები მომდევნო "ufc კოეფ"-ზე ჩაიწერება.`
