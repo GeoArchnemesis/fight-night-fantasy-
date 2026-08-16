@@ -403,37 +403,29 @@ async function cmdFetchResults(chatId: number): Promise<string> {
     const method = parseESPNMethod(comp)
     const round = comp.status?.period || ''
 
-    // ── #13: დამთხვევა მხოლოდ ID-ით — სახელით fallback მოხსნილია ──
-    const espnIds = (comp.competitors || []).map((c: any) => String(c.id || '')).filter(Boolean)
-    if (!espnIds.length) { lines.push(`⚠️ competitor ID-ები არ არის ("${winnerName}") — გამოტოვება`); continue }
-    const match: any = dbFights.find((f: any) => {
-      const rid = String(f.red?.espn_id || '')
-      const bid = String(f.blue?.espn_id || '')
-      return (rid && espnIds.includes(rid)) || (bid && espnIds.includes(bid))
-    })
-    if (!match) { lines.push(`⚠️ ბრძოლა ID-ით ვერ დაემთხვა ("${winnerName}") — შეამოწმე fighters.espn_id`); continue }
-
-    const rid = String(match.red?.espn_id || '')
-    const bid = String(match.blue?.espn_id || '')
-    const winnerId = String(winner.id || '')
-    const winnerKnown = !!winnerId && ((winnerId === rid) || (winnerId === bid))
-
-    // ── ჩანაცვლების დეტექცია: გამარჯვებულის ID ამ ბრძოლის არცერთ მხარეს არ ეკუთვნის → void ──
-    if (rid && bid && !winnerKnown) {
-      await sb.from('fights').update({ status: 'completed', is_voided: true }).eq('id', match.id)
-      lines.push(`⚖️ ${match.red?.name} vs ${match.blue?.name} → void (ჩანაცვლება)`)
-      voidedCount++
-      continue
+    // ── დამთხვევა სახელით (წყვილით) — espn_id ხშირად ძველია/იცვლება, ID-only შედეგებს კარგავდა ──
+    const _nnm = (x: any) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim()
+    const espnNames = (comp.competitors || []).map((c: any) => _nnm(c.athlete?.fullName)).filter(Boolean)
+    if (espnNames.length < 2) { lines.push(`⚠️ competitor სახელები აკლია ("${winnerName}") — გამოტოვება`); continue }
+    const espnPairKey = [...espnNames].sort().join('|')
+    let match: any = dbFights.find((f: any) => !f.is_voided &&
+      [_nnm(f.red?.name), _nnm(f.blue?.name)].sort().join('|') === espnPairKey)
+    if (!match) {
+      const ids = (comp.competitors || []).map((c: any) => String(c.id || '')).filter(Boolean)
+      match = dbFights.find((f: any) => !f.is_voided && f.red?.espn_id && f.blue?.espn_id &&
+        ids.includes(String(f.red.espn_id)) && ids.includes(String(f.blue.espn_id)))
     }
+    if (!match) { lines.push(`⚠️ ბრძოლა წყვილით ვერ დაემთხვა ("${winnerName}") — გამოტოვება`); continue }
 
-    // ── #13/#4: გამარჯვებული მხოლოდ ID-ით — ვერ დადგინდა → ვტოვებთ (settlement skip-ავს) ──
-    if (!winnerKnown) {
-      lines.push(`⚠️ ${match.red?.name} vs ${match.blue?.name}: გამარჯვებულის ID ვერ დაემთხვა (espn_id შეავსე)`)
-      continue
-    }
-    const exactWinner: string = winnerId === rid ? match.red.name : match.blue.name
+    const wn = _nnm(winnerName)
+    const redN = _nnm(match.red?.name), blueN = _nnm(match.blue?.name)
+    let exactWinner: string | null = null
+    if (wn && (wn === redN || redN.includes(wn) || wn.includes(redN)))       exactWinner = match.red.name
+    else if (wn && (wn === blueN || blueN.includes(wn) || wn.includes(blueN))) exactWinner = match.blue.name
+    if (!exactWinner) { lines.push(`⚠️ გამარჯვებული "${winnerName}" ვერ დაემთხვა მხარეებს — გამოტოვება`); continue }
+
     await sb.from('fights').update({ status: 'completed', result_winner: exactWinner, result_method: method, result_round: round ? parseInt(round) : null }).eq('id', match.id)
-    lines.push(`🏆 ${exactWinner} (${method}, R${round}) [ID✓]`)
+    lines.push(`🏆 ${exactWinner} (${method}, R${round})`)
     updated++
   }
   if (updated === 0 && voidedCount === 0) return 'ℹ️ დასრულებული ბრძოლები ვერ მოიძებნა'
