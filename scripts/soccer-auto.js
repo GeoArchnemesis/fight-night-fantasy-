@@ -27,7 +27,7 @@ const TG_CHAT      = process.env.TELEGRAM_CHAT_ID || '';
 const SEASON          = new Date().getUTCFullYear();
 const SITE_BASE       = 'https://site.api.espn.com/apis/site/v2/sports/soccer';
 const CORE_BASE       = 'https://sports.core.api.espn.com/v2/sports/soccer/leagues';
-const WINDOW_PAST_DAYS   = 4;   // შედეგებისთვის უკან
+const WINDOW_PAST_DAYS   = 10;  // შედეგებისთვის უკან (გაზრდილი — გვიანი შედეგი არ დაიკარგოს)
 const WINDOW_FUTURE_DAYS = 25;  // fixtures-ისთვის წინ
 const ENABLE_OU       = true;   // Over/Under best-effort (ESPN core API)
 
@@ -262,13 +262,14 @@ async function createNextRound(lg, events) {
     .filter(x => isFinite(x.t)).sort((a, b) => a.t - b.t);
   const leagueUp = pre.filter(x => !x.cup);
   const cupUp = pre.filter(x => x.cup);
-  if (!leagueUp.length && !cupUp.length) { log(`[${lg.code}] მომავალი მატჩი არ არის`); return; }
+  // ტურს ვქმნით მხოლოდ ლიგის მატჩებზე — თასით რაუნდს არ ვავსებთ (flooding-ის თავიდან აცილება)
+  if (!leagueUp.length) { log(`[${lg.code}] ლიგის მომავალი მატჩი არ არის — ტურს არ ვქმნით`); return; }
 
   // ლიგის კლასტერი (count-based, როგორც იყო). თუ ლიგას მატჩი არ აქვს — თასით ვიწყებთ.
   const perRound = PER_ROUND[lg.code] || DEFAULT_PER_ROUND;
   const maxGap = ROUND_MAX_GAP_DAYS * 86400000;
   const teamsOf = (ev) => (ev.competitions?.[0]?.competitors || []).map(c => c.team?.id || c.team?.displayName);
-  const base = leagueUp.length ? leagueUp : cupUp;
+  const base = leagueUp;   // ყოველთვის ლიგა
   const seen = new Set(); const cluster = [];
   for (const item of base) {
     if (cluster.length >= perRound) break;
@@ -279,12 +280,15 @@ async function createNextRound(lg, events) {
   }
   if (!cluster.length) cluster.push(base[0]);
 
-  // ტურის თარიღული ფანჯარა → ამ პერიოდის თასის მატჩებს ვამატებთ (რიცხვის მიხედვით ერთად)
-  const winMin = cluster[0].t - maxGap;
-  const winMax = cluster[cluster.length - 1].t + maxGap;
+  // თასის მატჩები — მხოლოდ ლიგის ტურის რეალურ პერიოდში (±1 დღე), მაქს. CUP_CAP ცალი (flooding-ის თავიდან აცილება)
+  const CUP_CAP = 4;
+  const winMin = cluster[0].t - 86400000;
+  const winMax = cluster[cluster.length - 1].t + 86400000;
   const items = [...cluster];
+  let cupAdded = 0;
   for (const c of cupUp) {
-    if (c.t >= winMin && c.t <= winMax && !items.some(x => x.ev.id === c.ev.id)) items.push(c);
+    if (cupAdded >= CUP_CAP) break;
+    if (c.t >= winMin && c.t <= winMax && !items.some(x => x.ev.id === c.ev.id)) { items.push(c); cupAdded++; }
   }
   items.sort((a, b) => a.t - b.t);
 
@@ -383,7 +387,17 @@ async function processResults(lg, round, events) {
     .select('id,espn_id,status,is_voided,home_team,away_team').eq('round_id', round.id);
   for (const mt of matches || []) {
     if (mt.status === 'completed' || mt.is_voided) continue;
-    const ev = events.find(e => e.id === mt.espn_id);
+    let ev = events.find(e => e.id === mt.espn_id);
+    if (!ev) {
+      // fallback — გუნდების სახელით (espn_id შეიძლება ძველი/შეცვლილი იყოს)
+      const _n = (x) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
+      const key = [_n(mt.home_team), _n(mt.away_team)].sort().join('|');
+      ev = events.find(e => {
+        const c = e.competitions?.[0]; if (!c) return false;
+        const nm = (c.competitors || []).map(z => _n(z.team?.displayName)).filter(Boolean).sort().join('|');
+        return nm === key;
+      });
+    }
     if (!ev) continue;
 
     const t = ev.status?.type || {};
