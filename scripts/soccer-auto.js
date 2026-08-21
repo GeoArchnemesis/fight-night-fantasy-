@@ -25,7 +25,7 @@ const TG_TOKEN     = process.env.TELEGRAM_BOT_TOKEN || '';
 const TG_CHAT      = process.env.TELEGRAM_CHAT_ID || '';
 
 const SEASON          = new Date().getUTCFullYear();
-const SITE_BASE       = 'https://site.api.espn.com/apis/site/v2/sports/soccer';
+const SITE_BASE       = 'https://site.web.api.espn.com/apis/site/v2/sports/soccer';
 const CORE_BASE       = 'https://sports.core.api.espn.com/v2/sports/soccer/leagues';
 const WINDOW_PAST_DAYS   = 10;  // შედეგებისთვის უკან (გაზრდილი — გვიანი შედეგი არ დაიკარგოს)
 const WINDOW_FUTURE_DAYS = 25;  // fixtures-ისთვის წინ
