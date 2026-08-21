@@ -1074,7 +1074,7 @@ async function cmdFbEvent(L: FbLeague): Promise<string> {
   const to = espnDateStr(new Date(Date.now() + 21 * 86400000))
   let data: any
   try {
-    const rr = await fetch(`https://site.api.espn.com/apis/site/v2/sports/soccer/${L.slug}/scoreboard?dates=${from}-${to}`)
+    const rr = await fetch(`https://site.web.api.espn.com/apis/site/v2/sports/soccer/${L.slug}/scoreboard?dates=${from}-${to}`)
     if (!rr.ok) return `❌ ESPN: HTTP ${rr.status}`
     data = await rr.json()
   } catch (e) { return `❌ ESPN: ${(e as Error).message}` }
