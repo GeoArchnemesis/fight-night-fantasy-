@@ -398,6 +398,15 @@ async function processResults(lg, round, events) {
         return nm === key;
       });
     }
+    // გადადება/გადატანა: DB-ის kickoff გავიდა >2 დღით, ESPN კი ან აღარ აჩვენებს, ან მომავალში გადაიტანა (pre) → void
+    const _dbT = mt.kickoff ? new Date(mt.kickoff).getTime() : 0;
+    const _staleDays = _dbT ? (Date.now() - _dbT) / 86400000 : 0;
+    if (_staleDays > 2 && (!ev || ev.status?.type?.state === 'pre')) {
+      await voidMatch(mt.id);
+      await sendTelegram(`⚖️ <b>მატჩი ნეიტრალდა (გადაიდო/გადაიტანა)</b>\n\n${lg.name}: ${mt.home_team} vs ${mt.away_team}\n➡️ stake settlement-ზე დაბრუნდება.`);
+      log(`[${lg.code}] void (გადადება/გადატანა): ${mt.home_team} vs ${mt.away_team}`);
+      continue;
+    }
     if (!ev) continue;
 
     const t = ev.status?.type || {};
