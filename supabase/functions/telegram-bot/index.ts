@@ -517,7 +517,7 @@ async function raceDueForSettlement(): Promise<any> {
 }
 
 
-const ESPN_F1 = 'https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard'
+const ESPN_F1 = 'https://site.web.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard'
 const SEASON = new Date().getUTCFullYear()   // მიმდინარე წელი — ხელით ცვლა არ სჭირდება
 
 // ESPN-იდან მომდევნო F1 რბოლის შექმნა (OpenF1 401-ს აბრუნებს — ეს მისი ჩამნაცვლებელია)
@@ -845,7 +845,7 @@ async function cmdF1Full(chatId: number): Promise<string> {
 // nba-auto.js-ის სარკე: ID-ით matching, კოეფის timestamp მხოლოდ წარმატებაზე,
 // completed თამაშებს არასდროს ვეხებით.
 
-const ESPN_NBA = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard'
+const ESPN_NBA = 'https://site.web.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard'
 
 function espnDateStr(d: Date): string { return d.toISOString().slice(0, 10).replace(/-/g, '') }
 function tbTime(t: string | null): string {
