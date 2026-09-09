@@ -23,7 +23,7 @@ const TG_CHAT          = process.env.TELEGRAM_CHAT_ID || '';
 const SEASON      = new Date().getUTCFullYear();
 const CB_BASE     = 'https://sports-api.cloudbet.com/pub/v2/odds';
 const OPENF1      = 'https://api.openf1.org/v1';   // მკვდარია (401 — ფასიანი გახდა)
-const ESPN_F1     = 'https://site.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard';
+const ESPN_F1     = 'https://site.web.api.espn.com/apis/site/v2/sports/racing/f1/scoreboard';
 const INCLUDE_THE_FIELD = false;   // Cloudbet-ის "the field" outcome — გამორთული
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
