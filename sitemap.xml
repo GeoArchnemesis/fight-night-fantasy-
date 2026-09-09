@@ -2,27 +2,57 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://fnf.ge/</loc>
-    <lastmod>2026-07-28</lastmod>
+    <lastmod>2026-09-09</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://fnf.ge/ufc/</loc>
-    <lastmod>2026-07-28</lastmod>
+    <lastmod>2026-09-09</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/f1/</loc>
-    <lastmod>2026-07-28</lastmod>
+    <lastmod>2026-09-09</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/nba/</loc>
-    <lastmod>2026-07-28</lastmod>
+    <lastmod>2026-09-09</lastmod>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://fnf.ge/football/laliga/</loc>
+    <lastmod>2026-09-09</lastmod>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://fnf.ge/football/epl/</loc>
+    <lastmod>2026-09-09</lastmod>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://fnf.ge/football/seriea/</loc>
+    <lastmod>2026-09-09</lastmod>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://fnf.ge/football/bundesliga/</loc>
+    <lastmod>2026-09-09</lastmod>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://fnf.ge/football/ligue1/</loc>
+    <lastmod>2026-09-09</lastmod>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://fnf.ge/football/ucl/</loc>
+    <lastmod>2026-09-09</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/profile/</loc>
-    <lastmod>2026-07-28</lastmod>
+    <lastmod>2026-09-09</lastmod>
     <priority>0.5</priority>
   </url>
 </urlset>
