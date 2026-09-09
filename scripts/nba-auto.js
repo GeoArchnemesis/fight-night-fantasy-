@@ -19,7 +19,7 @@ const SUPABASE_KEY = process.env.SUPABASE_KEY;
 const ODDS_API_KEY = process.env.ODDS_API_KEY || '';
 const TG_TOKEN     = process.env.TELEGRAM_BOT_TOKEN || '';
 const TG_CHAT      = process.env.TELEGRAM_CHAT_ID || '';
-const ESPN_NBA     = 'https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
+const ESPN_NBA     = 'https://site.web.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard';
 
 const SYNC_DAYS_AHEAD = 7;      // რამდენი დღით წინ მოგვაქვს თამაშები
 const ODDS_WINDOW_H   = 72;     // კოეფებს ვაახლებთ მხოლოდ ამ ფანჯარაში მყოფ თამაშებზე
