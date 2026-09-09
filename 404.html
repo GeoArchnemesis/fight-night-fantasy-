@@ -28,6 +28,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     else if (p === '/ufc.html') target = '/ufc/';
     else if (p === '/nba.html') target = '/nba/';
     else if (p === '/index' || p === '/index.html') target = '/';
+    // ადმინი: /admin და /admin/ რეალურად არ არსებობს — ფაილი /admin/admin.html-ია
+    else if (p === '/admin' || p === '/admin/index.html') target = '/admin/admin.html';
+    // დიდი/შერეული ასოებით შეყვანილი მისამართები (მაგ. /UFC/, /Football/LaLiga/)
+    // — GitHub Pages case-sensitive-ია, ამიტომ ხელით გადავიყვანოთ პატარა ასოებზე.
+    // `raw !== p` პირობა კრიტიკულია: მხოლოდ მაშინ გადავამისამართოთ, როცა რეგისტრი
+    // მართლა განსხვავდება. თუ პატარა ასოებით მისამართიც 404-ია (მაგ. გვერდი წაიშალა),
+    // აქ არაფერი ხდება — თორემ '/ufc' → '/ufc/' → 404 → უსასრულო loop-ი გამოვიდოდა.
+    else if (raw !== p && /^\/(ufc|f1|nba|profile)$/.test(p)) target = p + '/';
+    else if (raw !== p && /^\/football\/(laliga|epl|seriea|bundesliga|ligue1|ucl)$/.test(p)) target = p + '/';
+    // guard: სამიზნე ყოველთვის რეალური მისამართია და raw-ს არ უდრის → loop შეუძლებელია
     if (target && raw !== target) location.replace(target);
   })();
 </script>
