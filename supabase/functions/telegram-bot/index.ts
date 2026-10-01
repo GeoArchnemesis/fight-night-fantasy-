@@ -925,6 +925,33 @@ async function cmdF1Full(chatId: number): Promise<string> {
 const ESPN_NBA = 'https://site.web.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard'
 
 function espnDateStr(d: Date): string { return d.toISOString().slice(0, 10).replace(/-/g, '') }
+
+// ESPN scoreboard დღე-დღე (dates=YYYYMMDD), from..to ჩათვლით, event id-ით გაერთიანებული.
+// ESPN-ი ~2026-09-15-დან dates=FROM-TO range-ს 400-ით უარყოფს; ერთდღიანი მუშაობს
+// (თვიური dates=YYYYMM 100 event-ზე იჭრება). ცალკეული დღის შეცდომა არ აჩერებს; ყველა დღე თუ ჩავარდა → throw.
+// (scripts/nba-auto.js fetchEspnDays / scripts/soccer-auto.js fetchWindow-ის სარკე)
+async function espnFetchDays(baseUrl: string, from: Date, to: Date, extra = ''): Promise<{ events: any[]; failedDays: string[] }> {
+  const days: string[] = []
+  for (let t = from.getTime(); espnDateStr(new Date(t)) <= espnDateStr(to); t += 86400000) days.push(espnDateStr(new Date(t)))
+  const events: any[] = [], seen = new Set<string>(), failedDays: string[] = []
+  let lastErr = ''
+  const BATCH = 6
+  for (let i = 0; i < days.length; i += BATCH) {
+    const res = await Promise.all(days.slice(i, i + BATCH).map(async (d) => {
+      try {
+        const r = await fetch(`${baseUrl}?dates=${d}${extra}`, { signal: AbortSignal.timeout(15000) })
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return { d, j: await r.json() }
+      } catch (e) { return { d, err: (e as Error).message } }
+    }))
+    for (const x of res as any[]) {
+      if (x.err) { failedDays.push(x.d); lastErr = x.err; continue }
+      for (const ev of (x.j.events || [])) if (!seen.has(String(ev.id))) { seen.add(String(ev.id)); events.push(ev) }
+    }
+  }
+  if (failedDays.length === days.length) throw new Error(`${days.length}-ვე დღე ჩავარდა (${lastErr})`)
+  return { events, failedDays }
+}
 function tbTime(t: string | null): string {
   return t ? new Date(t).toLocaleString('ka-GE', { timeZone: 'Asia/Tbilisi', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'
 }
@@ -1011,16 +1038,15 @@ async function cmdNbaResults(chatId: number): Promise<string> {
     .eq('status', 'upcoming').eq('is_voided', false).lte('start_time', nowIso)
   if (!started || !started.length) return '📭 დაწყებული/დასამუშავებელი თამაში არ არის'
 
-  const minStart = new Date(Math.min(...started.map((g: any) => new Date(g.start_time).getTime())) - 86400000)
+  // lookback cap 14 დღე (nba-auto.js-ის მსგავსად) — დღე-დღე fetch-ზე „გაჭედილმა" თამაშმა ასობით request არ გამოიწვიოს
+  const minComputed = Math.min(...started.map((g: any) => new Date(g.start_time).getTime())) - 86400000
+  const minStart = new Date(Math.max(minComputed, Date.now() - 14 * 86400000))
   const maxD = new Date(Date.now() + 86400000)
-  let data: any
-  try {
-    const r = await fetch(`${ESPN_NBA}?dates=${espnDateStr(minStart)}-${espnDateStr(maxD)}&limit=200`)
-    if (!r.ok) return `❌ ESPN: HTTP ${r.status}`
-    data = await r.json()
-  } catch (e) { return `❌ ESPN: ${(e as Error).message}` }
+  let events: any[], failedDays: string[]
+  try { ({ events, failedDays } = await espnFetchDays(ESPN_NBA, minStart, maxD, '&limit=200')) }
+  catch (e) { return `❌ ESPN: ${(e as Error).message}` }
 
-  const byId = new Map((data.events || []).map((ev: any) => [String(ev.id), ev]))
+  const byId = new Map(events.map((ev: any) => [String(ev.id), ev]))
   let written = 0, lines: string[] = []
   for (const g of started) {
     const ev: any = byId.get(g.espn_event_id)
@@ -1039,7 +1065,8 @@ async function cmdNbaResults(chatId: number): Promise<string> {
     if (error || !res?.ok) tail = `\n\n🚨 Settlement ჩავარდა: ${res?.error || error?.message}`
     else tail = `\n\n🏁 Settlement: ✅${res.won} ❌${res.lost}${res.voided > 0 ? ` ↩️${res.voided}` : ''} ⏭${res.skipped}`
   }
-  return `🏀 <b>NBA შედეგები</b>\n\n${lines.length ? lines.join('\n') : 'ახალი დასრულებული არ არის'}${tail}`
+  const warn = failedDays.length ? `\n\n⚠ ESPN: ${failedDays.length} დღე ვერ წამოვიდა (${failedDays.join(', ')}) — ამ დღეების თამაშები გამოტოვდა, თავიდან სცადე` : ''
+  return `🏀 <b>NBA შედეგები</b>\n\n${lines.length ? lines.join('\n') : 'ახალი დასრულებული არ არის'}${tail}${warn}`
 }
 
 async function cmdNbaSettle(chatId: number): Promise<string> {
@@ -1147,15 +1174,13 @@ async function cmdFbOdds(L: FbLeague): Promise<string> {
 }
 
 async function cmdFbEvent(L: FbLeague): Promise<string> {
-  const from = espnDateStr(new Date())
-  const to = espnDateStr(new Date(Date.now() + 21 * 86400000))
-  let data: any
+  let events: any[]
   try {
-    const rr = await fetch(`https://site.web.api.espn.com/apis/site/v2/sports/soccer/${L.slug}/scoreboard?dates=${from}-${to}`)
-    if (!rr.ok) return `❌ ESPN: HTTP ${rr.status}`
-    data = await rr.json()
+    ({ events } = await espnFetchDays(`https://site.web.api.espn.com/apis/site/v2/sports/soccer/${L.slug}/scoreboard`,
+      new Date(), new Date(Date.now() + 21 * 86400000)))
   } catch (e) { return `❌ ESPN: ${(e as Error).message}` }
-  const evs = (data.events || []).filter((e: any) => e.status?.type?.state === 'pre').slice(0, 15)
+  const evs = events.filter((e: any) => e.status?.type?.state === 'pre')
+    .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()).slice(0, 15)
   if (!evs.length) return `⚽️ <b>${L.name}</b>\n\n📭 ESPN-ზე მომავალი მატჩი არ ჩანს${L.code === 'ucl' ? ' — ჩემპიონთა ლიგა სექტემბრიდან იწყება.' : '.'}`
   const lines = evs.map((e: any) => {
     const c = e.competitions?.[0]
