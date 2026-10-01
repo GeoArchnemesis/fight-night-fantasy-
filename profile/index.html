@@ -11,6 +11,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>პროფილი — Fight Night Fantasy</title>
+<link rel="canonical" href="https://fnf.ge/profile/" />
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -157,7 +158,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 (function(){
   var s = 'ufc';
   try { s = localStorage.getItem('fnf_sport') || 'ufc'; } catch(e){}
-  var url = (s === 'f1') ? '/f1' : (s === 'nba') ? '/nba' : '/ufc';
+  // ფეხბურთი: fnf_league კოდი → /football/<league>/ (default: esp1 → laliga)
+  var FB_PATHS = { esp1:'laliga', eng1:'epl', ita1:'seriea', ger1:'bundesliga', fra1:'ligue1', ucl:'ucl' };
+  var lg = 'esp1';
+  try { lg = localStorage.getItem('fnf_league') || 'esp1'; } catch(e){}
+  if (!FB_PATHS[lg]) lg = 'esp1';
+  var url = (s === 'f1') ? '/f1' : (s === 'nba') ? '/nba' : (s === 'football') ? '/football/' + FB_PATHS[lg] + '/' : '/ufc';
   var b = document.getElementById('brandLink');  if (b) b.href = url;
   var k = document.getElementById('backLink');   if (k) k.href = url;
   var g = document.getElementById('guestLink');  if (g) g.href = url;
@@ -280,9 +286,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     // UFC → users.balance; F1/NBA → get_sport_balance RPC (user_balances, sport-ის მიხედვით).
     // თუ RPC ვერ იმუშავებს, UFC-ის ბალანსზე ვრჩებით, გვერდი მაინც იტვირთება.
     let balance = (ud && ud.balance != null) ? ud.balance : 1000;
-    if (SPORT === 'f1' || SPORT === 'nba') {
+    // ფეხბურთი → get_sport_balance('soccer_<league>'), ლიგა fnf_league-დან (default esp1)
+    let balSport = null;
+    if (SPORT === 'f1' || SPORT === 'nba') balSport = SPORT;
+    else if (SPORT === 'football') {
+      let lg = 'esp1';
+      try { lg = localStorage.getItem('fnf_league') || 'esp1'; } catch(e){}
+      if (!['esp1','eng1','ita1','ger1','fra1','ucl'].includes(lg)) lg = 'esp1';
+      balSport = 'soccer_' + lg;
+    }
+    if (balSport) {
       try {
-        const { data: b, error } = await sb.rpc('get_sport_balance', { p_sport: SPORT });
+        const { data: b, error } = await sb.rpc('get_sport_balance', { p_sport: balSport });
         if (!error && b && b.balance != null) balance = b.balance;
       } catch(e){}
     }
@@ -328,6 +343,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script>
 (function(){var sp=document.getElementById('mnavSport');if(!sp)return;var pop=sp.querySelector('.mnav-pop');sp.addEventListener('click',function(e){if(e.target.closest('.mnav-pop-opt'))return;if(pop)pop.classList.toggle('show');});document.addEventListener('click',function(e){if(pop&&!e.target.closest('#mnavSport'))pop.classList.remove('show');});})();
 </script>
+<script src="/fantasy-nav.js?v=6"></script>
 <!-- ── REPORT CONTACT POPUP ── -->
 <div id="reportPopup" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(5,4,8,.8);backdrop-filter:blur(6px);justify-content:center;align-items:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--surface,#14121c);border:1px solid var(--line,#2a2734);border-radius:12px;padding:28px;max-width:340px;width:100%;text-align:center">
