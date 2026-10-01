@@ -80,7 +80,7 @@ function parseESPNMethod(comp: any): string {
     if (s.includes('sub')) return 'Submission'
     if (s.includes('dec') || s.includes('decision') || s.includes('unanimous') || s.includes('split')) return 'Decision'
     if (s.includes('no contest')) return 'No Contest'
-    if (s.includes('dq')) return 'DQ'
+    if (s.includes('dq') || s.includes('disqualif')) return 'DQ'
   }
   return ''
 }
@@ -109,18 +109,26 @@ async function upsertFighter(f: any): Promise<number | null> {
 
 // მხოლოდ ფოტოების განახლება — ივენთს/ბრძოლებს/კოეფიციენტებს/ბილეთებს არ ეხება
 async function cmdUpdatePhotos(chatId: number): Promise<string> {
-  // 1. მიმდინარე ივენთი DB-დან (უახლესი მომავალი, ან ბოლო)
+  // 1. მიმდინარე ივენთი DB-დან: ჯერ „ლაივი" (დაწყებული, არა completed, ბოლო 48სთ — app.js loadEventFromDB-ის სარკე),
+  //    მერე უახლესი მომავალი, ბოლოს ბოლო წარსული
   const nowIso = new Date().toISOString()
-  let { data: evRows } = await sb.from('events').select('id,name').gte('event_date', nowIso).order('event_date', { ascending: true }).limit(1)
+  const liveFromIso = new Date(Date.now() - 48 * 3600000).toISOString()
+  let { data: evRows } = await sb.from('events').select('id,name,event_date').neq('status', 'completed')
+    .lte('event_date', nowIso).gte('event_date', liveFromIso).order('event_date', { ascending: false }).limit(1)
   if (!evRows || evRows.length === 0) {
-    const past = await sb.from('events').select('id,name').lt('event_date', nowIso).order('event_date', { ascending: false }).limit(1)
+    const up = await sb.from('events').select('id,name,event_date').gte('event_date', nowIso).order('event_date', { ascending: true }).limit(1)
+    evRows = up.data
+  }
+  if (!evRows || evRows.length === 0) {
+    const past = await sb.from('events').select('id,name,event_date').lt('event_date', nowIso).order('event_date', { ascending: false }).limit(1)
     evRows = past.data
   }
   if (!evRows || evRows.length === 0) return '❌ ივენთი ვერ მოიძებნა ბაზაში'
   const dbEvent = evRows[0]
 
-  // 2. ESPN-იდან იგივე სახელის ივენთი
-  const today = new Date()
+  // 2. ESPN-იდან იგივე სახელის ივენთი — ძებნა ივენთის დღიდან (ლაივი/წარსული ივენთი დღევანდელზე ადრეა)
+  const evDay = dbEvent.event_date ? new Date(dbEvent.event_date) : null
+  const today = (evDay && evDay.getTime() < Date.now()) ? evDay : new Date()
   let espnData: any = null
   for (let i = 0; i <= 30; i++) {
     const d = new Date(today); d.setDate(d.getDate() + i)
@@ -244,7 +252,7 @@ async function cmdSyncFights(chatId: number): Promise<string> {
   const event = espnData.events.find((e: any) => e.name === ev.name) || espnData.events[0]
 
   const { data: dbFights } = await sb.from('fights')
-    .select('id,bout_order,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
+    .select('id,bout_order,is_voided,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
     .eq('event_id', ev.id)
   const _pk = (a: any, b: any) => [String(a || ''), String(b || '')].sort().join('|')
   const knownPairs = new Set<string>()
@@ -265,6 +273,10 @@ async function cmdSyncFights(chatId: number): Promise<string> {
     const blueC = c.competitors.find((x: any) => x.order === 2) || c.competitors[1]
     if (!redC || !blueC) continue
     if (knownPairs.has(_pk(redC.id, blueC.id))) continue
+    // დაწყებულ/დასრულებულ bout-ს ახალ (ფსონისთვის ღია) ბრძოლად არ ვამატებთ — თორემ ავტო-ვოიდით
+    // ნეიტრალებული წყვილი (no contest და ა.შ.) ლაივ ივენთზე ხელახლა upcoming-ად დაემატებოდა.
+    // (auto.js syncNewFights-ს მხოლოდ ივენთამდე უშვებს — hoursUntil > 1)
+    if (c.status?.type?.state && c.status.type.state !== 'pre') continue
     const rounds = c.format?.regulation?.periods || 3
     const redDet = redC?.id ? await fetchAthleteDetails(redC.id) : {}
     const blueDet = blueC?.id ? await fetchAthleteDetails(blueC.id) : {}
@@ -390,11 +402,13 @@ async function cmdFetchResults(chatId: number): Promise<string> {
   if (espnEvent.status?.type?.state === 'pre') return 'ℹ️ ივენთი ჯერ არ დაწყებულა'
   // espn_id აუცილებელია ID-ზე დაფუძნებული დამთხვევისა და ჩანაცვლების დეტექციისთვის (auto.js-ის სარკე)
   const { data: dbFights } = await sb.from('fights')
-    .select('id,status,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
+    .select('id,status,is_voided,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
     .eq('event_id', ev.id)
   if (!dbFights) return '❌ ბრძოლები ვერ მოიძებნა DB-ში'
   let updated = 0, voidedCount = 0
   const lines: string[] = []
+  const handledIds = new Set<number>()   // ამ გაშვებაზე შედეგ/ვოიდ-მიღებული — ვოიდის pass-მა რომ არ გადააკეთოს
+  const _nnm = (x: any) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim()
   for (const comp of espnEvent.competitions) {
     if (comp.status?.type?.state !== 'post') continue
     const winner = comp.competitors.find((c: any) => c.winner)
@@ -404,7 +418,6 @@ async function cmdFetchResults(chatId: number): Promise<string> {
     const round = comp.status?.period || ''
 
     // ── დამთხვევა სახელით (წყვილით) — espn_id ხშირად ძველია/იცვლება, ID-only შედეგებს კარგავდა ──
-    const _nnm = (x: any) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim()
     const espnNames = (comp.competitors || []).map((c: any) => _nnm(c.athlete?.fullName)).filter(Boolean)
     if (espnNames.length < 2) { lines.push(`⚠️ competitor სახელები აკლია ("${winnerName}") — გამოტოვება`); continue }
     const espnPairKey = [...espnNames].sort().join('|')
@@ -425,11 +438,49 @@ async function cmdFetchResults(chatId: number): Promise<string> {
     if (!exactWinner) { lines.push(`⚠️ გამარჯვებული "${winnerName}" ვერ დაემთხვა მხარეებს — გამოტოვება`); continue }
 
     await sb.from('fights').update({ status: 'completed', result_winner: exactWinner, result_method: method, result_round: round ? parseInt(round) : null }).eq('id', match.id)
+    handledIds.add(match.id)
     lines.push(`🏆 ${exactWinner} (${method}, R${round})`)
     updated++
   }
+
+  // ── გაუქმებული/მოხსნილი ბრძოლების ავტო-ვოიდი (auto.js fetchResultsAndSettle-ის სარკე) ──
+  // მხოლოდ როცა მთელი ივენთი დასრულებულია. DB-ში ჯერ კიდევ 'upcoming' ბრძოლა, რომელსაც ESPN card-ზე
+  // შედეგი არ აქვს (მოხსნილი / canceled / no contest / draw) → is_voided:true; settlement-ი stake-ს დააბრუნებს.
+  if (espnEvent.status?.type?.state === 'post') {
+    for (const f of dbFights as any[]) {
+      if (f.status !== 'upcoming' || f.is_voided || handledIds.has(f.id)) continue
+      const rid = String(f.red?.espn_id || ''), bid = String(f.blue?.espn_id || '')
+      const pairKey = [_nnm(f.red?.name), _nnm(f.blue?.name)].sort().join('|')
+      // ESPN-ის bout: espn_id-ით, ან (ძველი/შეცვლილი espn_id-ის შემთხვევაში) ორივე მებრძოლის სახელით —
+      // „card-ზე აღარ არის" მხოლოდ მაშინ, თუ ვერცერთით ვერ ვიპოვეთ
+      const comp = espnEvent.competitions.find((c: any) => {
+        const ids = (c.competitors || []).map((x: any) => String(x.id || ''))
+        if ((rid && ids.includes(rid)) || (bid && ids.includes(bid))) return true
+        const nm = (c.competitors || []).map((x: any) => _nnm(x.athlete?.fullName)).filter(Boolean)
+        return nm.length === 2 && [...nm].sort().join('|') === pairKey
+      })
+      if (!comp && !rid && !bid) { lines.push(`⚠️ ვოიდის შემოწმება ვერ ხერხდება (espn_id აკლია): ${f.red?.name} vs ${f.blue?.name}`); continue }
+
+      let reason = ''
+      if (!comp) {
+        reason = 'ESPN card-იდან მოხსნილია (გაუქმებული)'
+      } else {
+        const tname = (comp.status?.type?.name || '').toUpperCase()
+        const tdesc = (comp.status?.type?.description || '').toLowerCase()
+        const hasWinner = (comp.competitors || []).some((c: any) => c.winner)
+        if (tname.includes('CANCEL') || tname.includes('POSTPON') || tdesc.includes('cancel') || tdesc.includes('postpon')) reason = 'ESPN: canceled/postponed'
+        else if (comp.status?.type?.state === 'post' && !hasWinner) reason = 'დასრულდა გამარჯვებულის გარეშე (no contest / draw)'
+        // სხვა შემთხვევაში (ჯერ არ დამთავრებულა / გამარჯვებული ვერ დაემთხვა) — ხელს არ ვახლებთ
+      }
+      if (!reason) continue
+      await sb.from('fights').update({ status: 'completed', is_voided: true }).eq('id', f.id)
+      handledIds.add(f.id)
+      lines.push(`⚖️ ${f.red?.name} vs ${f.blue?.name} — ${reason}`)
+      voidedCount++
+    }
+  }
   if (updated === 0 && voidedCount === 0) return 'ℹ️ დასრულებული ბრძოლები ვერ მოიძებნა'
-  return `🏆 <b>შედეგები განახლდა</b>\n${ev.name}\n\n${lines.join('\n')}${voidedCount ? `\n\n⚖️ ${voidedCount} ბრძოლა ნეიტრალდა (ჩანაცვლება)` : ''}`
+  return `🏆 <b>შედეგები განახლდა</b>\n${ev.name}\n\n${lines.join('\n')}${voidedCount ? `\n\n⚖️ ${voidedCount} ბრძოლა ნეიტრალდა — stake settlement-ზე დაბრუნდება` : ''}`
 }
 
 async function cmdFull(chatId: number): Promise<string> {

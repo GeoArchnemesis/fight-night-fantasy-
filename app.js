@@ -127,9 +127,16 @@ async function doCashout(idx) {
 // ── DB LOAD (ივენთის შერჩევა გასწორებული) ──
 async function loadEventFromDB() {
   const nowIso = new Date(serverNow()).toISOString();
+  // „მიმდინარე" ივენთი: დაწყებულია (event_date <= ახლა), მაგრამ ჯერ არ დასრულებულა — მას ვანიჭებთ
+  // პრიორიტეტს მომავალზე, თორემ auto.js-ის მიერ შექმნილი შემდეგი ივენთი ლაივ ბარათს ჩაანაცვლებდა.
+  // 48სთ-იანი ზღვარი: „გაჭედილმა" (completed-ად ვერ მონიშნულმა) ძველმა ივენთმა საიტი სამუდამოდ არ გაყინოს.
+  const liveFromIso = new Date(serverNow() - 48 * 3600000).toISOString();
+  const { data: liveRows } = await sb.from('events').select('*').neq('status', 'completed')
+    .lte('event_date', nowIso).gte('event_date', liveFromIso).order('event_date', { ascending: false }).limit(1);
   const { data: upRows } = await sb.from('events').select('*').gte('event_date', nowIso).order('event_date', { ascending: true }).limit(1);
   const { data: pastRows } = await sb.from('events').select('*').lt('event_date', nowIso).order('event_date', { ascending: false }).limit(1);
   const now = serverNow();
+  const live = liveRows && liveRows[0];
   const upcoming = upRows && upRows[0];
   const recent = pastRows && pastRows[0];
 
@@ -139,7 +146,8 @@ async function loadEventFromDB() {
   // (ძველი "ორშაბათამდე ჩვენების" ლოგიკა მოხსნილია — auto.js-ს ეწინააღმდეგებოდა
   //  და კვირის ფსონის ფანჯარას კარგავდა.)
   let ev = null;
-  if (upcoming) ev = upcoming;
+  if (live) ev = live;
+  else if (upcoming) ev = upcoming;
   else if (recent) ev = recent;
   if (!ev) return null;
 
