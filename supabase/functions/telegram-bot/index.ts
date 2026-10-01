@@ -513,7 +513,14 @@ async function raceDueForSettlement(): Promise<any> {
     return rm && rm.start_time && new Date(rm.start_time).getTime() <= now
   })
   const pick = due || races[0]
-  return { id: pick.id, name: pick.name, status: pick.status, completed_at: pick.completed_at }
+  const pickRm = (pick.f1_markets || []).find((m: any) => m.kind === 'race')
+  return { id: pick.id, name: pick.name, status: pick.status, completed_at: pick.completed_at, raceStartTime: pickRm?.start_time || null }
+}
+
+// ESPN event-ის race competition-ის თარიღი (abbreviation "Race"); fallback — event-ის თარიღი
+function espnRaceCompDate(ev: any): string | null {
+  const c = (ev.competitions || []).find((x: any) => (x.type?.abbreviation || '').toLowerCase() === 'race')
+  return c?.date || ev.date || null
 }
 
 
@@ -736,7 +743,20 @@ async function cmdF1ResultAuto(chatId: number): Promise<string> {
 
   // სახელით დამთხვევა (ESPN-ის სახელი DB-ს სახელს შეიძლება ოდნავ განსხვავდებოდეს)
   const norm = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z]/g, '')   // deaccent: Hülkenberg→hulkenberg, Pérez→perez
-  const espnEv = (cal.events || []).find((e: any) => norm(e.name).includes(norm(race.name).slice(0, 8)) || norm(race.name).includes(norm(e.name).slice(0, 8)))
+  // სპონსორის პრეფიქსი მეორდება ("Qatar Airways" ×3, "Heineken" ×3 ...) → 2+ დამთხვევისას ვირჩევთ
+  // race-market-ის start_time-ს ±5 დღეში უახლოესს; ვერცერთი → არაფერს ვწერთ (f1-auto.js espnMatchRace-ის სარკე)
+  const nameMatches = (cal.events || []).filter((e: any) => norm(e.name).includes(norm(race.name).slice(0, 8)) || norm(race.name).includes(norm(e.name).slice(0, 8)))
+  let espnEv: any = null
+  if (nameMatches.length === 1) espnEv = nameMatches[0]
+  else if (nameMatches.length > 1) {
+    const target = race.raceStartTime ? new Date(race.raceStartTime).getTime() : NaN
+    let bestDiff = Infinity
+    if (Number.isFinite(target)) for (const e of nameMatches) {
+      const diff = Math.abs(new Date(espnRaceCompDate(e) || '').getTime() - target)
+      if (Number.isFinite(diff) && diff <= 5 * 86400000 && diff < bestDiff) { espnEv = e; bestDiff = diff }
+    }
+    if (!espnEv) return `⚠️ ESPN-ზე "${race.name}" ცალსახად ვერ დადგინდა (${nameMatches.length} რბოლა ემთხვევა სახელით, თარიღით ვერცერთი ±5 დღეში) — არაფერი ჩაწერილა.\nშედეგი ხელით: <b>f1 შედეგი race [ნომერი]</b>`
+  }
   if (!espnEv) return `⚠️ ESPN-ზე "${race.name}" ვერ მოიძებნა — შედეგი ხელით: <b>f1 შედეგი race [ნომერი]</b>`
 
   // DB მძღოლები სახელით ძებნისთვის
@@ -779,13 +799,19 @@ async function cmdF1ResultAuto(chatId: number): Promise<string> {
 }
 
 async function cmdF1Result(chatId: number, text: string): Promise<string> {
-  const m = text.match(/(race|quali|sprint)\s+(\d{1,2})/)
-  if (!m) return '📝 ფორმატი: <b>f1 შედეგი race 1</b>\n(kind: race / quali / sprint, მერე გამარჯვებული მძღოლის ნომერი)\n\nმძღოლების ნომრები: <b>f1 მძღოლები</b>'
+  // გრძელი/სპეციფიკური ვარიანტები პირველად — თორემ "sprint_quali 5"-ში "quali" დაემთხვეოდა და quali მარკეტს გადაეწერებოდა
+  const m = text.match(/\b(sprint_quali|sprint|race|quali)\s+(\d{1,2})/)
+  if (!m) return '📝 ფორმატი: <b>f1 შედეგი race 1</b>\n(kind: race / quali / sprint / sprint_quali, მერე გამარჯვებული მძღოლის ნომერი)\n\nმძღოლების ნომრები: <b>f1 მძღოლები</b>'
   const kind = m[1], num = parseInt(m[2])
   const race = await raceDueForSettlement()
   if (!race) return '🏎️ რბოლა ვერ მოიძებნა'
   const { data: mkt } = await sb.from('f1_markets').select('id,kind,result_driver_id').eq('race_id', race.id).eq('kind', kind).maybeSingle()
   if (!mkt) return `⚠️ ${race.name}-ს "${kind}" მარკეტი არ აქვს`
+  // უკვე ჩაწერილს არ ვაწერთ ზედ (cmdF1ResultAuto-ის მსგავსად)
+  if (mkt.result_driver_id) {
+    const { data: cur } = await sb.from('f1_drivers').select('name,car_number').eq('id', mkt.result_driver_id).maybeSingle()
+    return `⛔ <b>${race.name}</b> — ${kind}: შედეგი უკვე ჩაწერილია (${cur ? `${cur.name}${cur.car_number != null ? ` #${cur.car_number}` : ''}` : `driver id ${mkt.result_driver_id}`}). არაფერი შეცვლილა.`
+  }
   const { data: drv } = await sb.from('f1_drivers').select('id,name').eq('car_number', num).maybeSingle()
   if (!drv) return `⚠️ მძღოლი #${num} ბაზაში ვერ მოიძებნა`
   await sb.from('f1_markets').update({ result_driver_id: drv.id, status: 'completed' }).eq('id', mkt.id)
@@ -1375,7 +1401,7 @@ Deno.serve(async (req) => {
         response = await cmdF1Odds(chatId)
       } else if (t.includes('შედეგ') || t.includes('result')) {
         // ნომრით → ხელით; ნომრის გარეშე → ESPN-იდან ავტომატურად
-        if (/(race|quali|sprint)\s+\d/.test(t)) {
+        if (/\b(sprint_quali|sprint|race|quali)\s+\d/.test(t)) {
           response = await cmdF1Result(chatId, t)
         } else {
           await sendMsg(chatId, '⏳ ESPN-დან F1 შედეგების წამოღება...')

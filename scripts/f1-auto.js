@@ -35,7 +35,7 @@ const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
 const log = (m) => console.log(`[${new Date().toISOString()}] ${m}`);
 
 async function getJSON(url, headers) {
-  const res = await fetch(url, { headers: headers || {} });
+  const res = await fetch(url, { headers: headers || {}, signal: AbortSignal.timeout(15000) });   // 15წმ timeout (auto.js/nba-auto.js-ის მსგავსად)
   if (!res.ok) throw new Error(`${res.status} ${url}`);
   return res.json();
 }
@@ -149,12 +149,26 @@ function espnComp(ev, kind) {
   return null;
 }
 // ESPN-ის რბოლის სახელი ↔ ბაზის f1_races.name (deaccent + პრეფიქსი)
-function espnMatchRace(espnEvents, dbName) {
+// სპონსორის პრეფიქსი მეორდება ("Qatar Airways" ×3, "Heineken" ×3 ...) → 2+ დამთხვევისას
+// ვირჩევთ იმას, რომლის race competition-ის თარიღი ბაზის race start_time-ს ±5 დღეშია (უახლოესს).
+// ვერცერთი ვერ ჯდება → null (გამოვტოვებთ — არასწორ რბოლაზე settlement-ს არ ვაკეთებთ)
+const RACE_MATCH_WINDOW_MS = 5 * 86400000;
+function espnMatchRace(espnEvents, dbName, raceStartTime) {
   const n = deaccent(dbName).replace(/[^a-z]/g, '');
-  return espnEvents.find(e => {
+  const matches = espnEvents.filter(e => {
     const en = deaccent(e.name).replace(/[^a-z]/g, '');
     return en.includes(n.slice(0, 8)) || n.includes(en.slice(0, 8));
   });
+  if (matches.length <= 1) return matches[0];
+  const target = raceStartTime ? new Date(raceStartTime).getTime() : NaN;
+  if (!Number.isFinite(target)) return null;
+  let best = null, bestDiff = Infinity;
+  for (const e of matches) {
+    const d = espnComp(e, 'race')?.date || e.date;
+    const diff = Math.abs(new Date(d).getTime() - target);
+    if (Number.isFinite(diff) && diff <= RACE_MATCH_WINDOW_MS && diff < bestDiff) { best = e; bestDiff = diff; }
+  }
+  return best;
 }
 
 async function syncUpcoming() {
@@ -272,7 +286,7 @@ async function settleFinished() {
     // რბოლა უნდა დასრულებულიყო (start + ~3სთ)
     if (now < new Date(raceMkt.start_time).getTime() + 3 * 3600000) continue;
 
-    const espnEv = espnMatchRace(espnEvents, race.name);
+    const espnEv = espnMatchRace(espnEvents, race.name, raceMkt.start_time);
     if (!espnEv) { log(`Settlement: ${race.name} — ESPN-ზე ვერ მოიძებნა`); continue; }
     log(`Settlement: ${race.name}`);
 
