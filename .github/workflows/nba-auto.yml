@@ -5,6 +5,11 @@ on:
     - cron: '*/30 * * * *'
   workflow_dispatch:
 
+# ერთდროულად მხოლოდ ერთი გაშვება; ახალი scheduled run რიგში დგება და მიმდინარეს არ წყვეტს
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   auto:
     runs-on: ubuntu-latest

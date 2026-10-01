@@ -5,6 +5,11 @@ on:
     - cron: '*/30 * * * *'
   workflow_dispatch:
 
+# ერთდროულად მხოლოდ ერთი გაშვება; ახალი scheduled run რიგში დგება და მიმდინარეს არ წყვეტს
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 jobs:
   auto:
     runs-on: ubuntu-latest
@@ -25,3 +30,4 @@ jobs:
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FOOTBALL_DATA_KEY: ${{ secrets.FOOTBALL_DATA_KEY }}
