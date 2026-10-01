@@ -23,6 +23,9 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_KEY;         // service_role
 const TG_TOKEN     = process.env.TELEGRAM_BOT_TOKEN || '';
 const TG_CHAT      = process.env.TELEGRAM_CHAT_ID || '';
+// DRY_RUN=1 → ჩაწერის ნაცვლად მხოლოდ ლოგავს (completed/void/settle/ახალი ტური); ბაზაში არაფერი იწერება
+const DRY_RUN      = process.env.DRY_RUN === '1';
+const DRY_REPORT   = [];   // { league, action: 'complete'|'void', match, detail }
 
 const SEASON          = new Date().getUTCFullYear();
 const SITE_BASE       = 'https://site.web.api.espn.com/apis/site/v2/sports/soccer';
@@ -48,9 +51,14 @@ function _fdNorm(x){ return (x||'').normalize('NFD').replace(/[\u0300-\u036f]/g,
 function _fdTok(x){ return _fdNorm(x).split(' ').filter(w => w.length > 2 && !_FD_STOP.has(w)); }
 function _fdOverlap(a,b){ const A=_fdTok(a), B=new Set(_fdTok(b)); if(!A.length) return 0; let c=0; for(const t of A) if(B.has(t)) c++; return c/A.length; }
 const _mdCache = {};
+let _fdKeyWarned = false;
 async function loadMatchdays(lg){
   const code = FD_CODES[lg.code];
-  if (!FD_KEY || !code) return [];
+  if (!FD_KEY) {
+    if (!_fdKeyWarned) { log('⚠ FOOTBALL_DATA_KEY ცარიელია — matchday-ს ვერ ვიღებთ, ტურის ნომერი counter-ით (ბოლო + 1)'); _fdKeyWarned = true; }
+    return [];
+  }
+  if (!code) return [];
   if (_mdCache[lg.code]) return _mdCache[lg.code];
   try {
     const r = await fetch(`https://api.football-data.org/v4/competitions/${code}/matches?season=${SEASON}`, { headers: { 'X-Auth-Token': FD_KEY } });
@@ -104,18 +112,28 @@ const LEAGUES_FALLBACK = [
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('SUPABASE_URL / SUPABASE_KEY აუცილებელია'); process.exit(1);
 }
-const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+const _sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+// DRY_RUN backstop: ნებისმიერი insert/update/upsert/delete/rpc → throw (თუ რომელიმე გზა ვერ დაიჭირა)
+const sb = !DRY_RUN ? _sb : {
+  from(table) {
+    const q = _sb.from(table);
+    const block = (op) => () => { throw new Error(`DRY_RUN: ${op} ${table} დაბლოკილია`); };
+    return { select: (...a) => q.select(...a), insert: block('insert'), update: block('update'), upsert: block('upsert'), delete: block('delete') };
+  },
+  rpc(name) { throw new Error(`DRY_RUN: rpc ${name} დაბლოკილია`); },
+};
 
 // ── helpers ──────────────────────────────────────────────
 const log = (m) => console.log(`[${new Date().toISOString()}] ${m}`);
 
 async function getJSON(url) {
-  const res = await fetch(url, { headers: { 'User-Agent': 'fnf-soccer-auto' } });
+  const res = await fetch(url, { headers: { 'User-Agent': 'fnf-soccer-auto' }, signal: AbortSignal.timeout(15000) });
   if (!res.ok) throw new Error(`${res.status} ${url}`);
   return res.json();
 }
 
 async function sendTelegram(text) {
+  if (DRY_RUN) return;
   if (!TG_TOKEN || !TG_CHAT) return;
   try {
     await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
@@ -138,20 +156,32 @@ function amToDec(ml) {
 }
 
 // ── ESPN ─────────────────────────────────────────────────
-// scoreboard-ს ვიღებთ ~9-დღიან ნაწილებად (cap-ის თავიდან ასაცილებლად), ვაერთიანებთ
-async function fetchWindow(slug) {
-  const events = [];
-  const seen = new Set();
-  const start = Date.now() - WINDOW_PAST_DAYS * 86400000;
-  const end   = Date.now() + WINDOW_FUTURE_DAYS * 86400000;
-  const CHUNK = 9 * 86400000;
-  for (let t = start; t < end; t += CHUNK) {
-    const from = ymd(new Date(t)), to = ymd(new Date(Math.min(t + CHUNK, end)));
-    try {
-      const j = await getJSON(`${SITE_BASE}/${slug}/scoreboard?dates=${from}-${to}`);
+// scoreboard-ს ვიღებთ დღე-დღე (dates=YYYYMMDD) და ვაერთიანებთ event id-ით.
+// ESPN-ი ~2026-09-15-დან dates=FROM-TO range-ს 400-ით უარყოფს; ერთდღიანი მუშაობს.
+// ცალკეული დღის შეცდომა არ აჩერებს; ყველა დღე თუ ჩავარდა → throw (ცარიელ სიაზე void-ები არ მოხდეს).
+// შედეგი: events + events.okDays (წარმატებით წამოღებული დღეები, YYYYMMDD)
+const MAX_PAST_DAYS = 60;   // ძველი გაურკვეველი მატჩისთვის უკან მაქს.
+async function fetchWindow(slug, fromMs) {
+  const DAY = 86400000;
+  const start = Math.max(Math.min(fromMs ?? Infinity, Date.now() - WINDOW_PAST_DAYS * DAY), Date.now() - MAX_PAST_DAYS * DAY);
+  const end   = Date.now() + WINDOW_FUTURE_DAYS * DAY;
+  const days = [];
+  for (let t = start; t <= end; t += DAY) days.push(ymd(new Date(t)));
+  const events = [], seen = new Set(), okDays = new Set();
+  let failed = 0;
+  const BATCH = 6;
+  for (let i = 0; i < days.length; i += BATCH) {
+    const res = await Promise.all(days.slice(i, i + BATCH).map(d =>
+      getJSON(`${SITE_BASE}/${slug}/scoreboard?dates=${d}`).then(j => ({ d, j }), err => ({ d, err }))));
+    for (const { d, j, err } of res) {
+      if (err) { failed++; log(`ESPN fetch ${slug} ${d}: ${err.message}`); continue; }
+      okDays.add(d);
       for (const e of (j.events || [])) if (!seen.has(e.id)) { seen.add(e.id); events.push(e); }
-    } catch (err) { log(`ESPN fetch ${slug} ${from}-${to}: ${err.message}`); }
+    }
   }
+  if (!okDays.size) throw new Error(`ESPN ${slug}: ${days.length}-ვე დღე ჩავარდა`);
+  if (failed) log(`ESPN ${slug}: ${failed}/${days.length} დღე ვერ წამოვიდა`);
+  events.okDays = okDays;
   return events;
 }
 
@@ -305,7 +335,11 @@ async function createNextRound(lg, events) {
   const { data: last } = await sb.from('soccer_rounds')
     .select('round_no').eq('league', lg.code).eq('season', SEASON)
     .order('round_no', { ascending: false }).limit(1).maybeSingle();
-  const roundNo = matchday || ((last?.round_no || 0) + 1);
+  // რეალური matchday მხოლოდ მაშინ, თუ ბოლო ტურზე მეტია — არსებული counter-ტურები matchday-ს
+  // არ ემთხვევა, ამიტომ ნაკლები/ტოლი matchday დუბლიკატს ან უკან ნახტომს გამოიწვევდა → counter-ით ვაგრძელებთ
+  const lastNo = last?.round_no || 0;
+  const roundNo = (matchday && matchday > lastNo) ? matchday : lastNo + 1;
+  if (matchday && matchday <= lastNo) log(`[${lg.code}] matchday ${matchday} ≤ ბოლო ტური ${lastNo} — counter-ით ვაგრძელებთ (${lastNo + 1})`);
   const name = `${lg.name} — ტური ${roundNo}`;
 
   const { data: r, error } = await sb.from('soccer_rounds')
@@ -372,19 +406,24 @@ async function refreshOdds(lg, round, events) {
     if (a?.team?.color) upd.away_color = a.team.color;
     if (h?.team?.logo) upd.home_logo = h.team.logo;
     if (a?.team?.logo) upd.away_logo = a.team.logo;
-    if (Object.keys(upd).length) await sb.from('soccer_matches').update(upd).eq('id', mt.id);
+    if (Object.keys(upd).length) {
+      if (DRY_RUN) { log(`[${lg.code}] DRY: ფერი/ლოგო განახლდებოდა match ${mt.id}`); continue; }
+      await sb.from('soccer_matches').update(upd).eq('id', mt.id);
+    }
   }
 }
 
 // ── შედეგები / void ──
 async function voidMatch(matchId) {
+  if (DRY_RUN) return;
   await sb.from('soccer_matches').update({ status: 'completed', is_voided: true }).eq('id', matchId);
   await sb.from('soccer_markets').update({ status: 'completed', is_voided: true }).eq('match_id', matchId);
 }
 
-async function processResults(lg, round, events) {
+async function processResults(lg, round, events, okDays) {
   const { data: matches } = await sb.from('soccer_matches')
-    .select('id,espn_id,status,is_voided,home_team,away_team').eq('round_id', round.id);
+    .select('id,espn_id,status,is_voided,home_team,away_team,kickoff').eq('round_id', round.id);
+  const _label = (mt) => `${mt.home_team} vs ${mt.away_team} (match ${mt.id}, espn ${mt.espn_id}, kickoff ${mt.kickoff})`;
   for (const mt of matches || []) {
     if (mt.status === 'completed' || mt.is_voided) continue;
     let ev = events.find(e => e.id === mt.espn_id);
@@ -401,13 +440,21 @@ async function processResults(lg, round, events) {
     // გადადება/გადატანა: DB-ის kickoff გავიდა >2 დღით, ESPN კი ან აღარ აჩვენებს, ან მომავალში გადაიტანა (pre) → void
     const _dbT = mt.kickoff ? new Date(mt.kickoff).getTime() : 0;
     const _staleDays = _dbT ? (Date.now() - _dbT) / 86400000 : 0;
-    if (_staleDays > 2 && (!ev || ev.status?.type?.state === 'pre')) {
+    // !ev მხოლოდ მაშინ ნიშნავს "ESPN-ზე აღარ არის", თუ kickoff-ის დღე წარმატებით წამოვიღეთ
+    const _dayFetched = !!(okDays && _dbT && okDays.has(ymd(new Date(_dbT))));
+    if (_staleDays > 2 && ((!ev && _dayFetched) || ev?.status?.type?.state === 'pre')) {
+      if (DRY_RUN) DRY_REPORT.push({ league: lg.code, action: 'void', match: _label(mt),
+        detail: !ev ? `stale ${_staleDays.toFixed(1)}d — ESPN-ზე kickoff-ის დღეს არ ჩანს (არც espn_id-ით, არც გუნდებით)`
+                    : `stale ${_staleDays.toFixed(1)}d — ESPN ${ev.id} ისევ 'pre'-ია, ახალი თარიღი ${ev.date}` });
       await voidMatch(mt.id);
       await sendTelegram(`⚖️ <b>მატჩი ნეიტრალდა (გადაიდო/გადაიტანა)</b>\n\n${lg.name}: ${mt.home_team} vs ${mt.away_team}\n➡️ stake settlement-ზე დაბრუნდება.`);
       log(`[${lg.code}] void (გადადება/გადატანა): ${mt.home_team} vs ${mt.away_team}`);
       continue;
     }
-    if (!ev) continue;
+    if (!ev) {
+      if (DRY_RUN && _staleDays > 2) log(`[${lg.code}] DRY: გამოტოვებული (kickoff-ის დღე ვერ წამოვიდა): ${_label(mt)}`);
+      continue;
+    }
 
     const t = ev.status?.type || {};
     const stName   = (t.name || '').toUpperCase();
@@ -416,6 +463,8 @@ async function processResults(lg, round, events) {
     // გადადება / გაუქმება → void
     if (stName.includes('POSTPON') || stName.includes('CANCEL') ||
         stDetail.includes('postpon') || stDetail.includes('cancel')) {
+      if (DRY_RUN) DRY_REPORT.push({ league: lg.code, action: 'void', match: _label(mt),
+        detail: `ESPN ${ev.id} სტატუსი: ${t.name} / "${t.description}" (${ev.date})` });
       await voidMatch(mt.id);
       await sendTelegram(`⚖️ <b>მატჩი ნეიტრალდა (გადაიდო/გაუქმდა)</b>\n\n${lg.name}: ${mt.home_team} vs ${mt.away_team}\n➡️ stake settlement-ზე დაბრუნდება.`);
       log(`[${lg.code}] void: ${mt.home_team} vs ${mt.away_team}`);
@@ -431,6 +480,11 @@ async function processResults(lg, round, events) {
     if (Number.isNaN(hs) || Number.isNaN(as)) continue;
 
     const res1x2 = hs > as ? '1' : (hs < as ? '2' : 'x');
+    if (DRY_RUN) {
+      DRY_REPORT.push({ league: lg.code, action: 'complete', match: _label(mt),
+        detail: `ESPN ${ev.id}: ${home?.team?.displayName} ${hs}-${as} ${away?.team?.displayName} → ${res1x2} (${t.name})` });
+      continue;
+    }
     await sb.from('soccer_matches')
       .update({ status: 'completed', result: res1x2, home_score: hs, away_score: as })
       .eq('id', mt.id);
@@ -452,18 +506,30 @@ async function processResults(lg, round, events) {
 
 // ── ერთი ლიგის სრული ციკლი ──
 async function syncLeague(lg) {
-  const leagueEvents = await fetchWindow(lg.espn_slug);
+  let round = await activeRound(lg.code);
+
+  // ფანჯარა უკან — აქტიური ტურის ყველაზე ძველ გაურკვეველ მატჩამდე (გვიანი შედეგი არ დაიკარგოს)
+  let fromMs = null;
+  if (round) {
+    const { data: open } = await sb.from('soccer_matches')
+      .select('kickoff,status,is_voided').eq('round_id', round.id);
+    const ks = (open || []).filter(m => m.status !== 'completed' && !m.is_voided && m.kickoff)
+      .map(m => new Date(m.kickoff).getTime()).filter(Number.isFinite);
+    if (ks.length) fromMs = Math.min(...ks) - 86400000;
+  }
+
+  const leagueEvents = await fetchWindow(lg.espn_slug, fromMs);   // ყველა დღე თუ ჩავარდა → throw (main იჭერს)
+  const okDays = leagueEvents.okDays;
   const cup = CUPS[lg.code];
   let cupEvents = [];
-  if (cup) { try { cupEvents = (await fetchWindow(cup.slug)).map(e => { e._cup = cup; return e; }); } catch (e) {} }
+  if (cup) { try { cupEvents = (await fetchWindow(cup.slug, fromMs)).map(e => { e._cup = cup; return e; }); } catch (e) { log(`[${lg.code}] ${cup.name}: ${e.message}`); } }
   const events = [...leagueEvents, ...cupEvents];   // თასის მატჩებიც (espn_id-ით მუშაობს results/odds)
   if (!events.length) { log(`[${lg.code}] ESPN-მ მოვლენა არ დააბრუნა`); }
 
-  let round = await activeRound(lg.code);
-
   if (round) {
-    await processResults(lg, round, events);
+    await processResults(lg, round, events, okDays);
     await refreshOdds(lg, round, events);
+    if (DRY_RUN) { log(`[${lg.code}] DRY: settle_soccer_round(${round.id}) გამოიძახებოდა`); return; }
     const { data: res } = await sb.rpc('settle_soccer_round', { p_round_id: round.id });
     if (res && (res.won || res.lost || res.voided)) {
       log(`[${lg.code}] settle: won ${res.won}, lost ${res.lost}, void ${res.voided}, skip ${res.skipped}`);
@@ -478,6 +544,7 @@ async function syncLeague(lg) {
   }
 
   if (!round) {
+    if (DRY_RUN) { log(`[${lg.code}] DRY: აქტიური ტური არ არის — createNextRound გაეშვებოდა`); return; }
     await createNextRound(lg, events);
   }
 }
@@ -495,6 +562,10 @@ async function main() {
   for (const lg of leagues) {
     try { await syncLeague(lg); }
     catch (e) { log(`[${lg.code}] შეცდომა: ${e.message}`); }
+  }
+  if (DRY_RUN) {
+    log(`DRY_RUN ანგარიში: ${DRY_REPORT.filter(r => r.action === 'complete').length} completed, ${DRY_REPORT.filter(r => r.action === 'void').length} void`);
+    for (const r of DRY_REPORT) log(`  [${r.league}] ${r.action.toUpperCase()} ${r.match} — ${r.detail}`);
   }
   log('SOCCER auto — დასრულდა');
 }
