@@ -88,8 +88,16 @@ function parseESPNMethod(comp: any): string {
 async function upsertFighter(f: any): Promise<number | null> {
   const slug = f.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-')
   const imageUrl = f.espn_id ? `https://a.espncdn.com/i/headshots/mma/players/full/${f.espn_id}.png` : null
-  const { data: existing } = await sb.from('fighters').select('id').eq('name', f.name).maybeSingle()
+  // ჯერ espn_id-ით (სახელი შეიძლება შეიცვალოს), მერე სახელით (auto.js upsertFighter-ის სარკე)
+  let existing: any = null
+  if (f.espn_id) ({ data: existing } = await sb.from('fighters').select('id,espn_id').eq('espn_id', f.espn_id).limit(1).maybeSingle())
+  if (!existing) ({ data: existing } = await sb.from('fighters').select('id,espn_id').eq('name', f.name).limit(1).maybeSingle())
   if (existing) {
+    // სახელი ემთხვევა, espn_id — არა: იგივე სახელის სხვა მებრძოლი (Anthony Romero 4684470 ≠ 5454993) → ჩანაწერს არ ვცვლით
+    if (f.espn_id && existing.espn_id && String(existing.espn_id) !== String(f.espn_id)) {
+      if (ADMIN_CHAT_ID) await sendMsg(ADMIN_CHAT_ID, `⚠️ <b>espn_id კონფლიქტი</b>\n\n${f.name}\nბაზაში: ${existing.espn_id}\nESPN: ${f.espn_id}\n\nშესაძლოა სხვა მებრძოლია იგივე სახელით — ჩანაწერი არ შევცვალე, შეამოწმე ხელით.`)
+      return existing.id
+    }
     const upd: any = {}
     if (f.age) upd.age = f.age; if (f.height_cm) upd.height_cm = f.height_cm
     if (f.weight_kg) upd.weight_kg = f.weight_kg; if (f.reach_cm) upd.reach_cm = f.reach_cm
@@ -145,6 +153,7 @@ async function cmdUpdatePhotos(chatId: number): Promise<string> {
 
   // 3. ყველა მებრძოლს მხოლოდ image_url + espn_id განუახლე (name-ით)
   let updated = 0, missing = 0
+  const conflicts: string[] = []
   const comps = event.competitions || []
   for (const c of comps) {
     for (const comp of (c.competitors || [])) {
@@ -152,13 +161,15 @@ async function cmdUpdatePhotos(chatId: number): Promise<string> {
       const espnId = comp?.id || ''
       if (!name || !espnId) { missing++; continue }
       const imageUrl = `https://a.espncdn.com/i/headshots/mma/players/full/${espnId}.png`
-      const { data: existing } = await sb.from('fighters').select('id').eq('name', name).maybeSingle()
+      const { data: existing } = await sb.from('fighters').select('id,espn_id').eq('name', name).limit(1).maybeSingle()
       if (!existing) { missing++; continue }
+      // სხვა espn_id უკვე აქვს → იგივე სახელის სხვა მებრძოლი შეიძლება იყოს; არ ვცვლით (knownPairs-ს არღვევს)
+      if (existing.espn_id && String(existing.espn_id) !== String(espnId)) { conflicts.push(`${name}: ${existing.espn_id} → ${espnId}`); continue }
       await sb.from('fighters').update({ image_url: imageUrl, espn_id: espnId }).eq('id', existing.id)
       updated++
     }
   }
-  return `✅ <b>ფოტოები განახლდა</b>\n\n${event.name}\n🖼️ ${updated} მებრძოლი განახლდა${missing ? `\n⚠️ ${missing} ვერ მოიძებნა` : ''}`
+  return `✅ <b>ფოტოები განახლდა</b>\n\n${event.name}\n🖼️ ${updated} მებრძოლი განახლდა${missing ? `\n⚠️ ${missing} ვერ მოიძებნა` : ''}${conflicts.length ? `\n\n⚠️ espn_id კონფლიქტი (არ შევცვალე):\n${conflicts.map(c => '• ' + c).join('\n')}` : ''}`
 }
 
 async function cmdUpdateEvent(chatId: number): Promise<string> {
@@ -254,11 +265,17 @@ async function cmdSyncFights(chatId: number): Promise<string> {
   const { data: dbFights } = await sb.from('fights')
     .select('id,bout_order,is_voided,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
     .eq('event_id', ev.id)
+  const _nn = (x: any) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim()
   const _pk = (a: any, b: any) => [String(a || ''), String(b || '')].sort().join('|')
+  const _nk = (a: any, b: any) => [_nn(a), _nn(b)].sort().join('|')
+  // წყვილი „ცნობილია" espn_id-ით ან სახელით, void-ების ჩათვლით (auto.js syncNewFights-ის სარკე):
+  // espn_id არასტაბილურია (UFC 332-ზე ბრძოლა 4-ჯერ დაემატა), ხელით void-ი ხელახლა არ უნდა დაემატოს
   const knownPairs = new Set<string>()
+  const knownNames = new Set<string>()
   let maxOrder = 0
   for (const f of (dbFights || []) as any[]) {
-    if (!f.is_voided) knownPairs.add(_pk(f.red?.espn_id, f.blue?.espn_id))
+    knownPairs.add(_pk(f.red?.espn_id, f.blue?.espn_id))
+    if (f.red?.name && f.blue?.name) knownNames.add(_nk(f.red.name, f.blue.name))
     if ((f.bout_order || 0) > maxOrder) maxOrder = f.bout_order
   }
 
@@ -268,11 +285,13 @@ async function cmdSyncFights(chatId: number): Promise<string> {
 
   let added = 0
   const addedNames: string[] = []
+  const failed: string[] = []
   for (const c of comps) {
     const redC = c.competitors.find((x: any) => x.order === 1) || c.competitors[0]
     const blueC = c.competitors.find((x: any) => x.order === 2) || c.competitors[1]
     if (!redC || !blueC) continue
     if (knownPairs.has(_pk(redC.id, blueC.id))) continue
+    if (knownNames.has(_nk(redC.athlete?.fullName, blueC.athlete?.fullName))) continue
     // დაწყებულ/დასრულებულ bout-ს ახალ (ფსონისთვის ღია) ბრძოლად არ ვამატებთ — თორემ ავტო-ვოიდით
     // ნეიტრალებული წყვილი (no contest და ა.შ.) ლაივ ივენთზე ხელახლა upcoming-ად დაემატებოდა.
     // (auto.js syncNewFights-ს მხოლოდ ივენთამდე უშვებს — hoursUntil > 1)
@@ -291,7 +310,10 @@ async function cmdSyncFights(chatId: number): Promise<string> {
       weight_class: c.type?.abbreviation || 'Unknown', max_rounds: rounds,
       bout_order: maxOrder, is_title_bout: rounds === 5, red_odds: null, blue_odds: null, show_details: false, status: 'upcoming',
     })
-    if (!error) { added++; addedNames.push(`${red.name} vs ${blue.name}`); knownPairs.add(_pk(redC.id, blueC.id)) }
+    if (!error) {
+      added++; addedNames.push(`${red.name} vs ${blue.name} (espn ${redC.id} / ${blueC.id})`)
+      knownPairs.add(_pk(redC.id, blueC.id)); knownNames.add(_nk(red.name, blue.name))
+    } else failed.push(`${red.name} vs ${blue.name} — ${error.message}`)
   }
 
   const extras: string[] = []
@@ -301,7 +323,6 @@ async function cmdSyncFights(chatId: number): Promise<string> {
   }
 
   // ── bout_order-ის სრული გასწორება ESPN-ის რიგით (append-ის ნაცვლად რეალური პოზიცია) ──
-  const _nn = (x: any) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim()
   const posMap = new Map<string, number>()
   comps.forEach((c: any, idx: number) => {
     const nm = (c.competitors || []).map((x: any) => _nn(x.athlete?.fullName)).filter(Boolean).sort()
@@ -321,6 +342,7 @@ async function cmdSyncFights(chatId: number): Promise<string> {
   let out = `🔄 <b>ბრძოლების სინქი — ${ev.name}</b>\n\nESPN-ზე: ${comps.length} · ბაზაში იყო: ${(dbFights || []).length}`
   if (reordered > 0) out += `\n🔢 რიგი (bout_order) გასწორდა ${reordered} ბრძოლაზე`
   out += added > 0 ? `\n\n➕ დაემატა ${added}:\n${addedNames.map(n => '🥊 ' + n).join('\n')}` : '\n\n✅ ახალი ბრძოლა არ იყო — ყველა ბაზაშია.'
+  if (failed.length) out += `\n\n❌ ვერ დაემატა:\n${failed.map(n => '• ' + n).join('\n')}`
   if (extras.length) out += `\n\n⚠️ ბაზაშია, ESPN-ზე აღარ (შესაძლოა გაუქმდა):\n${extras.map(n => '• ' + n).join('\n')}\n<i>ავტომატურად არ წავშალე — ბილეთი შეიძლება ეხებოდეს. საჭიროებისას ხელით void.</i>`
   if (added > 0) out += `\n\n➡️ კოეფები მომდევნო "ufc კოეფ"-ზე ჩაიწერება.`
   return out

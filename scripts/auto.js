@@ -156,8 +156,18 @@ async function upsertFighter(f) {
   const slug = f.name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-');
   const imageUrl = f.espn_id ? `https://a.espncdn.com/i/headshots/mma/players/full/${f.espn_id}.png` : null;
 
-  const { data: existing } = await sb.from('fighters').select('id').eq('name', f.name).maybeSingle();
+  // ჯერ espn_id-ით (სახელი შეიძლება შეიცვალოს), მერე სახელით. limit(1) — დუბლ სახელზე maybeSingle error-ს აბრუნებს
+  let existing = null;
+  if (f.espn_id) ({ data: existing } = await sb.from('fighters').select('id,espn_id').eq('espn_id', f.espn_id).limit(1).maybeSingle());
+  if (!existing) ({ data: existing } = await sb.from('fighters').select('id,espn_id').eq('name', f.name).limit(1).maybeSingle());
   if (existing) {
+    // სახელი ემთხვევა, espn_id — არა: ESPN-ზე იგივე სახელის სხვა მებრძოლია (Anthony Romero 4684470 ≠ 5454993).
+    // espn_id-ს/სტატებს არ ვცვლით — გადაწერა knownPairs-ს არღვევდა და ბრძოლა 4-ჯერ დაემატა (UFC 332).
+    if (f.espn_id && existing.espn_id && String(existing.espn_id) !== String(f.espn_id)) {
+      log(`  ⚠ espn_id კონფლიქტი: ${f.name} — ბაზაში ${existing.espn_id}, ESPN-ზე ${f.espn_id} (ჩანაწერი უცვლელია)`);
+      await sendTelegram(`⚠️ <b>espn_id კონფლიქტი</b>\n\n${f.name}\nბაზაში: ${existing.espn_id}\nESPN: ${f.espn_id}\n\nშესაძლოა სხვა მებრძოლია იგივე სახელით — ჩანაწერი არ შევცვალე, შეამოწმე ხელით.`);
+      return existing.id;
+    }
     const upd = {};
     if (f.age)       upd.age       = f.age;
     if (f.height_cm) upd.height_cm = f.height_cm;
@@ -284,11 +294,18 @@ async function syncNewFights(eventId, eventName, eventDate) {
   const { data: dbFights } = await sb.from('fights')
     .select('id,status,is_voided,bout_order,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
     .eq('event_id', eventId);
+  const _nn2 = (x) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
   const _pk = (a, b) => [String(a || ''), String(b || '')].sort().join('|');
+  const _nk = (a, b) => [_nn2(a), _nn2(b)].sort().join('|');
+  // წყვილი „ცნობილია", თუ ემთხვევა espn_id-ით ან სახელით — espn_id არასტაბილურია (ESPN-ზე ერთ bout-ს
+  // სხვადასხვა id ჩნდებოდა → ბრძოლა 4-ჯერ დაემატა). void-ებიც ითვლება: ხელით ნეიტრალებული წყვილი
+  // ხელახლა არ უნდა დაემატოს (ჩანაცვლება = ახალი წყვილი → მაინც დაემატება).
   const knownPairs = new Set();
+  const knownNames = new Set();
   let maxOrder = 0;
   for (const f of (dbFights || [])) {
-    if (!f.is_voided) knownPairs.add(_pk(f.red?.espn_id, f.blue?.espn_id));   // მხოლოდ ღია წყვილები
+    knownPairs.add(_pk(f.red?.espn_id, f.blue?.espn_id));
+    if (f.red?.name && f.blue?.name) knownNames.add(_nk(f.red.name, f.blue.name));
     if ((f.bout_order || 0) > maxOrder) maxOrder = f.bout_order;
   }
 
@@ -299,8 +316,9 @@ async function syncNewFights(eventId, eventName, eventDate) {
     const redC  = c.competitors.find(x => x.order === 1) || c.competitors[0];
     const blueC = c.competitors.find(x => x.order === 2) || c.competitors[1];
     if (!redC || !blueC) continue;
-    // ეს ზუსტი წყვილი უკვე გვაქვს (არა-void) → ვტოვებთ. ჩანაცვლება = ახალი წყვილი → დაემატება.
+    // ეს წყვილი უკვე გვაქვს (id-ით ან სახელით) → ვტოვებთ. ჩანაცვლება = ახალი წყვილი → დაემატება.
     if (knownPairs.has(_pk(redC.id, blueC.id))) continue;
+    if (knownNames.has(_nk(redC.athlete?.fullName, blueC.athlete?.fullName))) continue;
     const rounds = c.format?.regulation?.periods || 3;
     const redDetails  = redC?.id  ? await fetchAthleteDetails(redC.id)  : {};
     const blueDetails = blueC?.id ? await fetchAthleteDetails(blueC.id) : {};
@@ -328,13 +346,15 @@ async function syncNewFights(eventId, eventName, eventDate) {
     if (!fErr) {
       added++; addedNames.push(`${red.name} vs ${blue.name}`);
       knownPairs.add(_pk(redC.id, blueC.id));
-      log(`  ➕ ახალი ბრძოლა დაემატა: ${red.name} vs ${blue.name}`);
+      knownNames.add(_nk(red.name, blue.name));
+      log(`  ➕ ახალი ბრძოლა დაემატა: ${red.name} vs ${blue.name} (espn ${redC.id} / ${blueC.id})`);
+    } else {
+      log(`  ⚠ ბრძოლა ვერ დაემატა: ${red.name} vs ${blue.name} — ${fErr.message}`);
     }
   }
 
   // ── bout_order-ის სრული გასწორება ESPN-ის რიგით (append-ის ნაცვლად რეალური პოზიცია) ──
   // comps = [main ... პირველი prelim] → პოზიცია idx+1 (main=1). სახელით ვამთხვევთ (espn_id შეიძლება ძველი იყოს).
-  const _nn2 = (x) => (x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z ]/g, ' ').replace(/\s+/g, ' ').trim();
   const posMap = new Map();
   comps.forEach((c, idx) => {
     const nm = (c.competitors || []).map(x => _nn2(x.athlete?.fullName)).filter(Boolean).sort();
