@@ -13,10 +13,14 @@
 /* ============================================================
    კონფიგურაცია
    ============================================================ */
-const QUESTIONS_PER_GAME = 10;   // რამდენი კითხვა თითო თამაშში
+const QUESTIONS_PER_GAME = 10;   // რამდენი კითხვა თითო თამაშში — სინქრონში ჰყავი supabase/quiz_pvp.sql-ის "limit 10"-თან
 const AI_ACCURACY        = 0.60; // ნაგულისხმევი AI სიზუსტე (overridable დონის მიხედვით)
-const TIME_PER_Q         = 15;   // წამი თითო კითხვაზე (მრავალპასუხიანი ქვიზი)
+const TIME_PER_Q         = 15;   // წამი თითო კითხვაზე (მრავალპასუხიანი ქვიზი — AI-საც, PvP-საც)
+const TIME_PER_GUESS_PVP = 25;   // წამი თითო კითხვაზე "ვინ ვარ?"-ში — მხოლოდ PvP-ში (AI-ის წინააღმდეგ თაიმერი არაა)
 const CARD_SPEED_MS      = 170;  // კარტის ბრძოლის სისწრაფე
+const MATCH_LS_KEY       = 'fnf_quiz_match';     // აქტიური PvP მატჩის localStorage გასაღები (resume-სთვის)
+const GUEST_ID_LS_KEY    = 'fnf_quiz_guest_id';  // სტაბილური სტუმრის id — იგივე კაცს იცნობს სერვერი reload-ების მიღმაც
+const GUEST_NAME_LS_KEY  = 'fnf_quiz_guest_name';
 
 /* ---- Supabase (მხოლოდ კითხვა — ანონიმური, საჯარო key) ----
    ვცდილობთ ვიპოვოთ არსებული კლიენტი (window.sb / window.supabaseClient),
@@ -122,19 +126,28 @@ async function fetchAuthUser(session){
   };
 }
 
+let currentAuthUser = null; // მცირე, საჯარო ასლი — PvP-ს სჭირდება იცოდეს "შესული ხარ თუ არა" (guest სახელის მოთხოვნის გადასაწყვეტად)
+
 let _authApplying = false;
 async function applyAuthSession(session){
   if(!session || _authApplying) return;
   _authApplying = true;
-  try{ updateAuthNav(await fetchAuthUser(session)); }
+  try{
+    const user = await fetchAuthUser(session);
+    currentAuthUser = user;
+    updateAuthNav(user);
+  }
   finally { _authApplying = false; }
 }
 
 if(sb){
-  sb.auth.getSession().then(({ data })=>{ if(data && data.session) applyAuthSession(data.session); }).catch(()=>{});
+  sb.auth.getSession()
+    .then(({ data })=> (data && data.session) ? applyAuthSession(data.session) : null)
+    .catch(()=>{})
+    .then(()=> bootstrapPvpResume()); // ჯერ ვიცით შესული ხარ თუ არა, მერე ვცდილობთ ?room=/localStorage-ის აღდგენას
   sb.auth.onAuthStateChange((event, session)=>{
     setTimeout(()=>{
-      if(event === 'SIGNED_OUT') updateAuthNav(null);
+      if(event === 'SIGNED_OUT'){ currentAuthUser = null; updateAuthNav(null); }
       else if(session) applyAuthSession(session);
     }, 0);
   });
@@ -156,6 +169,7 @@ const DIFFICULTY = [
    მდგომარეობა
    ============================================================ */
 const S = {
+  mode:"ai",       // "ai" | "pvp" — ai ნაგულისხმევია სანამ PvP-ზე არ გადავა
   gameType:null,   // "quiz" | "guess"
   questions:[],
   gCluesShown:1,   // "ვინ ვარ?" — რამდენი მინიშნებაა ამჟამად გამოჩენილი
@@ -174,6 +188,16 @@ const S = {
   cbReveal:null,
   aiAcc:null,
   diffKey:null,
+};
+
+/* PvP (Phase 3) — ცალკე, რომ AI-ის მდგომარეობას არ აერიოს.
+   roomId/code/role/gameType/level — localStorage-შიც ინახება (resume). */
+const P = {
+  roomId:null, code:null, role:null, // role: "host" | "guest"
+  gameType:null, level:null,
+  started:false, finished:false,
+  opponentName:null,
+  channel:null, pollTimer:null,
 };
 
 /* ---------- helpers ---------- */
@@ -335,13 +359,12 @@ const backBtn = $("#back-to-gametype");
 if(backBtn) backBtn.addEventListener("click", ()=> show("screen-gametype"));
 
 /* ============================================================
-   1) რეჟიმის არჩევა — ამ ფაზაში მხოლოდ "AI-ის წინააღმდეგ" აქტიურია.
-   "ადამიანის წინააღმდეგ" ბარათი ჩანს locked/"მალე" მდგომარეობაში
-   (იხილეთ EPICQUIZ.PRD Phase 3) — არანაირი Realtime/channel არ იხსნება.
+   1) რეჟიმის არჩევა — "AI-ის წინააღმდეგ" (startLobby) ან "ადამიანის
+   წინააღმდეგ" (PvP — Phase 3, იხილეთ EPICQUIZ.PRD §7 და ქვემოთ, "PvP").
    ============================================================ */
 $$("#screen-mode .mode").forEach(card=>{
-  if(card.dataset.locked === "true") return; // locked ბარათს handler საერთოდ არ ემატება
-  const go = ()=> startLobby(card.dataset.mode);
+  if(card.dataset.locked === "true") return; // მომავალში ჯერ არ ჩართული ბარათებისთვის
+  const go = ()=> { if(card.dataset.mode === "human") startPvpChoice(); else startLobby(card.dataset.mode); };
   card.addEventListener("click", go);
   card.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); }});
 });
@@ -365,7 +388,7 @@ function startLobby(mode){
   show("screen-lobby");
 }
 
-function buildDifficultyPicker(action, { onReady, startLabel }){
+function buildDifficultyPicker(action, { onReady, startLabel, onStart }){
   action.innerHTML = "";
   S.aiAcc = null;
 
@@ -386,9 +409,9 @@ function buildDifficultyPicker(action, { onReady, startLabel }){
     if(S.aiAcc == null) return;
     startBtn.disabled = true;
     startBtn.textContent = "იტვირთება…";
-    const res = await beginQuiz();
+    const res = await (onStart ? onStart() : beginQuiz());
     if(res && res.ok === false){
-      note.innerHTML = "⚠️ კითხვები ვერ ჩაიტვირთა სერვერიდან.<br>სცადე მოგვიანებით.";
+      note.innerHTML = res.message || "⚠️ კითხვები ვერ ჩაიტვირთა სერვერიდან.<br>სცადე მოგვიანებით.";
       note.style.color = "#ff5247";
       note.classList.add("show");
       startBtn.disabled = false;
@@ -550,7 +573,24 @@ function renderGuessQuestion(){
   nextQBtn.onclick = null;
 
   clearInterval(S.timer);
-  $("#gq-timer-row").style.display = "none"; // AI-ის წინააღმდეგ — თაიმერი არ ჩანს
+  if(S.mode === "pvp"){
+    $("#gq-timer-row").style.display = "";
+    startGuessTimerPvp();
+  } else {
+    $("#gq-timer-row").style.display = "none"; // AI-ის წინააღმდეგ — თაიმერი არ ჩანს
+  }
+}
+
+function startGuessTimerPvp(){
+  clearInterval(S.timer);
+  S.timeLeft = TIME_PER_GUESS_PVP;
+  const bar = $("#gq-timer");
+  bar.style.width = "100%";
+  S.timer = setInterval(()=>{
+    S.timeLeft -= 0.25;
+    bar.style.width = Math.max(0,(S.timeLeft/TIME_PER_GUESS_PVP)*100)+"%";
+    if(S.timeLeft<=0){ clearInterval(S.timer); submitGuess(); }
+  }, 250);
 }
 
 function renderGuessClues(){
@@ -566,27 +606,39 @@ function renderGuessClues(){
 }
 
 function submitGuess(){
+  clearInterval(S.timer);
   const item = S.questions[S.qi];
   const val = ($("#gq-input").value || "").trim();
 
   $("#gq-answer-area").style.display = "none";
-
-  const result = val ? isGuessCorrect(val, item.answer) : { correct:false, exact:false };
-  const points = result.correct ? Math.max(1, Math.min(4, 5 - S.gCluesShown)) : 0;
-
-  S.playerPicks[S.qi] = val;
-  S.playerPoints[S.qi] = points;
-
   const fb = $("#gq-feedback");
   fb.classList.add("show");
-  if(result.correct){
-    fb.classList.add("ok"); fb.classList.remove("bad");
-    fb.innerHTML = result.exact
-      ? `✓ სწორია! <span class="sub">+${points} ქულა</span>`
-      : `✓ სწორია! <span class="sub">ბაზაში ჩაწერილია: ${item.answer} · +${points} ქულა</span>`;
+
+  if(S.mode === "pvp"){
+    // PvP-ში კლიენტმა არც კი იცის სწორი პასუხი reveal-მდე (anti-cheat —
+    // იხილეთ supabase/quiz_pvp.sql), ამიტომ აქ fuzzy-match ვერ/არ გამოიყენება —
+    // ქულა/სისწორე მთლიანად სერვერზე გამოითვლება submit_quiz_answer-ში
+    // (clues_shown-იც იქვეა თვალყურდევნებული, არა კლიენტიდან მოსული).
+    S.playerPicks[S.qi] = val;
+    fb.classList.remove("bad"); fb.classList.add("ok");
+    fb.innerHTML = "პასუხი გაიგზავნა — სწორი პასუხი ჩანს თამაშის დასრულების შემდეგ";
+    submitPvpAnswer(S.qi, val);
   } else {
-    fb.classList.add("bad"); fb.classList.remove("ok");
-    fb.innerHTML = `✗ არასწორია <span class="sub">სწორი პასუხია: ${item.answer}</span>`;
+    const result = val ? isGuessCorrect(val, item.answer) : { correct:false, exact:false };
+    const points = result.correct ? Math.max(1, Math.min(4, 5 - S.gCluesShown)) : 0;
+
+    S.playerPicks[S.qi] = val;
+    S.playerPoints[S.qi] = points;
+
+    if(result.correct){
+      fb.classList.add("ok"); fb.classList.remove("bad");
+      fb.innerHTML = result.exact
+        ? `✓ სწორია! <span class="sub">+${points} ქულა</span>`
+        : `✓ სწორია! <span class="sub">ბაზაში ჩაწერილია: ${item.answer} · +${points} ქულა</span>`;
+    } else {
+      fb.classList.add("bad"); fb.classList.remove("ok");
+      fb.innerHTML = `✗ არასწორია <span class="sub">სწორი პასუხია: ${item.answer}</span>`;
+    }
   }
 
   const nextBtn = $("#gq-next-q");
@@ -607,6 +659,13 @@ $("#gq-next-clue").addEventListener("click", ()=>{
     S.gCluesShown++;
     renderGuessClues();
     if(S.gCluesShown >= item.clues.length) $("#gq-next-clue").disabled = true;
+    // PvP-ში "რამდენი მინიშნება გაშალა" სერვერზეც აღირიცხება (anti-cheat —
+    // წინააღმდეგ შემთხვევაში კლიენტს შეეძლო ყოველთვის "1 მინიშნება ვნახეო" ეთქვა).
+    if(S.mode === "pvp" && P.roomId){
+      sb.rpc('reveal_quiz_clue', Object.assign({ p_room_id:P.roomId, p_question_index:S.qi }, pvpIdentityParams()))
+        .then(()=>{})
+        .catch(e=> console.warn('[quiz] reveal_quiz_clue failed:', e));
+    }
   }
 });
 $("#gq-submit").addEventListener("click", ()=> submitGuess());
@@ -622,6 +681,8 @@ function answer(chosen, btn){
   }
   S.playerPicks[S.qi] = chosen; // -1 თუ დრო ამოიწურა
 
+  if(S.mode === "pvp") submitPvpAnswer(S.qi, chosen);
+
   setTimeout(()=>{
     S.qi++;
     if(S.qi >= S.questions.length){ finishQuiz(); }
@@ -630,9 +691,11 @@ function answer(chosen, btn){
 }
 
 /* ============================================================
-   4) ქვიზი დასრულდა → პირდაპირ კარტების ბრძოლაზე
+   4) ქვიზი დასრულდა → AI-ის წინააღმდეგ პირდაპირ კარტების ბრძოლაზე;
+   PvP-ში ველოდებით მოწინააღმდეგეს (თუ უკვე დაასრულა — პირდაპირ შედეგზე).
    ============================================================ */
 function finishQuiz(){
+  if(S.mode === "pvp"){ pvpFinishMySide(); return; }
   startCardBattle();
 }
 
@@ -641,14 +704,16 @@ function finishQuiz(){
    ============================================================ */
 function startCardBattle(){
   S.bIndex = 0; S.cbYou = 0; S.cbOpp = 0;
+  const oppAva = (S.mode === "pvp") ? "🤠" : "🤖";
+  const oppLab = (S.mode === "pvp") ? (P.opponentName || "მოწინააღმდეგე").slice(0,14) : "AI";
   $("#cb-you").textContent = "0";
   $("#cb-opp").textContent = "0";
   $("#cb-you-tag").textContent = "🤠 შენ";
-  $("#cb-opp-ava").textContent = "🤖";
-  $("#cb-opp-lab").textContent = "AI";
+  $("#cb-opp-ava").textContent = oppAva;
+  $("#cb-opp-lab").textContent = oppLab;
   $("#qb-you-who").textContent = "🤠 შენ";
-  $("#qb-opp-ava").textContent = "🤖";
-  $("#qb-opp-lab2").textContent = "AI";
+  $("#qb-opp-ava").textContent = oppAva;
+  $("#qb-opp-lab2").textContent = oppLab;
   $("#cb-restart").style.display = "none";
   $("#cb-skip").style.display = "";
   const board = document.querySelector(".cb-score");
@@ -714,6 +779,14 @@ function revealCard(idx){
     pCorrect = pGain > 0;
     oCorrect = oGain > 0;
     correctText = item.answer;
+  } else if(S.mode === "pvp"){
+    // PvP-ში სისწორეც სერვერზეა გამოთვლილი (submit_quiz_answer) — კლიენტი
+    // აქ მხოლოდ უკვე დათვლილ ქულას კითხულობს, ხელახლა არ ადარებს pick-ს.
+    pGain = S.playerPoints[idx] || 0;
+    oGain = S.oppPoints[idx] || 0;
+    pCorrect = pGain > 0;
+    oCorrect = oGain > 0;
+    correctText = item.o[item.a];
   } else {
     pCorrect = S.playerPicks[idx] === item.a;
     oCorrect = S.oppPicks[idx] === item.a;
@@ -788,7 +861,7 @@ $("#cb-skip").addEventListener("click", ()=>{
   clearTimeout(S.cbReveal);
   while(S.bIndex < S.questions.length){
     const item = S.questions[S.bIndex];
-    if(S.gameType === "guess"){
+    if(S.gameType === "guess" || S.mode === "pvp"){
       S.cbYou += S.playerPoints[S.bIndex] || 0;
       S.cbOpp += S.oppPoints[S.bIndex] || 0;
     } else {
@@ -806,6 +879,404 @@ $("#cb-restart").addEventListener("click", resetToMode);
 
 function resetToMode(){
   clearInterval(S.timer); clearTimeout(S.cbTimer); clearTimeout(S.cbReveal);
+  if(S.mode === "pvp"){ unsubscribeRoom(); clearMatchState(); resetPvpState(); }
+  S.mode = "ai";
   S.gameType = null;
   show("screen-gametype");
+}
+
+/* ============================================================
+   6) PvP — "ადამიანის წინააღმდეგ" კოდით მოწვევა (Phase 3, EPICQUIZ.PRD §7).
+   სერვერი (supabase/quiz_pvp.sql) ინახავს სწორ პასუხებს — კლიენტი მხოლოდ
+   ნედლ პასუხებს აგზავნის და პასუხობს სერვერის დათვლილ შედეგზე. ყოველი
+   რეალურ-დროის განახლება კონკრეტული ოთახის id-ზეა subscribe-ილი, არა
+   გლობალურ არხზე.
+   ============================================================ */
+
+/* ---------- იდენტობა: შესული მომხმარებელი ან სტაბილური სტუმარი ---------- */
+function getGuestId(){
+  try{
+    let id = localStorage.getItem(GUEST_ID_LS_KEY);
+    if(!id){
+      id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ("g-"+Math.random().toString(36).slice(2)+Date.now().toString(36));
+      localStorage.setItem(GUEST_ID_LS_KEY, id);
+    }
+    return id;
+  }catch(e){
+    // კერძო რეჟიმი/დაბლოკილი localStorage — ამ ჩანართისთვის მაინც სტაბილური id
+    if(!window.__fnfGuestIdMem) window.__fnfGuestIdMem = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Math.random());
+    return window.__fnfGuestIdMem;
+  }
+}
+function getSavedGuestName(){ try{ return localStorage.getItem(GUEST_NAME_LS_KEY) || ""; }catch(e){ return ""; } }
+function saveGuestName(name){ try{ localStorage.setItem(GUEST_NAME_LS_KEY, name); }catch(e){} }
+
+function pvpIdentityParams(explicitGuestName){
+  if(currentAuthUser) return { p_guest_id:null, p_guest_name:null };
+  return { p_guest_id:getGuestId(), p_guest_name: explicitGuestName || getSavedGuestName() || null };
+}
+
+/* ---------- აქტიური მატჩის localStorage (resume crash/reload-ის შემდეგ) ---------- */
+function saveMatchState(){
+  try{
+    if(!P.roomId){ localStorage.removeItem(MATCH_LS_KEY); return; }
+    localStorage.setItem(MATCH_LS_KEY, JSON.stringify({
+      roomId:P.roomId, code:P.code, role:P.role, gameType:P.gameType, level:P.level
+    }));
+  }catch(e){}
+}
+function loadMatchState(){
+  try{ const raw = localStorage.getItem(MATCH_LS_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+}
+function clearMatchState(){ try{ localStorage.removeItem(MATCH_LS_KEY); }catch(e){} }
+function resetPvpState(){
+  P.roomId=null; P.code=null; P.role=null; P.gameType=null; P.level=null;
+  P.started=false; P.finished=false; P.opponentName=null;
+}
+
+/* ---------- შეცდომების გაადამიანურება ---------- */
+function mapRpcError(error){
+  const msg = (error && (error.message || error.details || "")) || "";
+  if(msg.includes("room not found")) return "კოდი ვერ მოიძებნა — გადაამოწმე.";
+  if(msg.includes("already full")) return "ეს ოთახი უკვე სავსეა ან დაწყებულია.";
+  if(msg.includes("expired")) return "ამ ოთახის ვადა გავიდა — სთხოვე მეგობარს ახალი კოდი.";
+  if(msg.includes("own room")) return "საკუთარ ოთახში ვერ შეუერთდები.";
+  if(msg.includes("abandoned")) return "მოწინააღმდეგემ დატოვა თამაში.";
+  return "დაფიქსირდა შეცდომა — სცადე თავიდან.";
+}
+
+/* ---------- ეკრანების ნავიგაცია ---------- */
+function startPvpChoice(){ show("screen-pvp-choice"); }
+
+$$("#screen-pvp-choice .mode").forEach(card=>{
+  const go = ()=> (card.dataset.pvp === "create") ? enterPvpCreate() : enterPvpJoin();
+  card.addEventListener("click", go);
+  card.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); }});
+});
+const backToMode = $("#back-to-mode");
+if(backToMode) backToMode.addEventListener("click", ()=> show("screen-mode"));
+const backToPvpChoice1 = $("#back-to-pvp-choice-1");
+if(backToPvpChoice1) backToPvpChoice1.addEventListener("click", ()=> show("screen-pvp-choice"));
+const backToPvpChoice2 = $("#back-to-pvp-choice-2");
+if(backToPvpChoice2) backToPvpChoice2.addEventListener("click", ()=> show("screen-pvp-choice"));
+
+function enterPvpCreate(){
+  showPvpCreateForm();
+  show("screen-pvp-create");
+}
+
+function showPvpCreateForm(){
+  const action = $("#pvpCreateAction");
+  buildDifficultyPicker(action, {
+    startLabel: "ოთახის შექმნა",
+    onReady: (action)=>{
+      if(!currentAuthUser){
+        const wrap = document.createElement("div");
+        wrap.className = "name-entry";
+        wrap.style.marginBottom = "14px";
+        const lab = document.createElement("label"); lab.textContent = "შენი სახელი"; lab.htmlFor = "pvp-create-name";
+        const inp = document.createElement("input");
+        inp.type = "text"; inp.id = "pvp-create-name"; inp.maxLength = 20; inp.placeholder = "მაგ. გიორგი";
+        inp.value = getSavedGuestName();
+        wrap.appendChild(lab); wrap.appendChild(inp);
+        action.insertBefore(wrap, action.firstChild);
+      }
+    },
+    onStart: ()=> pvpCreateRoom()
+  });
+}
+
+async function pvpCreateRoom(){
+  const diff = DIFFICULTY.find(d=> d.key === S.diffKey);
+  if(!diff) return { ok:false, message:"აირჩიე სირთულე" };
+
+  let guestName = null;
+  if(!currentAuthUser){
+    const inp = $("#pvp-create-name");
+    guestName = ((inp && inp.value) || "").trim().slice(0,20);
+    if(!guestName) return { ok:false, message:"შეიყვანე შენი სახელი" };
+    saveGuestName(guestName);
+  }
+
+  const { data, error } = await sb.rpc('create_quiz_room', Object.assign(
+    { p_game_type:S.gameType, p_level:diff.dbLevel }, pvpIdentityParams(guestName)
+  ));
+  if(error || !data || !data[0]){
+    console.warn('[quiz] create_quiz_room failed:', error);
+    return { ok:false, message:"ოთახის შექმნა ვერ მოხერხდა. სცადე თავიდან." };
+  }
+
+  const row = data[0];
+  resetPvpState();
+  P.roomId = row.room_id; P.code = row.code; P.role = "host";
+  P.gameType = S.gameType; P.level = diff.dbLevel; P.started = false;
+  saveMatchState();
+  showPvpWait({ title:"ოთახი შექმნილია!", sub:"გაუზიარე კოდი მეგობარს და დაელოდე მის შემოერთებას.", code:row.code });
+  subscribeRoom(P.roomId);
+  return { ok:true };
+}
+
+function enterPvpJoin(prefillCode){
+  const nameWrap = $("#pvpJoinNameWrap");
+  if(nameWrap){
+    if(currentAuthUser){ nameWrap.style.display = "none"; }
+    else {
+      nameWrap.style.display = "";
+      const inp = $("#pvp-join-name");
+      if(inp) inp.value = getSavedGuestName();
+    }
+  }
+  const codeInp = $("#pvp-join-code");
+  if(codeInp) codeInp.value = prefillCode || "";
+  showJoinError("");
+  show("screen-pvp-join");
+}
+
+function showJoinError(msg){
+  const err = $("#pvpJoinError");
+  if(!err) return;
+  if(!msg){ err.classList.remove("show"); err.textContent = ""; return; }
+  err.textContent = msg; err.style.color = "var(--red-soft)"; err.classList.add("show");
+}
+
+const pvpJoinBtn = $("#pvp-join-btn");
+if(pvpJoinBtn) pvpJoinBtn.addEventListener("click", ()=> doPvpJoin());
+const pvpJoinCodeInp = $("#pvp-join-code");
+if(pvpJoinCodeInp) pvpJoinCodeInp.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); doPvpJoin(); }});
+
+async function doPvpJoin(){
+  const code = (($("#pvp-join-code") || {}).value || "").trim();
+  if(!code){ showJoinError("შეიყვანე კოდი"); return; }
+
+  let guestName = null;
+  if(!currentAuthUser){
+    guestName = (($("#pvp-join-name") || {}).value || "").trim().slice(0,20);
+    if(!guestName){ showJoinError("შეიყვანე შენი სახელი"); return; }
+    saveGuestName(guestName);
+  }
+
+  const btn = $("#pvp-join-btn");
+  if(btn){ btn.disabled = true; btn.textContent = "ვუერთდები…"; }
+  const { data, error } = await sb.rpc('join_quiz_room', Object.assign({ p_code:code }, pvpIdentityParams(guestName)));
+  if(btn){ btn.disabled = false; btn.textContent = "შეერთება"; }
+
+  if(error || !data || !data[0]){ showJoinError(mapRpcError(error)); return; }
+
+  const row = data[0];
+  resetPvpState();
+  P.roomId = row.room_id; P.role = "guest";
+  P.gameType = row.game_type; P.level = row.level; P.started = true; P.opponentName = row.host_name;
+  saveMatchState();
+  subscribeRoom(P.roomId);
+  beginPvpMatch(row.questions, []);
+}
+
+function showPvpWait({ title, sub, code }){
+  const t = $("#pvpWaitTitle"), s = $("#pvpWaitSub"), box = $("#pvpCodeBox");
+  if(t) t.textContent = title || "";
+  if(s) s.textContent = sub || "";
+  if(box){
+    if(code){ box.style.display = ""; const ct = $("#pvpCodeText"); if(ct) ct.textContent = code; }
+    else box.style.display = "none";
+  }
+  show("screen-pvp-wait");
+}
+
+const pvpCopyBtn = $("#pvpCopyLink");
+if(pvpCopyBtn) pvpCopyBtn.addEventListener("click", async ()=>{
+  const link = location.origin + "/ufc/quiz/?room=" + encodeURIComponent(P.code || "");
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(link);
+      pvpCopyBtn.textContent = "დაკოპირდა ✓";
+      setTimeout(()=> pvpCopyBtn.textContent = "ბმულის კოპირება", 1600);
+    } else {
+      pvpCopyBtn.textContent = link;
+    }
+  }catch(e){ pvpCopyBtn.textContent = link; }
+});
+
+const pvpLeaveBtn = $("#pvpLeaveBtn");
+if(pvpLeaveBtn) pvpLeaveBtn.addEventListener("click", async ()=>{
+  if(P.roomId){
+    try{ await sb.rpc('leave_quiz_room', Object.assign({ p_room_id:P.roomId }, pvpIdentityParams())); }catch(e){}
+  }
+  unsubscribeRoom(); clearMatchState(); resetPvpState();
+  S.mode = "ai";
+  show("screen-gametype");
+});
+
+/* ---------- Realtime (კონკრეტულ room id-ზე) + polling fallback ---------- */
+function subscribeRoom(roomId){
+  unsubscribeRoom();
+  if(sb){
+    try{
+      P.channel = sb.channel('quiz-room-'+roomId)
+        .on('postgres_changes', { event:'UPDATE', schema:'public', table:'quiz_rooms', filter:`id=eq.${roomId}` },
+            payload => onRoomUpdate(payload.new))
+        .subscribe();
+    }catch(e){ console.warn('[quiz] realtime subscribe failed:', e); }
+  }
+  clearInterval(P.pollTimer);
+  P.pollTimer = setInterval(pollRoomStatus, 4000); // Realtime-ის სარეზერვო — თუ replication ჩართული არაა/ჩამოვარდა
+}
+function unsubscribeRoom(){
+  if(P.channel){ try{ sb.removeChannel(P.channel); }catch(e){} P.channel = null; }
+  clearInterval(P.pollTimer); P.pollTimer = null;
+}
+async function pollRoomStatus(){
+  if(!P.roomId || !sb) return;
+  try{
+    const { data } = await sb.from('quiz_rooms').select('status,guest_name,host_finished_at,guest_finished_at').eq('id', P.roomId).maybeSingle();
+    if(data) onRoomUpdate(data);
+  }catch(e){}
+}
+
+function onRoomUpdate(row){
+  if(!row || !P.roomId) return;
+
+  if(row.guest_name && !P.opponentName && P.role === "host") P.opponentName = row.guest_name;
+
+  if(P.role === "host" && !P.started && row.status === "active"){
+    P.started = true;
+    rejoinAndEnter();
+    return;
+  }
+  if(row.status === "finished" && !P.finished){
+    P.finished = true;
+    unsubscribeRoom();
+    fetchAndShowResults();
+    return;
+  }
+  if(row.status === "abandoned"){
+    unsubscribeRoom();
+    clearMatchState();
+    showPvpWait({ title:"მოწინააღმდეგემ დატოვა თამაში", sub:"დაბრუნდი მენიუში და სცადე თავიდან." });
+    setTimeout(()=>{ resetPvpState(); S.mode = "ai"; show("screen-gametype"); }, 2200);
+  }
+}
+
+/* ---------- rejoin — ჰოსტის "guest შემოუერთდა" მომენტიც და page-reload resume-იც ---------- */
+async function rejoinAndEnter(){
+  try{
+    const { data, error } = await sb.rpc('rejoin_quiz_room', Object.assign({ p_room_id:P.roomId }, pvpIdentityParams()));
+    if(error || !data || !data[0]) throw error || new Error("no data");
+    const row = data[0];
+    P.gameType = row.game_type; P.level = row.level;
+    if(row.host_name && P.role === "guest") P.opponentName = row.host_name;
+    if(row.guest_name && P.role === "host") P.opponentName = row.guest_name;
+
+    if(row.status === "abandoned"){
+      clearMatchState();
+      showPvpWait({ title:"ეს თამაში აღარ არსებობს", sub:"დაბრუნდი მენიუში და სცადე თავიდან." });
+      setTimeout(()=>{ resetPvpState(); S.mode = "ai"; show("screen-gametype"); }, 2200);
+      return;
+    }
+    if(row.status === "finished"){ P.finished = true; fetchAndShowResults(); return; }
+    if(row.status === "waiting"){
+      showPvpWait({ title:"ოთახი შექმნილია!", sub:"გაუზიარე კოდი მეგობარს და დაელოდე მის შემოერთებას.", code:row.code });
+      subscribeRoom(P.roomId);
+      return;
+    }
+    subscribeRoom(P.roomId);
+    beginPvpMatch(row.questions, row.answered_indexes || []);
+  }catch(e){
+    console.warn('[quiz] rejoin failed:', e);
+    clearMatchState(); resetPvpState();
+    S.mode = "ai";
+    show("screen-gametype");
+  }
+}
+
+/* ---------- თამაშის დაწყება/გაგრძელება — იყენებს იმავე #screen-quiz/#screen-guess
+   ეკრანებს და renderQuestion()-ს, რასაც AI-ის რეჟიმი ---------- */
+function beginPvpMatch(questions, answeredIdx){
+  S.mode = "pvp";
+  S.gameType = P.gameType;
+  S.questions = (S.gameType === "guess")
+    ? questions.map(q=> ({ clues:(q && q.clues) || [] }))
+    : questions.map(q=> ({ q:(q && q.q) || "", o:(q && q.o) || [] }));
+  S.playerPicks = []; S.playerPoints = []; S.oppPicks = []; S.oppPoints = [];
+
+  const answeredSet = new Set(answeredIdx || []);
+  S.qi = 0;
+  while(answeredSet.has(S.qi) && S.qi < S.questions.length) S.qi++;
+
+  $("#q-total").textContent = S.questions.length;
+  $("#gq-total").textContent = S.questions.length;
+
+  if(S.qi >= S.questions.length){
+    pvpFinishMySide(); // resume ზუსტად მას შემდეგ, რაც უკვე ყველაფერს უპასუხე
+    return;
+  }
+  show(S.gameType === "guess" ? "screen-guess" : "screen-quiz");
+  renderQuestion();
+}
+
+async function pvpFinishMySide(){
+  showPvpWait({
+    title:"შენ დაასრულე!",
+    sub: P.opponentName ? ("ველოდებით "+P.opponentName+"-ს…") : "ველოდებით მოწინააღმდეგეს…"
+  });
+  // შეიძლება მოწინააღმდეგემ ჩვენზე ადრე დაასრულა — პირდაპირ შევამოწმოთ
+  try{
+    const { data } = await sb.from('quiz_rooms').select('status').eq('id', P.roomId).maybeSingle();
+    if(data && data.status === "finished"){ P.finished = true; unsubscribeRoom(); fetchAndShowResults(); }
+  }catch(e){}
+}
+
+async function fetchAndShowResults(){
+  try{
+    const { data, error } = await sb.rpc('get_quiz_results', Object.assign({ p_room_id:P.roomId }, pvpIdentityParams()));
+    if(error || !data || !data[0]) throw error || new Error("no data");
+    const r = data[0];
+    const myPicks   = (P.role === "host") ? r.host_picks  : r.guest_picks;
+    const oppPicks  = (P.role === "host") ? r.guest_picks : r.host_picks;
+    const myPoints  = (P.role === "host") ? r.host_points : r.guest_points;
+    const oppPoints = (P.role === "host") ? r.guest_points: r.host_points;
+    P.opponentName = (P.role === "host") ? r.guest_name : r.host_name;
+
+    S.mode = "pvp";
+    S.gameType = r.game_type;
+    const n = (r.answer_key && r.answer_key.length) || S.questions.length;
+    for(let i=0;i<n;i++){
+      if(S.gameType === "guess"){
+        S.questions[i] = Object.assign({}, S.questions[i], { answer: r.answer_key[i] });
+        S.playerPoints[i] = myPoints[i] || 0;
+        S.oppPoints[i] = oppPoints[i] || 0;
+        S.playerPicks[i] = (myPicks[i] !== undefined && myPicks[i] !== null) ? myPicks[i] : "";
+        S.oppPicks[i] = (oppPicks[i] !== undefined && oppPicks[i] !== null) ? oppPicks[i] : "";
+      } else {
+        S.questions[i] = Object.assign({}, S.questions[i], { a: r.answer_key[i] });
+        S.playerPicks[i] = (myPicks[i] !== undefined && myPicks[i] !== null) ? myPicks[i] : -1;
+        S.oppPicks[i] = (oppPicks[i] !== undefined && oppPicks[i] !== null) ? oppPicks[i] : -1;
+      }
+    }
+    clearMatchState();
+    startCardBattle();
+  }catch(e){
+    console.warn('[quiz] get_quiz_results failed:', e);
+  }
+}
+
+/* ---------- Bootstrap — გვერდის ჩატვირთვისას: ჯერ ?room=CODE, მერე
+   localStorage-ში შენახული აქტიური მატჩი, თორემ ჩვეულებრივი მენიუ ---------- */
+async function bootstrapPvpResume(){
+  if(!sb) return;
+  const params = new URLSearchParams(location.search);
+  const urlCode = (params.get('room') || '').trim().toUpperCase();
+  const saved = loadMatchState();
+
+  if(saved && saved.roomId && (!urlCode || saved.code === urlCode)){
+    P.roomId = saved.roomId; P.code = saved.code; P.role = saved.role;
+    P.gameType = saved.gameType; P.level = saved.level;
+    P.started = true; P.finished = false;
+    await rejoinAndEnter();
+    return;
+  }
+
+  if(urlCode){
+    enterPvpJoin(urlCode);
+    if(currentAuthUser) doPvpJoin(); // შესულს სახელის კითხვა არ სჭირდება
+  }
 }

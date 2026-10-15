@@ -132,6 +132,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .fighter .st .ready{color:var(--green)}
 #quizRoot .vs-badge{font-family:var(--mono);font-weight:700;font-size:.82rem;letter-spacing:.08em;color:var(--red-soft);z-index:2}
 
+/* ---------- PvP: ლოდინის ეკრანი + მოწვევის კოდი ---------- */
+#quizRoot .wait-emoji{font-size:40px;line-height:1;animation:qzPulse 1.4s ease-in-out infinite}
+@keyframes qzPulse{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.1);opacity:1}}
+#quizRoot .wait-title{font-family:var(--display);font-size:1.3rem;line-height:1.25;text-align:center}
+#quizRoot .wait-sub{color:var(--muted);font-size:.86rem;text-align:center;line-height:1.5;max-width:300px}
+#quizRoot .pvp-code{font-family:var(--mono);font-weight:700;font-size:2rem;letter-spacing:.3em;color:var(--gold);text-align:center;background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:14px 10px;margin-top:6px}
+
 #quizRoot .btn-row{margin-top:16px;display:flex;flex-direction:column;gap:10px;width:100%}
 #quizRoot .btn:disabled{opacity:.4;cursor:not-allowed}
 #quizRoot .btn-gold{background:var(--gold);color:#241a00}
@@ -214,6 +221,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .gq-feedback.bad{background:rgba(243,29,37,.12);border:1px solid var(--red);color:var(--text)}
 #quizRoot .gq-feedback .sub{display:block;font-weight:600;font-size:.78rem;color:var(--muted);margin-top:5px}
 #quizRoot .name-entry{width:100%;display:flex;flex-direction:column;gap:10px}
+#quizRoot .name-entry label{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);text-align:center}
 #quizRoot .name-entry input{width:100%;font-family:var(--head);font-size:.92rem;color:var(--text);text-align:center;padding:12px 14px;border-radius:8px;border:1px solid var(--line);background:var(--ink)}
 #quizRoot .name-entry input:focus{outline:none;border-color:var(--gold)}
 </style>
@@ -290,8 +298,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="slot" title="შენ">👤</div>
         </div>
       </div>
-      <div class="mode locked" data-locked="true" aria-disabled="true" aria-label="ადამიანის წინააღმდეგ — მალე">
-        <span class="mode-soon">მალე 🔒</span>
+      <div class="mode" tabindex="0" role="button" aria-label="ადამიანის წინააღმდეგ" data-mode="human">
         <span class="glyph">👥</span>
         <h2>ადამიანის<br>წინააღმდეგ</h2>
         <div class="slots">
@@ -300,7 +307,60 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </div>
     </div>
-    <p class="tinyinfo">ამ ეტაპზე ხელმისაწვდომია მხოლოდ AI-ის წინააღმდეგ თამაში. ონლაინ დუელი მალე დაემატება.</p>
+    <p class="tinyinfo">ადამიანთან დუელი კოდით — შექმენი ოთახი და გაუზიარე მეგობარს, ან შეუერთდი არსებულს.</p>
+  </section>
+
+  <!-- PvP: ვის წინააღმდეგ -->
+  <section id="screen-pvp-choice" class="screen">
+    <div class="back-row"><button class="back-btn" id="back-to-mode">← უკან</button></div>
+    <div class="modes">
+      <div class="mode" tabindex="0" role="button" aria-label="წვეულების შექმნა" data-pvp="create">
+        <span class="glyph">🎉</span>
+        <h2>წვეულების<br>შექმნა</h2>
+        <p>მიიღე კოდი და გაუზიარე მეგობარს</p>
+      </div>
+      <div class="mode" tabindex="0" role="button" aria-label="შეუერთდი კოდით" data-pvp="join">
+        <span class="glyph">🔑</span>
+        <h2>შეუერთდი<br>კოდით</h2>
+        <p>შეიყვანე მეგობრის კოდი</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- PvP: ოთახის შექმნა (იგივე სირთულის პიკერი, რასაც AI-ის რეჟიმი) -->
+  <section id="screen-pvp-create" class="screen">
+    <div class="back-row"><button class="back-btn" id="back-to-pvp-choice-1">← უკან</button></div>
+    <div id="pvpCreateAction" class="btn-row" style="max-width:340px;margin:0 auto;width:100%"></div>
+  </section>
+
+  <!-- PvP: კოდით შეერთება -->
+  <section id="screen-pvp-join" class="screen">
+    <div class="back-row"><button class="back-btn" id="back-to-pvp-choice-2">← უკან</button></div>
+    <div class="name-entry" id="pvpJoinNameWrap" style="display:none">
+      <label for="pvp-join-name">შენი სახელი</label>
+      <input type="text" id="pvp-join-name" maxlength="20" placeholder="მაგ. გიორგი" autocomplete="off" />
+    </div>
+    <div class="name-entry" style="margin-top:14px">
+      <label for="pvp-join-code">კოდი</label>
+      <input type="text" id="pvp-join-code" maxlength="8" placeholder="მაგ. AB12CD" autocomplete="off"
+             style="text-transform:uppercase;letter-spacing:3px;text-align:center;font-family:var(--mono)" />
+    </div>
+    <div class="diff-note" id="pvpJoinError" style="margin-top:12px;color:var(--red-soft)"></div>
+    <button class="btn btn-primary" id="pvp-join-btn" style="margin-top:14px;width:100%">შეერთება</button>
+  </section>
+
+  <!-- PvP: ლოდინი (ოთახის შექმნის შემდეგ, ან ორივემ პასუხი რომ გასცეს) -->
+  <section id="screen-pvp-wait" class="screen">
+    <div class="arena">
+      <div class="wait-emoji">⌛</div>
+      <div class="wait-title" id="pvpWaitTitle">—</div>
+      <div class="wait-sub" id="pvpWaitSub"></div>
+      <div id="pvpCodeBox" style="display:none">
+        <div class="pvp-code" id="pvpCodeText">——————</div>
+        <button class="btn btn-ghost" id="pvpCopyLink" style="margin-top:12px;width:100%">ბმულის კოპირება</button>
+      </div>
+      <button class="btn btn-ghost" id="pvpLeaveBtn" style="margin-top:18px">გაუქმება</button>
+    </div>
   </section>
 
   <!-- LOBBY -->
@@ -515,7 +575,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=2"></script>
+<script src="/ufc/quiz.js?v=3"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){
