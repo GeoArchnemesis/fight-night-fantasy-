@@ -629,30 +629,33 @@ function openSocial(type){
 <script src="/fantasy-nav.js?v=6"></script>
 <script>
 /* ── ufc-quiz-nav — "ქვიზი" ბმულის ჩამატება ნავში, მხოლოდ /ufc/ გვერდებზე.
-   fantasy-nav.js-ის იდენტური idempotent DOM-injection პატერნი, მაგრამ
-   ცალკე, გაზიარებულ ფაილში ცვლილების გარეშე (არ ეხება სხვა სპორტის გვერდებს). ── */
+   ბმული ემატება ზედა ნავის ძირითად ჯგუფში (#navLinks) — იგივე ადგილას,
+   სადაც "ლიდერბორდი"/"ბილეთების ისტორია"/"პროფილი" (დესკტოპზე .d-only)
+   და "ბრძოლები"/"ლიდერბორდი"/"წესები" (ჰამბურგერ-მენიუში .m-only) ზის —
+   და არა "ფენტეზის ტიპი"-ს ჩამოსაშლელში (ეს სხვა დანიშნულების dropdown-ია
+   და ადრე იქ იმალებოდა). fantasy-nav.js-ის იდენტური idempotent
+   DOM-injection პატერნი, მაგრამ ცალკე ფაილად (არ ეხება სხვა სპორტის
+   გვერდებს). ── */
 (function(){
   if(window.__FNF_QUIZ_NAV__) return;
   window.__FNF_QUIZ_NAV__ = true;
   if(!/^\/ufc\//.test(location.pathname)) return;
 
   function build(){
-    var d = document.querySelector('.nav-fx-pop');
-    if(d && !d.querySelector('.quiz-nav-link')){
-      var a = document.createElement('a');
-      a.className = 'quiz-nav-link';
-      a.href = '/ufc/quiz/';
-      a.textContent = 'ქვიზი';
-      d.appendChild(a);
-    }
-    var m = document.querySelector('.mnav-pop');
-    if(m && !m.querySelector('.quiz-nav-link')){
-      var ma = document.createElement('a');
-      ma.className = 'mnav-pop-opt quiz-nav-link';
-      ma.href = '/ufc/quiz/';
-      ma.textContent = 'ქვიზი';
-      m.appendChild(ma);
-    }
+    var nav = document.getElementById('navLinks');
+    if(!nav || nav.querySelector('.quiz-nav-link')) return;
+
+    var d = document.createElement('a');
+    d.className = 'd-only quiz-nav-link';
+    d.href = '/ufc/quiz/';
+    d.textContent = 'ქვიზი';
+    nav.appendChild(d);
+
+    var m = document.createElement('a');
+    m.className = 'm-only quiz-nav-link';
+    m.href = '/ufc/quiz/';
+    m.textContent = 'ქვიზი';
+    nav.appendChild(m);
   }
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
   else build();

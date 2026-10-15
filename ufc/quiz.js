@@ -2,7 +2,11 @@
 //  ufc/quiz.js — UFC ქვიზი (Phase 1+2: ქვიზი + "ვინ ვარ?", მხოლოდ AI-ის წინააღმდეგ)
 //  პორტირებულია ufc-epic-quiz.html პროტოტიპიდან. PvP (ადამიანის წინააღმდეგ)
 //  ამ ფაზაში არ არის ჩართული — იხილეთ EPICQUIZ.PRD, Phase 3.
-//  არ ტვირთავს/არ ეხება app.js-ს, ბალანსს, ბილეთებს ან სეტლმენტს.
+//  არ ტვირთავს app.js-ს. ავტორიზაციის მდგომარეობა (nav-ის ჩვენება ვიზუალური
+//  თანხვედრისთვის) რეპლიცირებულია app.js-ის updateNavForUser/applySession-იდან,
+//  ბალანსის ჩვენების ჩათვლით (მომხმარებლის მოთხოვნით) — მაგრამ ბილეთები,
+//  ფსონები და ნებისმიერი ჩაწერადი ოპერაცია (place_bet/cashout/settle) ამ
+//  გვერდზე საერთოდ არ არსებობს — მხოლოდ users.balance-ის წაკითხვა ჩვენებისთვის.
 // ============================================================
 "use strict";
 
@@ -27,10 +31,114 @@ let sb = null;
   if(window.sb && window.sb.from){ sb = window.sb; return; }
   if(window.supabaseClient && window.supabaseClient.from){ sb = window.supabaseClient; return; }
   if(window.supabase && window.supabase.createClient && SUPABASE_URL && SUPABASE_ANON_KEY){
-    try{ sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }catch(e){ sb = null; }
+    try{
+      // იგივე auth კონფიგი, რასაც app.js იყენებს (lock override გვერდის
+      // დატვირთვისას სესიის საიმედოდ წასაკითხად) — სესია იზიარება იმავე
+      // localStorage-ს, ამიტომ თუ ვიზიტორი app.js-იან გვერდზეა შესული,
+      // აქაც ავტომატურად ცნობილი იქნება.
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, lock: (name, t, fn) => fn() }
+      });
+    }catch(e){ sb = null; }
   }
   if(!sb) console.warn("[quiz] Supabase კლიენტი ვერ მოიძებნა.");
 })();
+
+const fmt = n => Number.isFinite(+n) ? Math.round(+n).toLocaleString('en-US') : '0';
+
+/* ============================================================
+   ავტორიზაციის მდგომარეობის პარიტეტი (app.js-ის გარეშე) ----------
+   მხოლოდ: სესიის წაკითხვა, nav-ის ჩვენება/დამალვა, ბალანსის ჩვენება.
+   არანაირი ბილეთი/ფსონი/სეტლმენტი — ეს ყველაფერი ამ გვერდზე არც კი
+   არსებობს (არც markup, არც RPC-ები). "პროფილი" ბმული გადის /profile/-ზე,
+   რადგან პროფილის რედაქტირების მოდალი აქ არ იტვირთება. ------------- */
+function updateAuthNav(user){
+  document.body.classList.toggle('logged-in', !!user);
+  const joinBtn = document.getElementById('joinBtn'), signinBtn = document.getElementById('signinBtn'),
+        balancePill = document.querySelector('.balance-pill');
+  let navUser = document.getElementById('navUser');
+
+  if(user){
+    if(joinBtn) joinBtn.style.display = 'none';
+    if(signinBtn) signinBtn.style.display = 'none';
+    if(!navUser){
+      navUser = document.createElement('div'); navUser.id = 'navUser'; navUser.className = 'nav-user';
+      navUser.innerHTML = `<span class="nav-ava">${user.icon || '🥊'}</span><span class="nav-nick">${user.nick}</span>
+        <div class="nav-dropdown" id="navDropdown"><a class="nav-dd-item" href="/profile/">პროფილი</a><button class="nav-dd-item danger" id="ddLogout">გამოსვლა</button></div>`;
+      if(joinBtn && joinBtn.parentNode) joinBtn.parentNode.insertBefore(navUser, joinBtn);
+      navUser.addEventListener('click', e=>{ if(e.target.closest('.nav-dropdown')) return; document.getElementById('navDropdown').classList.toggle('show'); });
+      const ddLogout = document.getElementById('ddLogout');
+      if(ddLogout) ddLogout.addEventListener('click', async ()=>{ document.getElementById('navDropdown').classList.remove('show'); try{ await sb.auth.signOut(); }catch(e){} });
+    } else {
+      navUser.querySelector('.nav-nick').textContent = user.nick;
+      navUser.querySelector('.nav-ava').textContent = user.icon || '🥊';
+    }
+    navUser.style.display = 'flex';
+    if(balancePill){
+      balancePill.classList.add('visible');
+      const bEl = document.getElementById('balNav');
+      if(bEl) bEl.textContent = (user.balance != null) ? fmt(user.balance) : '…';
+    }
+    addMobileAuthLinks();
+  } else {
+    if(joinBtn) joinBtn.style.display = '';
+    if(signinBtn) signinBtn.style.display = '';
+    if(navUser) navUser.style.display = 'none';
+    if(balancePill) balancePill.classList.remove('visible');
+    removeMobileAuthLinks();
+  }
+}
+
+function addMobileAuthLinks(){
+  const navLinks = document.getElementById('navLinks'); if(!navLinks) return;
+  if(!document.getElementById('mProfile')){
+    const p = document.createElement('a'); p.href = '/profile/'; p.id = 'mProfile'; p.className = 'nav-mobile-only'; p.textContent = 'პროფილი';
+    navLinks.insertBefore(p, navLinks.firstChild);
+  }
+  if(!document.getElementById('mLogout')){
+    const l = document.createElement('a'); l.href = '#'; l.id = 'mLogout'; l.className = 'nav-mobile-only danger'; l.textContent = 'გამოსვლა';
+    l.addEventListener('click', async e=>{ e.preventDefault(); navLinks.classList.remove('open'); try{ await sb.auth.signOut(); }catch(e){} });
+    navLinks.appendChild(l);
+  }
+}
+function removeMobileAuthLinks(){
+  const p = document.getElementById('mProfile'); if(p) p.remove();
+  const l = document.getElementById('mLogout'); if(l) l.remove();
+}
+document.addEventListener('click', e => { const dd = document.getElementById('navDropdown'); if(dd && !e.target.closest('.nav-user')) dd.classList.remove('show'); });
+
+async function fetchAuthUser(session){
+  if(!session) return null;
+  let ud = null;
+  try{
+    const res = await sb.from('users').select('nick,icon,balance').eq('id', session.user.id).maybeSingle();
+    ud = res.data;
+  }catch(e){ console.warn('[quiz] auth user fetch failed:', e); }
+  return {
+    id: session.user.id,
+    nick: ud?.nick || session.user.user_metadata?.nick || (session.user.email || '').split('@')[0],
+    icon: ud?.icon || '🥊',
+    balance: (ud && ud.balance != null) ? ud.balance : null
+  };
+}
+
+let _authApplying = false;
+async function applyAuthSession(session){
+  if(!session || _authApplying) return;
+  _authApplying = true;
+  try{ updateAuthNav(await fetchAuthUser(session)); }
+  finally { _authApplying = false; }
+}
+
+if(sb){
+  sb.auth.getSession().then(({ data })=>{ if(data && data.session) applyAuthSession(data.session); }).catch(()=>{});
+  sb.auth.onAuthStateChange((event, session)=>{
+    setTimeout(()=>{
+      if(event === 'SIGNED_OUT') updateAuthNav(null);
+      else if(session) applyAuthSession(session);
+    }, 0);
+  });
+}
 
 // AI-ის სირთულის დონეები — acc = რა ალბათობით პასუხობს AI სწორად (მაღალი = რთული)
 // dbLevel — quiz_questions.level / guess_who_questions.level მნიშვნელობა სერვერზე.
@@ -71,7 +179,16 @@ const S = {
 /* ---------- helpers ---------- */
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
-function show(id){ $$(".screen").forEach(e=>e.classList.remove("active")); $("#"+id).classList.add("active"); window.scrollTo(0,0); }
+function show(id){
+  $$(".screen").forEach(e=>e.classList.remove("active"));
+  $("#"+id).classList.add("active");
+  // მინი-ჰერო (სათაური) მხოლოდ პირველ ("აირჩიე თამაში") ეკრანზე ჩანს —
+  // თამაშის პროცესში (კითხვები, ლობი, შედეგი) ბრენდინგის მაგივრად პირდაპირ
+  // კითხვა/ტაიმერი ჩანდეს თავში.
+  const hero = document.getElementById('quizHero');
+  if(hero) hero.style.display = (id === "screen-gametype") ? "" : "none";
+  window.scrollTo(0,0);
+}
 function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 
 /* ---------- Supabase კითხვების წამოღება + ნორმალიზაცია ----------
@@ -299,6 +416,11 @@ function buildDifficultyPicker(action, { onReady, startLabel }){
     }
     chips.appendChild(c);
   });
+
+  // წინასწარ არჩეული დონე — ერთადერთი ხელმისაწვდომი ("მარტივი") ავტომატურად
+  // მონიშნულია და ღილაკი აქტიურია, მოთამაშეს აღარ სჭირდება ხელით არჩევა.
+  const defaultChip = Array.from(chips.children).find((_,i)=> DIFFICULTY[i].enabled);
+  if(defaultChip) defaultChip.click();
 
   action.appendChild(wrap);
   if(onReady) onReady(action);
