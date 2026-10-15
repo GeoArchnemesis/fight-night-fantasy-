@@ -945,6 +945,21 @@ function mapRpcError(error){
   return "დაფიქსირდა შეცდომა — სცადე თავიდან.";
 }
 
+/* ---------- პასუხის გაგზავნა სერვერზე (submit_quiz_answer RPC) ----------
+   pick: ქვიზში — არჩეული ვარიანტის ინდექსი (number, -1 თუ დრო ამოიწურა
+   პასუხის გარეშე); "ვინ ვარ?"-ში — თავისუფალი ტექსტი (string). სერვერი
+   თვითონ ადარებს სწორ პასუხს და თვითონ ითვლის ქულას — აქედან მხოლოდ
+   ნედლი პასუხი იგზავნება, "სწორია თუ არა" აქ არც კი ვიცით. ---------- */
+async function submitPvpAnswer(qi, pick){
+  if(!P.roomId || !sb) return;
+  try{
+    const { error } = await sb.rpc('submit_quiz_answer', Object.assign(
+      { p_room_id:P.roomId, p_question_index:qi, p_pick:pick }, pvpIdentityParams()
+    ));
+    if(error) console.warn('[quiz] submit_quiz_answer failed:', error);
+  }catch(e){ console.warn('[quiz] submit_quiz_answer failed:', e); }
+}
+
 /* ---------- ეკრანების ნავიგაცია ---------- */
 function startPvpChoice(){ show("screen-pvp-choice"); }
 
