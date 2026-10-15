@@ -191,6 +191,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="tickets tk-history" id="historyTickets" style="display:none"></div>
 </div>
 </div></section>
+<!-- ── UFC ქვიზი (პრომო) ── -->
+<section id="quizPromo" style="padding-top:clamp(16px,2vw,24px)"><div class="wrap">
+<div class="sec-head"><h2>🥊 UFC ქვიზი</h2></div>
+<div class="how-card" style="display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap">
+  <div style="min-width:220px;flex:1">
+    <div class="how-t" style="margin-top:0">გამოცადე შენი MMA ცოდნა</div>
+    <div class="how-d">ქვიზი და „ვინ ვარ?“ რეჟიმები — ითამაშე AI-ის წინააღმდეგ, უფასოდ.</div>
+  </div>
+  <a class="btn btn-primary" href="/ufc/quiz/" style="flex-shrink:0">ქვიზის დაწყება</a>
+</div>
+</div></section>
 <!-- ── SOCIAL JOIN (ჩამოსაშლელი, ლიდერბორდის თავზე) ── -->
 <section id="socialJoin" style="padding-top:clamp(16px,2vw,24px)"><div class="wrap">
   <details class="social-drop">
@@ -616,6 +627,37 @@ function openSocial(type){
   </a>
 </nav>
 <script src="/fantasy-nav.js?v=6"></script>
+<script>
+/* ── ufc-quiz-nav — "ქვიზი" ბმულის ჩამატება ნავში, მხოლოდ /ufc/ გვერდებზე.
+   fantasy-nav.js-ის იდენტური idempotent DOM-injection პატერნი, მაგრამ
+   ცალკე, გაზიარებულ ფაილში ცვლილების გარეშე (არ ეხება სხვა სპორტის გვერდებს). ── */
+(function(){
+  if(window.__FNF_QUIZ_NAV__) return;
+  window.__FNF_QUIZ_NAV__ = true;
+  if(!/^\/ufc\//.test(location.pathname)) return;
+
+  function build(){
+    var d = document.querySelector('.nav-fx-pop');
+    if(d && !d.querySelector('.quiz-nav-link')){
+      var a = document.createElement('a');
+      a.className = 'quiz-nav-link';
+      a.href = '/ufc/quiz/';
+      a.textContent = 'ქვიზი';
+      d.appendChild(a);
+    }
+    var m = document.querySelector('.mnav-pop');
+    if(m && !m.querySelector('.quiz-nav-link')){
+      var ma = document.createElement('a');
+      ma.className = 'mnav-pop-opt quiz-nav-link';
+      ma.href = '/ufc/quiz/';
+      ma.textContent = 'ქვიზი';
+      m.appendChild(ma);
+    }
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
+  else build();
+})();
+</script>
 <script src="/app.js?v=207"></script>
 <!-- ── REPORT CONTACT POPUP ── -->
 <div id="reportPopup" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(5,4,8,.8);backdrop-filter:blur(6px);justify-content:center;align-items:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
