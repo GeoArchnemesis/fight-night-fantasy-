@@ -512,7 +512,7 @@ begin
        from public.quiz_room_answers where room_id = p_room_id and player_id = v_room.host_id),
     (select coalesce(jsonb_object_agg(question_index, points), '{}'::jsonb)
        from public.quiz_room_answers where room_id = p_room_id and player_id = v_room.guest_id),
-    (select answer_key from public.quiz_room_keys where room_id = p_room_id);
+    (select quiz_room_keys.answer_key from public.quiz_room_keys where room_id = p_room_id);
 end;
 $$;
 
