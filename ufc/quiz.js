@@ -1111,7 +1111,9 @@ function mapRpcError(error){
   if(msg.includes("own room")) return "საკუთარ ოთახში ვერ შეუერთდები.";
   if(msg.includes("abandoned")) return "მოწინააღმდეგემ დატოვა თამაში.";
   if(msg.includes("authentication required")) return "საჭიროა ავტორიზაცია — გთხოვ, შედი ან დარეგისტრირდი.";
-  return "დაფიქსირდა შეცდომა — სცადე თავიდან.";
+  // დროებით: უცნობი შეცდომის ნამდვილი ტექსტი პირდაპირ ეკრანზე, კონსოლის
+  // გახსნის გარეშე დიაგნოსტირებისთვის.
+  return msg ? "დაფიქსირდა შეცდომა: " + msg : "დაფიქსირდა შეცდომა — სცადე თავიდან.";
 }
 
 /* ---------- პასუხის გაგზავნა სერვერზე (submit_quiz_answer RPC) ----------
@@ -1162,7 +1164,10 @@ async function pvpCreateRoom(){
   const { data, error } = await sb.rpc('create_quiz_room', { p_game_type:S.gameType, p_level:diff.dbLevel });
   if(error || !data || !data[0]){
     console.warn('[quiz] create_quiz_room failed:', error);
-    return { ok:false, message:"ოთახის შექმნა ვერ მოხერხდა. სცადე თავიდან." };
+    // დროებით: ნამდვილი სერვერის შეცდომა პირდაპირ ეკრანზეც გამოაჩინე, რომ
+    // კონსოლის გახსნა აღარ დასჭირდეს დიაგნოსტირებისთვის.
+    const detail = error ? (error.message || error.details || error.hint || JSON.stringify(error)) : "უცნობი შეცდომა";
+    return { ok:false, message:"ოთახის შექმნა ვერ მოხერხდა: " + detail };
   }
 
   const row = data[0];
