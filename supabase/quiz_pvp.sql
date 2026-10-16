@@ -304,7 +304,7 @@ begin
     end loop;
   else
     for v_row in
-      select clue1, clue2, clue3, clue4, clue5, clue6, answer
+      select clue1, clue2, clue3, clue4, answer
       from public.guess_who_questions
       where level = p_level and is_active = true
       order by random()
@@ -315,8 +315,6 @@ begin
       if v_row.clue2 is not null and length(trim(v_row.clue2)) > 0 then v_clues := v_clues || jsonb_build_array(v_row.clue2); end if;
       if v_row.clue3 is not null and length(trim(v_row.clue3)) > 0 then v_clues := v_clues || jsonb_build_array(v_row.clue3); end if;
       if v_row.clue4 is not null and length(trim(v_row.clue4)) > 0 then v_clues := v_clues || jsonb_build_array(v_row.clue4); end if;
-      if v_row.clue5 is not null and length(trim(v_row.clue5)) > 0 then v_clues := v_clues || jsonb_build_array(v_row.clue5); end if;
-      if v_row.clue6 is not null and length(trim(v_row.clue6)) > 0 then v_clues := v_clues || jsonb_build_array(v_row.clue6); end if;
       v_questions := v_questions || jsonb_build_array(jsonb_build_object('clues', v_clues));
       v_key := v_key || jsonb_build_array(v_row.answer);
     end loop;
