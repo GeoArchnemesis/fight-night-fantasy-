@@ -200,7 +200,11 @@ async function doQuizAuthSubmit(){
       }
       if(pass.length < 6){ showAuthError('პასვორდი: მინ. 6 სიმბოლო'); if(btn) btn.disabled = false; return; }
 
-      const { data: taken } = await sb.rpc('is_nick_taken', { p_nick: nick, p_exclude_user_id: null }).catch(()=>({data:false}));
+      // შენიშვნა: sb.rpc(...) არ არის სრული Promise — მხოლოდ .then()-ს
+      // ახორციელებს, .catch()-ს პირდაპირ (await-ის გარეშე) ვერ მიადევნებ,
+      // თორემ "is not a function" გაიჭრება. აქ უბრალოდ ვუცდით {data,error}-ს.
+      const { data: taken, error: nickCheckErr } = await sb.rpc('is_nick_taken', { p_nick: nick, p_exclude_user_id: null });
+      if(nickCheckErr) console.warn('[quiz] is_nick_taken failed:', nickCheckErr);
       if(taken){ showAuthError('ეს სახელი უკვე დაკავებულია — სცადე სხვა'); if(btn) btn.disabled = false; return; }
 
       const { data, error } = await sb.auth.signUp({ email, password: pass, options:{ data:{ nick } } });
@@ -801,9 +805,10 @@ $("#gq-next-clue").addEventListener("click", ()=>{
     // PvP-ში "რამდენი მინიშნება გაშალა" სერვერზეც აღირიცხება (anti-cheat —
     // წინააღმდეგ შემთხვევაში კლიენტს შეეძლო ყოველთვის "1 მინიშნება ვნახეო" ეთქვა).
     if(S.mode === "pvp" && P.roomId){
-      sb.rpc('reveal_quiz_clue', { p_room_id:P.roomId, p_question_index:S.qi })
-        .then(()=>{})
-        .catch(e=> console.warn('[quiz] reveal_quiz_clue failed:', e));
+      (async ()=>{
+        const { error } = await sb.rpc('reveal_quiz_clue', { p_room_id:P.roomId, p_question_index:S.qi });
+        if(error) console.warn('[quiz] reveal_quiz_clue failed:', error);
+      })();
     }
   }
 });
