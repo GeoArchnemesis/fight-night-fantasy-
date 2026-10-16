@@ -2,7 +2,17 @@
 --  quiz_pvp.sql — UFC Quiz Phase 3 (invite-a-friend by code, PvP)
 --  NOT applied automatically. Nothing in this repo runs this file — review
 --  it, then paste the WHOLE thing into the Supabase SQL Editor (project
---  qxfcwsiysnjxhxljqigl) and run it once, top to bottom.
+--  qxfcwsiysnjxhxljqigl) and run it once, top to bottom. Safe to re-run
+--  over the version you already deployed — everything is IF NOT EXISTS /
+--  OR REPLACE and no signatures changed.
+--
+--  UPDATE (QuizUpdates.pdf): login is now required to play at all (quiz
+--  AND PvP). This is enforced in quiz_resolve_player() below, not only in
+--  the frontend — an anonymous caller now gets a clean "authentication
+--  required" error from every RPC, regardless of what the client sends.
+--  The guest-identity path (p_guest_id/p_guest_name) is gone in practice;
+--  the parameters are kept on every RPC signature (now ignored) purely so
+--  this stays a signature-compatible CREATE OR REPLACE, not a DROP+CREATE.
 --
 --  What this does, in order:
 --   1. Enables the `fuzzystrmatch` extension (Postgres's levenshtein(),
@@ -233,11 +243,12 @@ language sql volatile as $$
   from generate_series(1, 6);
 $$;
 
--- Resolves "who is calling": a real signed-in user (auth.uid()) always
--- takes priority; otherwise the caller must supply a client-generated
--- guest id (expected to be a crypto.randomUUID() — unguessable, bearer-
--- token style). Acceptable because this feature is entirely non-monetary
--- (EPICQUIZ.PRD §7.5) — a guest identity here carries zero stakes.
+-- UPDATE (QuizUpdates.pdf): login is now required to play at all, enforced
+-- here — not just in the client UI — so this is the real security boundary,
+-- not a suggestion. p_guest_id/p_guest_name are kept as accepted-but-ignored
+-- parameters (so every other RPC's signature below needs no change, and
+-- CREATE OR REPLACE stays a clean in-place swap) but guest play no longer
+-- exists: a caller with no auth.uid() session is rejected outright.
 create or replace function public.quiz_resolve_player(p_guest_id text, p_guest_name text)
 returns table(player_id text, player_name text)
 language plpgsql security definer set search_path = public as $$
@@ -245,15 +256,11 @@ declare
   v_uid uuid := auth.uid();
   v_nick text;
 begin
-  if v_uid is not null then
-    select nick into v_nick from public.users where id = v_uid;
-    return query select v_uid::text, coalesce(nullif(trim(v_nick), ''), 'მოთამაშე');
-    return;
+  if v_uid is null then
+    raise exception 'authentication required';
   end if;
-  if p_guest_id is null or length(trim(p_guest_id)) = 0 then
-    raise exception 'guest id required';
-  end if;
-  return query select trim(p_guest_id), left(coalesce(nullif(trim(p_guest_name), ''), 'მოთამაშე'), 20);
+  select nick into v_nick from public.users where id = v_uid;
+  return query select v_uid::text, coalesce(nullif(trim(v_nick), ''), 'მოთამაშე');
 end;
 $$;
 

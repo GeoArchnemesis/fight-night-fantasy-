@@ -212,6 +212,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .cb-controls{margin-top:16px;display:flex;gap:10px}
 #quizRoot .cb-controls .btn{padding:13px;font-size:.82rem}
 
+/* ---------- თამაშის შემდეგ: ყველა კითხვა-პასუხის მუდმივი სია ---------- */
+#quizRoot .cb-review{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
+#quizRoot .cb-review-head{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2);margin-bottom:10px;text-align:center}
+#quizRoot .cb-review-list{display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto;padding-right:4px}
+#quizRoot .cb-review-item{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+#quizRoot .cb-review-q{font-size:.86rem;font-weight:700;line-height:1.4;margin-bottom:8px}
+#quizRoot .cb-review-num{color:var(--gold);margin-right:4px}
+#quizRoot .cb-review-a{font-size:.78rem;line-height:1.5}
+#quizRoot .cb-review-a.ok{color:var(--green)}
+#quizRoot .cb-review-a.bad{color:var(--red-soft)}
+#quizRoot .cb-review-correct{font-size:.74rem;color:var(--muted);margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)}
+
 #quizRoot .gq-clues{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;max-height:168px;overflow-y:auto;padding-right:4px}
 #quizRoot .gq-clue{background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:.88rem;line-height:1.45;text-align:left}
 #quizRoot .gq-clue-num{color:var(--gold);font-weight:700;font-family:var(--mono);margin-right:6px}
@@ -254,8 +266,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 <div class="nav-cta">
   <div class="balance-pill"><span class="coin"></span><b id="balNav">1,000</b> ქულა</div>
-  <a class="btn btn-ghost" id="signinBtn" href="/ufc/" style="display:inline-block">შესვლა</a>
-  <a class="btn btn-ghost" id="joinBtn" href="/ufc/" style="display:inline-block">რეგისტრაცია</a>
+  <a class="btn btn-ghost" id="signinBtn" href="/ufc/" style="display:inline-block" onclick="event.preventDefault(); if(window.openAuthModalMode) window.openAuthModalMode('signin');">შესვლა</a>
+  <a class="btn btn-ghost" id="joinBtn" href="/ufc/" style="display:inline-block" onclick="event.preventDefault(); if(window.openAuthModalMode) window.openAuthModalMode('signup');">რეგისტრაცია</a>
   <button class="menu-btn" id="menuBtn" aria-label="მენიუ"><span></span></button>
 </div>
 </div></nav>
@@ -336,11 +348,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- PvP: კოდით შეერთება -->
   <section id="screen-pvp-join" class="screen">
     <div class="back-row"><button class="back-btn" id="back-to-pvp-choice-2">← უკან</button></div>
-    <div class="name-entry" id="pvpJoinNameWrap" style="display:none">
-      <label for="pvp-join-name">შენი სახელი</label>
-      <input type="text" id="pvp-join-name" maxlength="20" placeholder="მაგ. გიორგი" autocomplete="off" />
-    </div>
-    <div class="name-entry" style="margin-top:14px">
+    <div class="name-entry">
       <label for="pvp-join-code">კოდი</label>
       <input type="text" id="pvp-join-code" maxlength="8" placeholder="მაგ. AB12CD" autocomplete="off"
              style="text-transform:uppercase;letter-spacing:3px;text-align:center;font-family:var(--mono)" />
@@ -474,11 +482,42 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <button class="btn btn-ghost" id="cb-skip">⏭ გამოტოვება</button>
         <button class="btn btn-green" id="cb-restart" style="display:none">✓ დასრულება</button>
       </div>
+
+      <!-- QuizUpdates.pdf: ყველა კითხვა-პასუხის მუდმივი სია, თამაშის შემდეგ -->
+      <div class="cb-review" id="cbReview" style="display:none">
+        <div class="cb-review-head">კითხვები და პასუხები</div>
+        <div class="cb-review-list" id="cbReviewList"></div>
+      </div>
     </div>
   </section>
 
 </div>
 </div></section>
+
+<!-- ── ავტორიზაციის მოდალი (QuizUpdates.pdf) — ჩაშენებული, app.js-ის გარეშე.
+     იხსნება ნებისმიერი "დაწყება"-ს წინ, თუ ვიზიტორი შესული არ არის. ── -->
+<div class="modal-bg" id="quizAuthModal"><div class="modal">
+  <button class="modal-close" id="quizAuthClose" aria-label="დახურვა">&times;</button>
+  <h3 id="quizAuthTitle">შესვლა</h3>
+  <p class="sub" id="quizAuthSub">თამაშის დასაწყებად საჭიროა ავტორიზაცია.</p>
+  <form id="quizAuthForm" method="post" action="#">
+    <div class="field" id="quizAuthNickField" style="display:none">
+      <label for="quizAuthNick">ნიქნეიმი</label>
+      <input type="text" id="quizAuthNick" maxlength="20" placeholder="მაგ. UFC.King" autocomplete="nickname" />
+    </div>
+    <div class="field">
+      <label for="quizAuthEmail">ელ. ფოსტა</label>
+      <input type="email" id="quizAuthEmail" placeholder="შეიყვანე შენი მეილი" autocomplete="email" />
+    </div>
+    <div class="field">
+      <label for="quizAuthPass">პასვორდი</label>
+      <input type="password" id="quizAuthPass" placeholder="მინ. 6 სიმბოლო" autocomplete="current-password" />
+    </div>
+  </form>
+  <div id="quizAuthError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
+  <button type="button" class="btn btn-primary" id="quizAuthSubmit">შესვლა</button>
+  <p class="modal-foot" id="quizAuthSwitch">არ გაქვს ანგარიში? <button type="button" id="quizAuthSwitchBtn">რეგისტრაცია</button></p>
+</div></div>
 
 <!-- ── FOOTER (იდენტურია ufc/index.html-ის) ── -->
 <footer><div class="wrap foot-in">
@@ -575,7 +614,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=4"></script>
+<script src="/ufc/quiz.js?v=5"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){
