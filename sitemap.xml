@@ -2,57 +2,70 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://fnf.ge/</loc>
-    <lastmod>2026-09-09</lastmod>
+    <lastmod>2026-10-18</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://fnf.ge/ufc/</loc>
-    <lastmod>2026-09-09</lastmod>
+    <lastmod>2026-10-18</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/f1/</loc>
-    <lastmod>2026-09-09</lastmod>
+    <lastmod>2026-10-18</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/nba/</loc>
-    <lastmod>2026-09-09</lastmod>
+    <lastmod>2026-10-18</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/football/laliga/</loc>
-    <lastmod>2026-09-09</lastmod>
+    <lastmod>2026-10-18</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/football/epl/</loc>
-    <lastmod>2026-09-09</lastmod>
+    <lastmod>2026-10-18</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/football/seriea/</loc>
-    <lastmod>2026-09-09</lastmod>
+    <lastmod>2026-10-18</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/football/bundesliga/</loc>
-    <lastmod>2026-09-09</lastmod>
+    <lastmod>2026-10-18</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/football/ligue1/</loc>
-    <lastmod>2026-09-09</lastmod>
+    <lastmod>2026-10-18</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/football/ucl/</loc>
-    <lastmod>2026-09-09</lastmod>
+    <lastmod>2026-10-18</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
-    <loc>https://fnf.ge/profile/</loc>
-    <lastmod>2026-09-09</lastmod>
-    <priority>0.5</priority>
+    <loc>https://fnf.ge/about/</loc>
+    <lastmod>2026-10-18</lastmod>
+    <priority>0.6</priority>
   </url>
+  <url>
+    <loc>https://fnf.ge/rules/</loc>
+    <lastmod>2026-10-18</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <!-- /profile/ intentionally removed: login-gated utility page with no unique
+       static content, now noindex'd (see profile/index.html). -->
+  <!-- /ufc/quiz/ intentionally NOT listed yet: feature is still being stabilized
+       on this branch (temporary noindex meta is on the page itself). Add this
+       entry once the feature is merged and stable; see SEOAUDITFNF.md. -->
+  <!-- /terms/ and /privacy/ intentionally NOT listed: draft-only legal pages,
+       marked noindex until reviewed by an actual lawyer — see those files'
+       <head> and SEOAUDITFNF.md. -->
 </urlset>

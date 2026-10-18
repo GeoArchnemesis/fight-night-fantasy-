@@ -1,5 +1,7 @@
 User-agent: *
 Allow: /
 Disallow: /admin/
+Disallow: /scripts/
+Disallow: /supabase/
 
 Sitemap: https://fnf.ge/sitemap.xml
