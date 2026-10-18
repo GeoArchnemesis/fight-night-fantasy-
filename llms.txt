@@ -1,0 +1,16 @@
+# Fight Night Fantasy
+
+> Fight Night Fantasy (fnf.ge) is a free, Georgian-language sports fantasy prediction platform covering UFC, Formula 1, NBA, and six European football leagues. Registration and participation are 100% free — no deposit is ever required, and users predict outcomes using points they receive for free. Real money can never be lost on the platform. Only the UFC fantasy currently pays a real cash prize (monthly top 3 on the leaderboard share 100 GEL: 50/30/20 GEL); Formula 1, NBA, and football currently offer points-based leaderboard ranking without a cash prize. The platform is not connected to gambling, betting, or casino services, operates entirely online with no physical location, and is intended for users 18 years of age and older.
+
+## Sports
+- [UFC Fantasy](https://fnf.ge/ufc/): Predict UFC fight winners and methods. Monthly top-3 leaderboard finishers share a 100 GEL cash prize (50/30/20 GEL).
+- [Formula 1 Fantasy](https://fnf.ge/f1/): Predict Formula 1 race and qualifying winners. Points-based leaderboard ranking, no cash prize currently.
+- [NBA Fantasy](https://fnf.ge/nba/): Predict NBA game winners. Points-based leaderboard ranking, no cash prize currently.
+- Football Fantasy (six separate league pages, points-based leaderboard ranking, no cash prize currently): [La Liga](https://fnf.ge/football/laliga/), [Premier League](https://fnf.ge/football/epl/), [Serie A](https://fnf.ge/football/seriea/), [Bundesliga](https://fnf.ge/football/bundesliga/), [Ligue 1](https://fnf.ge/football/ligue1/), [Champions League](https://fnf.ge/football/ucl/)
+
+## About
+- [Rules and FAQ](https://fnf.ge/rules/): Full rules per sport, prize details, and frequently asked questions.
+- [About](https://fnf.ge/about/): What the platform is and how to contact it.
+
+## Contact
+Phone: +995 557 007 665. Telegram: @GeoArchnemesis. Email: gugulashvili98@gmail.com.
