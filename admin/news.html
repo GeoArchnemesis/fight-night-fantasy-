@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Fight Night Fantasy — Admin · სიახლეები</title>
+<meta name="robots" content="noindex, nofollow" />
+<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<style>
+  /* ── same design system as admin/admin.html — copied, not reinvented ── */
+  :root {
+    --ink:#0B0A0F; --canvas:#0E0D14; --surface:#16141E; --surface-2:#1F1C2B;
+    --line:#2A2738; --red:#F31D25; --gold:#F5C451; --green:#3ad17e;
+    --text:#EDEBF2; --muted:#8C8899;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--canvas); color:var(--text); font-family:'Segoe UI',sans-serif; padding:24px; }
+  h1 { color:var(--red); margin-bottom:8px; font-size:1.6rem; }
+  h2 { color:var(--gold); margin:24px 0 12px; font-size:1.1rem; }
+  .warn { background:rgba(243,29,37,.1); border:1px solid var(--red); border-radius:6px; padding:12px 16px; margin-bottom:20px; font-size:.85rem; color:#ff7070; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:20px; margin-bottom:16px; }
+  label { display:block; font-size:.75rem; color:var(--muted); margin-bottom:6px; letter-spacing:.05em; text-transform:uppercase; }
+  input, textarea { width:100%; background:var(--canvas); border:1px solid var(--line); border-radius:4px; padding:10px 12px; color:var(--text); font-size:.95rem; margin-bottom:12px; font-family:inherit; }
+  input:focus, textarea:focus { outline:none; border-color:var(--red); }
+  .btn { font-family:inherit; font-weight:700; font-size:.85rem; padding:11px 20px; border-radius:4px; cursor:pointer; border:none; transition:.15s; }
+  .btn-primary { background:var(--red); color:#fff; }
+  .btn-primary:hover { opacity:.85; }
+  .btn-secondary { background:var(--gold); color:#000; }
+  .btn-secondary:hover { opacity:.85; }
+  .btn-ghost { background:var(--surface-2); color:var(--text); border:1px solid var(--line); }
+  .btn-ghost:hover { border-color:var(--muted); }
+  .btn-danger { background:rgba(243,29,37,.15); color:var(--red); border:1px solid var(--red); }
+  .btn:disabled { opacity:.4; cursor:not-allowed; }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .flex-gap { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+
+  /* ── news-specific ── */
+  .news-item { border:1px solid var(--line); border-radius:8px; padding:14px 16px; margin-bottom:10px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+  .news-item-title { font-weight:700; font-size:.95rem; }
+  .news-item-meta { font-size:.75rem; color:var(--muted); margin-top:3px; }
+  .status-pill { display:inline-block; font-size:.68rem; font-weight:700; padding:3px 10px; border-radius:12px; text-transform:uppercase; letter-spacing:.03em; }
+  .status-published { background:rgba(58,209,126,.15); color:var(--green); }
+  .status-draft { background:rgba(140,136,153,.15); color:var(--muted); }
+  .checkbox-row { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+  .checkbox-row input[type=checkbox] { width:auto; margin:0; }
+  .checkbox-row label { margin:0; text-transform:none; font-size:.9rem; color:var(--text); letter-spacing:0; }
+
+  .editor-wrap { border:1px solid var(--line); border-radius:4px; overflow:hidden; margin-bottom:12px; }
+  .editor-toolbar { display:flex; gap:4px; padding:6px; background:var(--surface-2); border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .editor-toolbar button { background:var(--canvas); border:1px solid var(--line); border-radius:3px; color:var(--text); font-family:inherit; font-size:.8rem; padding:5px 10px; cursor:pointer; }
+  .editor-toolbar button:hover { border-color:var(--gold); }
+  .editor-body { min-height:220px; max-height:420px; overflow-y:auto; padding:12px; background:var(--canvas); color:var(--text); font-size:.9rem; line-height:1.6; }
+  .editor-body:focus { outline:none; }
+  .editor-body h2 { color:var(--gold); margin:10px 0 6px; font-size:1.1rem; }
+  .editor-body ul, .editor-body ol { padding-left:20px; margin:6px 0; }
+  .editor-body a { color:#7eb8ff; }
+
+  .cover-preview { width:160px; height:90px; object-fit:cover; border-radius:6px; border:1px solid var(--line); background:var(--surface-2); display:block; margin-bottom:8px; }
+</style>
+</head>
+<body>
+
+<!-- ── KEY SCREEN (identical pattern to admin/admin.html) ── -->
+<div id="keyScreen" style="display:none;position:fixed;inset:0;background:var(--canvas);z-index:9999;align-items:center;justify-content:center;padding:24px">
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:32px;max-width:420px;width:100%">
+    <h2 style="color:var(--gold);margin-bottom:6px;font-size:1.2rem">🔑 Admin Login</h2>
+    <p style="color:var(--muted);font-size:.85rem;margin-bottom:20px;line-height:1.6">
+      შედი იმავე email/password-ით, რომლითაც საიტზე ხარ რეგისტრირებული
+    </p>
+    <form id="adminLoginForm" method="post" action="#" onsubmit="event.preventDefault();submitLogin()">
+    <label for="adminEmail">Email</label>
+    <input type="email" id="adminEmail" name="email" placeholder="admin@example.com" autocomplete="email"
+      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;margin-bottom:8px" />
+    <label for="adminPassword">Password</label>
+    <input type="password" id="adminPassword" name="password" placeholder="••••••••" autocomplete="current-password"
+      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;margin-bottom:8px" />
+    <div id="keyError" style="color:#ff7070;font-size:.8rem;min-height:18px;margin-bottom:12px"></div>
+    <button type="submit" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:4px;padding:12px;font-weight:700;font-size:.95rem;cursor:pointer">შესვლა →</button>
+    </form>
+  </div>
+</div>
+
+<!-- ── ADMIN CONTENT ── -->
+<div id="adminContent" style="display:none">
+
+<h1 style="display:flex;align-items:center;gap:10px"><img src="/favicon-32x32.png" alt="FNF" width="28" height="28" style="border-radius:6px" onerror="this.style.display='none'"> Fight Night Fantasy — Admin · სიახლეები</h1>
+<div class="warn" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+  <span>⚠️ ეს გვერდი მხოლოდ ადმინისთვისაა.</span>
+  <div class="flex-gap">
+    <a href="/admin/admin.html" class="btn btn-ghost" style="text-decoration:none;display:inline-block">🥊 UFC Events</a>
+    <button onclick="adminLogout()" style="background:rgba(243,29,37,.15);color:var(--red);border:1px solid var(--red);border-radius:4px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:.78rem">🚪 გამოსვლა</button>
+  </div>
+</div>
+
+<!-- ── LIST VIEW ── -->
+<div id="newsListView">
+  <div class="card">
+    <div class="flex-gap" style="justify-content:space-between">
+      <h2 style="margin:0">📰 სტატიები</h2>
+      <button class="btn btn-primary" onclick="openEditor(null)">+ ახალი სტატია</button>
+    </div>
+    <div id="newsList" style="margin-top:14px">იტვირთება...</div>
+  </div>
+</div>
+
+<!-- ── EDIT / CREATE VIEW ── -->
+<div id="newsEditView" style="display:none">
+  <div class="card">
+    <div class="flex-gap" style="justify-content:space-between;margin-bottom:10px">
+      <h2 style="margin:0" id="editorTitle">ახალი სტატია</h2>
+      <button class="btn btn-ghost" onclick="showList()">← სიაში დაბრუნება</button>
+    </div>
+
+    <div class="checkbox-row">
+      <input type="checkbox" id="fIsPublished" />
+      <label for="fIsPublished">გამოქვეყნებულია (საჯაროდ ჩანს)</label>
+    </div>
+
+    <div class="grid-2">
+      <div><label>სათაური (ქართ.) *</label><input type="text" id="fTitleKa" /></div>
+      <div><label>სათაური (ინგლ.)</label><input type="text" id="fTitleEn" /></div>
+    </div>
+
+    <div><label>Slug (URL) * — /news/&lt;slug&gt;/, პატარა ასოები და დეფისები</label>
+      <input type="text" id="fSlug" placeholder="magalitad-statia" />
+    </div>
+
+    <div class="grid-2">
+      <div><label>ტექსტი (ქართ.) *</label></div>
+      <div><label>ტექსტი (ინგლ.)</label></div>
+    </div>
+    <div class="grid-2">
+      <div class="editor-wrap">
+        <div class="editor-toolbar" data-target="bodyKaEditor">
+          <button type="button" onmousedown="event.preventDefault()" onclick="document.execCommand('bold')"><b>B</b></button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="document.execCommand('italic')"><i>I</i></button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="document.execCommand('formatBlock', false, 'h2')">H2</button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="document.execCommand('insertUnorderedList')">• სია</button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="editorLink()">🔗</button>
+        </div>
+        <div class="editor-body" id="bodyKaEditor" contenteditable="true"></div>
+      </div>
+      <div class="editor-wrap">
+        <div class="editor-toolbar" data-target="bodyEnEditor">
+          <button type="button" onmousedown="event.preventDefault()" onclick="document.execCommand('bold')"><b>B</b></button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="document.execCommand('italic')"><i>I</i></button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="document.execCommand('formatBlock', false, 'h2')">H2</button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="document.execCommand('insertUnorderedList')">• List</button>
+          <button type="button" onmousedown="event.preventDefault()" onclick="editorLink()">🔗</button>
+        </div>
+        <div class="editor-body" id="bodyEnEditor" contenteditable="true"></div>
+      </div>
+    </div>
+
+    <h2>🖼️ ყდის ფოტო</h2>
+    <img id="coverPreview" class="cover-preview" style="display:none" alt="" onerror="this.style.display='none'" />
+    <div class="grid-2">
+      <div><label>სურათის URL</label><input type="text" id="fCoverUrl" placeholder="https://..." oninput="updateCoverPreview()" /></div>
+      <div>
+        <label>ან ატვირთე (bucket: news-images) *</label>
+        <input type="file" id="coverFile" accept="image/*" />
+        <button type="button" class="btn btn-ghost" style="margin-top:4px" onclick="uploadCoverImage()">⬆️ ატვირთვა</button>
+      </div>
+    </div>
+    <div style="font-size:.72rem;color:var(--muted);margin:-8px 0 12px">
+      * ატვირთვას სჭირდება "news-images" storage bucket-ის წინასწარ არსებობა Supabase-ში (იხ. ქვემოთ შენიშვნა commit-ში) — თუ ჯერ არ შექმნილა, უბრალოდ URL-ის ველი გამოიყენე.
+    </div>
+    <div class="grid-2">
+      <div><label>Alt ტექსტი (ქართ.)</label><input type="text" id="fCoverAltKa" /></div>
+      <div><label>Alt ტექსტი (ინგლ.)</label><input type="text" id="fCoverAltEn" /></div>
+    </div>
+
+    <h2>🔍 SEO</h2>
+    <div class="grid-2">
+      <div><label>Meta სათაური (ქართ.)</label><input type="text" id="fMetaTitleKa" /></div>
+      <div><label>Meta სათაური (ინგლ.)</label><input type="text" id="fMetaTitleEn" /></div>
+    </div>
+    <div class="grid-2">
+      <div><label>Meta აღწერა (ქართ.)</label><input type="text" id="fMetaDescKa" /></div>
+      <div><label>Meta აღწერა (ინგლ.)</label><input type="text" id="fMetaDescEn" /></div>
+    </div>
+
+    <div class="grid-2">
+      <div><label>ავტორი</label><input type="text" id="fAuthor" placeholder="მაგ. Fight Night Fantasy" /></div>
+      <div><label>გამოქვეყნების თარიღი</label><input type="datetime-local" id="fPublishedAt" /></div>
+    </div>
+
+    <div id="editorError" style="color:#ff7070;font-size:.85rem;min-height:18px;margin-bottom:8px"></div>
+
+    <div class="flex-gap" style="justify-content:space-between">
+      <button class="btn btn-primary" onclick="saveArticle()">💾 შენახვა</button>
+      <button class="btn btn-danger" id="deleteBtn" style="display:none" onclick="deleteArticle()">🗑️ წაშლა</button>
+    </div>
+  </div>
+</div>
+
+</div>
+
+<script>
+const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
+// იგივე საჯარო anon key, რასაც admin/admin.html იყენებს — წვდომას არეგულირებს
+// RLS + users.is_admin, არა ეს key.
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+});
+
+// ─────────────────────────────────────────────────────────────
+//  AUTH (identical pattern to admin/admin.html)
+// ─────────────────────────────────────────────────────────────
+function showLoginScreen(errMsg) {
+  document.getElementById('adminContent').style.display = 'none';
+  document.getElementById('keyScreen').style.display = 'flex';
+  if (errMsg) document.getElementById('keyError').textContent = errMsg;
+}
+
+async function submitLogin() {
+  const email = document.getElementById('adminEmail').value.trim();
+  const password = document.getElementById('adminPassword').value;
+  document.getElementById('keyError').textContent = '';
+
+  if (!email || !password) {
+    document.getElementById('keyError').textContent = 'შეიყვანე email და password';
+    return;
+  }
+
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
+  if (error || !data?.user) {
+    document.getElementById('keyError').textContent = 'არასწორი email ან password';
+    return;
+  }
+
+  const { data: profile, error: profErr } = await sb.from('users').select('is_admin').eq('id', data.user.id).single();
+  if (profErr || !profile?.is_admin) {
+    await sb.auth.signOut();
+    document.getElementById('keyError').textContent = 'ეს ანგარიში ადმინი არ არის';
+    return;
+  }
+
+  document.getElementById('keyScreen').style.display = 'none';
+  document.getElementById('adminContent').style.display = 'block';
+  showList();
+}
+
+async function adminLogout() {
+  if (!confirm('გსურს გამოსვლა?')) return;
+  await sb.auth.signOut();
+  showLoginScreen();
+}
+
+async function initAdminSession() {
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { showLoginScreen(); return; }
+
+  const { data: profile, error: profErr } = await sb.from('users').select('is_admin').eq('id', session.user.id).single();
+  if (profErr || !profile?.is_admin) {
+    await sb.auth.signOut();
+    showLoginScreen('ეს ანგარიში ადმინი არ არის');
+    return;
+  }
+
+  document.getElementById('keyScreen').style.display = 'none';
+  document.getElementById('adminContent').style.display = 'block';
+  showList();
+}
+
+document.addEventListener('DOMContentLoaded', initAdminSession);
+
+// ─────────────────────────────────────────────────────────────
+//  VIEW SWITCHING
+// ─────────────────────────────────────────────────────────────
+let editingId = null; // null = creating new article
+
+function showList() {
+  editingId = null;
+  document.getElementById('newsEditView').style.display = 'none';
+  document.getElementById('newsListView').style.display = 'block';
+  loadArticles();
+}
+
+function showEdit() {
+  document.getElementById('newsListView').style.display = 'none';
+  document.getElementById('newsEditView').style.display = 'block';
+}
+
+// ─────────────────────────────────────────────────────────────
+//  LIST
+// ─────────────────────────────────────────────────────────────
+async function loadArticles() {
+  const box = document.getElementById('newsList');
+  box.innerHTML = 'იტვირთება...';
+
+  // RLS (news_select_admin policy) lets an is_admin user see drafts too,
+  // not just published rows -- see supabase/news_table.sql.
+  const { data: rows, error } = await sb
+    .from('news')
+    .select('id,title_ka,title_en,slug,is_published,published_at,author,created_at')
+    .order('created_at', { ascending: false });
+
+  if (error) { box.innerHTML = `<div style="color:var(--red)">შეცდომა: ${error.message}</div>`; return; }
+  if (!rows || rows.length === 0) { box.innerHTML = '<div style="color:var(--muted);font-size:.85rem">სტატია ჯერ არ არის</div>'; return; }
+
+  box.innerHTML = '';
+  for (const r of rows) {
+    const item = document.createElement('div');
+    item.className = 'news-item';
+    const statusHtml = r.is_published
+      ? `<span class="status-pill status-published">გამოქვეყნებული</span>`
+      : `<span class="status-pill status-draft">დრაფტი</span>`;
+    const dateStr = r.published_at
+      ? new Date(r.published_at).toLocaleDateString('ka-GE', { year: 'numeric', month: 'short', day: 'numeric' })
+      : '—';
+    item.innerHTML = `
+      <div>
+        <div class="news-item-title">${r.title_ka}${r.title_en ? ` <span style="color:var(--muted);font-weight:400">/ ${r.title_en}</span>` : ''}</div>
+        <div class="news-item-meta">${statusHtml} &nbsp;·&nbsp; /news/${r.slug}/ &nbsp;·&nbsp; ${r.author || '—'} &nbsp;·&nbsp; ${dateStr}</div>
+      </div>
+      <div class="flex-gap">
+        <button class="btn btn-ghost" data-action="edit">✏️ რედაქტირება</button>
+      </div>`;
+    item.querySelector('[data-action="edit"]').onclick = () => openEditor(r.id);
+    box.appendChild(item);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  EDITOR
+// ─────────────────────────────────────────────────────────────
+function resetEditorForm() {
+  ['fTitleKa','fTitleEn','fSlug','fCoverUrl','fCoverAltKa','fCoverAltEn',
+   'fMetaTitleKa','fMetaTitleEn','fMetaDescKa','fMetaDescEn','fAuthor','fPublishedAt']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('bodyKaEditor').innerHTML = '';
+  document.getElementById('bodyEnEditor').innerHTML = '';
+  document.getElementById('fIsPublished').checked = false;
+  document.getElementById('editorError').textContent = '';
+  document.getElementById('coverPreview').style.display = 'none';
+}
+
+async function openEditor(id) {
+  resetEditorForm();
+  editingId = id;
+  document.getElementById('deleteBtn').style.display = id ? 'inline-block' : 'none';
+  document.getElementById('editorTitle').textContent = id ? 'სტატიის რედაქტირება' : 'ახალი სტატია';
+
+  if (id) {
+    const { data: row, error } = await sb.from('news').select('*').eq('id', id).single();
+    if (error || !row) { alert('სტატია ვერ ჩაიტვირთა: ' + (error?.message || '')); showList(); return; }
+    document.getElementById('fTitleKa').value    = row.title_ka || '';
+    document.getElementById('fTitleEn').value    = row.title_en || '';
+    document.getElementById('fSlug').value       = row.slug || '';
+    document.getElementById('bodyKaEditor').innerHTML = row.body_ka || '';
+    document.getElementById('bodyEnEditor').innerHTML = row.body_en || '';
+    document.getElementById('fCoverUrl').value   = row.cover_image_url || '';
+    document.getElementById('fCoverAltKa').value = row.cover_image_alt_ka || '';
+    document.getElementById('fCoverAltEn').value = row.cover_image_alt_en || '';
+    document.getElementById('fMetaTitleKa').value = row.meta_title_ka || '';
+    document.getElementById('fMetaTitleEn').value = row.meta_title_en || '';
+    document.getElementById('fMetaDescKa').value  = row.meta_description_ka || '';
+    document.getElementById('fMetaDescEn').value  = row.meta_description_en || '';
+    document.getElementById('fAuthor').value     = row.author || '';
+    document.getElementById('fIsPublished').checked = !!row.is_published;
+    if (row.published_at) {
+      // datetime-local input needs "YYYY-MM-DDTHH:mm", no timezone suffix
+      document.getElementById('fPublishedAt').value = new Date(row.published_at).toISOString().slice(0, 16);
+    }
+    updateCoverPreview();
+  }
+
+  showEdit();
+}
+
+function updateCoverPreview() {
+  const url = document.getElementById('fCoverUrl').value.trim();
+  const img = document.getElementById('coverPreview');
+  if (url) { img.src = url; img.style.display = 'block'; }
+  else { img.style.display = 'none'; }
+}
+
+function editorLink() {
+  const url = prompt('ბმულის URL:');
+  if (url) document.execCommand('createLink', false, url);
+}
+
+// ─────────────────────────────────────────────────────────────
+//  COVER IMAGE UPLOAD (same storage pattern as admin/admin.html's
+//  uploadLandingBg -- bucket name here is "news-images" and needs to
+//  exist in Supabase Storage before this works; the plain URL field
+//  above works regardless of whether that bucket has been created)
+// ─────────────────────────────────────────────────────────────
+async function uploadCoverImage() {
+  const input = document.getElementById('coverFile');
+  const file = input && input.files && input.files[0];
+  if (!file) { alert('ჯერ აირჩიე ფოტო'); return; }
+  if (file.size > 3 * 1024 * 1024) { alert('ფოტო > 3MB — შეამცირე'); return; }
+
+  const path = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
+  const { error } = await sb.storage.from('news-images').upload(path, file, { upsert: true, contentType: file.type });
+  if (error) {
+    alert('ატვირთვა ვერ მოხერხდა: ' + error.message + '\n\n(შესაძლოა "news-images" bucket ჯერ არ არსებობს Supabase Storage-ში)');
+    return;
+  }
+  const { data: pub } = sb.storage.from('news-images').getPublicUrl(path);
+  document.getElementById('fCoverUrl').value = pub.publicUrl;
+  updateCoverPreview();
+  input.value = '';
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SAVE / DELETE — direct sb.from('news') calls, RLS (from
+//  supabase/news_table.sql) does the admin gating, same approach
+//  as the rest of this project's non-settlement admin writes.
+// ─────────────────────────────────────────────────────────────
+function showEditorError(msg) {
+  document.getElementById('editorError').textContent = msg;
+}
+
+async function saveArticle() {
+  showEditorError('');
+
+  const titleKa = document.getElementById('fTitleKa').value.trim();
+  const slug    = document.getElementById('fSlug').value.trim();
+  const bodyKa  = document.getElementById('bodyKaEditor').innerHTML.trim();
+
+  if (!titleKa) { showEditorError('სათაური (ქართ.) სავალდებულოა'); return; }
+  if (!slug || !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) {
+    showEditorError('Slug სავალდებულოა — მხოლოდ პატარა ლათინური ასოები, ციფრები და დეფისები (მაგ. magalitad-statia)');
+    return;
+  }
+  if (!bodyKa) { showEditorError('ტექსტი (ქართ.) სავალდებულოა'); return; }
+
+  const isPublished = document.getElementById('fIsPublished').checked;
+  let publishedAtVal = document.getElementById('fPublishedAt').value;
+  // D1's design: published_at is editorial/display metadata, not a
+  // visibility gate (is_published alone controls that) -- auto-fill
+  // it on first publish if the admin didn't set one, but never force it.
+  if (isPublished && !publishedAtVal) {
+    publishedAtVal = new Date().toISOString().slice(0, 16);
+    document.getElementById('fPublishedAt').value = publishedAtVal;
+  }
+
+  const payload = {
+    title_ka: titleKa,
+    title_en: document.getElementById('fTitleEn').value.trim() || null,
+    slug,
+    body_ka: bodyKa,
+    body_en: document.getElementById('bodyEnEditor').innerHTML.trim() || null,
+    cover_image_url: document.getElementById('fCoverUrl').value.trim() || null,
+    cover_image_alt_ka: document.getElementById('fCoverAltKa').value.trim() || null,
+    cover_image_alt_en: document.getElementById('fCoverAltEn').value.trim() || null,
+    meta_title_ka: document.getElementById('fMetaTitleKa').value.trim() || null,
+    meta_title_en: document.getElementById('fMetaTitleEn').value.trim() || null,
+    meta_description_ka: document.getElementById('fMetaDescKa').value.trim() || null,
+    meta_description_en: document.getElementById('fMetaDescEn').value.trim() || null,
+    author: document.getElementById('fAuthor').value.trim() || null,
+    is_published: isPublished,
+    published_at: publishedAtVal ? new Date(publishedAtVal).toISOString() : null,
+  };
+
+  const { error } = editingId
+    ? await sb.from('news').update(payload).eq('id', editingId)
+    : await sb.from('news').insert(payload);
+
+  if (error) { showEditorError('შენახვა ვერ მოხერხდა: ' + error.message); return; }
+
+  showList();
+}
+
+async function deleteArticle() {
+  if (!editingId) return;
+  if (!confirm('სტატია საბოლოოდ წაიშლება. დარწმუნებული ხარ?')) return;
+  const { error } = await sb.from('news').delete().eq('id', editingId);
+  if (error) { alert('წაშლა ვერ მოხერხდა: ' + error.message); return; }
+  showList();
+}
+</script>
+</body>
+</html>

@@ -129,9 +129,12 @@
 <div id="adminContent">
 
 <h1 style="display:flex;align-items:center;gap:10px"><img src="/favicon-32x32.png" alt="FNF" width="28" height="28" style="border-radius:6px" onerror="this.style.display='none'"> Fight Night Fantasy — Admin</h1>
-<div class="warn" style="display:flex;justify-content:space-between;align-items:center">
+<div class="warn" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
   <span>⚠️ ეს გვერდი მხოლოდ ადმინისთვისაა.</span>
-  <button onclick="adminLogout()" style="background:rgba(243,29,37,.15);color:var(--red);border:1px solid var(--red);border-radius:4px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:.78rem">🚪 გამოსვლა</button>
+  <div class="flex-gap">
+    <a href="/admin/news.html" class="btn btn-ghost" style="text-decoration:none;display:inline-block">📰 სიახლეები</a>
+    <button onclick="adminLogout()" style="background:rgba(243,29,37,.15);color:var(--red);border:1px solid var(--red);border-radius:4px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:.78rem">🚪 გამოსვლა</button>
+  </div>
 </div>
 
 <div class="card" style="padding:14px 20px">
