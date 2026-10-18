@@ -18,6 +18,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 <link rel="canonical" href="https://fnf.ge/ufc/quiz/" />
+<!-- დროებითი noindex: ფუნქცია ჯერ კიდევ სტაბილიზაციის ფაზაშია (feature/ufc-quiz) — ამოღებული იქნება
+     merge-ის და ცოცხალ ტესტირების დასრულების შემდეგ, იხ. SEOAUDITFNF.md -->
+<meta name="robots" content="noindex" />
 <!-- Open Graph (Facebook, Telegram, Instagram, etc.) -->
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://fnf.ge/ufc/quiz/" />
@@ -32,9 +35,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 <link rel="stylesheet" href="/style.css?v=202">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "მთავარი", "item": "https://fnf.ge/" },
+    { "@type": "ListItem", "position": 2, "name": "UFC", "item": "https://fnf.ge/ufc/" },
+    { "@type": "ListItem", "position": 3, "name": "ქვიზი", "item": "https://fnf.ge/ufc/quiz/" }
+  ]
+}
+</script>
 
 <style>
 /* ── MOBILE BOTTOM NAV (mnav) — იგივე წესები, რაც ufc/index.html-ზე (ხილვადობა body.logged-in-ზეა დამოკიდებული,
@@ -537,6 +553,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 <div class="foot-links">
+  <a href="/about/">ჩვენს შესახებ</a>
+  <a href="/rules/">წესები</a>
   <a href="/ufc/#card">ბრძოლები</a>
   <a href="/ufc/#tickets">ბილეთები</a>
   <a href="/ufc/#how">წესები</a>
