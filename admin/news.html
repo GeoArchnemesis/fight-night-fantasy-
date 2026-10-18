@@ -144,8 +144,9 @@
       <div><label>სურათის URL</label><input type="text" id="fCoverUrl" placeholder="https://..." oninput="updateCoverPreview()" /></div>
       <div>
         <label>ან ატვირთე (bucket: news-images)</label>
-        <input type="file" id="coverFile" accept="image/*" />
+        <input type="file" id="coverFile" accept="image/*" onchange="nwCoverFileChosen(event)" />
         <button type="button" class="btn btn-ghost" style="margin-top:4px" onclick="uploadCoverImage()">⬆️ ატვირთვა</button>
+        <span id="coverUploadStatus" style="display:inline-block;margin-left:8px;font-size:.8rem;vertical-align:middle"></span>
       </div>
     </div>
     <div style="font-size:.72rem;color:var(--muted);margin:-8px 0 12px">
@@ -627,13 +628,21 @@ function nwInsertImage(editorId) {
 async function nwUploadToNewsImages(file) {
   if (file.size > 3 * 1024 * 1024) { alert('ფოტო > 3MB — შეამცირე'); return null; }
   const path = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.\-_]/g, '')}`;
-  const { error } = await sb.storage.from('news-images').upload(path, file, { upsert: true, contentType: file.type });
-  if (error) {
-    alert('ატვირთვა ვერ მოხერხდა: ' + error.message + '\n\n(შესაძლოა "news-images" bucket ჯერ არ არსებობს Supabase Storage-ში)');
+  try {
+    const { error } = await sb.storage.from('news-images').upload(path, file, { upsert: true, contentType: file.type });
+    if (error) {
+      alert('ატვირთვა ვერ მოხერხდა: ' + error.message + '\n\n(შესაძლოა "news-images" bucket ჯერ არ არსებობს Supabase Storage-ში)');
+      return null;
+    }
+    const { data: pub } = sb.storage.from('news-images').getPublicUrl(path);
+    return pub.publicUrl;
+  } catch (e) {
+    // Network/CORS/offline errors throw instead of returning {error} --
+    // without this catch they silently killed the upload with no
+    // feedback at all (file picker stayed filled, nothing happened).
+    alert('ატვირთვა ვერ მოხერხდა (ქსელის/კავშირის შეცდომა): ' + (e && e.message ? e.message : e));
     return null;
   }
-  const { data: pub } = sb.storage.from('news-images').getPublicUrl(path);
-  return pub.publicUrl;
 }
 
 async function nwInsertImageFileChosen(e) {
@@ -652,16 +661,50 @@ async function nwInsertImageFileChosen(e) {
 //  uploadLandingBg -- bucket name here is "news-images" and needs to
 //  exist in Supabase Storage before this works; the plain URL field
 //  above works regardless of whether that bucket has been created)
+//
+//  Uploads automatically as soon as a file is chosen (nwCoverFileChosen,
+//  wired to the <input type=file>'s onchange) -- picking a file used to
+//  require a separate click on "ატვირთვა" with zero feedback either way,
+//  which is why uploads silently never made it into saved articles. The
+//  button is kept only as a manual retry if the automatic attempt fails.
+//  #coverUploadStatus is the single place both paths report into, so
+//  "is it actually uploaded yet" is always visible before hitting Save.
 // ─────────────────────────────────────────────────────────────
+function nwSetCoverUploadStatus(text, color) {
+  const el = document.getElementById('coverUploadStatus');
+  if (!el) return;
+  el.textContent = text || '';
+  el.style.color = color || 'var(--muted)';
+}
+
+async function nwDoCoverUpload(file) {
+  if (!file) return;
+  nwSetCoverUploadStatus('⏳ იტვირთება...', 'var(--muted)');
+  try {
+    const url = await nwUploadToNewsImages(file);
+    if (!url) { nwSetCoverUploadStatus('❌ ვერ აიტვირთა', 'var(--red)'); return; }
+    document.getElementById('fCoverUrl').value = url;
+    updateCoverPreview();
+    nwSetCoverUploadStatus('✅ აიტვირთა — Save-ის დაჭერისას შეინახება', 'var(--green)');
+  } catch (e) {
+    nwSetCoverUploadStatus('❌ ვერ აიტვირთა', 'var(--red)');
+  }
+}
+
+// Fires the moment a file is picked -- no separate click needed.
+async function nwCoverFileChosen(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  await nwDoCoverUpload(file);
+}
+
+// Manual fallback button -- same routine, for retrying a failed upload
+// without having to re-pick the file.
 async function uploadCoverImage() {
   const input = document.getElementById('coverFile');
   const file = input && input.files && input.files[0];
   if (!file) { alert('ჯერ აირჩიე ფოტო'); return; }
-  const url = await nwUploadToNewsImages(file);
-  if (!url) return;
-  document.getElementById('fCoverUrl').value = url;
-  updateCoverPreview();
-  input.value = '';
+  await nwDoCoverUpload(file);
 }
 
 // ─────────────────────────────────────────────────────────────

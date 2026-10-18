@@ -57,6 +57,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .nw-card-title{font-family:var(--display);font-size:1.15rem;line-height:1.25;margin-bottom:8px;color:var(--text)}
 .nw-card-excerpt{color:var(--muted);font-size:.85rem;line-height:1.6;margin-bottom:10px}
 .nw-card-meta{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
+.nw-card-meta .nw-card-author{text-transform:none}
 .nw-empty, .nw-loading{color:var(--muted);font-size:.9rem;padding:40px 0;text-align:center}
 </style>
 </head>
@@ -154,7 +155,7 @@ function nwRender() {
       <div class="nw-card-body">
         <div class="nw-card-title">${nwTitleFor(a, lang)}</div>
         <div class="nw-card-excerpt">${nwExcerptFor(a, lang)}</div>
-        <div class="nw-card-meta">${[a.author, dateStr].filter(Boolean).join(' · ')}</div>
+        <div class="nw-card-meta">${[a.author ? `<span class="nw-card-author">${a.author}</span>` : null, dateStr].filter(Boolean).join(' · ')}</div>
       </div>
     </a>`;
   }).join('');
