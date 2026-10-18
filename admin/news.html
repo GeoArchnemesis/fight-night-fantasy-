@@ -77,6 +77,8 @@
   .seo-panel { display:none; border:1px solid var(--line); border-radius:6px; padding:14px; margin-bottom:10px; background:var(--surface-2); }
   .seo-panel.on { display:block; }
   .slug-hint { font-size:.72rem; color:var(--muted); margin:-8px 0 12px; }
+  .cat-chip-pick { display:inline-flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--line); border-radius:20px; padding:6px 12px; cursor:pointer; font-size:.82rem; }
+  .cat-chip-pick input[type=checkbox] { width:auto; margin:0; }
 </style>
 </head>
 <body>
@@ -121,6 +123,22 @@
       <button class="btn btn-primary" onclick="openEditor(null)">+ ახალი სტატია</button>
     </div>
     <div id="newsList" style="margin-top:14px">იტვირთება...</div>
+  </div>
+
+  <div class="card">
+    <h2 style="margin:0">🏷️ კატეგორიები</h2>
+    <div id="categoriesList" style="margin:12px 0 16px">იტვირთება...</div>
+    <div class="grid-2">
+      <div><label>სახელი (ქართ.) *</label><input type="text" id="catNameKa" /></div>
+      <div><label>Name (English)</label><input type="text" id="catNameEn" oninput="nwOnCatNameEnInput()" /></div>
+    </div>
+    <div><label>Slug <span class="char-count">— ავტომატურად ივსება ინგლისური სახელიდან</span></label>
+      <input type="text" id="catSlug" placeholder="mma" oninput="nwCatSlugTouched = true" /></div>
+    <div class="flex-gap">
+      <button class="btn btn-primary" id="catSaveBtn" onclick="saveCategory()">+ დამატება</button>
+      <button class="btn btn-ghost" id="catCancelBtn" style="display:none" onclick="resetCategoryForm()">გაუქმება</button>
+    </div>
+    <div id="categoryError" style="color:#ff7070;font-size:.85rem;min-height:18px;margin-top:8px"></div>
   </div>
 </div>
 
@@ -269,6 +287,9 @@
       </div>
     </div>
 
+    <h2 style="margin-top:4px">🏷️ კატეგორიები</h2>
+    <div id="categoryCheckboxes" class="flex-gap" style="margin-bottom:16px">იტვირთება...</div>
+
     <div id="editorError" style="color:#ff7070;font-size:.85rem;min-height:18px;margin-bottom:8px;margin-top:14px"></div>
 
     <div class="flex-gap" style="justify-content:space-between">
@@ -360,6 +381,7 @@ function showList() {
   document.getElementById('newsEditView').style.display = 'none';
   document.getElementById('newsListView').style.display = 'block';
   loadArticles();
+  loadCategoriesAdmin();
 }
 
 function showEdit() {
@@ -408,6 +430,151 @@ async function loadArticles() {
 }
 
 // ─────────────────────────────────────────────────────────────
+//  CATEGORIES — flat, admin-editable list (many-to-many with
+//  articles via news_article_categories). nwCategories is the shared
+//  cache both the management list here and the article editor's
+//  checkboxes (below) render from -- reloaded after every add/
+//  rename/delete so both stay in sync.
+// ─────────────────────────────────────────────────────────────
+let nwCategories = [];
+let editingCategoryId = null; // null = creating a new category
+let nwCatSlugTouched = false;
+
+async function loadCategoriesAdmin() {
+  await nwFetchCategories();
+  nwRenderCategoriesAdmin();
+}
+
+async function nwFetchCategories() {
+  const { data, error } = await sb.from('news_categories').select('*').order('name_ka');
+  if (!error) nwCategories = data || [];
+  return nwCategories;
+}
+
+function nwRenderCategoriesAdmin() {
+  const box = document.getElementById('categoriesList');
+  if (!nwCategories.length) { box.innerHTML = '<div style="color:var(--muted);font-size:.85rem">კატეგორია ჯერ არ არის</div>'; return; }
+  box.innerHTML = '';
+  for (const c of nwCategories) {
+    const item = document.createElement('div');
+    item.className = 'news-item';
+    item.innerHTML = `
+      <div>
+        <div class="news-item-title">${c.name_ka}${c.name_en ? ` <span style="color:var(--muted);font-weight:400">/ ${c.name_en}</span>` : ''}</div>
+        <div class="news-item-meta">/${c.slug}</div>
+      </div>
+      <div class="flex-gap">
+        <button class="btn btn-ghost" data-action="edit">✏️</button>
+        <button class="btn btn-danger" data-action="delete">🗑️</button>
+      </div>`;
+    item.querySelector('[data-action="edit"]').onclick = () => editCategory(c.id);
+    item.querySelector('[data-action="delete"]').onclick = () => deleteCategory(c.id, c.name_ka);
+    box.appendChild(item);
+  }
+}
+
+// Same real-world constraint as the article slug: there's no
+// Georgian-to-Latin transliteration available here, so the slug can
+// only auto-derive from the English name. If a category has no
+// English name, the admin types the slug by hand (saveCategory()
+// below validates it, same format as news.slug).
+function nwOnCatNameEnInput() {
+  if (!nwCatSlugTouched) {
+    document.getElementById('catSlug').value = nwSlugify(document.getElementById('catNameEn').value);
+  }
+}
+
+function resetCategoryForm() {
+  editingCategoryId = null;
+  document.getElementById('catNameKa').value = '';
+  document.getElementById('catNameEn').value = '';
+  document.getElementById('catSlug').value = '';
+  document.getElementById('categoryError').textContent = '';
+  document.getElementById('catSaveBtn').textContent = '+ დამატება';
+  document.getElementById('catCancelBtn').style.display = 'none';
+  nwCatSlugTouched = false;
+}
+
+function editCategory(id) {
+  const c = nwCategories.find(x => x.id === id);
+  if (!c) return;
+  editingCategoryId = id;
+  document.getElementById('catNameKa').value = c.name_ka || '';
+  document.getElementById('catNameEn').value = c.name_en || '';
+  document.getElementById('catSlug').value = c.slug || '';
+  document.getElementById('categoryError').textContent = '';
+  document.getElementById('catSaveBtn').textContent = '✓ განახლება';
+  document.getElementById('catCancelBtn').style.display = 'inline-block';
+  nwCatSlugTouched = true; // existing slug is intentional, typing the name shouldn't clobber it
+  document.getElementById('catNameKa').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+async function saveCategory() {
+  const errEl = document.getElementById('categoryError');
+  errEl.textContent = '';
+
+  const nameKa = document.getElementById('catNameKa').value.trim();
+  const nameEn = document.getElementById('catNameEn').value.trim();
+  const slug = document.getElementById('catSlug').value.trim();
+
+  if (!nameKa) { errEl.textContent = 'სახელი (ქართ.) სავალდებულოა'; return; }
+  if (!slug) { errEl.textContent = 'Slug სავალდებულოა — ივსება ინგლისური სახელიდან, ან ჩაწერე ხელით'; return; }
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) { errEl.textContent = 'Slug — მხოლოდ პატარა ლათინური ასოები, ციფრები და დეფისები (მაგ. la-liga)'; return; }
+
+  const payload = { name_ka: nameKa, name_en: nameEn || null, slug };
+  const { error } = editingCategoryId
+    ? await sb.from('news_categories').update(payload).eq('id', editingCategoryId)
+    : await sb.from('news_categories').insert(payload);
+
+  if (error) { errEl.textContent = 'შენახვა ვერ მოხერხდა: ' + error.message; return; }
+
+  resetCategoryForm();
+  await loadCategoriesAdmin();
+}
+
+async function deleteCategory(id, name) {
+  const { count } = await sb
+    .from('news_article_categories')
+    .select('news_id', { count: 'exact', head: true })
+    .eq('category_id', id);
+  const usedMsg = count ? `\n\nეს კატეგორია გამოყენებულია ${count} სტატიაში — წაშლის შემდეგ ავტომატურად მოეხსნებათ.` : '';
+  if (!confirm(`წაიშალოს კატეგორია „${name}“?${usedMsg}`)) return;
+
+  const { error } = await sb.from('news_categories').delete().eq('id', id);
+  if (error) { alert('წაშლა ვერ მოხერხდა: ' + error.message); return; }
+  if (editingCategoryId === id) resetCategoryForm();
+  await loadCategoriesAdmin();
+}
+
+// ── Checkboxes inside the article editor (reads/writes nwCategories) ──
+function nwRenderCategoryCheckboxes(selectedIds) {
+  const box = document.getElementById('categoryCheckboxes');
+  if (!nwCategories.length) {
+    box.innerHTML = '<span style="color:var(--muted);font-size:.85rem">კატეგორია ჯერ არ არის დამატებული — დაამატე ზემოთ, სიის ხედში</span>';
+    return;
+  }
+  box.innerHTML = nwCategories.map(c => `
+    <label class="cat-chip-pick">
+      <input type="checkbox" value="${c.id}" ${selectedIds.includes(c.id) ? 'checked' : ''} />
+      ${c.name_ka}
+    </label>`).join('');
+}
+
+function nwSelectedCategoryIds() {
+  return [...document.querySelectorAll('#categoryCheckboxes input[type=checkbox]:checked')].map(cb => cb.value);
+}
+
+// Delete-then-reinsert, simplest correct approach at this scale.
+async function nwSyncArticleCategories(newsId, categoryIds) {
+  const { error: delErr } = await sb.from('news_article_categories').delete().eq('news_id', newsId);
+  if (delErr) return delErr;
+  if (!categoryIds.length) return null;
+  const rows = categoryIds.map(id => ({ news_id: newsId, category_id: id }));
+  const { error: insErr } = await sb.from('news_article_categories').insert(rows);
+  return insErr || null;
+}
+
+// ─────────────────────────────────────────────────────────────
 //  EDITOR — language tabs, auto-fill, SEO sub-section
 // ─────────────────────────────────────────────────────────────
 
@@ -443,6 +610,7 @@ function resetEditorForm() {
   document.getElementById('fIsPublished').checked = false;
   document.getElementById('editorError').textContent = '';
   document.getElementById('coverPreview').style.display = 'none';
+  document.getElementById('categoryCheckboxes').innerHTML = 'იტვირთება...';
   document.getElementById('seoKa').classList.remove('on');
   document.getElementById('seoEn').classList.remove('on');
   nwUpdateCount('fMetaTitleKa','metaTitleKaCount',60);
@@ -462,6 +630,14 @@ async function openEditor(id) {
   editingId = id;
   document.getElementById('deleteBtn').style.display = id ? 'inline-block' : 'none';
   document.getElementById('editorTitle').textContent = id ? 'სტატიის რედაქტირება' : 'ახალი სტატია';
+
+  await nwFetchCategories();
+  let selectedCategoryIds = [];
+  if (id) {
+    const { data: catRows } = await sb.from('news_article_categories').select('category_id').eq('news_id', id);
+    selectedCategoryIds = (catRows || []).map(r => r.category_id);
+  }
+  nwRenderCategoryCheckboxes(selectedCategoryIds);
 
   if (id) {
     const { data: row, error } = await sb.from('news').select('*').eq('id', id).single();
@@ -762,11 +938,15 @@ async function saveArticle() {
     published_at: publishedAtVal ? new Date(publishedAtVal).toISOString() : null,
   };
 
-  const { error } = editingId
-    ? await sb.from('news').update(payload).eq('id', editingId)
-    : await sb.from('news').insert(payload);
+  const { data: saved, error } = editingId
+    ? await sb.from('news').update(payload).eq('id', editingId).select('id').single()
+    : await sb.from('news').insert(payload).select('id').single();
 
   if (error) { showEditorError('შენახვა ვერ მოხერხდა: ' + error.message); return; }
+
+  const articleId = editingId || saved.id;
+  const catErr = await nwSyncArticleCategories(articleId, nwSelectedCategoryIds());
+  if (catErr) { showEditorError('სტატია შენახულია, მაგრამ კატეგორიების განახლება ვერ მოხერხდა: ' + catErr.message); return; }
 
   showList();
 }

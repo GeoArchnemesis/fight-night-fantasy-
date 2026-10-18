@@ -41,6 +41,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .nw-lang button.on{background:var(--surface);color:var(--text)}
 .nw-art-title{font-family:var(--display);font-size:clamp(2rem,5.5vw,2.9rem);line-height:1.05;margin-bottom:10px}
 .nw-art-meta{color:var(--muted);font-size:.85rem;margin-bottom:20px}
+.nw-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.nw-chip{display:inline-block;font-family:var(--mono);font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:4px 10px}
 .nw-art-cover{width:100%;max-height:420px;object-fit:cover;border-radius:12px;margin-bottom:24px;display:block}
 .nw-art-fallback-note{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 14px;font-size:.8rem;color:var(--muted);margin-bottom:18px}
 .nw-art-body{color:var(--text);font-size:1rem;line-height:1.8}
@@ -116,6 +118,11 @@ function nwRenderArticle() {
     ? `<div class="nw-art-fallback-note">ეს სტატია ჯერ არ არის თარგმნილი ინგლისურად — ნაჩვენებია ქართული ვერსია. / This article isn't translated to English yet — showing the Georgian version.</div>`
     : '';
 
+  const cats = (a.news_article_categories || []).map(x => x.news_categories).filter(Boolean);
+  const chipsHtml = cats.length
+    ? `<div class="nw-chips">${cats.map(c => `<span class="nw-chip">${(effectiveLang === 'en' && c.name_en) ? c.name_en : c.name_ka}</span>`).join('')}</div>`
+    : '';
+
   document.getElementById('nwArt').innerHTML = `
     <a class="nw-back" href="/news/">← სიახლეები</a>
     <div class="nw-lang" id="nwLang">
@@ -123,6 +130,7 @@ function nwRenderArticle() {
       <button type="button" data-lang="en">Eng</button>
     </div>
     ${fallbackNote}
+    ${chipsHtml}
     <h1 class="nw-art-title">${title}</h1>
     <div class="nw-art-meta">${[a.author, dateStr].filter(Boolean).join(' · ')}</div>
     ${a.cover_image_url ? `<img class="nw-art-cover" src="${a.cover_image_url}" alt="${alt.replace(/"/g, '&quot;')}" />` : ''}
@@ -163,9 +171,12 @@ async function nwLoad() {
   if (!slug) { nwShowNotFound(); return; }
 
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // news_article_categories(category_id,news_categories(...)) embeds
+  // the article's categories in the same request -- see
+  // supabase/news_categories.sql for the two new FKs this relies on.
   const { data, error } = await sb
     .from('news')
-    .select('*')
+    .select('*,news_article_categories(category_id,news_categories(id,name_ka,name_en,slug))')
     .eq('slug', slug)
     .eq('is_published', true)
     .single();
