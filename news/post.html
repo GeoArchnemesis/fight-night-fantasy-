@@ -43,6 +43,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .nw-art-meta{color:var(--muted);font-size:.85rem;margin-bottom:20px}
 .nw-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .nw-chip{display:inline-block;font-family:var(--mono);font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:4px 10px}
+.nw-reactions{display:flex;align-items:center;gap:10px;margin-bottom:22px;flex-wrap:wrap}
+.nw-react-btn{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:7px 14px;color:var(--text);font-size:.85rem;font-family:inherit;cursor:pointer;transition:border-color .15s,color .15s}
+.nw-react-btn:hover{border-color:var(--muted)}
+.nw-react-btn.on{border-color:var(--gold);color:var(--gold)}
+.nw-react-msg{color:var(--muted);font-size:.78rem}
 .nw-art-cover{width:100%;max-height:420px;object-fit:cover;border-radius:12px;margin-bottom:24px;display:block}
 .nw-art-fallback-note{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 14px;font-size:.8rem;color:var(--muted);margin-bottom:18px}
 .nw-art-body{color:var(--text);font-size:1rem;line-height:1.8}
@@ -185,6 +190,7 @@ function nwRenderArticle() {
     ${chipsHtml}
     <h1 class="nw-art-title">${title}</h1>
     <div class="nw-art-meta">${[a.author, dateStr].filter(Boolean).join(' · ')}</div>
+    <div class="nw-reactions" id="nwReactions"></div>
     ${a.cover_image_url ? `<img class="nw-art-cover" src="${a.cover_image_url}" alt="${alt.replace(/"/g, '&quot;')}" />` : ''}
     <div class="nw-art-body">${body}</div>
   `;
@@ -194,6 +200,11 @@ function nwRenderArticle() {
   });
 
   nwInjectJsonLd(a);
+  // #nwReactions is rebuilt by this innerHTML write (e.g. on every ka/
+  // en toggle), so its content has to be redrawn every time too --
+  // nwRenderReactions() is a no-op-safe read of already-loaded state,
+  // not a refetch.
+  nwRenderReactions();
 }
 
 // Article JSON-LD always describes the Georgian (primary, guaranteed-
@@ -226,12 +237,13 @@ let nwCurrentUser = null; // { id, nick, isAdmin } | null
 let nwComments = [];
 let nwCommenterNames = {}; // user_id -> nick, from the news_commenter_names view
 
-async function nwInitComments() {
+async function nwInitEngagement() {
   const client = nwGetClient();
   const { data: { session } } = await client.auth.getSession();
   await nwApplyAuthState(session);
   client.auth.onAuthStateChange((event, session) => { nwApplyAuthState(session); });
   await nwLoadComments();
+  await nwLoadReactionCounts();
 }
 
 // Mirrors the is_admin lookup admin/news.html already does at login
@@ -254,6 +266,7 @@ async function nwApplyAuthState(session) {
   }
   nwRenderCommentAuthArea();
   nwRenderComments();
+  await nwRefreshMyReaction();
 }
 
 function nwRenderCommentAuthArea() {
@@ -303,7 +316,7 @@ async function nwSignIn() {
   if (!email || !pass) { errEl.textContent = 'შეიყვანე ელ. ფოსტა და პაროლი'; return; }
   const { error } = await nwGetClient().auth.signInWithPassword({ email, password: pass });
   if (error) { errEl.textContent = 'არასწორი მეილი ან პაროლი'; return; }
-  // onAuthStateChange (registered in nwInitComments) picks this up and re-renders.
+  // onAuthStateChange (registered in nwInitEngagement) picks this up and re-renders.
 }
 
 async function nwLoadComments() {
@@ -384,6 +397,79 @@ async function nwDeleteComment(id) {
   nwRenderComments();
 }
 
+// ─────────────────────────────────────────────────────────────
+//  LIKE / DISLIKE — one reaction per user per article (unique
+//  constraint in news_reactions.sql). Same login requirement as
+//  comments; counts are public. Counts are fetched as two cheap
+//  head:true counts (not a full row dump -- a popular article could
+//  have a lot of reaction rows) and then updated locally after each
+//  insert/update/delete rather than refetched, since the mutation's
+//  own result already tells us what changed.
+// ─────────────────────────────────────────────────────────────
+let nwReactionCounts = { like: 0, dislike: 0 };
+let nwMyReactionVal = null; // 'like' | 'dislike' | null
+
+async function nwLoadReactionCounts() {
+  const client = nwGetClient();
+  const [likeRes, dislikeRes] = await Promise.all([
+    client.from('news_reactions').select('id', { count: 'exact', head: true }).eq('news_id', nwArticle.id).eq('reaction', 'like'),
+    client.from('news_reactions').select('id', { count: 'exact', head: true }).eq('news_id', nwArticle.id).eq('reaction', 'dislike'),
+  ]);
+  nwReactionCounts = { like: likeRes.count || 0, dislike: dislikeRes.count || 0 };
+  nwRenderReactions();
+}
+
+async function nwRefreshMyReaction() {
+  if (!nwCurrentUser || !nwArticle) { nwMyReactionVal = null; nwRenderReactions(); return; }
+  const { data } = await nwGetClient()
+    .from('news_reactions')
+    .select('reaction')
+    .eq('news_id', nwArticle.id)
+    .eq('user_id', nwCurrentUser.id)
+    .maybeSingle();
+  nwMyReactionVal = data ? data.reaction : null;
+  nwRenderReactions();
+}
+
+function nwRenderReactions() {
+  const box = document.getElementById('nwReactions');
+  if (!box) return;
+  box.innerHTML = `
+    <button type="button" class="nw-react-btn ${nwMyReactionVal === 'like' ? 'on' : ''}" onclick="nwToggleReaction('like')">👍 <span>${nwReactionCounts.like}</span></button>
+    <button type="button" class="nw-react-btn ${nwMyReactionVal === 'dislike' ? 'on' : ''}" onclick="nwToggleReaction('dislike')">👎 <span>${nwReactionCounts.dislike}</span></button>
+    <span class="nw-react-msg" id="nwReactMsg"></span>`;
+}
+
+async function nwToggleReaction(kind) {
+  if (!nwCurrentUser) {
+    const msg = document.getElementById('nwReactMsg');
+    if (msg) msg.textContent = 'შედით რეაქციისთვის ↓';
+    document.getElementById('nwCommentsWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    return;
+  }
+  const client = nwGetClient();
+  const mine = nwMyReactionVal;
+
+  if (mine === kind) {
+    const { error } = await client.from('news_reactions').delete().eq('news_id', nwArticle.id).eq('user_id', nwCurrentUser.id);
+    if (error) return;
+    nwReactionCounts[kind] = Math.max(0, nwReactionCounts[kind] - 1);
+    nwMyReactionVal = null;
+  } else if (mine) {
+    const { error } = await client.from('news_reactions').update({ reaction: kind }).eq('news_id', nwArticle.id).eq('user_id', nwCurrentUser.id);
+    if (error) return;
+    nwReactionCounts[mine] = Math.max(0, nwReactionCounts[mine] - 1);
+    nwReactionCounts[kind] += 1;
+    nwMyReactionVal = kind;
+  } else {
+    const { error } = await client.from('news_reactions').insert({ news_id: nwArticle.id, user_id: nwCurrentUser.id, reaction: kind });
+    if (error) return;
+    nwReactionCounts[kind] += 1;
+    nwMyReactionVal = kind;
+  }
+  nwRenderReactions();
+}
+
 async function nwLoad() {
   const params = new URLSearchParams(location.search);
   const slug = params.get('slug');
@@ -404,7 +490,7 @@ async function nwLoad() {
   nwRenderArticle();
 
   document.getElementById('nwCommentsWrap').style.display = 'block';
-  await nwInitComments();
+  await nwInitEngagement();
 }
 
 function nwShowNotFound() {
