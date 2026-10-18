@@ -1077,6 +1077,12 @@ $on('menuBtn', 'click', () => { if (navLinks) navLinks.classList.toggle('open');
     e.stopPropagation();
     pop.classList.toggle('show');
   });
+  sp.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (e.target.closest('.mnav-pop-opt')) return;
+    e.preventDefault();
+    pop.classList.toggle('show');
+  });
   document.addEventListener('click', (e) => {
     if (!e.target.closest('#mnavSport')) pop.classList.remove('show');
   });
