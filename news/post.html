@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-TLSVRK7V');</script>
+<!-- End Google Tag Manager -->
+<link rel="preconnect" href="https://www.googletagmanager.com" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title id="nwTitleTag">სტატია — Fight Night Fantasy</title>
+<meta name="robots" content="noindex" />
+<!-- noindex for now: this URL is a query-string stand-in
+     (/news/post.html?slug=...) until real per-route SSR exists for
+     true /news/<slug>/ paths -- see the commit message. Remove once
+     that lands and this page is reachable at its real clean URL with
+     a proper 200 status for crawlers. -->
+<meta name="description" id="nwDescTag" content="Fight Night Fantasy — სიახლეები." />
+<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link rel="stylesheet" href="/style.css?v=201" />
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<style>
+.nw-page{min-height:100vh;display:flex;flex-direction:column}
+.nw-art{flex:1;width:min(760px,92vw);margin:0 auto;padding:clamp(24px,5vw,48px) 0 80px}
+.nw-back{display:inline-block;color:var(--muted);font-size:.85rem;text-decoration:none;margin-bottom:18px}
+.nw-back:hover{color:var(--text)}
+.nw-lang{display:inline-flex;gap:6px;border:1px solid var(--line);border-radius:8px;padding:4px;margin-bottom:18px}
+.nw-lang button{background:none;border:none;color:var(--muted);font-family:inherit;font-weight:700;font-size:.8rem;padding:6px 14px;border-radius:6px;cursor:pointer}
+.nw-lang button.on{background:var(--surface);color:var(--text)}
+.nw-art-title{font-family:var(--display);font-size:clamp(1.8rem,5vw,2.6rem);line-height:1.1;margin-bottom:10px}
+.nw-art-meta{color:var(--muted);font-size:.85rem;margin-bottom:20px}
+.nw-art-cover{width:100%;max-height:420px;object-fit:cover;border-radius:12px;margin-bottom:24px;display:block}
+.nw-art-fallback-note{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 14px;font-size:.8rem;color:var(--muted);margin-bottom:18px}
+.nw-art-body{color:var(--text);font-size:1rem;line-height:1.8}
+.nw-art-body h2{font-family:var(--display);color:var(--gold);font-size:1.3rem;margin:24px 0 10px}
+.nw-art-body p{margin-bottom:14px}
+.nw-art-body ul,.nw-art-body ol{padding-left:22px;margin-bottom:14px}
+.nw-art-body a{color:var(--blue-soft)}
+.nw-loading,.nw-notfound{color:var(--muted);font-size:.9rem;padding:40px 0;text-align:center}
+</style>
+</head>
+<body>
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TLSVRK7V"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<div class="nw-page">
+<nav><div class="wrap nav-in">
+<a href="/" class="brand">
+<img src="/logo.png?v=2" alt="Fight Night Fantasy" />
+<span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
+</a>
+<div class="nav-cta">
+<a class="btn btn-ghost" href="/">მთავარი</a>
+</div>
+</div></nav>
+
+<main class="nw-art" id="nwArt">
+<a class="nw-back" href="/news/">← სიახლეები</a>
+<div class="nw-loading">იტვირთება...</div>
+</main>
+
+<footer><div class="wrap foot-in">
+<div>
+<span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
+<p class="foot-note">საქართველოს სპორტული ფენტეზი — UFC, F1, NBA და ფეხბურთი ერთ საიტზე.</p>
+</div>
+<div class="foot-links">
+<a href="/about/">ჩვენს შესახებ</a>
+<a href="/rules/">წესები</a>
+<a href="/terms/">წესები და პირობები</a>
+<a href="/privacy/">კონფიდენციალურობა</a>
+</div>
+</div></footer>
+</div>
+
+<script>
+const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
+
+const NW_LANG_KEY = 'fnf_news_lang';
+function nwGetLang() { try { return localStorage.getItem(NW_LANG_KEY) || 'ka'; } catch (e) { return 'ka'; } }
+function nwSetLang(l) { try { localStorage.setItem(NW_LANG_KEY, l); } catch (e) {} }
+
+let nwArticle = null;
+
+function nwRenderArticle() {
+  const a = nwArticle;
+  const lang = nwGetLang();
+  const hasEn = !!(a.title_en && a.body_en);
+  const effectiveLang = (lang === 'en' && hasEn) ? 'en' : 'ka';
+
+  const title = effectiveLang === 'en' ? a.title_en : a.title_ka;
+  const body  = effectiveLang === 'en' ? a.body_en  : a.body_ka;
+  const alt   = (effectiveLang === 'en' ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
+
+  document.getElementById('nwTitleTag').textContent = `${title} — Fight Night Fantasy`;
+  const metaDesc = (effectiveLang === 'en' ? a.meta_description_en : a.meta_description_ka) || '';
+  document.getElementById('nwDescTag').setAttribute('content', metaDesc || `Fight Night Fantasy — ${title}`);
+
+  const dateStr = a.published_at
+    ? new Date(a.published_at).toLocaleDateString(effectiveLang === 'en' ? 'en-US' : 'ka-GE', { year: 'numeric', month: 'long', day: 'numeric' })
+    : '';
+
+  const fallbackNote = (lang === 'en' && !hasEn)
+    ? `<div class="nw-art-fallback-note">ეს სტატია ჯერ არ არის თარგმნილი ინგლისურად — ნაჩვენებია ქართული ვერსია. / This article isn't translated to English yet — showing the Georgian version.</div>`
+    : '';
+
+  document.getElementById('nwArt').innerHTML = `
+    <a class="nw-back" href="/news/">← სიახლეები</a>
+    <div class="nw-lang" id="nwLang">
+      <button type="button" data-lang="ka">ქართ</button>
+      <button type="button" data-lang="en">Eng</button>
+    </div>
+    ${fallbackNote}
+    <h1 class="nw-art-title">${title}</h1>
+    <div class="nw-art-meta">${[a.author, dateStr].filter(Boolean).join(' · ')}</div>
+    ${a.cover_image_url ? `<img class="nw-art-cover" src="${a.cover_image_url}" alt="${alt.replace(/"/g, '&quot;')}" />` : ''}
+    <div class="nw-art-body">${body}</div>
+  `;
+  document.querySelectorAll('#nwLang button').forEach(b => {
+    b.classList.toggle('on', b.dataset.lang === lang);
+    b.onclick = () => { nwSetLang(b.dataset.lang); nwRenderArticle(); };
+  });
+
+  nwInjectJsonLd(a);
+}
+
+// Article JSON-LD always describes the Georgian (primary, guaranteed-
+// present) version regardless of the client-side language toggle --
+// this is injected via JS either way since the article content itself
+// is only known after the Supabase fetch completes (no SSR yet, see
+// the commit message), so there's no server-rendered alternative a
+// non-JS crawler would see instead.
+function nwInjectJsonLd(a) {
+  const ld = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": a.title_ka,
+    "datePublished": a.published_at || undefined,
+    "image": a.cover_image_url || undefined,
+  };
+  if (a.author) ld.author = { "@type": "Person", "name": a.author };
+  const script = document.createElement('script');
+  script.type = 'application/ld+json';
+  script.textContent = JSON.stringify(ld);
+  document.head.appendChild(script);
+}
+
+async function nwLoad() {
+  const params = new URLSearchParams(location.search);
+  const slug = params.get('slug');
+  if (!slug) { nwShowNotFound(); return; }
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { data, error } = await sb
+    .from('news')
+    .select('*')
+    .eq('slug', slug)
+    .eq('is_published', true)
+    .single();
+
+  if (error || !data) { nwShowNotFound(); return; }
+  nwArticle = data;
+  nwRenderArticle();
+}
+
+function nwShowNotFound() {
+  document.getElementById('nwArt').innerHTML = `
+    <a class="nw-back" href="/news/">← სიახლეები</a>
+    <div class="nw-notfound">სტატია ვერ მოიძებნა.</div>`;
+}
+
+document.addEventListener('DOMContentLoaded', nwLoad);
+</script>
+</body>
+</html>
