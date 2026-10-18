@@ -16,6 +16,10 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, lock: (name, t, fn) => fn() }
 });
 
+// 18+ მოთხოვნა — დინამიურად, არა ფიქსირებული წელი (იხ. CLAUDE.md compliance ნოუთი)
+const MAX_BIRTH_YEAR = new Date().getFullYear() - 18;
+['inBirthYear', 'ciBirthYear'].forEach(id => { const el = document.getElementById(id); if (el) el.max = MAX_BIRTH_YEAR; });
+
 // ── helpers ──
 const r2  = x => Math.round(x * 100) / 100;
 const fmt = n => Number.isFinite(+n) ? Math.round(+n).toLocaleString('en-US') : '0';
@@ -612,7 +616,7 @@ async function saveContactInfo() {
     if (!phone && !telegram) { showErr('შეიყვანე მინიმუმ ერთი: ნომერი ან ტელეგრამი'); return; }
   }
   if (!currentUser.birth_year) {
-    if (!birthYearRaw || !/^\d{4}$/.test(birthYearRaw) || +birthYearRaw < 1900 || +birthYearRaw > 2015) { showErr('შეიყვანე სწორი დაბადების წელი (მაგ. 1998)'); return; }
+    if (!birthYearRaw || !/^\d{4}$/.test(birthYearRaw) || +birthYearRaw < 1900 || +birthYearRaw > MAX_BIRTH_YEAR) { showErr('შეიყვანე სწორი დაბადების წელი (მაგ. 1998)'); return; }
   }
   if (!currentUser.gender && !gender) { showErr('აირჩიე სქესი'); return; }
 
@@ -926,7 +930,7 @@ async function doRegister() {
   const pErr = passwordError(pass); if (pErr) { authError(pErr); return; }
   if (pass !== passConfirm) { authError('პაროლები არ ემთხვევა'); return; }
   if (!phone) { authError('შეიყვანე მობილურის ნომერი'); return; }
-  if (!birthYear || !/^\d{4}$/.test(birthYear) || +birthYear < 1900 || +birthYear > 2015) { authError('შეიყვანე სწორი დაბადების წელი (მაგ. 1998)'); return; }
+  if (!birthYear || !/^\d{4}$/.test(birthYear) || +birthYear < 1900 || +birthYear > MAX_BIRTH_YEAR) { authError('შეიყვანე სწორი დაბადების წელი (მაგ. 1998)'); return; }
   if (!gender) { authError('აირჩიე სქესი'); return; }
   const btn = document.getElementById('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
   const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick, phone, birth_year: +birthYear, gender } } });

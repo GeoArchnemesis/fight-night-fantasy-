@@ -15,6 +15,10 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, lock: (name, t, fn) => fn() }
 });
 
+// 18+ მოთხოვნა — დინამიურად, არა ფიქსირებული წელი
+const MAX_BIRTH_YEAR = new Date().getFullYear() - 18;
+['inBirthYear', 'ciBirthYear'].forEach(id => { const el = document.getElementById(id); if (el) el.max = MAX_BIRTH_YEAR; });
+
 const SPORT = 'f1';
 
 // ── helpers ──
@@ -609,7 +613,7 @@ async function saveContactInfo() {
   const gender = gEl ? gEl.value : '';
   const errEl = $('ciError'); const showErr = m => { if (errEl) { errEl.textContent = m; errEl.style.display = 'block'; } };
   if (!hasContact(currentUser) && !phone && !telegram) { showErr('შეიყვანე მინიმუმ ერთი: ნომერი ან ტელეგრამი'); return; }
-  if (!currentUser.birth_year && (!by || !/^\d{4}$/.test(by) || +by < 1900 || +by > 2015)) { showErr('შეიყვანე სწორი დაბადების წელი'); return; }
+  if (!currentUser.birth_year && (!by || !/^\d{4}$/.test(by) || +by < 1900 || +by > MAX_BIRTH_YEAR)) { showErr('შეიყვანე სწორი დაბადების წელი'); return; }
   if (!currentUser.gender && !gender) { showErr('აირჩიე სქესი'); return; }
   const updates = {};
   if (phone) updates.phone = phone;
@@ -866,7 +870,7 @@ async function doRegister() {
   const pErr = passwordError(pass); if (pErr) { authError(pErr); return; }
   if (pass !== passConfirm) { authError('პაროლები არ ემთხვევა'); return; }
   if (!phone) { authError('შეიყვანე მობილურის ნომერი'); return; }
-  if (!birthYear || !/^\d{4}$/.test(birthYear) || +birthYear < 1900 || +birthYear > 2015) { authError('შეიყვანე სწორი დაბადების წელი'); return; }
+  if (!birthYear || !/^\d{4}$/.test(birthYear) || +birthYear < 1900 || +birthYear > MAX_BIRTH_YEAR) { authError('შეიყვანე სწორი დაბადების წელი'); return; }
   if (!gender) { authError('აირჩიე სქესი'); return; }
   const btn = $('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
   const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick, phone, birth_year: +birthYear, gender } } });
