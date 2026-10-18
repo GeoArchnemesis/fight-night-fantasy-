@@ -33,7 +33,34 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <style>
 .nw-page{min-height:100vh;display:flex;flex-direction:column}
-.nw-art{flex:1;width:min(760px,92vw);margin:0 auto;padding:clamp(24px,5vw,48px) 0 80px}
+/* Two-column layout: article (+ cover photo) left, "other articles"
+   sidebar right. Collapses to a single column at 920px -- the one
+   breakpoint this site already uses everywhere else for its nav/
+   mobile switch (ufc/f1/nba/football/profile all key off it) -- there
+   was no existing two-col-to-stacked content grid elsewhere to copy
+   the mechanics from, so the breakpoint VALUE is reused for
+   consistency even though the grid itself is new here. */
+.nw-layout{flex:1;width:min(1100px,94vw);margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:40px;align-items:start}
+.nw-art{min-width:0;padding:clamp(24px,5vw,48px) 0 60px}
+.nw-sidebar{padding:clamp(24px,5vw,48px) 0 60px}
+.nw-sidebar-inner{position:sticky;top:20px}
+.nw-sidebar-title{font-family:var(--display);font-size:1.1rem;margin-bottom:14px;color:var(--text)}
+.nw-sidebar-list{display:flex;flex-direction:column;gap:14px;max-height:72vh;overflow-y:auto;padding-right:4px}
+.nw-sidebar-item{display:flex;gap:10px;text-decoration:none;color:inherit}
+.nw-sidebar-item:hover .nw-sidebar-item-title{color:var(--gold)}
+.nw-sidebar-thumb{width:76px;height:54px;object-fit:cover;border-radius:6px;background:var(--surface-2);flex-shrink:0}
+.nw-sidebar-item-body{min-width:0}
+.nw-sidebar-item-title{font-size:.84rem;font-weight:600;color:var(--text);line-height:1.3;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;transition:color .15s}
+.nw-sidebar-item-date{font-size:.68rem;color:var(--muted)}
+@media(max-width:920px){
+  .nw-layout{grid-template-columns:1fr;gap:0}
+  .nw-sidebar{padding-top:0}
+  .nw-sidebar-inner{position:static}
+  .nw-sidebar-list{flex-direction:row;overflow-x:auto;overflow-y:visible;max-height:none;padding:4px 4px 14px}
+  .nw-sidebar-item{flex-direction:column;flex:0 0 150px}
+  .nw-sidebar-thumb{width:150px;height:92px}
+  .nw-sidebar-item-title{-webkit-line-clamp:3}
+}
 .nw-back{display:inline-block;color:var(--muted);font-size:.85rem;text-decoration:none;margin-bottom:18px}
 .nw-back:hover{color:var(--text)}
 .nw-lang{display:inline-flex;gap:6px;border:1px solid var(--line);border-radius:8px;padding:4px;margin-bottom:18px}
@@ -105,10 +132,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 </div></nav>
 
+<div class="nw-layout">
 <main class="nw-art" id="nwArt">
 <a class="nw-back" href="/news/">← სიახლეები</a>
 <div class="nw-loading">იტვირთება...</div>
 </main>
+
+<aside class="nw-sidebar">
+<div class="nw-sidebar-inner">
+<h2 class="nw-sidebar-title">სხვა სტატიები</h2>
+<div class="nw-sidebar-list" id="nwSidebarList"><div class="nw-loading">იტვირთება...</div></div>
+</div>
+</aside>
+</div>
 
 <section class="nw-comments" id="nwCommentsWrap" style="display:none">
   <h2 class="nw-comments-title">კომენტარები (<span id="nwCommentCount">0</span>)</h2>
@@ -227,6 +263,11 @@ function nwRenderArticle() {
   // nwRenderReactions() is a no-op-safe read of already-loaded state,
   // not a refetch.
   nwRenderReactions();
+  // #nwSidebarList lives outside #nwArt (survives this innerHTML
+  // write) but its titles/dates are language-dependent, so re-render
+  // it on every ka/en toggle too -- also a read of already-loaded
+  // state, safe to call before nwLoadSidebarArticles() resolves.
+  nwRenderSidebarList();
 }
 
 // Article JSON-LD always describes the Georgian (primary, guaranteed-
@@ -537,10 +578,59 @@ async function nwCopyShareLink() {
   }
 }
 
+// ─────────────────────────────────────────────────────────────
+//  SIDEBAR — "სხვა სტატიები", other published articles excluding
+//  this one. Lives outside #nwArt (same reasoning as the comments/
+//  reactions containers) so it isn't wiped by nwRenderArticle()'s
+//  innerHTML write; nwRenderSidebarList() is called from there
+//  instead, purely to redraw language-dependent text.
+// ─────────────────────────────────────────────────────────────
+let nwSidebarArticles = [];
+
+async function nwLoadSidebarArticles(excludeSlug) {
+  const { data, error } = await nwGetClient()
+    .from('news')
+    .select('title_ka,title_en,slug,cover_image_url,cover_image_alt_ka,cover_image_alt_en,published_at')
+    .eq('is_published', true)
+    .neq('slug', excludeSlug)
+    .order('published_at', { ascending: false })
+    .limit(8);
+  nwSidebarArticles = error ? [] : (data || []);
+  nwRenderSidebarList();
+}
+
+function nwRenderSidebarList() {
+  const box = document.getElementById('nwSidebarList');
+  if (!box) return;
+  if (!nwSidebarArticles.length) { box.innerHTML = '<div class="nw-comment-empty">სხვა სტატია ჯერ არ არის</div>'; return; }
+
+  const lang = nwGetLang();
+  box.innerHTML = nwSidebarArticles.map(a => {
+    const title = (lang === 'en' && a.title_en) ? a.title_en : a.title_ka;
+    const alt = ((lang === 'en' && a.cover_image_alt_en) ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
+    const dateStr = a.published_at
+      ? new Date(a.published_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'ka-GE', { year: 'numeric', month: 'short', day: 'numeric' })
+      : '';
+    const thumb = a.cover_image_url
+      ? `<img class="nw-sidebar-thumb" src="${a.cover_image_url}" alt="${nwEscapeHtml(alt)}" loading="lazy" />`
+      : `<div class="nw-sidebar-thumb"></div>`;
+    return `
+    <a class="nw-sidebar-item" href="/news/post.html?slug=${encodeURIComponent(a.slug)}">
+      ${thumb}
+      <div class="nw-sidebar-item-body">
+        <div class="nw-sidebar-item-title">${nwEscapeHtml(title)}</div>
+        <div class="nw-sidebar-item-date">${dateStr}</div>
+      </div>
+    </a>`;
+  }).join('');
+}
+
 async function nwLoad() {
   const params = new URLSearchParams(location.search);
   const slug = params.get('slug');
   if (!slug) { nwShowNotFound(); return; }
+
+  nwLoadSidebarArticles(slug); // independent of the main article fetch below, runs concurrently
 
   // news_article_categories(category_id,news_categories(...)) embeds
   // the article's categories in the same request -- see
