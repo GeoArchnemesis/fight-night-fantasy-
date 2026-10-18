@@ -1,0 +1,7 @@
+# Superseded prototype — kept locally for reference, must never ship to GitHub
+# Pages (it has no canonical/robots meta and would become a crawlable duplicate
+# of /ufc/quiz/ if ever accidentally committed). See SEOAUDITFNF.md.
+ufc-epic-quiz.html
+
+# Local SEO audit screenshots (large binaries, not part of the deployed site)
+seo-audit-screenshots/
