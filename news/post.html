@@ -48,6 +48,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .nw-react-btn:hover{border-color:var(--muted)}
 .nw-react-btn.on{border-color:var(--gold);color:var(--gold)}
 .nw-react-msg{color:var(--muted);font-size:.78rem}
+.nw-share-pop-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:none;align-items:center;justify-content:center;padding:20px}
+.nw-share-pop-bg.show{display:flex}
+.nw-share-pop{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;max-width:320px;width:100%}
+.nw-share-pop h3{font-size:1rem;margin-bottom:14px;color:var(--text)}
+.nw-share-opt{display:flex;align-items:center;gap:10px;width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:8px;padding:10px 14px;color:var(--text);font-size:.9rem;font-family:inherit;cursor:pointer;margin-bottom:8px;text-decoration:none;box-sizing:border-box}
+.nw-share-opt:hover{border-color:var(--muted)}
+.nw-share-copy-status{margin-left:auto;color:var(--green);font-size:.78rem}
+.nw-share-close{width:100%;background:none;border:1px solid var(--line);border-radius:8px;padding:9px;color:var(--muted);font-family:inherit;font-size:.85rem;cursor:pointer}
 .nw-art-cover{width:100%;max-height:420px;object-fit:cover;border-radius:12px;margin-bottom:24px;display:block}
 .nw-art-fallback-note{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 14px;font-size:.8rem;color:var(--muted);margin-bottom:18px}
 .nw-art-body{color:var(--text);font-size:1rem;line-height:1.8}
@@ -108,6 +116,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div id="nwCommentsList"></div>
 </section>
 
+<div class="nw-share-pop-bg" id="nwSharePopBg" onclick="if(event.target===this) nwCloseSharePopover()">
+  <div class="nw-share-pop">
+    <h3>სტატიის გაზიარება</h3>
+    <button type="button" class="nw-share-opt" onclick="nwCopyShareLink()">🔗 ბმულის კოპირება <span class="nw-share-copy-status" id="nwShareCopyStatus"></span></button>
+    <a class="nw-share-opt" id="nwShareWhatsapp" target="_blank" rel="noopener">🟢 WhatsApp-ით გაგზავნა</a>
+    <a class="nw-share-opt" id="nwShareTelegram" target="_blank" rel="noopener">✈️ Telegram-ით გაგზავნა</a>
+    <button type="button" class="nw-share-close" onclick="nwCloseSharePopover()">დახურვა</button>
+  </div>
+</div>
+
 <footer><div class="wrap foot-in">
 <div>
 <span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
@@ -152,6 +170,8 @@ function nwEscapeHtml(s) {
 }
 
 let nwArticle = null;
+let nwCurrentTitle = '';
+let nwCurrentUrl = '';
 
 function nwRenderArticle() {
   const a = nwArticle;
@@ -162,6 +182,8 @@ function nwRenderArticle() {
   const title = effectiveLang === 'en' ? a.title_en : a.title_ka;
   const body  = effectiveLang === 'en' ? a.body_en  : a.body_ka;
   const alt   = (effectiveLang === 'en' ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
+  nwCurrentTitle = title;
+  nwCurrentUrl = location.href;
 
   document.getElementById('nwTitleTag').textContent = `${title} — Fight Night Fantasy`;
   const metaDesc = (effectiveLang === 'en' ? a.meta_description_en : a.meta_description_ka) || '';
@@ -437,6 +459,7 @@ function nwRenderReactions() {
   box.innerHTML = `
     <button type="button" class="nw-react-btn ${nwMyReactionVal === 'like' ? 'on' : ''}" onclick="nwToggleReaction('like')">👍 <span>${nwReactionCounts.like}</span></button>
     <button type="button" class="nw-react-btn ${nwMyReactionVal === 'dislike' ? 'on' : ''}" onclick="nwToggleReaction('dislike')">👎 <span>${nwReactionCounts.dislike}</span></button>
+    <button type="button" class="nw-react-btn" onclick="nwShare(nwCurrentUrl, nwCurrentTitle)">↗ გაზიარება</button>
     <span class="nw-react-msg" id="nwReactMsg"></span>`;
 }
 
@@ -468,6 +491,50 @@ async function nwToggleReaction(kind) {
     nwMyReactionVal = kind;
   }
   nwRenderReactions();
+}
+
+// ─────────────────────────────────────────────────────────────
+//  SHARE — Web Share API first (native share sheet -- Messenger/
+//  Instagram/WhatsApp/Telegram all show up automatically there if
+//  installed, nothing to build per-platform). Falls back to a custom
+//  popover only when unsupported or the share itself fails for a
+//  reason other than the user cancelling. Same logic as news/index.html
+//  (duplicated, not shared -- this project has no shared-JS-module
+//  setup between pages, same reasoning as app.js/f1-app.js/nba-app.js/
+//  football-app.js already being parallel per-page files).
+// ─────────────────────────────────────────────────────────────
+async function nwShare(url, title) {
+  const data = { title, url };
+  if (navigator.share && (!navigator.canShare || navigator.canShare(data))) {
+    try { await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  nwOpenSharePopover(url, title);
+}
+
+function nwOpenSharePopover(url, title) {
+  document.getElementById('nwShareCopyStatus').textContent = '';
+  document.getElementById('nwShareWhatsapp').href = 'https://wa.me/?text=' + encodeURIComponent(title + ' ' + url);
+  document.getElementById('nwShareTelegram').href = 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title);
+  document.getElementById('nwSharePopBg').dataset.url = url;
+  document.getElementById('nwSharePopBg').classList.add('show');
+}
+function nwCloseSharePopover() {
+  document.getElementById('nwSharePopBg').classList.remove('show');
+}
+async function nwCopyShareLink() {
+  const url = document.getElementById('nwSharePopBg').dataset.url || '';
+  const statusEl = document.getElementById('nwShareCopyStatus');
+  try {
+    await navigator.clipboard.writeText(url);
+    statusEl.textContent = 'კოპირებულია ✓';
+  } catch (e) {
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); statusEl.textContent = 'კოპირებულია ✓'; }
+    catch (e2) { statusEl.textContent = 'ვერ დაკოპირდა'; }
+    document.body.removeChild(ta);
+  }
 }
 
 async function nwLoad() {

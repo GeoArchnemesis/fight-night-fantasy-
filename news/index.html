@@ -54,6 +54,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .nw-lang button{background:none;border:none;color:var(--muted);font-family:inherit;font-weight:700;font-size:.8rem;padding:6px 14px;border-radius:6px;cursor:pointer}
 .nw-lang button.on{background:var(--surface);color:var(--text)}
 .nw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.nw-card-wrap{position:relative}
 .nw-card{display:block;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden;text-decoration:none;color:inherit;transition:transform .15s,border-color .15s}
 .nw-card:hover{transform:translateY(-3px);border-color:var(--gold)}
 .nw-card-img{width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--surface-2,#1a1826);display:block}
@@ -64,6 +65,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .nw-card-meta .nw-card-author{text-transform:none}
 .nw-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
 .nw-chip{display:inline-block;font-family:var(--mono);font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:4px 10px}
+.nw-card-share{position:absolute;top:10px;right:10px;z-index:2;background:rgba(14,13,20,.72);backdrop-filter:blur(2px);border:1px solid var(--line);border-radius:50%;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:.95rem;cursor:pointer}
+.nw-card-share:hover{border-color:var(--gold)}
+.nw-share-pop-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:none;align-items:center;justify-content:center;padding:20px}
+.nw-share-pop-bg.show{display:flex}
+.nw-share-pop{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;max-width:320px;width:100%}
+.nw-share-pop h3{font-size:1rem;margin-bottom:14px;color:var(--text)}
+.nw-share-opt{display:flex;align-items:center;gap:10px;width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:8px;padding:10px 14px;color:var(--text);font-size:.9rem;font-family:inherit;cursor:pointer;margin-bottom:8px;text-decoration:none;box-sizing:border-box}
+.nw-share-opt:hover{border-color:var(--muted)}
+.nw-share-copy-status{margin-left:auto;color:var(--green);font-size:.78rem}
+.nw-share-close{width:100%;background:none;border:1px solid var(--line);border-radius:8px;padding:9px;color:var(--muted);font-family:inherit;font-size:.85rem;cursor:pointer}
 .nw-empty, .nw-loading{color:var(--muted);font-size:.9rem;padding:40px 0;text-align:center}
 </style>
 </head>
@@ -92,6 +103,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div id="nwGrid" class="nw-grid"><div class="nw-loading">იტვირთება...</div></div>
 </main>
+
+<div class="nw-share-pop-bg" id="nwSharePopBg" onclick="if(event.target===this) nwCloseSharePopover()">
+  <div class="nw-share-pop">
+    <h3>სტატიის გაზიარება</h3>
+    <button type="button" class="nw-share-opt" onclick="nwCopyShareLink()">🔗 ბმულის კოპირება <span class="nw-share-copy-status" id="nwShareCopyStatus"></span></button>
+    <a class="nw-share-opt" id="nwShareWhatsapp" target="_blank" rel="noopener">🟢 WhatsApp-ით გაგზავნა</a>
+    <a class="nw-share-opt" id="nwShareTelegram" target="_blank" rel="noopener">✈️ Telegram-ით გაგზავნა</a>
+    <button type="button" class="nw-share-close" onclick="nwCloseSharePopover()">დახურვა</button>
+  </div>
+</div>
 
 <footer><div class="wrap foot-in">
 <div>
@@ -163,15 +184,18 @@ function nwRender() {
       ? `<img class="nw-card-img" src="${a.cover_image_url}" alt="${nwCoverAltFor(a, lang).replace(/"/g, '&quot;')}" loading="lazy" />`
       : '';
     return `
-    <a class="nw-card" href="/news/post.html?slug=${encodeURIComponent(a.slug)}">
-      ${img}
-      <div class="nw-card-body">
-        ${nwChipsHtml(nwCategoriesFor(a), lang)}
-        <div class="nw-card-title">${nwTitleFor(a, lang)}</div>
-        <div class="nw-card-excerpt">${nwExcerptFor(a, lang)}</div>
-        <div class="nw-card-meta">${[a.author ? `<span class="nw-card-author">${a.author}</span>` : null, dateStr].filter(Boolean).join(' · ')}</div>
-      </div>
-    </a>`;
+    <div class="nw-card-wrap">
+      <a class="nw-card" href="/news/post.html?slug=${encodeURIComponent(a.slug)}">
+        ${img}
+        <div class="nw-card-body">
+          ${nwChipsHtml(nwCategoriesFor(a), lang)}
+          <div class="nw-card-title">${nwTitleFor(a, lang)}</div>
+          <div class="nw-card-excerpt">${nwExcerptFor(a, lang)}</div>
+          <div class="nw-card-meta">${[a.author ? `<span class="nw-card-author">${a.author}</span>` : null, dateStr].filter(Boolean).join(' · ')}</div>
+        </div>
+      </a>
+      <button type="button" class="nw-card-share" data-share-slug="${a.slug}" title="გაზიარება" aria-label="გაზიარება">↗</button>
+    </div>`;
   }).join('');
 }
 
@@ -181,6 +205,66 @@ document.getElementById('nwLang').addEventListener('click', (e) => {
   nwSetLang(btn.dataset.lang);
   nwRender();
 });
+
+// ─────────────────────────────────────────────────────────────
+//  SHARE — delegated at the grid level (same pattern as the #nwLang
+//  listener above) rather than one inline onclick per card: slugs are
+//  DB-constrained to [a-z0-9-] (news_table.sql's slug format check),
+//  so a data-attribute lookup is both safe and simpler than escaping
+//  arbitrary article titles into an inline onclick string.
+// ─────────────────────────────────────────────────────────────
+document.getElementById('nwGrid').addEventListener('click', (e) => {
+  const btn = e.target.closest('.nw-card-share');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const art = nwArticles.find(a => a.slug === btn.dataset.shareSlug);
+  if (!art) return;
+  const url = `${location.origin}/news/post.html?slug=${encodeURIComponent(art.slug)}`;
+  nwShare(url, nwTitleFor(art, nwGetLang()));
+});
+
+// Web Share API first (native share sheet -- Messenger/Instagram/
+// WhatsApp/Telegram all show up automatically there if installed,
+// nothing to build per-platform). Falls back to a custom popover only
+// when unsupported or the share itself fails for a reason other than
+// the user cancelling.
+async function nwShare(url, title) {
+  const data = { title, url };
+  if (navigator.share && (!navigator.canShare || navigator.canShare(data))) {
+    try { await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  nwOpenSharePopover(url, title);
+}
+
+function nwOpenSharePopover(url, title) {
+  document.getElementById('nwShareCopyStatus').textContent = '';
+  document.getElementById('nwShareWhatsapp').href = 'https://wa.me/?text=' + encodeURIComponent(title + ' ' + url);
+  document.getElementById('nwShareTelegram').href = 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title);
+  document.getElementById('nwSharePopBg').dataset.url = url;
+  document.getElementById('nwSharePopBg').classList.add('show');
+}
+function nwCloseSharePopover() {
+  document.getElementById('nwSharePopBg').classList.remove('show');
+}
+async function nwCopyShareLink() {
+  const url = document.getElementById('nwSharePopBg').dataset.url || '';
+  const statusEl = document.getElementById('nwShareCopyStatus');
+  try {
+    await navigator.clipboard.writeText(url);
+    statusEl.textContent = 'კოპირებულია ✓';
+  } catch (e) {
+    // Clipboard API needs a secure context/permission and isn't
+    // available everywhere -- execCommand('copy') via a throwaway
+    // textarea is the standard fallback.
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); statusEl.textContent = 'კოპირებულია ✓'; }
+    catch (e2) { statusEl.textContent = 'ვერ დაკოპირდა'; }
+    document.body.removeChild(ta);
+  }
+}
 
 async function nwLoad() {
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
