@@ -419,6 +419,20 @@ let nwSlugTouched = false, nwMetaTitleKaTouched = false, nwMetaTitleEnTouched = 
 let nwSavedRange = null;       // selection snapshot for toolbar actions that need a file picker/dropdown first
 let nwPendingImageEditor = null;
 
+// Bug fix: a <input type="datetime-local">'s value is always read/written
+// as LOCAL wall-clock digits, never UTC. new Date(x).toISOString() returns
+// UTC digits -- feeding that into this field (as the previous code did,
+// both when auto-filling "now" and when loading an existing row) silently
+// shifted every published_at by this browser's UTC offset (4h for Tbilisi)
+// every time the field was written or an article was reopened for editing.
+// This builds the field's value from the Date object's LOCAL getters
+// instead, so it round-trips through new Date(value).toISOString() (used
+// at save time) back to the original instant.
+function nwToDatetimeLocalValue(date) {
+  const pad = n => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
 function resetEditorForm() {
   ['fTitleKa','fTitleEn','fSlug','fCoverUrl','fCoverAltKa','fCoverAltEn',
    'fMetaTitleKa','fMetaTitleEn','fMetaDescKa','fMetaDescEn','fAuthor','fPublishedAt']
@@ -466,8 +480,7 @@ async function openEditor(id) {
     document.getElementById('fAuthor').value     = row.author || '';
     document.getElementById('fIsPublished').checked = !!row.is_published;
     if (row.published_at) {
-      // datetime-local input needs "YYYY-MM-DDTHH:mm", no timezone suffix
-      document.getElementById('fPublishedAt').value = new Date(row.published_at).toISOString().slice(0, 16);
+      document.getElementById('fPublishedAt').value = nwToDatetimeLocalValue(new Date(row.published_at));
     }
     // Existing article: treat already-saved slug/meta-titles as
     // intentionally set, so re-typing the title field doesn't clobber them.
@@ -684,7 +697,7 @@ async function saveArticle() {
   // visibility gate (is_published alone controls that) -- auto-fill
   // it on first publish if the admin didn't set one, but never force it.
   if (isPublished && !publishedAtVal) {
-    publishedAtVal = new Date().toISOString().slice(0, 16);
+    publishedAtVal = nwToDatetimeLocalValue(new Date());
     document.getElementById('fPublishedAt').value = publishedAtVal;
   }
 
