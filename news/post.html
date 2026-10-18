@@ -51,6 +51,31 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .nw-art-body ul,.nw-art-body ol{padding-left:22px;margin-bottom:14px}
 .nw-art-body a{color:var(--blue-soft)}
 .nw-loading,.nw-notfound{color:var(--muted);font-size:.9rem;padding:40px 0;text-align:center}
+
+.nw-comments{width:min(760px,92vw);margin:0 auto;padding:0 0 60px;border-top:1px solid var(--line);padding-top:36px}
+.nw-comments-title{font-family:var(--display);font-size:1.4rem;margin-bottom:18px}
+.nw-comment-login{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:24px}
+.nw-comment-login p{color:var(--text);font-size:.9rem;margin-bottom:12px}
+.nw-comment-signin{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+.nw-comment-signin input{flex:1 1 180px;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;font-family:inherit}
+.nw-comment-signin input:focus{outline:none;border-color:var(--red)}
+.nw-comment-register-hint{color:var(--muted);font-size:.82rem;margin-top:8px}
+.nw-comment-register-hint a{color:var(--gold)}
+.nw-comment-error{color:#ff7070;font-size:.82rem;min-height:18px;margin-top:4px}
+.nw-comment-form{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:24px}
+.nw-comment-form textarea{width:100%;min-height:90px;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;font-family:inherit;line-height:1.5;resize:vertical}
+.nw-comment-form textarea:focus{outline:none;border-color:var(--red)}
+.nw-comment-form-row{display:flex;justify-content:space-between;align-items:center;margin-top:10px;gap:10px}
+.nw-comment-count{color:var(--muted);font-size:.75rem}
+.nw-comment-empty{color:var(--muted);font-size:.88rem;padding:10px 0}
+.nw-comment{border-bottom:1px solid var(--line);padding:14px 0}
+.nw-comment:last-child{border-bottom:none}
+.nw-comment-head{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.nw-comment-author{font-weight:700;font-size:.88rem;color:var(--text)}
+.nw-comment-date{color:var(--muted);font-size:.74rem}
+.nw-comment-delete{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;padding:2px 4px}
+.nw-comment-delete:hover{color:var(--red)}
+.nw-comment-body{color:var(--text);font-size:.9rem;line-height:1.6;white-space:pre-wrap;word-break:break-word}
 </style>
 </head>
 <body>
@@ -71,6 +96,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <a class="nw-back" href="/news/">← სიახლეები</a>
 <div class="nw-loading">იტვირთება...</div>
 </main>
+
+<section class="nw-comments" id="nwCommentsWrap" style="display:none">
+  <h2 class="nw-comments-title">კომენტარები (<span id="nwCommentCount">0</span>)</h2>
+  <div id="nwCommentAuthArea"></div>
+  <div id="nwCommentsList"></div>
+</section>
 
 <footer><div class="wrap foot-in">
 <div>
@@ -93,6 +124,27 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const NW_LANG_KEY = 'fnf_news_lang';
 function nwGetLang() { try { return localStorage.getItem(NW_LANG_KEY) || 'ka'; } catch (e) { return 'ka'; } }
 function nwSetLang(l) { try { localStorage.setItem(NW_LANG_KEY, l); } catch (e) {} }
+
+// Single shared client for the whole page (article load, auth,
+// comments, reactions) -- this page previously created a throwaway
+// client inside nwLoad() only, which worked for the one-off article
+// fetch but can't be reused for auth/session handling elsewhere.
+// Session persistence is supabase-js's default (persistSession +
+// autoRefreshToken + detectSessionInUrl all on) and is scoped to this
+// origin's localStorage -- not to this page -- so a session created
+// by signing in on /ufc/ (app.js) is already present here with no
+// extra wiring.
+let sb;
+function nwGetClient() {
+  if (!sb) sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  return sb;
+}
+
+function nwEscapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
 
 let nwArticle = null;
 
@@ -165,16 +217,182 @@ function nwInjectJsonLd(a) {
   document.head.appendChild(script);
 }
 
+// ─────────────────────────────────────────────────────────────
+//  COMMENTS — login required (same sb.auth account system as
+//  /ufc/'s app.js, decision confirmed by Giorgi). Non-threaded,
+//  soft-delete only -- see supabase/news_comments.sql.
+// ─────────────────────────────────────────────────────────────
+let nwCurrentUser = null; // { id, nick, isAdmin } | null
+let nwComments = [];
+let nwCommenterNames = {}; // user_id -> nick, from the news_commenter_names view
+
+async function nwInitComments() {
+  const client = nwGetClient();
+  const { data: { session } } = await client.auth.getSession();
+  await nwApplyAuthState(session);
+  client.auth.onAuthStateChange((event, session) => { nwApplyAuthState(session); });
+  await nwLoadComments();
+}
+
+// Mirrors the is_admin lookup admin/news.html already does at login
+// (sb.from('users').select('is_admin').eq('id', <own id>)) -- a user
+// reading their own row is an already-working, established pattern
+// in this project; reading another user's row is not (see
+// news_comments.sql's note on why nick lookups go through a view).
+async function nwApplyAuthState(session) {
+  if (session && session.user) {
+    let nick = (session.user.email || '').split('@')[0];
+    let isAdmin = false;
+    try {
+      const { data: ud } = await nwGetClient().from('users').select('nick,is_admin').eq('id', session.user.id).maybeSingle();
+      if (ud?.nick) nick = ud.nick;
+      isAdmin = !!ud?.is_admin;
+    } catch (e) {}
+    nwCurrentUser = { id: session.user.id, nick, isAdmin };
+  } else {
+    nwCurrentUser = null;
+  }
+  nwRenderCommentAuthArea();
+  nwRenderComments();
+}
+
+function nwRenderCommentAuthArea() {
+  const box = document.getElementById('nwCommentAuthArea');
+  if (!box) return;
+  if (nwCurrentUser) {
+    box.innerHTML = `
+      <div class="nw-comment-form">
+        <textarea id="nwCommentInput" maxlength="1000" placeholder="დაწერე კომენტარი..."></textarea>
+        <div class="nw-comment-form-row">
+          <span class="nw-comment-count" id="nwCommentCharCount">0 / 1000</span>
+          <button type="button" class="btn btn-primary" id="nwCommentSubmit" onclick="nwSubmitComment()">კომენტარის დამატება</button>
+        </div>
+        <div class="nw-comment-error" id="nwCommentFormError"></div>
+      </div>`;
+    const input = document.getElementById('nwCommentInput');
+    input.addEventListener('input', () => {
+      document.getElementById('nwCommentCharCount').textContent = `${input.value.length} / 1000`;
+    });
+  } else {
+    box.innerHTML = `
+      <div class="nw-comment-login">
+        <p>შედით კომენტარის დასაწერად</p>
+        <form class="nw-comment-signin" onsubmit="event.preventDefault();nwSignIn()">
+          <input type="email" id="nwSigninEmail" placeholder="ელ. ფოსტა" autocomplete="email" />
+          <input type="password" id="nwSigninPass" placeholder="პაროლი" autocomplete="current-password" />
+          <button type="submit" class="btn btn-primary">შესვლა</button>
+        </form>
+        <div class="nw-comment-error" id="nwSigninError"></div>
+        <p class="nw-comment-register-hint">არ გაქვს ანგარიში? <a href="/ufc/">დარეგისტრირდი აქ</a></p>
+      </div>`;
+  }
+}
+
+// Sign-in only, deliberately -- registration (doRegister() in app.js)
+// validates nick uniqueness, phone, birth year/18+ gate, gender, plus
+// IP capture and Meta CAPI tracking. Reimplementing all of that here
+// would be exactly the "logic Giorgi has to maintain in two places"
+// this task said to avoid. Someone without an account yet is pointed
+// to /ufc/, where that full flow already lives; someone who already
+// has one can sign in right here without leaving the article.
+async function nwSignIn() {
+  const email = (document.getElementById('nwSigninEmail').value || '').trim();
+  const pass = document.getElementById('nwSigninPass').value || '';
+  const errEl = document.getElementById('nwSigninError');
+  errEl.textContent = '';
+  if (!email || !pass) { errEl.textContent = 'შეიყვანე ელ. ფოსტა და პაროლი'; return; }
+  const { error } = await nwGetClient().auth.signInWithPassword({ email, password: pass });
+  if (error) { errEl.textContent = 'არასწორი მეილი ან პაროლი'; return; }
+  // onAuthStateChange (registered in nwInitComments) picks this up and re-renders.
+}
+
+async function nwLoadComments() {
+  const { data, error } = await nwGetClient()
+    .from('news_comments')
+    .select('id,user_id,body,created_at')
+    .eq('news_id', nwArticle.id)
+    .eq('is_deleted', false)
+    .order('created_at', { ascending: true });
+
+  nwComments = error ? [] : (data || []);
+
+  const ids = [...new Set(nwComments.map(c => c.user_id))];
+  if (ids.length) {
+    const { data: names } = await nwGetClient().from('news_commenter_names').select('id,nick').in('id', ids);
+    (names || []).forEach(u => { nwCommenterNames[u.id] = u.nick; });
+  }
+  nwRenderComments();
+}
+
+function nwRenderComments() {
+  const countEl = document.getElementById('nwCommentCount');
+  if (countEl) countEl.textContent = nwComments.length;
+
+  const box = document.getElementById('nwCommentsList');
+  if (!box) return;
+  if (!nwComments.length) { box.innerHTML = '<div class="nw-comment-empty">კომენტარი ჯერ არ არის — იყავი პირველი.</div>'; return; }
+
+  box.innerHTML = nwComments.map(c => {
+    const nick = nwCommenterNames[c.user_id] || 'Fan';
+    const dateStr = new Date(c.created_at).toLocaleDateString('ka-GE', { year: 'numeric', month: 'short', day: 'numeric' });
+    const canDelete = nwCurrentUser && (nwCurrentUser.id === c.user_id || nwCurrentUser.isAdmin);
+    return `
+    <div class="nw-comment">
+      <div class="nw-comment-head">
+        <span class="nw-comment-author">${nwEscapeHtml(nick)}</span>
+        <span class="nw-comment-date">${dateStr}</span>
+        ${canDelete ? `<button type="button" class="nw-comment-delete" onclick="nwDeleteComment('${c.id}')" title="წაშლა">🗑️</button>` : ''}
+      </div>
+      <div class="nw-comment-body">${nwEscapeHtml(c.body)}</div>
+    </div>`;
+  }).join('');
+}
+
+async function nwSubmitComment() {
+  if (!nwCurrentUser) return;
+  const input = document.getElementById('nwCommentInput');
+  const errEl = document.getElementById('nwCommentFormError');
+  const btn = document.getElementById('nwCommentSubmit');
+  const body = (input.value || '').trim();
+  errEl.textContent = '';
+  if (!body) { errEl.textContent = 'დაწერე რამე კომენტარად'; return; }
+  if (body.length > 1000) { errEl.textContent = 'მაქსიმუმ 1000 სიმბოლო'; return; }
+
+  btn.disabled = true; input.disabled = true;
+  const { data, error } = await nwGetClient()
+    .from('news_comments')
+    .insert({ news_id: nwArticle.id, user_id: nwCurrentUser.id, body })
+    .select('id,user_id,body,created_at')
+    .single();
+  btn.disabled = false; input.disabled = false;
+
+  if (error) { errEl.textContent = 'ვერ გაიგზავნა: ' + error.message; return; }
+
+  input.value = '';
+  const countSpan = document.getElementById('nwCommentCharCount');
+  if (countSpan) countSpan.textContent = '0 / 1000';
+  nwCommenterNames[nwCurrentUser.id] = nwCurrentUser.nick;
+  nwComments.push(data);
+  nwRenderComments();
+}
+
+async function nwDeleteComment(id) {
+  if (!confirm('წაიშალოს კომენტარი?')) return;
+  const { error } = await nwGetClient().from('news_comments').update({ is_deleted: true }).eq('id', id);
+  if (error) { alert('წაშლა ვერ მოხერხდა: ' + error.message); return; }
+  nwComments = nwComments.filter(c => c.id !== id);
+  nwRenderComments();
+}
+
 async function nwLoad() {
   const params = new URLSearchParams(location.search);
   const slug = params.get('slug');
   if (!slug) { nwShowNotFound(); return; }
 
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   // news_article_categories(category_id,news_categories(...)) embeds
   // the article's categories in the same request -- see
   // supabase/news_categories.sql for the two new FKs this relies on.
-  const { data, error } = await sb
+  const { data, error } = await nwGetClient()
     .from('news')
     .select('*,news_article_categories(category_id,news_categories(id,name_ka,name_en,slug))')
     .eq('slug', slug)
@@ -184,6 +402,9 @@ async function nwLoad() {
   if (error || !data) { nwShowNotFound(); return; }
   nwArticle = data;
   nwRenderArticle();
+
+  document.getElementById('nwCommentsWrap').style.display = 'block';
+  await nwInitComments();
 }
 
 function nwShowNotFound() {
