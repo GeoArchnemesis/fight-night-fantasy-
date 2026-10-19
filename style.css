@@ -20,7 +20,7 @@ nav{position:sticky;top:0;z-index:50;background:rgba(11,10,15,.82);backdrop-filt
 .nav-in{display:flex;align-items:center;justify-content:space-between;height:68px;gap:14px}
 .brand{display:flex;align-items:center;gap:12px;flex-shrink:0}
 .brand img{width:34px;height:34px;border-radius:6px;display:block}
-.wordmark{font-family:var(--display);font-weight:700;font-size:1.35rem;letter-spacing:.04em;line-height:1;white-space:nowrap}
+.wordmark{font-family:"Anton","Archivo",sans-serif;font-weight:700;font-size:1.35rem;letter-spacing:.04em;line-height:1;white-space:nowrap}
 .wordmark .bw,.wordmark .bf{color:#fff}.wordmark .bn{color:#F31D25}
 .nav-links{display:flex;align-items:center;gap:24px}
 .nav-links a{font-size:.8rem;letter-spacing:.04em;font-weight:700;color:var(--muted);transition:color .2s;white-space:nowrap}
