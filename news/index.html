@@ -181,7 +181,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <footer><div class="wrap foot-in">
 <div>
 <span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
-<p class="foot-note">საქართველოს სპორტული ფენტეზი — UFC, F1, NBA და ფეხბურთი ერთ საიტზე.</p>
+<p class="foot-note"> პირველი ქართული UFC Fantasy. გამოცადე შენი MMA ინტუიცია უფასოდ. დადე მომგებიანი ბილეთები, გალიდერდი ლიდერბორდზე და მოიგე ფულადი პრიზები.</p>
 </div>
 <div class="foot-links">
 <a href="/about/">ჩვენს შესახებ</a>
@@ -454,6 +454,24 @@ const NW_LANG_KEY = 'fnf_news_lang';
 function nwGetLang() { try { return localStorage.getItem(NW_LANG_KEY) || 'ka'; } catch (e) { return 'ka'; } }
 function nwSetLang(l) { try { localStorage.setItem(NW_LANG_KEY, l); } catch (e) {} }
 
+// ka-GE month names, hardcoded -- Intl/toLocaleDateString('ka-GE', ...)
+// silently falls back to English month abbreviations on some browsers
+// even when the page itself is in Georgian (seen in a screenshot from
+// Giorgi). Values match what a working ka-GE Intl implementation
+// actually outputs (verified via Node's full-ICU build), so this reads
+// identically to the "correct" native result, just without depending
+// on the browser having that locale data.
+const NW_KA_MONTHS_SHORT = ['იან','თებ','მარ','აპრ','მაი','ივნ','ივლ','აგვ','სექ','ოქტ','ნოე','დეკ'];
+const NW_KA_MONTHS_LONG = ['იანვარი','თებერვალი','მარტი','აპრილი','მაისი','ივნისი','ივლისი','აგვისტო','სექტემბერი','ოქტომბერი','ნოემბერი','დეკემბერი'];
+function nwFormatDateKa(d, monthStyle) {
+  if (monthStyle === 'long') return d.getDate() + ' ' + NW_KA_MONTHS_LONG[d.getMonth()] + ', ' + d.getFullYear();
+  return d.getDate() + ' ' + NW_KA_MONTHS_SHORT[d.getMonth()] + '. ' + d.getFullYear();
+}
+function nwFormatDate(d, lang, monthStyle) {
+  return lang === 'en'
+    ? d.toLocaleDateString('en-US', { year: 'numeric', month: monthStyle, day: 'numeric' })
+    : nwFormatDateKa(d, monthStyle);
+}
 function nwTitleFor(a, lang) { return (lang === 'en' && a.title_en) ? a.title_en : a.title_ka; }
 function nwCoverAltFor(a, lang) {
   const alt = lang === 'en' ? a.cover_image_alt_en : a.cover_image_alt_ka;
@@ -475,9 +493,7 @@ function nwRender() {
   if (!nwArticles.length) { grid.innerHTML = '<div class="nw-empty">სტატია ჯერ არ არის</div>'; return; }
 
   grid.innerHTML = nwArticles.map(a => {
-    const dateStr = a.published_at
-      ? new Date(a.published_at).toLocaleDateString(lang === 'en' ? 'en-US' : 'ka-GE', { year: 'numeric', month: 'short', day: 'numeric' })
-      : '';
+    const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), lang, 'short') : '';
     const img = a.cover_image_url
       ? `<img class="nw-card-img" src="${a.cover_image_url}" alt="${nwCoverAltFor(a, lang).replace(/"/g, '&quot;')}" loading="lazy" />`
       : '';
