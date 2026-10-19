@@ -60,11 +60,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .nw-card-img{width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--surface-2,#1a1826);display:block}
 .nw-card-body{padding:16px}
 .nw-card-title{font-family:var(--display);font-weight:700;font-size:1.3rem;line-height:1.18;margin-bottom:8px;color:var(--text)}
-.nw-card-excerpt{color:var(--muted);font-size:.85rem;line-height:1.6;margin-bottom:10px}
 .nw-card-meta{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
-.nw-card-meta .nw-card-author{text-transform:none}
-.nw-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
-.nw-chip{display:inline-block;font-family:var(--mono);font-size:.62rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:4px 10px}
+.nw-card-stats{display:flex;align-items:center;gap:14px;margin-top:8px;color:var(--muted);font-size:.78rem}
+.nw-card-stat{display:inline-flex;align-items:center;gap:5px}
 .nw-card-share{position:absolute;top:10px;right:10px;z-index:2;background:rgba(14,13,20,.72);backdrop-filter:blur(2px);border:1px solid var(--line);border-radius:50%;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:.95rem;cursor:pointer}
 .nw-card-share:hover{border-color:var(--gold)}
 .nw-share-pop-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:none;align-items:center;justify-content:center;padding:20px}
@@ -142,30 +140,16 @@ const NW_LANG_KEY = 'fnf_news_lang';
 function nwGetLang() { try { return localStorage.getItem(NW_LANG_KEY) || 'ka'; } catch (e) { return 'ka'; } }
 function nwSetLang(l) { try { localStorage.setItem(NW_LANG_KEY, l); } catch (e) {} }
 
-function nwStripHtml(html) {
-  const d = document.createElement('div');
-  d.innerHTML = html || '';
-  return d.textContent || '';
-}
 function nwTitleFor(a, lang) { return (lang === 'en' && a.title_en) ? a.title_en : a.title_ka; }
-function nwExcerptFor(a, lang) {
-  const meta = lang === 'en' ? a.meta_description_en : a.meta_description_ka;
-  if (meta) return meta;
-  const body = (lang === 'en' && a.body_en) ? a.body_en : a.body_ka;
-  const text = nwStripHtml(body).trim();
-  return text.length > 160 ? text.slice(0, 160).trim() + '…' : text;
-}
 function nwCoverAltFor(a, lang) {
   const alt = lang === 'en' ? a.cover_image_alt_en : a.cover_image_alt_ka;
   return alt || nwTitleFor(a, lang);
 }
-function nwCategoriesFor(a) {
-  return (a.news_article_categories || []).map(x => x.news_categories).filter(Boolean);
-}
-function nwChipsHtml(cats, lang) {
-  if (!cats.length) return '';
-  return `<div class="nw-chips">${cats.map(c => `<span class="nw-chip">${(lang === 'en' && c.name_en) ? c.name_en : c.name_ka}</span>`).join('')}</div>`;
-}
+// Embedded aggregate counts from the select() below -- PostgREST returns
+// these as a one-element array ([{count:N}]), not a bare number, even
+// though it's always exactly one row per article.
+function nwLikeCount(a) { return (a.news_reactions && a.news_reactions[0] && a.news_reactions[0].count) || 0; }
+function nwCommentCount(a) { return (a.news_comments && a.news_comments[0] && a.news_comments[0].count) || 0; }
 
 let nwArticles = [];
 
@@ -188,10 +172,12 @@ function nwRender() {
       <a class="nw-card" href="/news/post.html?slug=${encodeURIComponent(a.slug)}">
         ${img}
         <div class="nw-card-body">
-          ${nwChipsHtml(nwCategoriesFor(a), lang)}
           <div class="nw-card-title">${nwTitleFor(a, lang)}</div>
-          <div class="nw-card-excerpt">${nwExcerptFor(a, lang)}</div>
-          <div class="nw-card-meta">${[a.author ? `<span class="nw-card-author">${a.author}</span>` : null, dateStr].filter(Boolean).join(' · ')}</div>
+          <div class="nw-card-meta">${dateStr}</div>
+          <div class="nw-card-stats">
+            <span class="nw-card-stat">👍 <span>${nwLikeCount(a)}</span></span>
+            <span class="nw-card-stat">💬 <span>${nwCommentCount(a)}</span></span>
+          </div>
         </div>
       </a>
       <button type="button" class="nw-card-share" data-share-slug="${a.slug}" title="გაზიარება" aria-label="გაზიარება">↗</button>
@@ -271,13 +257,22 @@ async function nwLoad() {
   // RLS (news_select_published policy, supabase/news_table.sql) already
   // restricts anon reads to is_published=true -- the explicit filter
   // here is just defense-in-depth / clarity, not the real gate.
-  // news_article_categories(category_id,news_categories(...)) is an
-  // embedded (nested) select across the two new FKs from
-  // supabase/news_categories.sql -- one query, no per-article N+1.
+  // news_reactions!left(count) / news_comments!left(count) are
+  // PostgREST embedded aggregate counts, not per-article round-trips --
+  // !left keeps articles with zero likes/comments in the result (a
+  // filtered embed defaults to an inner join, which would otherwise
+  // drop them). news_comments RLS (news_comments_select_public) already
+  // restricts anon reads to is_deleted=false, so counting it needs no
+  // extra filter; news_reactions has no such restriction, hence the
+  // explicit reaction=eq.like filter below to count likes only (not
+  // dislikes). Categories/excerpt/author aren't fetched here any more
+  // -- the card no longer shows them (post.html still has its own
+  // independent query for the full article view).
   const { data, error } = await sb
     .from('news')
-    .select('id,title_ka,title_en,slug,cover_image_url,cover_image_alt_ka,cover_image_alt_en,meta_description_ka,meta_description_en,body_ka,body_en,published_at,author,news_article_categories(category_id,news_categories(id,name_ka,name_en,slug))')
+    .select('id,title_ka,title_en,slug,cover_image_url,cover_image_alt_ka,cover_image_alt_en,published_at,news_reactions!left(count),news_comments!left(count)')
     .eq('is_published', true)
+    .eq('news_reactions.reaction', 'like')
     .order('published_at', { ascending: false });
 
   if (error) { document.getElementById('nwGrid').innerHTML = `<div class="nw-empty">შეცდომა: ${error.message}</div>`; return; }
