@@ -239,9 +239,12 @@ function refresh() { renderMarkets(); renderSlip(); renderBar(); }
 
 // ── RENDER MARKETS ──
 function renderMarkets() {
+  // /news/ loads app.js for the shared nav (balance/profile) but has no
+  // #markets section -- skip rendering entirely rather than throw.
+  if (!document.getElementById('markets')) return;
   if (FIGHTS.length === 0) { document.getElementById('markets').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">ამ ეტაპზე ბრძოლები არ არის ხელმისაწვდომი.</div>'; return; }
   const betting = !isBettingClosed();
-  if (!betting) document.getElementById('betbar').classList.remove('show');
+  if (!betting) { const betbarEl = document.getElementById('betbar'); if (betbarEl) betbarEl.classList.remove('show'); }
   const noImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%230E0D14'/%3E%3Ccircle cx='100' cy='85' r='42' fill='%23F31D25' opacity='.9'/%3E%3Crect x='75' y='110' width='50' height='40' rx='8' fill='%23F31D25' opacity='.85'/%3E%3Ctext x='100' y='185' text-anchor='middle' font-size='14' fill='%23555'%3EMMA%3C/text%3E%3C/svg%3E";
 
   document.getElementById('markets').innerHTML = FIGHTS.map((f, i) => {
@@ -312,6 +315,8 @@ function setMode(m) { state.mode = m; renderSlip(); }
 function digits(inp) { const v = inp.value.replace(/[^0-9]/g, ''); inp.value = v; return +v || 0; }
 
 function renderSlip() {
+  // /news/ has no bet slip UI at all -- skip, same reasoning as renderMarkets().
+  if (!document.getElementById('slipBadge')) return;
   const arr = picksArr();
   document.getElementById('slipBadge').textContent = arr.length;
   document.getElementById('tabExpress').classList.toggle('on', state.mode === 'express');
@@ -565,11 +570,15 @@ function betError(res, error) {
   return map[e] || ('ფსონი ვერ დაიდო: ' + (e || 'უცნობი შეცდომა'));
 }
 function renderBar() {
+  // balNav (the balance pill) is shared with /news/'s nav and must keep
+  // updating there; bbCoef/bbCount/betbar belong to the betbar/slip UI,
+  // which /news/ doesn't have -- guarded individually instead of one
+  // early return.
   const n = picksArr().length;
-  document.getElementById('bbCoef').textContent = (n ? comboOdds() : 1).toFixed(2);
-  document.getElementById('balNav').textContent = _balanceKnown ? fmt(state.balance) : '…';
-  document.getElementById('bbCount').textContent = n;
-  document.getElementById('betbar').classList.toggle('show', n > 0 && !isBettingClosed());
+  const bbCoefEl = document.getElementById('bbCoef'); if (bbCoefEl) bbCoefEl.textContent = (n ? comboOdds() : 1).toFixed(2);
+  const balNavEl = document.getElementById('balNav'); if (balNavEl) balNavEl.textContent = _balanceKnown ? fmt(state.balance) : '…';
+  const bbCountEl = document.getElementById('bbCount'); if (bbCountEl) bbCountEl.textContent = n;
+  const betbarEl = document.getElementById('betbar'); if (betbarEl) betbarEl.classList.toggle('show', n > 0 && !isBettingClosed());
 }
 
 // ── LEADERBOARD ──
