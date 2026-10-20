@@ -648,7 +648,7 @@ function renderLeaderboard() {
     const sign = r.pts > 0 ? '+' : '';
     const badge = r.verified ? '<span class="lb-verified-badge" title="ვერიფიცირებული">' + checkSvg + '</span>' : '';
     const nm = r.name || '—';
-    const nmSize = nm.length > 16 ? '.78rem' : nm.length > 12 ? '.88rem' : '1rem';
+    const nmSize = nm.length > 16 ? 'var(--fs-meta)' : nm.length > 12 ? '.88rem' : '1rem';
     const ptsStr = sign + fmt(r.pts);
     const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
     return `<div class="lb-row ${you ? 'you' : ''}${r.verified ? ' verified-row' : ''}">
@@ -1033,7 +1033,7 @@ function toggleEye(inputId) {
   .f1-drv .drv-img{width:44px;height:44px;border-radius:8px;object-fit:cover;background:var(--ink);flex:none}
   .f1-drv .drv-info{display:flex;flex-direction:column;min-width:0;flex:1}
   .f1-drv .drv-name{font-weight:700;font-size:.92rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .f1-drv .drv-team{font-family:var(--mono);font-size:.7rem;color:var(--muted)}
+  .f1-drv .drv-team{font-family:var(--mono);font-size:var(--fs-meta);color:var(--muted)}
   .f1-drv .drv-od{font-family:var(--mono);font-weight:700;font-size:1rem;color:var(--gold);flex:none}
   `;
   const st = document.createElement('style'); st.textContent = css; document.head.appendChild(st);

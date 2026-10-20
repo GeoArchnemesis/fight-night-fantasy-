@@ -54,7 +54,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 }
 </script>
 <style>
-  body.landing{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;background:radial-gradient(1200px 600px at 50% -10%, rgba(243,29,37,.14), transparent 60%), var(--bg,#0a0910);position:relative;overflow-x:hidden}
+  body.landing{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;background:radial-gradient(1200px 600px at 50% -10%, rgba(243,29,37,.14), transparent 60%), var(--canvas);position:relative;overflow-x:hidden}
   .land-logo{display:flex;align-items:center;gap:14px;margin-bottom:6px}
   .land-logo img{width:clamp(54px,7vw,66px);height:clamp(54px,7vw,66px);border-radius:13px}
   .land-logo .wordmark{font-family:var(--head);font-weight:900;font-size:clamp(1.4rem,3.6vw,2rem);letter-spacing:.02em}
@@ -76,8 +76,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .land-card.f1:hover{border-color:#30d1b4}
   .land-card.nba:hover{border-color:#ff8c42}
   .land-card[class*="fb-"]:hover{border-color:#4da3ff}
-  .fb-cap{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-weight:800;font-size:clamp(.72rem,1.7vw,.95rem);text-align:center;font-family:var(--head)}
-  .land-foot{margin-top:30px;color:var(--muted,#9a97a8);font-size:.8rem;text-align:center}
+  .fb-cap{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-weight:800;font-size:clamp(var(--fs-meta),1.7vw,.95rem);text-align:center;font-family:var(--head)}
+  .land-foot{margin-top:30px;color:var(--muted,#9a97a8);font-size:var(--fs-meta);text-align:center}
   @media(max-width:860px){
     .land-cards{grid-template-columns:repeat(2,1fr);gap:11px;max-width:440px}
     .land-title{margin:16px 0 20px}

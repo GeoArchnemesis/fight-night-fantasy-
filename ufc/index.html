@@ -49,7 +49,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .mnav-ic{width:24px;height:24px;flex-shrink:0;opacity:.75;transition:opacity .15s,transform .15s}
 .mnav-btn:hover .mnav-ic,.mnav-btn.on .mnav-ic{opacity:1}
 .mnav-btn.on .mnav-ic{transform:translateY(-1px)}
-.mnav-lbl{font-size:.6rem;font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:.01em;transition:color .15s}
+.mnav-lbl{font-size:var(--fs-meta);font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:.01em;transition:color .15s}
 .mnav-btn.on .mnav-lbl{color:var(--gold)}
 .mnav-btn:hover .mnav-lbl{color:var(--text)}
 .mnav-pop{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:150px;display:flex;flex-direction:column;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,transform .2s ease,visibility .2s;z-index:48}
@@ -58,7 +58,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .mnav-pop-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:7px;font-family:var(--head);font-weight:700;font-size:.9rem;color:var(--text);cursor:pointer;transition:background .15s;white-space:nowrap;text-decoration:none}
 .mnav-pop-opt.on{background:rgba(245,196,81,.1);color:var(--gold);cursor:default}
 .mnav-pop-opt:not(.on):active{background:rgba(255,255,255,.08)}
-.mnav-pop-tag{font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.04em;color:var(--green);text-transform:uppercase}
+.mnav-pop-tag{font-family:var(--mono);font-size:var(--fs-meta);font-weight:700;letter-spacing:.04em;color:var(--green);text-transform:uppercase}
 .mnav-pop-tag.soon{color:var(--muted)}
 /* პირველი ღილაკის (ფენტეზის ტიპი) popup მარცხენა კიდეს არ უნდა გადასცდეს */
 #mnavSport .mnav-pop{left:8px;right:auto;transform:translateY(6px)}
@@ -76,9 +76,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 }
 /* ── დესკტოპ ზედა nav: ფენტეზის ტიპი (hover dropdown) ── */
 .nav-fx{position:relative}
-.nav-fx-lbl{font-size:.8rem;letter-spacing:.04em;font-weight:700;color:var(--muted);cursor:pointer;transition:color .2s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.nav-fx-lbl{font-size:var(--fs-meta);letter-spacing:.04em;font-weight:700;color:var(--muted);cursor:pointer;transition:color .2s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
 .nav-fx:hover .nav-fx-lbl{color:var(--text)}
-.nav-fx-caret{font-size:.7rem;transition:transform .2s}
+.nav-fx-caret{font-size:var(--fs-meta);transition:transform .2s}
 .nav-fx:hover .nav-fx-caret{transform:rotate(180deg)}
 .nav-fx::after{content:"";position:absolute;top:100%;left:0;right:0;height:14px}
 .nav-fx-pop{position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:150px;display:flex;flex-direction:column;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s,transform .2s,visibility .2s;z-index:60}
@@ -91,7 +91,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .nav-fx.open .nav-fx-pop{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}
 
 .nav-fx-pop a.on{background:rgba(245,196,81,.1);color:var(--gold)}
-.fx-tag{font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.04em;color:var(--green);text-transform:uppercase}
+.fx-tag{font-family:var(--mono);font-size:var(--fs-meta);font-weight:700;letter-spacing:.04em;color:var(--green);text-transform:uppercase}
 .lb-banner{display:block;margin:0 0 16px;border-radius:14px;overflow:hidden;line-height:0;box-shadow:0 6px 24px rgba(0,0,0,.35)}
 .lb-banner img{display:block;width:100%;height:auto}
 </style>
@@ -100,7 +100,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TLSVRK7V"
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- ── TEST MODE BANNER ── -->
-<div id="testBanner" style="background:#F31D25;color:#fff;text-align:center;font-size:.78rem;line-height:1.4;padding:5px 12px;letter-spacing:.02em;position:relative;z-index:60">
+<div id="testBanner" style="background:#F31D25;color:#fff;text-align:center;font-size:var(--fs-meta);line-height:1.4;padding:5px 12px;letter-spacing:.02em;position:relative;z-index:60">
   საიტი მუშაობს სატესტო რეჟიმში. ხარვეზის შემთხვევაში გთხოვთ გვაცნობოთ — <a href="#" onclick="document.getElementById('reportPopup').style.display='flex';return false" style="color:#fff;font-weight:700;text-decoration:underline">კონტაქტი</a>
 </div>
 
@@ -514,7 +514,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- ID Verification
 <div class="profile-section">
   <div class="field-label" style="margin-bottom:8px">ვერიფიკაცია</div>
-  <p style="font-size:.8rem;color:var(--muted);line-height:1.6;margin:0 0 10px">
+  <p style="font-size:var(--fs-meta);color:var(--muted);line-height:1.6;margin:0 0 10px">
     პრიზის მისაღებად საჭიროა ვერიფიკაცია — ატვირთე სელფი, სადაც ჩანხარ პირადობის მოწმობასთან ერთად (ორივე — სახე და მოწმობა — გარკვევით უნდა იკითხებოდეს). <b>ლიდერბორდზეც მხოლოდ ვერიფიცირებული მომხმარებლები ჩანან</b> — შენი ქულა მანამდეც ერიცხება, უბრალოდ საჯარო სიაში არ გამოჩნდება.
   </p>
   <div id="verifStatus" style="font-size:.85rem;margin-bottom:10px"></div>

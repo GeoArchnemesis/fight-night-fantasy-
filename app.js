@@ -667,7 +667,7 @@ function renderLeaderboard() {
     const verified = (r.verified !== undefined) ? !!r.verified : !!(r.phone || r.telegram);
     const badge = verified ? '<span class="lb-verified-badge" title="ვერიფიცირებული">' + checkSvg + '</span>' : '';
     const nm = r.name || '—';
-    const nmSize = nm.length > 16 ? '.78rem' : nm.length > 12 ? '.88rem' : '1rem';
+    const nmSize = nm.length > 16 ? 'var(--fs-meta)' : nm.length > 12 ? '.88rem' : '1rem';
     const ptsStr = sign + fmt(r.pts);
     const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
     return `<div class="lb-row ${you ? 'you' : ''}${verified ? ' verified-row' : ''}">
@@ -695,7 +695,7 @@ function openLbPopup(fullSorted) {
     const verified = (r.verified !== undefined) ? !!r.verified : !!(r.phone || r.telegram);
     const badge = verified ? '<span class="lb-verified-badge" title="ვერიფიცირებული">' + checkSvg + '</span>' : '';
     const nm = r.name || '—';
-    const nmSize = nm.length > 16 ? '.78rem' : nm.length > 12 ? '.88rem' : '1rem';
+    const nmSize = nm.length > 16 ? 'var(--fs-meta)' : nm.length > 12 ? '.88rem' : '1rem';
     const ptsStr = sign + fmt(r.pts);
     const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
     return `<div class="lb-row ${you ? 'you' : ''}${verified ? ' verified-row' : ''}">

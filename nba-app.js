@@ -253,7 +253,7 @@ function renderGames() {
         <div class="nba-game-meta">
           <span class="nba-time">${tbTime(g.start)}</span>
           ${note}
-          ${!hasOdds && !completed && !g.isVoided ? '<span style="color:var(--muted);font-size:.72rem">კოეფი მალე</span>' : ''}
+          ${!hasOdds && !completed && !g.isVoided ? '<span style="color:var(--muted);font-size:var(--fs-meta)">კოეფი მალე</span>' : ''}
         </div>
         <div class="nba-sides">${sideBtn('away')}<span class="nba-at">@</span>${sideBtn('home')}</div>
       </div>`;
@@ -606,7 +606,7 @@ function renderLeaderboard() {
     const sign = r.pts > 0 ? '+' : '';
     const badge = r.verified ? '<span class="lb-verified-badge" title="ვერიფიცირებული">' + checkSvg + '</span>' : '';
     const nm = r.name || '—';
-    const nmSize = nm.length > 16 ? '.78rem' : nm.length > 12 ? '.88rem' : '1rem';
+    const nmSize = nm.length > 16 ? 'var(--fs-meta)' : nm.length > 12 ? '.88rem' : '1rem';
     const ptsStr = sign + fmt(r.pts);
     const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
     return `<div class="lb-row ${you ? 'you' : ''}${r.verified ? ' verified-row' : ''}">
@@ -980,10 +980,10 @@ function toggleEye(inputId) {
   .nba-games{display:flex;flex-direction:column;gap:10px}
   .nba-game{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 12px}
   .nba-game.voided{opacity:.5}
-  .nba-game-meta{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-family:var(--mono);font-size:.74rem;color:var(--muted)}
+  .nba-game-meta{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-family:var(--mono);font-size:var(--fs-meta);color:var(--muted)}
   .nba-time{font-weight:700;color:var(--gold)}
   .nba-sides{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:stretch}
-  .nba-at{align-self:center;font-family:var(--mono);font-weight:700;color:var(--muted);font-size:.8rem}
+  .nba-at{align-self:center;font-family:var(--mono);font-weight:700;color:var(--muted);font-size:var(--fs-meta)}
   .nba-side{display:flex;align-items:center;gap:9px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--ink);cursor:pointer;transition:.15s;color:var(--text);text-align:left;min-width:0}
   .nba-side:hover:not(:disabled){border-color:#ff8c42;transform:translateY(-1px)}
   .nba-side.on{border-color:#ff8c42;box-shadow:0 0 0 1px #ff8c42 inset;background:color-mix(in srgb,#ff8c42 12%,var(--ink))}
@@ -992,7 +992,7 @@ function toggleEye(inputId) {
   .nba-logo{width:36px;height:36px;object-fit:contain;flex:none}
   .nba-team{display:flex;flex-direction:column;min-width:0;flex:1}
   .nba-team-name{font-weight:700;font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .nba-team-abbr{font-family:var(--mono);font-size:.68rem;color:var(--muted)}
+  .nba-team-abbr{font-family:var(--mono);font-size:var(--fs-meta);color:var(--muted)}
   .nba-od{font-family:var(--mono);font-weight:700;font-size:.98rem;color:var(--gold);flex:none}
   @media(max-width:560px){
     .nba-sides{grid-template-columns:1fr;gap:6px}

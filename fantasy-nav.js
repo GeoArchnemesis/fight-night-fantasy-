@@ -27,7 +27,7 @@
     '.fx-sub{position:relative}',
     '.fx-sub-lbl{cursor:pointer}',
     '.fx-sub-right{display:inline-flex;align-items:center;gap:7px}',
-    '.fx-sub-caret{font-size:.72em;opacity:.6;transition:transform .2s}',
+    '.fx-sub-caret{font-size:var(--fs-meta);opacity:.6;transition:transform .2s}',
     '.fx-sub:hover .fx-sub-caret,.fx-sub.open .fx-sub-caret{transform:rotate(90deg)}',
     '.fx-sub-pop{position:absolute;left:calc(100% + 8px);top:-7px;display:none;flex-direction:column;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:190px;z-index:70;box-shadow:0 12px 34px rgba(0,0,0,.45)}',
     // უხილავი „ხიდი" ღრიჭოზე — მაუსი ნელა რომ გადადის, hover არ იკარგება
@@ -37,7 +37,7 @@
     // ── MOBILE: გვერდზე ამომავალი ქვემენიუ ──
     '.mnav-sub{position:relative}',
     '.mnav-sub-right{display:inline-flex;align-items:center;gap:7px}',
-    '.mnav-sub-caret{font-size:.8em;opacity:.6;transition:transform .2s}',
+    '.mnav-sub-caret{font-size:var(--fs-meta);opacity:.6;transition:transform .2s}',
     '.mnav-sub.open .mnav-sub-caret{transform:rotate(90deg)}',
     '.mnav-sub-pop{position:absolute;left:calc(100% + 8px);bottom:0;display:none;flex-direction:column;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:160px;z-index:49;box-shadow:0 12px 34px rgba(0,0,0,.45)}',
     '.mnav-sub.open>.mnav-sub-pop{display:flex}'
