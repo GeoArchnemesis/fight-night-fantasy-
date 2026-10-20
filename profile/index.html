@@ -10,7 +10,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <link rel="preconnect" href="https://www.googletagmanager.com" />
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>პროფილი — Fight Night Fantasy</title>
 <meta name="robots" content="noindex" />
 <link rel="canonical" href="https://fnf.ge/profile/" />
@@ -27,7 +27,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 /* პროფილის გვერდი — ცალკე */
 .pf-page{min-height:100vh;display:flex;flex-direction:column}
 .pf-main{flex:1;width:min(560px,92vw);margin:0 auto;padding:clamp(24px,5vw,48px) 0 120px}
-.pf-back{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:var(--fs-meta);color:var(--muted);margin-bottom:24px;transition:color .15s;cursor:pointer;background:none;border:none}
+.pf-back{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-family:var(--mono);font-size:var(--fs-meta);color:var(--muted);margin-bottom:24px;transition:color .15s;cursor:pointer;background:none;border:none}
 .pf-back:hover{color:var(--text)}
 .pf-title{font-family:var(--display);font-weight:700;font-size:clamp(2rem,6vw,2.8rem);line-height:1;margin-bottom:6px}
 .pf-sub{color:var(--muted);font-size:.9rem;margin-bottom:28px}
@@ -50,7 +50,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .mnav-pop{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:150px;display:flex;flex-direction:column;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,transform .2s ease,visibility .2s;z-index:48}
 .mnav-pop.show{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}
 .mnav-pop::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--line)}
-.mnav-pop-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:7px;font-family:var(--head);font-weight:700;font-size:.9rem;color:var(--text);cursor:pointer;transition:background .15s;white-space:nowrap;text-decoration:none}
+.mnav-pop-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;min-height:44px;border-radius:7px;font-family:var(--head);font-weight:700;font-size:.9rem;color:var(--text);cursor:pointer;transition:background .15s;white-space:nowrap;text-decoration:none;box-sizing:border-box}
 .mnav-pop-opt.on{background:rgba(245,196,81,.1);color:var(--gold);cursor:default}
 .mnav-pop-tag{font-family:var(--mono);font-size:var(--fs-meta);font-weight:700;letter-spacing:.04em;color:var(--green);text-transform:uppercase}
 .mnav-pop-tag.soon{color:var(--muted)}
