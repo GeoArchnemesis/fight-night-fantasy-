@@ -1,0 +1,56 @@
+name: Prerender News
+
+# admin/news.html publishes straight to Supabase from the browser --
+# it has no access to this repo, so nothing regenerates the static
+# /news/<slug>/ pages or sitemap.xml automatically on publish. This
+# polls on a schedule (same cadence family as the sport auto-scripts)
+# and can also be run manually right after publishing an article.
+#
+# NOT RUN as part of this PRD pass -- written and reviewed locally
+# only, per the hard constraint against triggering GitHub Actions in
+# this session. See IMPLEMENTATION-SUMMARY.md "MANUAL STEPS".
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  prerender:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install @supabase/supabase-js@2.49.1
+
+      - name: Prerender published articles
+        run: node scripts/prerender-news.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+      - name: Sync news sitemap block
+        run: node scripts/sync-news-sitemap.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
+      - name: Commit generated pages if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add news/ sitemap.xml
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Prerender news articles [automated]"
+          git push

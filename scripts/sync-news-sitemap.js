@@ -10,12 +10,9 @@
 //  Action later, same as the other scripts/*.js automation) whenever
 //  the set of published articles changes.
 //
-//  URLs point at /news/post.html?slug=<slug> -- the real, working URL
-//  today (Phase D3 decision: no build step + no per-route SSR yet
-//  means true /news/<slug>/ paths don't resolve to anything). Once
-//  Phase C4's real SSR exists and DNS is cut over, update the URL
-//  template below to the clean path -- nothing else about this
-//  script needs to change.
+//  URLs point at the clean /news/<slug>/ form -- real paths now that
+//  scripts/prerender-news.js bakes one static index.html per published
+//  article at that path (Phase 0b of FNF-UI-UX-PRD.md).
 //
 //  Usage:
 //    SUPABASE_URL=... SUPABASE_KEY=<service_role> node scripts/sync-news-sitemap.js
@@ -51,7 +48,7 @@ function buildNewsBlock(articles) {
     const lastmod = (a.published_at || a.created_at || '').slice(0, 10);
     return [
       '  <url>',
-      `    <loc>https://fnf.ge/news/post.html?slug=${xmlEscape(a.slug)}</loc>`,
+      `    <loc>https://fnf.ge/news/${xmlEscape(a.slug)}/</loc>`,
       lastmod ? `    <lastmod>${lastmod}</lastmod>` : null,
       '    <priority>0.5</priority>',
       '  </url>',

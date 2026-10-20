@@ -80,5 +80,10 @@
        today, per the Phase D3 decision) — update this script, not by hand,
        once real /news/&lt;slug&gt;/ paths exist via per-route SSR. -->
   <!-- NEWS:START -->
-  <!-- NEWS:END -->
+  <url>
+    <loc>https://fnf.ge/news/merab-dvalishvili-fight-week/</loc>
+    <lastmod>1998-10-18</lastmod>
+    <priority>0.5</priority>
+  </url>
+<!-- NEWS:END -->
 </urlset>

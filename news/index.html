@@ -168,7 +168,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 
-<div id="nwGrid" class="nw-grid"><div class="nw-loading">იტვირთება...</div></div>
+<!-- Grid content between the markers below is baked in by
+     scripts/prerender-news.js so a crawler sees real <a href="/news/<slug>/">
+     anchors and titles in the raw HTML (same convention as sitemap.xml's
+     NEWS:START/END block, maintained by scripts/sync-news-sitemap.js).
+     nwRender() still redraws the same grid on top once Supabase replies,
+     for the KA/EN toggle and live like/comment counts -- that re-render
+     is harmless, not a correctness requirement of the baked copy. -->
+<div id="nwGrid" class="nw-grid"><!-- NEWS-GRID:START -->
+    <div class="nw-card-wrap">
+      <a class="nw-card" href="/news/merab-dvalishvili-fight-week/">
+        <img class="nw-card-img" src="https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=400&quality=75" srcset="https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=400&quality=75 400w, https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=800&quality=75 800w" sizes="(min-width: 480px) 343px, 100vw" width="800" height="450" alt="მერაბ დვალიშვილი და პიოტრ იანი UFC-ის ოქტაგონზე, მსაჯთან ერთად, ბრძოლის დაწყებამდე." loading="lazy" decoding="async" />
+        <div class="nw-card-body">
+          <div class="nw-card-title">მერაბ დვალიშვილი - საბრძოლო კვირა</div>
+          <div class="nw-card-meta">18 ოქტომბერი, 1998</div>
+        </div>
+      </a>
+    </div><!-- NEWS-GRID:END --></div>
 </main>
 
 <div class="nw-share-pop-bg" id="nwSharePopBg" onclick="if(event.target===this) nwCloseSharePopover()">
@@ -527,7 +543,7 @@ function nwRender() {
       : '';
     return `
     <div class="nw-card-wrap">
-      <a class="nw-card" href="/news/post.html?slug=${encodeURIComponent(a.slug)}">
+      <a class="nw-card" href="/news/${encodeURIComponent(a.slug)}/">
         ${img}
         <div class="nw-card-body">
           <div class="nw-card-title">${nwTitleFor(a, lang)}</div>
@@ -564,7 +580,7 @@ document.getElementById('nwGrid').addEventListener('click', (e) => {
   e.stopPropagation();
   const art = nwArticles.find(a => a.slug === btn.dataset.shareSlug);
   if (!art) return;
-  const url = `${location.origin}/news/post.html?slug=${encodeURIComponent(art.slug)}`;
+  const url = `${location.origin}/news/${encodeURIComponent(art.slug)}/`;
   nwShare(url, nwTitleFor(art, nwGetLang()));
 });
 

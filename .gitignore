@@ -5,3 +5,9 @@ ufc-epic-quiz.html
 
 # Local SEO audit screenshots (large binaries, not part of the deployed site)
 seo-audit-screenshots/
+
+# No build step / no package.json in this repo (see CLAUDE.md) -- CI installs
+# @supabase/supabase-js fresh per run for scripts/*.js; this is only here from
+# running scripts/prerender-news.js locally.
+node_modules/
+package-lock.json

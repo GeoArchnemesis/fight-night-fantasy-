@@ -23,6 +23,35 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
 <meta name="description" id="nwDescTag" content="Fight Night Fantasy — სიახლეები." />
 <link rel="canonical" id="nwCanonical" href="https://fnf.ge/news/" />
 <meta property="og:url" id="nwOgUrl" content="https://fnf.ge/news/" />
+<meta property="og:type" content="article" />
+<meta property="og:title" id="nwOgTitle" content="Fight Night Fantasy — სიახლეები" />
+<meta property="og:description" id="nwOgDesc" content="Fight Night Fantasy — სიახლეები." />
+<meta property="og:image" id="nwOgImage" content="https://fnf.ge/logo.png" />
+<meta property="og:image:width" id="nwOgImageW" content="1200" />
+<meta property="og:image:height" id="nwOgImageH" content="630" />
+<meta property="article:published_time" id="nwArticlePublished" content="" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" id="nwTwTitle" content="Fight Night Fantasy — სიახლეები" />
+<meta name="twitter:description" id="nwTwDesc" content="Fight Night Fantasy — სიახლეები." />
+<meta name="twitter:image" id="nwTwImage" content="https://fnf.ge/logo.png" />
+<!-- Legacy ?slug= redirect shim: this page used to BE the article
+     renderer at /news/post.html?slug=X. It is now a thin alias --
+     the real template lives on at /news/<slug>/index.html (a baked
+     copy of this same file, produced by scripts/prerender-news.js),
+     where this condition never matches because the slug is already
+     in the path. Not a true 301 (GitHub Pages has no server-side
+     redirect config) -- JS-only, so a non-JS crawler hitting the old
+     URL directly won't follow it; canonical/og:url/sitemap all point
+     at the clean form already, so crawl discovery doesn't depend on
+     this redirect firing. -->
+<script>
+(function(){
+  if (location.pathname === '/news/post.html' || location.pathname === '/news/post.html/') {
+    var slug = new URLSearchParams(location.search).get('slug');
+    if (slug) location.replace('/news/' + encodeURIComponent(slug) + '/' + location.hash);
+  }
+})();
+</script>
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
@@ -565,6 +594,16 @@ function nwSrcset(url, widths, quality) {
   return widths.map(w => `${nwTransformUrl(url, w, quality)} ${w}w`).join(', ');
 }
 
+// Fallback description when meta_description_* is empty: strip tags from
+// the rich-text body and cut at the last whole word within maxLen.
+function nwExcerpt(html, maxLen) {
+  const text = (html || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (text.length <= maxLen) return text;
+  const cut = text.slice(0, maxLen);
+  const lastSpace = cut.lastIndexOf(' ');
+  return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trim() + '…';
+}
+
 function nwRenderArticle() {
   const a = nwArticle;
   const lang = nwGetLang();
@@ -574,18 +613,34 @@ function nwRenderArticle() {
   const title = effectiveLang === 'en' ? a.title_en : a.title_ka;
   const body  = effectiveLang === 'en' ? a.body_en  : a.body_ka;
   const alt   = (effectiveLang === 'en' ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
+  // meta_title_ka/en exist in the `news` table specifically to drive
+  // <title> and og:title, separately from the on-page <h1> (title_ka/en)
+  // -- e.g. a shorter, more SERP-friendly phrasing. Articles get no
+  // " — Fight Night Fantasy" suffix (see Betsson's measured pattern);
+  // /news/ and other section pages keep theirs.
+  const metaTitle = (effectiveLang === 'en' ? (a.meta_title_en || a.title_en) : (a.meta_title_ka || a.title_ka));
+  const metaDesc = (effectiveLang === 'en' ? a.meta_description_en : a.meta_description_ka) || nwExcerpt(body, 155);
   nwCurrentTitle = title;
-  nwCurrentUrl = location.href;
 
-  document.getElementById('nwTitleTag').textContent = `${title} — Fight Night Fantasy`;
-  const metaDesc = (effectiveLang === 'en' ? a.meta_description_en : a.meta_description_ka) || '';
-  document.getElementById('nwDescTag').setAttribute('content', metaDesc || `Fight Night Fantasy — ${title}`);
-
-  // Clean /news/<slug>/ form, used even though this page itself is still
-  // reached via ?slug= until the routing change -- see commit message.
+  // Clean /news/<slug>/ form -- real pages now, since Phase 0b bakes a
+  // copy of this template at that path (scripts/prerender-news.js).
   const cleanUrl = `https://fnf.ge/news/${a.slug}/`;
+  nwCurrentUrl = cleanUrl;
+
+  document.getElementById('nwTitleTag').textContent = metaTitle;
+  document.getElementById('nwDescTag').setAttribute('content', metaDesc);
   document.getElementById('nwCanonical').setAttribute('href', cleanUrl);
   document.getElementById('nwOgUrl').setAttribute('content', cleanUrl);
+  document.getElementById('nwOgTitle').setAttribute('content', metaTitle);
+  document.getElementById('nwOgDesc').setAttribute('content', metaDesc);
+  document.getElementById('nwTwTitle').setAttribute('content', metaTitle);
+  document.getElementById('nwTwDesc').setAttribute('content', metaDesc);
+  if (a.published_at) document.getElementById('nwArticlePublished').setAttribute('content', a.published_at);
+  if (a.cover_image_url) {
+    const ogImg = nwTransformUrl(a.cover_image_url, 1200, 75) + '&height=630&resize=cover';
+    document.getElementById('nwOgImage').setAttribute('content', ogImg);
+    document.getElementById('nwTwImage').setAttribute('content', ogImg);
+  }
 
   const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), effectiveLang, 'long') : '';
 
@@ -631,24 +686,31 @@ function nwRenderArticle() {
 }
 
 // Article JSON-LD always describes the Georgian (primary, guaranteed-
-// present) version regardless of the client-side language toggle --
-// this is injected via JS either way since the article content itself
-// is only known after the Supabase fetch completes (no SSR yet, see
-// the commit message), so there's no server-rendered alternative a
-// non-JS crawler would see instead.
+// present) version regardless of the client-side language toggle.
+// On a prerendered /news/<slug>/ page (scripts/prerender-news.js) this
+// script tag already exists, baked with the same shape under id
+// nwJsonLd -- this upserts by id instead of always appending, so a
+// crawler that never runs JS still sees it, and one that does doesn't
+// get two. There is no `updated_at` column in `news` (no schema
+// changes in this pass), so dateModified falls back to datePublished.
 function nwInjectJsonLd(a) {
   const ld = {
     "@context": "https://schema.org",
     "@type": "Article",
     "headline": a.title_ka,
     "datePublished": a.published_at || undefined,
+    "dateModified": a.published_at || undefined,
     "image": a.cover_image_url || undefined,
   };
   if (a.author) ld.author = { "@type": "Person", "name": a.author };
-  const script = document.createElement('script');
-  script.type = 'application/ld+json';
+  let script = document.getElementById('nwJsonLd');
+  if (!script) {
+    script = document.createElement('script');
+    script.id = 'nwJsonLd';
+    script.type = 'application/ld+json';
+    document.head.appendChild(script);
+  }
   script.textContent = JSON.stringify(ld);
-  document.head.appendChild(script);
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -982,7 +1044,7 @@ function nwRenderSidebarList() {
       ? `<img class="nw-sidebar-thumb" src="${nwTransformUrl(a.cover_image_url, 160, 75)}" width="152" height="108" alt="${nwEscapeHtml(alt)}" loading="lazy" decoding="async" />`
       : `<div class="nw-sidebar-thumb"></div>`;
     return `
-    <a class="nw-sidebar-item" href="/news/post.html?slug=${encodeURIComponent(a.slug)}">
+    <a class="nw-sidebar-item" href="/news/${encodeURIComponent(a.slug)}/">
       ${thumb}
       <div class="nw-sidebar-item-body">
         <div class="nw-sidebar-item-title">${nwEscapeHtml(title)}</div>
@@ -993,8 +1055,13 @@ function nwRenderSidebarList() {
 }
 
 async function nwLoad() {
-  const params = new URLSearchParams(location.search);
-  const slug = params.get('slug');
+  // Real route is /news/<slug>/ (a prerendered copy of this template,
+  // see scripts/prerender-news.js); ?slug= is the legacy form, which
+  // the redirect shim in <head> normally already sends on to the path
+  // form before this ever runs -- read both so this still works if JS
+  // reaches here first for any reason.
+  const pathMatch = location.pathname.match(/^\/news\/([a-z0-9-]+)\/?$/);
+  const slug = pathMatch ? pathMatch[1] : new URLSearchParams(location.search).get('slug');
   if (!slug) { nwShowNotFound(); return; }
 
   nwLoadSidebarArticles(slug); // independent of the main article fetch below, runs concurrently
