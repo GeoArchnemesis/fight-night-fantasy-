@@ -12,13 +12,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title id="nwTitleTag">სტატია — Fight Night Fantasy</title>
-<meta name="robots" content="noindex" />
-<!-- noindex for now: this URL is a query-string stand-in
-     (/news/post.html?slug=...) until real per-route SSR exists for
-     true /news/<slug>/ paths -- see the commit message. Remove once
-     that lands and this page is reachable at its real clean URL with
-     a proper 200 status for crawlers. -->
+<script>
+// noindex only on localhost, so production articles are indexable --
+// this used to be a static <meta name="robots" content="noindex">
+// left over from before this page had a real per-article identity.
+if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+  document.write('<meta name="robots" content="noindex">');
+}
+</script>
 <meta name="description" id="nwDescTag" content="Fight Night Fantasy — სიახლეები." />
+<link rel="canonical" id="nwCanonical" href="https://fnf.ge/news/" />
+<meta property="og:url" id="nwOgUrl" content="https://fnf.ge/news/" />
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
@@ -543,6 +547,24 @@ let nwArticle = null;
 let nwCurrentTitle = '';
 let nwCurrentUrl = '';
 
+// Supabase Storage image transforms (confirmed enabled on this project):
+// the object endpoint (/storage/v1/object/public/...) ignores query
+// params entirely -- resizing requires the separate render endpoint
+// (/storage/v1/render/image/public/...). Covers are uploaded at full
+// camera resolution (2400x1616 measured), so every display slot needs
+// this instead of the raw original.
+function nwTransformUrl(url, width, quality) {
+  const marker = '/storage/v1/object/public/';
+  const idx = url ? url.indexOf(marker) : -1;
+  if (idx === -1) return url;
+  const base = url.slice(0, idx) + '/storage/v1/render/image/public/' + url.slice(idx + marker.length);
+  return `${base}${base.includes('?') ? '&' : '?'}width=${width}&quality=${quality}`;
+}
+function nwSrcset(url, widths, quality) {
+  if (!url) return '';
+  return widths.map(w => `${nwTransformUrl(url, w, quality)} ${w}w`).join(', ');
+}
+
 function nwRenderArticle() {
   const a = nwArticle;
   const lang = nwGetLang();
@@ -558,6 +580,12 @@ function nwRenderArticle() {
   document.getElementById('nwTitleTag').textContent = `${title} — Fight Night Fantasy`;
   const metaDesc = (effectiveLang === 'en' ? a.meta_description_en : a.meta_description_ka) || '';
   document.getElementById('nwDescTag').setAttribute('content', metaDesc || `Fight Night Fantasy — ${title}`);
+
+  // Clean /news/<slug>/ form, used even though this page itself is still
+  // reached via ?slug= until the routing change -- see commit message.
+  const cleanUrl = `https://fnf.ge/news/${a.slug}/`;
+  document.getElementById('nwCanonical').setAttribute('href', cleanUrl);
+  document.getElementById('nwOgUrl').setAttribute('content', cleanUrl);
 
   const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), effectiveLang, 'long') : '';
 
@@ -581,7 +609,7 @@ function nwRenderArticle() {
     <h1 class="nw-art-title">${title}</h1>
     <div class="nw-art-meta">${[a.author, dateStr].filter(Boolean).join(' · ')}</div>
     <div class="nw-reactions" id="nwReactions"></div>
-    ${a.cover_image_url ? `<img class="nw-art-cover" src="${a.cover_image_url}" alt="${alt.replace(/"/g, '&quot;')}" />` : ''}
+    ${a.cover_image_url ? `<img class="nw-art-cover" src="${nwTransformUrl(a.cover_image_url, 800, 75)}" srcset="${nwSrcset(a.cover_image_url, [400, 800, 1200], 75)}" sizes="(min-width: 768px) 700px, 100vw" width="1600" height="900" alt="${alt.replace(/"/g, '&quot;')}" loading="eager" fetchpriority="high" decoding="async" />` : ''}
     <div class="nw-art-body">${body}</div>
   `;
   document.querySelectorAll('#nwLang button').forEach(b => {
@@ -951,7 +979,7 @@ function nwRenderSidebarList() {
     const alt = ((lang === 'en' && a.cover_image_alt_en) ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
     const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), lang, 'short') : '';
     const thumb = a.cover_image_url
-      ? `<img class="nw-sidebar-thumb" src="${a.cover_image_url}" alt="${nwEscapeHtml(alt)}" loading="lazy" />`
+      ? `<img class="nw-sidebar-thumb" src="${nwTransformUrl(a.cover_image_url, 160, 75)}" width="152" height="108" alt="${nwEscapeHtml(alt)}" loading="lazy" decoding="async" />`
       : `<div class="nw-sidebar-thumb"></div>`;
     return `
     <a class="nw-sidebar-item" href="/news/post.html?slug=${encodeURIComponent(a.slug)}">

@@ -920,6 +920,20 @@ async function saveArticle() {
     document.getElementById('fPublishedAt').value = publishedAtVal;
   }
 
+  // Guard against another 1998-10-18-style fat-fingered year: reject
+  // anything outside [2024-01-01, now + 1 day] rather than silently
+  // writing a date that corrupts the JSON-LD datePublished and the
+  // rendered byline (see commit message for the incident this fixes).
+  if (publishedAtVal) {
+    const publishedAtDate = new Date(publishedAtVal);
+    const minDate = new Date('2024-01-01T00:00:00Z');
+    const maxDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    if (isNaN(publishedAtDate.getTime()) || publishedAtDate < minDate || publishedAtDate > maxDate) {
+      showEditorError('გამოქვეყნების თარიღი არასწორია — დასაშვებია მხოლოდ 2024-01-01-დან ხვალამდე (მიმდინარე მნიშვნელობა: ' + publishedAtVal + ')');
+      return;
+    }
+  }
+
   const payload = {
     title_ka: titleKa,
     title_en: document.getElementById('fTitleEn').value.trim() || null,

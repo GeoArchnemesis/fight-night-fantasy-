@@ -496,6 +496,23 @@ const NW_ICON_SHARE = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" stro
 
 let nwArticles = [];
 
+// Supabase Storage image transforms (confirmed enabled on this project):
+// the object endpoint (/storage/v1/object/public/...) ignores query
+// params entirely -- resizing requires the separate render endpoint
+// (/storage/v1/render/image/public/...). Covers are uploaded at full
+// camera resolution (2400x1616 measured) into a 343px card slot.
+function nwTransformUrl(url, width, quality) {
+  const marker = '/storage/v1/object/public/';
+  const idx = url ? url.indexOf(marker) : -1;
+  if (idx === -1) return url;
+  const base = url.slice(0, idx) + '/storage/v1/render/image/public/' + url.slice(idx + marker.length);
+  return `${base}${base.includes('?') ? '&' : '?'}width=${width}&quality=${quality}`;
+}
+function nwSrcset(url, widths, quality) {
+  if (!url) return '';
+  return widths.map(w => `${nwTransformUrl(url, w, quality)} ${w}w`).join(', ');
+}
+
 function nwRender() {
   const lang = nwGetLang();
   document.querySelectorAll('#nwLang button').forEach(b => b.classList.toggle('on', b.dataset.lang === lang));
@@ -506,7 +523,7 @@ function nwRender() {
   grid.innerHTML = nwArticles.map(a => {
     const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), lang, 'short') : '';
     const img = a.cover_image_url
-      ? `<img class="nw-card-img" src="${a.cover_image_url}" alt="${nwCoverAltFor(a, lang).replace(/"/g, '&quot;')}" loading="lazy" />`
+      ? `<img class="nw-card-img" src="${nwTransformUrl(a.cover_image_url, 400, 75)}" srcset="${nwSrcset(a.cover_image_url, [400, 800], 75)}" sizes="(min-width: 480px) 343px, 100vw" width="800" height="450" alt="${nwCoverAltFor(a, lang).replace(/"/g, '&quot;')}" loading="lazy" decoding="async" />`
       : '';
     return `
     <div class="nw-card-wrap">
