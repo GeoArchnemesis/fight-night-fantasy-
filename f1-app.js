@@ -753,7 +753,7 @@ function updateNextSession() {
 function tick() {
   updateNextSession();
   const ed = window.__eventDate; const p = n => String(n).padStart(2, '0');
-  if (!ed) { [cd_d, cd_h, cd_m, cd_s].forEach(el => { if (el) el.textContent = '--'; }); return; }
+  if (!ed) { [cd_d, cd_h, cd_m, cd_s].forEach(el => { if (el) el.innerHTML = '<span class="skeleton" style="display:inline-block;width:1.1em;height:0.85em;border-radius:4px;vertical-align:-0.1em"></span>'; }); return; }
   const diff = ed - serverNow();
   if (diff <= 0) { [cd_d, cd_h, cd_m, cd_s].forEach(el => { if (el) el.textContent = '00'; }); return; }
   const d = Math.floor(diff / 864e5), h = Math.floor(diff % 864e5 / 36e5), m = Math.floor(diff % 36e5 / 6e4), s = Math.floor(diff % 6e4 / 1e3);
@@ -1128,7 +1128,7 @@ sb.auth.onAuthStateChange((event, session) => {
 });
 
 const loadingEl = $('markets');
-if (loadingEl) loadingEl.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">იტვირთება…</div>';
+if (loadingEl) loadingEl.innerHTML = '<div style="display:flex;flex-direction:column;gap:12px;padding:16px 0">' + Array(3).fill('<div class="card" style="display:flex;gap:12px;padding:12px;align-items:center"><div class="skeleton skeleton--thumb"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div class="skeleton skeleton--line w-80"></div><div class="skeleton skeleton--line w-60"></div></div></div>').join('') + '</div>';
 
 async function init() {
   try { await syncServerTime(); } catch (e) {}
