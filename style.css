@@ -4,7 +4,7 @@
   --ink:#0B0A0F;--canvas:#0E0D14;--surface:#16141E;--surface-2:#1F1C2B;--line:#2A2738;
   --red:#F31D25;--red-soft:#ff5247;--blue:#2E7BFF;--blue-soft:#5b9bff;
   --gold:#F5C451;--green:#3ad17e;--text:#EDEBF2;--muted:#8C8899;--muted-2:#615d70;
-  --display:"FiraGO","Anton","Noto Sans Georgian","Archivo",sans-serif;--head:"Noto Sans Georgian","Archivo",sans-serif;--mono:"JetBrains Mono",monospace;
+  --display:"FiraGO","Noto Sans Georgian","Archivo",sans-serif;--head:"Noto Sans Georgian","Archivo",sans-serif;--mono:"JetBrains Mono",monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{scroll-behavior:smooth;overflow-x:hidden;max-width:100%}
