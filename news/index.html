@@ -109,7 +109,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .nw-card-meta{color:var(--muted);font-size:.72rem;text-transform:uppercase;letter-spacing:.04em}
 .nw-card-stats{display:flex;align-items:center;gap:14px;margin-top:8px;color:var(--muted);font-size:.78rem}
 .nw-card-stat{display:inline-flex;align-items:center;gap:5px}
+.nw-icon{width:15px;height:15px;flex:none;display:block}
 .nw-card-share{position:absolute;top:10px;right:10px;z-index:2;background:rgba(14,13,20,.72);backdrop-filter:blur(2px);border:1px solid var(--line);border-radius:50%;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:.95rem;cursor:pointer}
+.nw-card-share .nw-icon{width:16px;height:16px}
 .nw-card-share:hover{border-color:var(--gold)}
 .nw-share-pop-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:none;align-items:center;justify-content:center;padding:20px}
 .nw-share-pop-bg.show{display:flex}
@@ -483,6 +485,14 @@ function nwCoverAltFor(a, lang) {
 function nwLikeCount(a) { return (a.news_reactions && a.news_reactions[0] && a.news_reactions[0].count) || 0; }
 function nwCommentCount(a) { return (a.news_comments && a.news_comments[0] && a.news_comments[0].count) || 0; }
 
+// Inline SVGs (stroke="currentColor") so icons pick up each context's
+// existing text color rather than needing their own color rules.
+// Like/dislike/comment path data: Feather Icons v4.29.1 (MIT), copied
+// statically -- no CDN import, no runtime dependency.
+const NW_ICON_LIKE = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
+const NW_ICON_COMMENT = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+const NW_ICON_SHARE = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.3"/><circle cx="6" cy="12" r="2.3"/><circle cx="18" cy="19" r="2.3"/><line x1="8" y1="10.8" x2="16" y2="6.3"/><line x1="8" y1="13.2" x2="16" y2="17.7"/></svg>';
+
 let nwArticles = [];
 
 function nwRender() {
@@ -505,12 +515,12 @@ function nwRender() {
           <div class="nw-card-title">${nwTitleFor(a, lang)}</div>
           <div class="nw-card-meta">${dateStr}</div>
           <div class="nw-card-stats">
-            <span class="nw-card-stat">👍 <span>${nwLikeCount(a)}</span></span>
-            <span class="nw-card-stat">💬 <span>${nwCommentCount(a)}</span></span>
+            <span class="nw-card-stat">${NW_ICON_LIKE} <span>${nwLikeCount(a)}</span></span>
+            <span class="nw-card-stat">${NW_ICON_COMMENT} <span>${nwCommentCount(a)}</span></span>
           </div>
         </div>
       </a>
-      <button type="button" class="nw-card-share" data-share-slug="${a.slug}" title="გაზიარება" aria-label="გაზიარება">↗</button>
+      <button type="button" class="nw-card-share" data-share-slug="${a.slug}" title="გაზიარება" aria-label="გაზიარება">${NW_ICON_SHARE}</button>
     </div>`;
   }).join('');
 }

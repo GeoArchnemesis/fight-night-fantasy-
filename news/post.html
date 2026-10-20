@@ -120,6 +120,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .nw-react-btn{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:7px 14px;color:var(--text);font-size:.85rem;font-family:inherit;cursor:pointer;transition:border-color .15s,color .15s}
 .nw-react-btn:hover{border-color:var(--muted)}
 .nw-react-btn.on{border-color:var(--gold);color:var(--gold)}
+.nw-icon{width:16px;height:16px;flex:none;display:block}
 .nw-react-msg{color:var(--muted);font-size:.78rem}
 .nw-share-pop-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:none;align-items:center;justify-content:center;padding:20px}
 .nw-share-pop-bg.show{display:flex}
@@ -803,6 +804,15 @@ async function nwDeleteComment(id) {
 let nwReactionCounts = { like: 0, dislike: 0 };
 let nwMyReactionVal = null; // 'like' | 'dislike' | null
 
+// Inline SVGs (stroke="currentColor") so icons pick up each button's
+// existing text color, including the gold ".on" state -- same icons
+// as news/index.html (duplicated for the same reason as nwShare below).
+// Like/dislike path data: Feather Icons v4.29.1 (MIT), copied statically
+// -- no CDN import, no runtime dependency.
+const NW_ICON_LIKE = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
+const NW_ICON_DISLIKE = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3zm7-13h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17"/></svg>';
+const NW_ICON_SHARE = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.3"/><circle cx="6" cy="12" r="2.3"/><circle cx="18" cy="19" r="2.3"/><line x1="8" y1="10.8" x2="16" y2="6.3"/><line x1="8" y1="13.2" x2="16" y2="17.7"/></svg>';
+
 async function nwLoadReactionCounts() {
   const client = nwGetClient();
   const [likeRes, dislikeRes] = await Promise.all([
@@ -829,9 +839,9 @@ function nwRenderReactions() {
   const box = document.getElementById('nwReactions');
   if (!box) return;
   box.innerHTML = `
-    <button type="button" class="nw-react-btn ${nwMyReactionVal === 'like' ? 'on' : ''}" onclick="nwToggleReaction('like')">👍 <span>${nwReactionCounts.like}</span></button>
-    <button type="button" class="nw-react-btn ${nwMyReactionVal === 'dislike' ? 'on' : ''}" onclick="nwToggleReaction('dislike')">👎 <span>${nwReactionCounts.dislike}</span></button>
-    <button type="button" class="nw-react-btn" onclick="nwShare(nwCurrentUrl, nwCurrentTitle)">↗ გაზიარება</button>
+    <button type="button" class="nw-react-btn ${nwMyReactionVal === 'like' ? 'on' : ''}" onclick="nwToggleReaction('like')">${NW_ICON_LIKE} <span>${nwReactionCounts.like}</span></button>
+    <button type="button" class="nw-react-btn ${nwMyReactionVal === 'dislike' ? 'on' : ''}" onclick="nwToggleReaction('dislike')">${NW_ICON_DISLIKE} <span>${nwReactionCounts.dislike}</span></button>
+    <button type="button" class="nw-react-btn" onclick="nwShare(nwCurrentUrl, nwCurrentTitle)">${NW_ICON_SHARE} გაზიარება</button>
     <span class="nw-react-msg" id="nwReactMsg"></span>`;
 }
 
