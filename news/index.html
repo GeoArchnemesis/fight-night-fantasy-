@@ -97,15 +97,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .nw-head{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:28px}
 .nw-title{font-family:var(--display);font-weight:700;font-size:clamp(2rem,6vw,2.8rem);line-height:1.05}
 .nw-lang{display:flex;gap:6px;border:1px solid var(--line);border-radius:8px;padding:4px}
-.nw-lang button{background:none;border:none;color:var(--muted);font-family:inherit;font-weight:700;font-size:var(--fs-meta);padding:6px 14px;border-radius:6px;cursor:pointer}
+.nw-lang button{background:none;border:none;color:var(--muted);font-family:inherit;font-weight:700;font-size:var(--fs-meta);padding:6px 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:6px;cursor:pointer}
 .nw-lang button.on{background:var(--surface);color:var(--text)}
 .nw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
 .nw-card-wrap{position:relative}
 .nw-card{display:block;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden;text-decoration:none;color:inherit;transition:transform .15s,border-color .15s}
 .nw-card:hover{transform:translateY(-3px);border-color:var(--gold)}
-.nw-card-img{width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--surface-2,#1a1826);display:block}
+/* height:auto is load-bearing once the <img> carries height="..." --
+   that HTML attribute becomes a presentational height:<attr>px hint,
+   which (being non-auto) stops aspect-ratio from resolving the box's
+   height at all, overriding it with a fixed pixel value regardless of
+   the rendered width. See news/post.html's .nw-art-cover for the same
+   bug, measured and fixed at the same time. */
+.nw-card-img{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;background:var(--surface-2,#1a1826);display:block}
 .nw-card-body{padding:16px}
-.nw-card-title{font-family:var(--display);font-weight:700;font-size:1.3rem;line-height:1.18;margin-bottom:8px;color:var(--text)}
+.nw-card-title{font-family:var(--display);font-weight:700;font-size:20px;line-height:26px;margin-bottom:8px;color:var(--text)}
 .nw-card-meta{color:var(--muted);font-size:var(--fs-meta);text-transform:uppercase;letter-spacing:.04em}
 .nw-card-stats{display:flex;align-items:center;gap:14px;margin-top:8px;color:var(--muted);font-size:var(--fs-meta)}
 .nw-card-stat{display:inline-flex;align-items:center;gap:5px}
@@ -168,6 +174,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 
+<!-- Populated by nwRenderChips() -- "ყველა" + one chip per category
+     actually present among the loaded articles (news_categories has 4
+     rows total, but only ones with a published article get a chip).
+     Baked into the prerendered copy too so the filter UI itself (not
+     just the grid) is in the raw HTML. -->
+<div class="chip-row" id="nwChipRow" hidden></div>
+
 <!-- Grid content between the markers below is baked in by
      scripts/prerender-news.js so a crawler sees real <a href="/news/<slug>/">
      anchors and titles in the raw HTML (same convention as sitemap.xml's
@@ -177,11 +190,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
      is harmless, not a correctness requirement of the baked copy. -->
 <div id="nwGrid" class="nw-grid"><!-- NEWS-GRID:START -->
     <div class="nw-card-wrap">
-      <a class="nw-card" href="/news/merab-dvalishvili-fight-week/">
-        <img class="nw-card-img" src="https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=400&quality=75" srcset="https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=400&quality=75 400w, https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=800&quality=75 800w" sizes="(min-width: 480px) 343px, 100vw" width="800" height="450" alt="მერაბ დვალიშვილი და პიოტრ იანი UFC-ის ოქტაგონზე, მსაჯთან ერთად, ბრძოლის დაწყებამდე." loading="lazy" decoding="async" />
+      <a class="nw-card article-card--hero" href="/news/merab-dvalishvili-fight-week/">
+        <img class="nw-card-img" src="https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=400&height=225&resize=cover&quality=75" srcset="https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=400&height=225&resize=cover&quality=75 400w, https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=800&height=450&resize=cover&quality=75 800w, https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=1200&height=675&resize=cover&quality=75 1200w" sizes="(min-width: 480px) 343px, 100vw" width="800" height="450" alt="მერაბ დვალიშვილი და პიოტრ იანი UFC-ის ოქტაგონზე, მსაჯთან ერთად, ბრძოლის დაწყებამდე." loading="lazy" decoding="async" />
+        
         <div class="nw-card-body">
-          <div class="nw-card-title">მერაბ დვალიშვილი - საბრძოლო კვირა</div>
-          <div class="nw-card-meta">18 ოქტომბერი, 1998</div>
+          <h2 class="nw-card-title">მერაბ დვალიშვილი - საბრძოლო კვირა</h2>
+          <p class="nw-card-dek">წაიკითხეთ სიახლეები მერაბ დვალიშვილი vs პიოტრ იანის ტრილოგიის შესახებ. დეტალები მათი წინა ბრძოლების, მერაბის ახალი ტაქტიკისა და მოსამზადებელი პერიოდის შესახებ.</p>
+          <div class="nw-card-meta"><time datetime="1998-10-18T03:00:00+00:00">18 ოქტომბერი, 1998</time> · 1 წთ კითხვა</div>
         </div>
       </a>
     </div><!-- NEWS-GRID:END --></div>
@@ -446,7 +461,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <span class="mnav-lbl">პროფილი</span>
   </a>
 </nav>
-<script defer src="/fantasy-nav.js?v=6"></script>
+<script defer src="/fantasy-nav.js?v=7"></script>
 <script defer src="/app.js?v=209"></script>
 <script>
 (function(){var fx=document.getElementById('navFx');if(!fx)return;
@@ -502,6 +517,24 @@ function nwCoverAltFor(a, lang) {
 function nwLikeCount(a) { return (a.news_reactions && a.news_reactions[0] && a.news_reactions[0].count) || 0; }
 function nwCommentCount(a) { return (a.news_comments && a.news_comments[0] && a.news_comments[0].count) || 0; }
 
+// Math.ceil(wordCount / 160) per the PRD -- strips the rich-text body's
+// tags first so markup doesn't inflate the word count.
+function nwReadingTime(a, lang) {
+  const body = (lang === 'en' && a.body_en) ? a.body_en : a.body_ka;
+  const text = (body || '').replace(/<[^>]+>/g, ' ').trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  return Math.max(1, Math.ceil(words / 160));
+}
+function nwCatsFor(a) {
+  return (a.news_article_categories || []).map(x => x.news_categories).filter(Boolean);
+}
+function nwCatPillHtml(a, lang) {
+  const cats = nwCatsFor(a);
+  if (!cats.length) return '';
+  const name = (lang === 'en' && cats[0].name_en) ? cats[0].name_en : cats[0].name_ka;
+  return `<span class="nw-cat-pill">${name.replace(/</g, '&lt;')}</span>`;
+}
+
 // Inline SVGs (stroke="currentColor") so icons pick up each context's
 // existing text color rather than needing their own color rules.
 // Like/dislike/comment path data: Feather Icons v4.29.1 (MIT), copied
@@ -511,43 +544,81 @@ const NW_ICON_COMMENT = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" st
 const NW_ICON_SHARE = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.3"/><circle cx="6" cy="12" r="2.3"/><circle cx="18" cy="19" r="2.3"/><line x1="8" y1="10.8" x2="16" y2="6.3"/><line x1="8" y1="13.2" x2="16" y2="17.7"/></svg>';
 
 let nwArticles = [];
+// Category pages are real routes (/news/category/<slug>/, a separate
+// prerendered copy of this same file -- scripts/prerender-news.js),
+// not a query string, so the active filter comes from the path itself.
+// Chips are real <a href> links (not buttons with a client-side filter
+// + re-render): that makes every category reachable via a crawlable
+// link in the raw HTML, and sidesteps a hydration mismatch -- a client
+// re-render that reset the filter on every page load would otherwise
+// undo the whole point of a dedicated category route.
+const NW_CAT_MATCH = location.pathname.match(/^\/news\/category\/([a-z0-9-]+)\/?$/);
+let nwActiveCat = NW_CAT_MATCH ? NW_CAT_MATCH[1] : null;
+
+// Distinct categories actually present across the loaded articles, in
+// first-seen order -- not every row in news_categories necessarily has
+// a published article yet, so the chip row only offers ones that do.
+function nwDistinctCats() {
+  const seen = new Map();
+  nwArticles.forEach(a => nwCatsFor(a).forEach(c => { if (!seen.has(c.slug)) seen.set(c.slug, c); }));
+  return [...seen.values()];
+}
+function nwRenderChips() {
+  const row = document.getElementById('nwChipRow');
+  if (!row) return;
+  const lang = nwGetLang();
+  const cats = nwDistinctCats();
+  if (!cats.length) { row.innerHTML = ''; row.hidden = true; return; }
+  row.hidden = false;
+  const allChip = `<a class="chip" href="/news/"${nwActiveCat === null ? ' aria-current="page"' : ''}>ყველა</a>`;
+  const catChips = cats.map(c => {
+    const name = (lang === 'en' && c.name_en) ? c.name_en : c.name_ka;
+    return `<a class="chip" href="/news/category/${c.slug}/"${nwActiveCat === c.slug ? ' aria-current="page"' : ''}>${name.replace(/</g, '&lt;')}</a>`;
+  }).join('');
+  row.innerHTML = allChip + catChips;
+}
 
 // Supabase Storage image transforms (confirmed enabled on this project):
 // the object endpoint (/storage/v1/object/public/...) ignores query
 // params entirely -- resizing requires the separate render endpoint
 // (/storage/v1/render/image/public/...). Covers are uploaded at full
 // camera resolution (2400x1616 measured) into a 343px card slot.
-function nwTransformUrl(url, width, quality) {
+function nwTransformUrl(url, width, quality, height, resize = 'cover') {
   const marker = '/storage/v1/object/public/';
   const idx = url ? url.indexOf(marker) : -1;
   if (idx === -1) return url;
   const base = url.slice(0, idx) + '/storage/v1/render/image/public/' + url.slice(idx + marker.length);
-  return `${base}${base.includes('?') ? '&' : '?'}width=${width}&quality=${quality}`;
+  return `${base}${base.includes('?') ? '&' : '?'}width=${width}&height=${height}&resize=${resize}&quality=${quality}`;
 }
-function nwSrcset(url, widths, quality) {
+// sizes: array of [width, height] pairs -- a bare width list left height
+// unset, so the render endpoint kept the source's native 2400x1616 and
+// only scaled width, stretching the delivered pixels (see commit message).
+function nwSrcset(url, sizes, quality) {
   if (!url) return '';
-  return widths.map(w => `${nwTransformUrl(url, w, quality)} ${w}w`).join(', ');
+  return sizes.map(([w, h]) => `${nwTransformUrl(url, w, quality, h)} ${w}w`).join(', ');
 }
 
-function nwRender() {
-  const lang = nwGetLang();
-  document.querySelectorAll('#nwLang button').forEach(b => b.classList.toggle('on', b.dataset.lang === lang));
-
-  const grid = document.getElementById('nwGrid');
-  if (!nwArticles.length) { grid.innerHTML = '<div class="nw-empty">სტატია ჯერ არ არის</div>'; return; }
-
-  grid.innerHTML = nwArticles.map(a => {
-    const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), lang, 'short') : '';
-    const img = a.cover_image_url
-      ? `<img class="nw-card-img" src="${nwTransformUrl(a.cover_image_url, 400, 75)}" srcset="${nwSrcset(a.cover_image_url, [400, 800], 75)}" sizes="(min-width: 480px) 343px, 100vw" width="800" height="450" alt="${nwCoverAltFor(a, lang).replace(/"/g, '&quot;')}" loading="lazy" decoding="async" />`
-      : '';
-    return `
+// Hero treatment reuses .nw-card/.nw-card-wrap/.nw-card-img/.nw-card-body
+// completely unmodified (this phase's "keep .nw-card as-is" instruction
+// -- its 12px radius and flush 16:9 crop are already correct) plus
+// .article-card--hero as a second, non-conflicting class so the PRD's
+// named component is present in the markup; .nw-card-dek is the one
+// element the hero needs that .nw-card didn't already have.
+function nwHeroCardHtml(a, lang) {
+  const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), lang, 'short') : '';
+  const dek = (lang === 'en' && a.meta_description_en) ? a.meta_description_en : a.meta_description_ka;
+  const img = a.cover_image_url
+    ? `<img class="nw-card-img" src="${nwTransformUrl(a.cover_image_url, 400, 75, 225)}" srcset="${nwSrcset(a.cover_image_url, [[400, 225], [800, 450], [1200, 675]], 75)}" sizes="(min-width: 480px) 343px, 100vw" width="800" height="450" alt="${nwCoverAltFor(a, lang).replace(/"/g, '&quot;')}" loading="lazy" decoding="async" />`
+    : '';
+  return `
     <div class="nw-card-wrap">
-      <a class="nw-card" href="/news/${encodeURIComponent(a.slug)}/">
+      <a class="nw-card article-card--hero" href="/news/${encodeURIComponent(a.slug)}/">
         ${img}
+        ${nwCatPillHtml(a, lang)}
         <div class="nw-card-body">
-          <div class="nw-card-title">${nwTitleFor(a, lang)}</div>
-          <div class="nw-card-meta">${dateStr}</div>
+          <h2 class="nw-card-title">${nwTitleFor(a, lang)}</h2>
+          ${dek ? `<p class="nw-card-dek">${dek.replace(/</g, '&lt;')}</p>` : ''}
+          <div class="nw-card-meta"><time datetime="${a.published_at || ''}">${dateStr}</time> · ${nwReadingTime(a, lang)} წთ კითხვა</div>
           <div class="nw-card-stats">
             <span class="nw-card-stat">${NW_ICON_LIKE} <span>${nwLikeCount(a)}</span></span>
             <span class="nw-card-stat">${NW_ICON_COMMENT} <span>${nwCommentCount(a)}</span></span>
@@ -556,7 +627,42 @@ function nwRender() {
       </a>
       <button type="button" class="nw-card-share" data-share-slug="${a.slug}" title="გაზიარება" aria-label="გაზიარება">${NW_ICON_SHARE}</button>
     </div>`;
-  }).join('');
+}
+
+// PRD 8.3 -- the compact list card for every article after the hero.
+function nwListCardHtml(a, lang) {
+  const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), lang, 'short') : '';
+  const img = a.cover_image_url
+    ? `<img class="acl-thumb" src="${nwTransformUrl(a.cover_image_url, 224, 75, 168)}" srcset="${nwSrcset(a.cover_image_url, [[224, 168], [336, 252]], 75)}" sizes="112px" width="112" height="84" alt="${nwCoverAltFor(a, lang).replace(/"/g, '&quot;')}" loading="lazy" decoding="async" />`
+    : '';
+  return `
+    <div class="nw-card-wrap">
+      <a class="nw-card article-card--list" href="/news/${encodeURIComponent(a.slug)}/">
+        ${img}
+        <div class="acl-content">
+          ${nwCatPillHtml(a, lang)}
+          <h2 class="acl-title">${nwTitleFor(a, lang)}</h2>
+          <div class="acl-meta"><time datetime="${a.published_at || ''}">${dateStr}</time> · ${nwReadingTime(a, lang)} წთ კითხვა</div>
+        </div>
+      </a>
+      <button type="button" class="nw-card-share" data-share-slug="${a.slug}" title="გაზიარება" aria-label="გაზიარება">${NW_ICON_SHARE}</button>
+    </div>`;
+}
+
+function nwRender() {
+  const lang = nwGetLang();
+  document.querySelectorAll('#nwLang button').forEach(b => b.classList.toggle('on', b.dataset.lang === lang));
+  nwRenderChips();
+
+  const grid = document.getElementById('nwGrid');
+  const filtered = nwActiveCat
+    ? nwArticles.filter(a => nwCatsFor(a).some(c => c.slug === nwActiveCat))
+    : nwArticles;
+
+  if (!filtered.length) { grid.innerHTML = '<div class="nw-empty">სტატია ჯერ არ არის</div>'; return; }
+
+  const [hero, ...rest] = filtered;
+  grid.innerHTML = nwHeroCardHtml(hero, lang) + rest.map(a => nwListCardHtml(a, lang)).join('');
 }
 
 document.getElementById('nwLang').addEventListener('click', (e) => {
@@ -639,12 +745,12 @@ async function nwLoad() {
   // restricts anon reads to is_deleted=false, so counting it needs no
   // extra filter; news_reactions has no such restriction, hence the
   // explicit reaction=eq.like filter below to count likes only (not
-  // dislikes). Categories/excerpt/author aren't fetched here any more
-  // -- the card no longer shows them (post.html still has its own
-  // independent query for the full article view).
+  // dislikes). body_ka/body_en are fetched only to compute reading time
+  // client-side (Math.ceil(wordCount/160)) -- there's no separate excerpt
+  // column, and meta_description_* doubles as the hero card's dek.
   const { data, error } = await sb
     .from('news')
-    .select('id,title_ka,title_en,slug,cover_image_url,cover_image_alt_ka,cover_image_alt_en,published_at,news_reactions!left(count),news_comments!left(count)')
+    .select('id,title_ka,title_en,slug,body_ka,body_en,cover_image_url,cover_image_alt_ka,cover_image_alt_en,meta_description_ka,meta_description_en,published_at,news_article_categories(category_id,news_categories(id,name_ka,name_en,slug)),news_reactions!left(count),news_comments!left(count)')
     .eq('is_published', true)
     .eq('news_reactions.reaction', 'like')
     .order('published_at', { ascending: false });

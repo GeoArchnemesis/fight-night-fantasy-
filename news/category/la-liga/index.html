@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-TLSVRK7V');</script>
+<!-- End Google Tag Manager -->
+<link rel="preconnect" href="https://www.googletagmanager.com" />
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>ლა ლიგა — სიახლეები | Fight Night Fantasy</title><!-- TODO(giorgi): placeholder title, write real copy -->
+<meta name="description" content="ლა ლიგა კატეგორიის სტატიები Fight Night Fantasy-ზე." /><!-- TODO(giorgi): placeholder description, write real copy -->
+<link rel="canonical" href="https://fnf.ge/news/category/la-liga/" />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://fnf.ge/news/category/la-liga/" />
+<meta property="og:title" content="ლა ლიგა — სიახლეები | Fight Night Fantasy" />
+<meta property="og:description" content="ლა ლიგა კატეგორიის სტატიები Fight Night Fantasy-ზე." />
+<meta property="og:image" content="https://fnf.ge/og-image.png" />
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="სიახლეები — Fight Night Fantasy" />
+<meta name="twitter:description" content="Fight Night Fantasy — სიახლეები და განახლებები." />
+<meta name="twitter:image" content="https://fnf.ge/og-image.png" />
+<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
+<link rel="stylesheet" href="/style.css?v=201" />
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "მთავარი", "item": "https://fnf.ge/" },
+    { "@type": "ListItem", "position": 2, "name": "სიახლეები", "item": "https://fnf.ge/news/" }
+  ]
+}
+</script>
+<style>
+/* ── MOBILE BOTTOM NAV (mnav) — მხოლოდ მობილურზე ── (ufc/index.html-იდან, nav-ის სრულად აღსადგენად) */
+.mnav{position:fixed !important;top:auto !important;bottom:0 !important;left:0 !important;right:0 !important;height:auto !important;z-index:46;background:#000;border-top:1px solid var(--line);border-bottom:none;display:flex;padding:8px 4px calc(8px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 20px rgba(0,0,0,.5)}
+.mnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;cursor:pointer;padding:6px 2px;min-width:0;text-decoration:none;position:relative;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none}
+.mnav-ic{width:24px;height:24px;flex-shrink:0;opacity:.75;transition:opacity .15s,transform .15s}
+.mnav-btn:hover .mnav-ic,.mnav-btn.on .mnav-ic{opacity:1}
+.mnav-btn.on .mnav-ic{transform:translateY(-1px)}
+.mnav-lbl{font-size:var(--fs-meta);font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:.01em;transition:color .15s}
+.mnav-btn.on .mnav-lbl{color:var(--gold)}
+.mnav-btn:hover .mnav-lbl{color:var(--text)}
+.mnav-pop{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:150px;display:flex;flex-direction:column;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,transform .2s ease,visibility .2s;z-index:48}
+.mnav-pop.show{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.mnav-pop::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--line)}
+.mnav-pop-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;min-height:44px;border-radius:7px;font-family:var(--head);font-weight:700;font-size:.9rem;color:var(--text);cursor:pointer;transition:background .15s;white-space:nowrap;text-decoration:none;box-sizing:border-box}
+.mnav-pop-opt.on{background:rgba(245,196,81,.1);color:var(--gold);cursor:default}
+.mnav-pop-opt:not(.on):active{background:rgba(255,255,255,.08)}
+.mnav-pop-tag{font-family:var(--mono);font-size:var(--fs-meta);font-weight:700;letter-spacing:.04em;color:var(--green);text-transform:uppercase}
+.mnav-pop-tag.soon{color:var(--muted)}
+#mnavSport .mnav-pop{left:8px;right:auto;transform:translateY(6px)}
+#mnavSport .mnav-pop.show{transform:translateY(0)}
+#mnavSport .mnav-pop::after{left:38px;transform:translateX(-50%)}
+@media(min-width:921px){.mnav{display:none}.m-only{display:none !important}}
+@media(max-width:920px){
+  .mnav{display:none}
+  body.logged-in .mnav{display:flex}
+  body.logged-in .menu-btn{display:none}
+  body.logged-in{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
+  body.logged-in .betbar{bottom:calc(58px + env(safe-area-inset-bottom,0px))}
+  .d-only{display:none !important}
+  .nav-links.open .m-only{display:block !important}
+}
+/* ── დესკტოპ ზედა nav: ფენტეზის ტიპი (hover dropdown) ── */
+.nav-fx{position:relative}
+.nav-fx-lbl{font-size:var(--fs-meta);letter-spacing:.04em;font-weight:700;color:var(--muted);cursor:pointer;transition:color .2s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.nav-fx:hover .nav-fx-lbl{color:var(--text)}
+.nav-fx-caret{font-size:var(--fs-meta);transition:transform .2s}
+.nav-fx:hover .nav-fx-caret{transform:rotate(180deg)}
+.nav-fx::after{content:"";position:absolute;top:100%;left:0;right:0;height:14px}
+.nav-fx-pop{position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:150px;display:flex;flex-direction:column;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s,transform .2s,visibility .2s;z-index:60}
+.nav-fx:hover .nav-fx-pop{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.nav-fx-pop a{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:7px;font-family:var(--head);font-weight:700;font-size:.9rem;color:var(--text);text-decoration:none;transition:background .15s;white-space:nowrap}
+.nav-fx-pop a:hover{background:rgba(255,255,255,.05)}
+.nav-fx.open .nav-fx-lbl{color:var(--text)}
+.nav-fx.open .nav-fx-caret{transform:rotate(180deg)}
+.nav-fx.open .nav-fx-pop{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.nav-fx-pop a.on{background:rgba(245,196,81,.1);color:var(--gold)}
+.fx-tag{font-family:var(--mono);font-size:var(--fs-meta);font-weight:700;letter-spacing:.04em;color:var(--green);text-transform:uppercase}
+.nw-page{min-height:100vh;display:flex;flex-direction:column}
+.nw-main{flex:1;width:min(1040px,92vw);margin:0 auto;padding:clamp(24px,5vw,48px) 0 80px}
+.nw-head{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:28px}
+.nw-title{font-family:var(--display);font-weight:700;font-size:clamp(2rem,6vw,2.8rem);line-height:1.05}
+.nw-lang{display:flex;gap:6px;border:1px solid var(--line);border-radius:8px;padding:4px}
+.nw-lang button{background:none;border:none;color:var(--muted);font-family:inherit;font-weight:700;font-size:var(--fs-meta);padding:6px 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:6px;cursor:pointer}
+.nw-lang button.on{background:var(--surface);color:var(--text)}
+.nw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
+.nw-card-wrap{position:relative}
+.nw-card{display:block;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden;text-decoration:none;color:inherit;transition:transform .15s,border-color .15s}
+.nw-card:hover{transform:translateY(-3px);border-color:var(--gold)}
+/* height:auto is load-bearing once the <img> carries height="..." --
+   that HTML attribute becomes a presentational height:<attr>px hint,
+   which (being non-auto) stops aspect-ratio from resolving the box's
+   height at all, overriding it with a fixed pixel value regardless of
+   the rendered width. See news/post.html's .nw-art-cover for the same
+   bug, measured and fixed at the same time. */
+.nw-card-img{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;background:var(--surface-2,#1a1826);display:block}
+.nw-card-body{padding:16px}
+.nw-card-title{font-family:var(--display);font-weight:700;font-size:20px;line-height:26px;margin-bottom:8px;color:var(--text)}
+.nw-card-meta{color:var(--muted);font-size:var(--fs-meta);text-transform:uppercase;letter-spacing:.04em}
+.nw-card-stats{display:flex;align-items:center;gap:14px;margin-top:8px;color:var(--muted);font-size:var(--fs-meta)}
+.nw-card-stat{display:inline-flex;align-items:center;gap:5px}
+.nw-icon{width:15px;height:15px;flex:none;display:block}
+.nw-card-share{position:absolute;top:10px;right:10px;z-index:2;background:rgba(14,13,20,.72);backdrop-filter:blur(2px);border:1px solid var(--line);border-radius:50%;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:.95rem;cursor:pointer}
+.nw-card-share .nw-icon{width:16px;height:16px}
+.nw-card-share:hover{border-color:var(--gold)}
+@media(max-width:520px){.nw-card-meta{font-size:.85rem;color:var(--text)}.nw-card-stats{font-size:.85rem;color:var(--text)}}
+.nw-share-pop-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:none;align-items:center;justify-content:center;padding:20px}
+.nw-share-pop-bg.show{display:flex}
+.nw-share-pop{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;max-width:320px;width:100%}
+.nw-share-pop h3{font-size:1rem;margin-bottom:14px;color:var(--text)}
+.nw-share-opt{display:flex;align-items:center;gap:10px;width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:8px;padding:10px 14px;color:var(--text);font-size:.9rem;font-family:inherit;cursor:pointer;margin-bottom:8px;text-decoration:none;box-sizing:border-box}
+.nw-share-opt:hover{border-color:var(--muted)}
+.nw-share-copy-status{margin-left:auto;color:var(--green);font-size:var(--fs-meta)}
+.nw-share-close{width:100%;background:none;border:1px solid var(--line);border-radius:8px;padding:9px;color:var(--muted);font-family:inherit;font-size:.85rem;cursor:pointer}
+.nw-empty, .nw-loading{color:var(--muted);font-size:.9rem;padding:40px 0;text-align:center}
+</style>
+</head>
+<body>
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TLSVRK7V"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<div class="nw-page">
+<nav><div class="wrap nav-in">
+<a href="/" class="brand">
+<img src="/logo.png?v=2" alt="Fight Night Fantasy" />
+<span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
+</a>
+<div class="nav-links" id="navLinks">
+  <div class="nav-fx d-only" id="navFx">
+    <span class="nav-fx-lbl">ფენტეზის ტიპი <span class="nav-fx-caret">▾</span></span>
+    <div class="nav-fx-pop">
+      <a href="/ufc/">UFC <span class="fx-tag">აქტიური</span></a>
+      <a href="/f1/">F1 <span class="fx-tag">აქტიური</span></a>
+      <a href="/nba/">NBA <span class="fx-tag">აქტიური</span></a>
+    </div>
+  </div>
+  <a href="/ufc/#leaderboard" class="d-only">ლიდერბორდი</a>
+  <a href="/ufc/#tickets" class="d-only">ბილეთების ისტორია</a>
+  <a href="/news/" class="d-only">სიახლეები</a>
+  <a href="/ufc/#card" class="m-only">ბრძოლები</a>
+  <a href="/ufc/#leaderboard" class="m-only">ლიდერბორდი</a>
+  <a href="/ufc/#how" class="m-only">წესები</a>
+  <a href="/news/" class="m-only">სიახლეები</a>
+</div>
+<div class="nav-cta">
+  <div class="balance-pill"><span class="coin"></span><b id="balNav">1,000</b> ქულა</div>
+  <button class="btn btn-ghost" id="signinBtn">შესვლა</button>
+  <button class="btn btn-ghost" id="joinBtn">რეგისტრაცია</button>
+  <button class="menu-btn" id="menuBtn" aria-label="მენიუ"><span></span></button>
+</div>
+</div></nav>
+
+<main class="nw-main">
+<div class="nw-head">
+  <h1 class="nw-title">სიახლეები</h1>
+  <div class="nw-lang" id="nwLang">
+    <button type="button" data-lang="ka">ქართ</button>
+    <button type="button" data-lang="en">Eng</button>
+  </div>
+</div>
+
+<!-- Populated by nwRenderChips() -- "ყველა" + one chip per category
+     actually present among the loaded articles (news_categories has 4
+     rows total, but only ones with a published article get a chip).
+     Baked into the prerendered copy too so the filter UI itself (not
+     just the grid) is in the raw HTML. -->
+<div class="chip-row" id="nwChipRow" hidden></div>
+
+<!-- Grid content between the markers below is baked in by
+     scripts/prerender-news.js so a crawler sees real <a href="/news/<slug>/">
+     anchors and titles in the raw HTML (same convention as sitemap.xml's
+     NEWS:START/END block, maintained by scripts/sync-news-sitemap.js).
+     nwRender() still redraws the same grid on top once Supabase replies,
+     for the KA/EN toggle and live like/comment counts -- that re-render
+     is harmless, not a correctness requirement of the baked copy. -->
+<div id="nwGrid" class="nw-grid"><!-- NEWS-GRID:START --><div class="nw-empty">სტატია ჯერ არ არის</div><!-- NEWS-GRID:END --></div>
+</main>
+
+<div class="nw-share-pop-bg" id="nwSharePopBg" onclick="if(event.target===this) nwCloseSharePopover()">
+  <div class="nw-share-pop">
+    <h3>სტატიის გაზიარება</h3>
+    <button type="button" class="nw-share-opt" onclick="nwCopyShareLink()">🔗 ბმულის კოპირება <span class="nw-share-copy-status" id="nwShareCopyStatus"></span></button>
+    <a class="nw-share-opt" id="nwShareWhatsapp" target="_blank" rel="noopener">🟢 WhatsApp-ით გაგზავნა</a>
+    <a class="nw-share-opt" id="nwShareTelegram" target="_blank" rel="noopener">✈️ Telegram-ით გაგზავნა</a>
+    <button type="button" class="nw-share-close" onclick="nwCloseSharePopover()">დახურვა</button>
+  </div>
+</div>
+
+<footer><div class="wrap foot-in">
+<div>
+<span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
+<p class="foot-note"> პირველი ქართული UFC Fantasy. გამოცადე შენი MMA ინტუიცია უფასოდ. დადე მომგებიანი ბილეთები, გალიდერდი ლიდერბორდზე და მოიგე ფულადი პრიზები.</p>
+</div>
+<div class="foot-links">
+<a href="/about/">ჩვენს შესახებ</a>
+<a href="/rules/">წესები</a>
+<a href="/terms/">წესები და პირობები</a>
+<a href="/privacy/">კონფიდენციალურობა</a>
+</div>
+</div></footer>
+
+<!-- ── AUTH MODAL ── (ufc/index.html-იდან, nav-ის სრულად აღსადგენად) -->
+<div class="modal-bg" id="modal"><div class="modal">
+<button class="modal-close" id="modalClose" aria-label="დახურვა">&times;</button>
+<h3 style="text-align:center;font-size:1.25rem;margin:0 0 14px">ავტორიზაცია</h3>
+
+<button class="btn btn-google" id="googleBtn">
+  <svg width="18" height="18" viewBox="0 0 18 18">
+    <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+    <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+    <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
+    <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+  </svg>
+  Google-ით შესვლა
+</button>
+<p class="sub" id="modalSub">შექმენი მებრძოლის სახელი და მიიღე 1,000 ქულა ამ ივენთისთვის.</p>
+<form id="authForm" method="post" action="#" onsubmit="event.preventDefault();document.getElementById('modalSubmit').click()">
+<div class="field" id="nameField">
+  <label for="inName">შენი ზედმეტსახელი ფენტეზიში</label>
+  <input type="text" id="inName" name="nickname" placeholder="მაგ. UFC.King" autocomplete="nickname" maxlength="20" />
+</div>
+<div class="field" id="phoneField" style="display:none">
+  <div class="pass-hint" style="margin:0 0 8px;color:var(--gold)">შეიყვანე შენი ნომერი, ფულადი პრიზების მისაღებად.</div>
+  <label for="inRegPhone">მობილურის ნომერი</label>
+  <input type="tel" id="inRegPhone" name="tel" placeholder="მაგ. 555123456" autocomplete="tel" />
+</div>
+<div class="field" id="birthYearField">
+  <label for="inBirthYear">დაბადების წელი</label>
+  <input type="number" id="inBirthYear" name="bday-year" placeholder="მაგ. 1998" inputmode="numeric" min="1900" autocomplete="bday-year" />
+</div>
+<div class="field" id="genderField">
+  <label>სქესი</label>
+  <div class="gender-opts">
+    <label class="gender-opt">
+      <input type="radio" name="gender" value="male" />
+      <span>მამრობითი</span>
+    </label>
+    <label class="gender-opt">
+      <input type="radio" name="gender" value="female" />
+      <span>მდედრობითი</span>
+    </label>
+  </div>
+</div>
+<div class="field">
+  <label for="inEmail">ელ. ფოსტა</label>
+  <input type="email" id="inEmail" name="email" placeholder="შეიყვანე შენი მეილი" autocomplete="email" />
+</div>
+<div class="field">
+  <label for="inPass">პასვორდი</label>
+  <div style="position:relative">
+    <input type="password" id="inPass" name="password" placeholder="მინ. 6 სიმბოლო" autocomplete="new-password" />
+    <button type="button" class="eye-toggle" onclick="toggleEye('inPass')" aria-label="პაროლის ჩვენება"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+  </div>
+  <div class="pass-check" id="passHint">
+    <div class="pc-item" id="pcLen"><span class="pc-tick">✓</span> მინ. 6 სიმბოლო</div>
+    <div class="pc-item" id="pcUpper"><span class="pc-tick">✓</span> 1 დიდი ასო (A-Z)</div>
+    <div class="pc-item" id="pcLower"><span class="pc-tick">✓</span> 1 პატარა ასო (a-z)</div>
+    <div class="pc-item" id="pcDigit"><span class="pc-tick">✓</span> 1 ციფრი (0-9)</div>
+  </div>
+</div>
+<div class="field" id="confirmField" style="display:none">
+  <label for="inPassConfirm">გაიმეორე პასვორდი</label>
+  <div style="position:relative">
+    <input type="password" id="inPassConfirm" name="password-confirm" placeholder="პასვორდი ხელახლა" autocomplete="new-password" />
+    <button type="button" class="eye-toggle" onclick="toggleEye('inPassConfirm')" aria-label="პაროლის ჩვენება"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+  </div>
+</div>
+<div id="authError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
+<button type="button" class="btn btn-primary" id="modalSubmit">რეგისტრაცია</button>
+</form>
+<!-- Forgot Password Link -->
+<div id="forgotWrap" style="display:none;text-align:center;margin-top:10px">
+  <button class="modal-link" id="forgotBtn">დაგავიწყდა პასვორდი?</button>
+</div>
+<p class="modal-foot" id="modalSwitch">უკვე გაქვს ანგარიში? <button id="switchMode">შესვლა</button></p>
+</div></div>
+
+<!-- ── FORGOT PASSWORD MODAL ── -->
+<div class="modal-bg" id="forgotModal"><div class="modal">
+<button class="modal-close" id="forgotModalClose" aria-label="დახურვა">&times;</button>
+<h3>პასვორდის აღდგენა</h3>
+<p class="sub" id="forgotSub">შეიყვანე ელ. ფოსტა და გამოგიგზავნით აღდგენის ლინკს.</p>
+<form id="forgotForm" method="post" action="#" onsubmit="event.preventDefault();document.getElementById('forgotSubmit').click()">
+<div class="field">
+  <label for="forgotEmail">ელ. ფოსტა</label>
+  <input type="email" id="forgotEmail" name="email" placeholder="შეიყვანე შენი მეილი" autocomplete="email" />
+</div>
+</form>
+<div id="forgotError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
+<div id="forgotSuccess" style="display:none" class="forgot-success">
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+  <div class="forgot-success-title">ლინკი გამოგზავნილია!</div>
+  <div class="forgot-success-text">აღდგენის ბმული გამოგზავნილია შენს ელ. ფოსტაზე. შეამოწმე საფოსტო ყუთი და მიყევი ინსტრუქციას.</div>
+</div>
+<button class="btn btn-primary" id="forgotSubmit">გამოგზავნა</button>
+<p class="modal-foot"><button id="backToLogin">უკან შესვლაზე</button></p>
+</div></div>
+
+<!-- ── RESET PASSWORD (recovery link landing) ── -->
+<div class="modal-bg" id="resetPasswordModal"><div class="modal">
+<h3>ახალი პასვორდის დაყენება</h3>
+<p class="sub">შენი იდენტობა უკვე დადასტურებულია მეილის ბმულით — დააყენე ახალი პასვორდი.</p>
+<form id="recoveryForm" method="post" action="#" onsubmit="event.preventDefault();document.getElementById('recoverySubmit').click()">
+<div class="field">
+  <label for="recoveryNewPass">ახალი პასვორდი</label>
+  <input type="password" id="recoveryNewPass" name="new-password" placeholder="მინ. 6 სიმბოლო" autocomplete="new-password" />
+</div>
+<div class="field">
+  <label for="recoveryNewPassConfirm">გაიმეორე პასვორდი</label>
+  <input type="password" id="recoveryNewPassConfirm" name="new-password-confirm" placeholder="გაიმეორე ახალი პასვორდი" autocomplete="new-password" />
+</div>
+</form>
+<div id="recoveryError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
+<div id="recoverySuccess" style="display:none" class="forgot-success">
+  <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9 12l2 2 4-4"/></svg>
+  <div class="forgot-success-title">პასვორდი განახლდა!</div>
+  <div class="forgot-success-text">შეგიძლია გააგრძელო საიტით სარგებლობა.</div>
+</div>
+<button class="btn btn-primary" id="recoverySubmit">პასვორდის დაყენება</button>
+</div></div>
+
+<!-- ── PROFILE MODAL ── -->
+<div class="modal-bg" id="profileModal"><div class="modal modal-profile">
+<button class="modal-close" id="profileClose" aria-label="დახურვა">&times;</button>
+<h3>პროფილი</h3>
+<p class="sub">შეცვალე შენი ანგარიშის პარამეტრები</p>
+
+<!-- Avatar Icon Picker -->
+<div class="profile-section">
+  <span class="field-label" id="iconPickerLabel">აირჩიე აიქონი</span>
+  <div class="icon-picker" id="iconPicker" role="radiogroup" aria-labelledby="iconPickerLabel"></div>
+</div>
+
+<!-- Nickname -->
+<div class="profile-section">
+  <div class="field">
+    <label for="profNick">სახელი (ნიქნეიმი)</label>
+    <input type="text" id="profNick" name="nickname" placeholder="მაგ. UFC.King" autocomplete="nickname" maxlength="20" />
+  </div>
+</div>
+
+<!-- Email -->
+<div class="profile-section">
+  <div class="field">
+    <label for="profEmail">ელ. ფოსტა</label>
+    <input type="email" id="profEmail" name="email" placeholder="შეიყვანე მეილი" autocomplete="email" />
+  </div>
+</div>
+
+<!-- Contact Info -->
+<div class="profile-section">
+  <div class="field-label" style="margin-bottom:8px">საკონტაქტო ინფორმაცია</div>
+  <div class="field">
+    <label for="profPhone">მობილურის ნომერი</label>
+    <input type="tel" id="profPhone" name="tel" placeholder="მაგ. 555123456" autocomplete="tel" />
+  </div>
+  <div class="field">
+    <label for="profTelegram">ტელეგრამი</label>
+    <input type="text" id="profTelegram" placeholder="მაგ. @username" />
+  </div>
+</div>
+
+<!-- Password Change -->
+<form id="profPassForm" method="post" action="#" onsubmit="event.preventDefault();document.getElementById('profileSave').click()">
+<div class="profile-section">
+  <div class="field-label" style="margin-bottom:12px">პასვორდის შეცვლა</div>
+  <div class="field">
+    <label for="profOldPass">ძველი პასვორდი</label>
+    <input type="password" id="profOldPass" name="current-password" placeholder="შეიყვანე ძველი პასვორდი" autocomplete="current-password" />
+  </div>
+  <div class="field">
+<label for="profNewPass">ახალი პასვორდი</label>
+    <input type="password" id="profNewPass" name="new-password" placeholder="მინ. 8 სიმბოლო" autocomplete="new-password" />
+  </div>
+</div>
+</form>
+
+<div id="profileMsg" style="font-size:.85rem;margin-bottom:10px;display:none"></div>
+<button class="btn btn-primary" id="profileSave">შენახვა</button>
+<button class="btn btn-ghost" id="profileLogout" style="width:100%;margin-top:10px;text-align:center;display:block">გამოსვლა</button>
+</div></div>
+
+<!-- ── CONTACT INFO POPUP ── -->
+<div class="modal-bg" id="contactInfoModal"><div class="modal modal-contact">
+<h3>შეავსე პროფილი</h3>
+<p class="sub">ფულადი პრიზების მისაღებად გთხოვთ შეავსოთ დარჩენილი ინფორმაცია.</p>
+<div id="ciContactWrap">
+  <div class="field">
+    <label for="ciPhone">მობილურის ნომერი</label>
+    <input type="tel" id="ciPhone" placeholder="მაგ. 555123456" autocomplete="tel" />
+  </div>
+  <div class="contact-or"><span>ან / და</span></div>
+  <div class="field">
+    <label for="ciTelegram">ტელეგრამი</label>
+    <input type="text" id="ciTelegram" placeholder="მაგ. @username" autocomplete="off" />
+  </div>
+</div>
+<div class="field" id="ciBirthYearField">
+  <label for="ciBirthYear">დაბადების წელი</label>
+  <input type="number" id="ciBirthYear" placeholder="მაგ. 1998" inputmode="numeric" min="1900" autocomplete="off" />
+</div>
+<div class="field" id="ciGenderField">
+  <label>სქესი</label>
+  <div class="gender-opts">
+    <label class="gender-opt"><input type="radio" name="ciGender" value="male" /><span>მამრობითი</span></label>
+    <label class="gender-opt"><input type="radio" name="ciGender" value="female" /><span>მდედრობითი</span></label>
+  </div>
+</div>
+<div id="ciError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
+<button class="btn btn-primary" id="ciSave">შენახვა</button>
+<button class="btn btn-ghost" id="ciSkip" style="width:100%;margin-top:8px;text-align:center;display:block;font-size:.85rem;color:var(--muted)">მოგვიანებით</button>
+</div></div>
+
+<!-- ── MOBILE BOTTOM NAV (mnav) ── -->
+<nav class="mnav" id="mnav">
+  <div class="mnav-btn" id="mnavSport" role="button" tabindex="0">
+    <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNzIgNzIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMTIiIHk9IjE4IiB3aWR0aD0iNDgiIGhlaWdodD0iNyIgcng9IjEuNSIvPjxyZWN0IHg9IjEyIiB5PSIzMyIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjciIHJ4PSIxLjUiLz48cmVjdCB4PSIxMiIgeT0iNDgiIHdpZHRoPSI0OCIgaGVpZ2h0PSI3IiByeD0iMS41Ii8+PC9zdmc+Cg==" alt="">
+    <span class="mnav-lbl">ფენტეზის ტიპი</span>
+    <div class="mnav-pop">
+      <a class="mnav-pop-opt" href="/ufc/">UFC <span class="mnav-pop-tag">აქტიური</span></a>
+      <a class="mnav-pop-opt" href="/f1/">F1 <span class="mnav-pop-tag">აქტიური</span></a>
+      <a class="mnav-pop-opt" href="/nba/">NBA <span class="mnav-pop-tag">აქტიური</span></a>
+    </div>
+  </div>
+    <a class="mnav-btn" href="/ufc/quiz/">
+    <svg class="mnav-ic" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9.2a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4"/><line x1="12" y1="17.5" x2="12.01" y2="17.5"/></svg>
+    <span class="mnav-lbl">ქვიზი</span>
+  </a>
+  <button class="mnav-btn only-auth" onclick="location.href='/ufc/#tickets'">
+    <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMjQgMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTMgOGEyIDIgMCAwIDEgMi0yaDE0YTIgMiAwIDAgMSAyIDJ2MmEyIDIgMCAwIDAgMCA0djJhMiAyIDAgMCAxLTIgMkg1YTIgMiAwIDAgMS0yLTJ2LTJhMiAyIDAgMCAwIDAtNFY4eiIvPjxsaW5lIHgxPSI5IiB5MT0iNiIgeDI9IjkiIHkyPSIxOCIgc3Ryb2tlLWRhc2hhcnJheT0iMiAyIi8+PC9zdmc+Cg==" alt="">
+    <span class="mnav-lbl">ბილეთების ისტორია</span>
+  </button>
+  <a class="mnav-btn" href="/profile/">
+    <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMjQgMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI0Ii8+PHBhdGggZD0iTTQgMjFjMC00LjQgMy42LTcgOC03czggMi42IDggNyIvPjwvc3ZnPgo=" alt="">
+    <span class="mnav-lbl">პროფილი</span>
+  </a>
+</nav>
+<script defer src="/fantasy-nav.js?v=7"></script>
+<script defer src="/app.js?v=209"></script>
+<script>
+(function(){var fx=document.getElementById('navFx');if(!fx)return;
+fx.addEventListener('click',function(e){
+  if(e.target.closest('.nav-fx-pop a'))return;
+  e.preventDefault();fx.classList.toggle('open');
+});
+document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.classList.remove('open');});
+})();
+</script>
+</div>
+
+<script>
+const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
+// იგივე საჯარო anon key, რასაც app.js/admin.html იყენებს.
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
+
+// Simple, news-section-only KA/EN toggle. Not related to any
+// site-wide i18n mechanism -- Phase C5 (site-wide translation +
+// language switcher) hasn't started yet, so there's nothing to reuse.
+// Persisted via localStorage so it carries from here into the article
+// detail page, but touches nothing outside /news/.
+const NW_LANG_KEY = 'fnf_news_lang';
+function nwGetLang() { try { return localStorage.getItem(NW_LANG_KEY) || 'ka'; } catch (e) { return 'ka'; } }
+function nwSetLang(l) { try { localStorage.setItem(NW_LANG_KEY, l); } catch (e) {} }
+
+// ka-GE month names, hardcoded -- Intl/toLocaleDateString('ka-GE', ...)
+// silently falls back to English month abbreviations on some browsers
+// even when the page itself is in Georgian (seen in a screenshot from
+// Giorgi). Values match what a working ka-GE Intl implementation
+// actually outputs (verified via Node's full-ICU build), so this reads
+// identically to the "correct" native result, just without depending
+// on the browser having that locale data.
+const NW_KA_MONTHS_SHORT = ['იან','თებ','მარ','აპრ','მაი','ივნ','ივლ','აგვ','სექ','ოქტ','ნოე','დეკ'];
+const NW_KA_MONTHS_LONG = ['იანვარი','თებერვალი','მარტი','აპრილი','მაისი','ივნისი','ივლისი','აგვისტო','სექტემბერი','ოქტომბერი','ნოემბერი','დეკემბერი'];
+function nwFormatDateKa(d, monthStyle) {
+  if (monthStyle === 'long') return d.getDate() + ' ' + NW_KA_MONTHS_LONG[d.getMonth()] + ', ' + d.getFullYear();
+  return d.getDate() + ' ' + NW_KA_MONTHS_SHORT[d.getMonth()] + '. ' + d.getFullYear();
+}
+function nwFormatDate(d, lang, monthStyle) {
+  return lang === 'en'
+    ? d.toLocaleDateString('en-US', { year: 'numeric', month: monthStyle, day: 'numeric' })
+    : nwFormatDateKa(d, monthStyle);
+}
+function nwTitleFor(a, lang) { return (lang === 'en' && a.title_en) ? a.title_en : a.title_ka; }
+function nwCoverAltFor(a, lang) {
+  const alt = lang === 'en' ? a.cover_image_alt_en : a.cover_image_alt_ka;
+  return alt || nwTitleFor(a, lang);
+}
+// Embedded aggregate counts from the select() below -- PostgREST returns
+// these as a one-element array ([{count:N}]), not a bare number, even
+// though it's always exactly one row per article.
+function nwLikeCount(a) { return (a.news_reactions && a.news_reactions[0] && a.news_reactions[0].count) || 0; }
+function nwCommentCount(a) { return (a.news_comments && a.news_comments[0] && a.news_comments[0].count) || 0; }
+
+// Math.ceil(wordCount / 160) per the PRD -- strips the rich-text body's
+// tags first so markup doesn't inflate the word count.
+function nwReadingTime(a, lang) {
+  const body = (lang === 'en' && a.body_en) ? a.body_en : a.body_ka;
+  const text = (body || '').replace(/<[^>]+>/g, ' ').trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  return Math.max(1, Math.ceil(words / 160));
+}
+function nwCatsFor(a) {
+  return (a.news_article_categories || []).map(x => x.news_categories).filter(Boolean);
+}
+function nwCatPillHtml(a, lang) {
+  const cats = nwCatsFor(a);
+  if (!cats.length) return '';
+  const name = (lang === 'en' && cats[0].name_en) ? cats[0].name_en : cats[0].name_ka;
+  return `<span class="nw-cat-pill">${name.replace(/</g, '&lt;')}</span>`;
+}
+
+// Inline SVGs (stroke="currentColor") so icons pick up each context's
+// existing text color rather than needing their own color rules.
+// Like/dislike/comment path data: Feather Icons v4.29.1 (MIT), copied
+// statically -- no CDN import, no runtime dependency.
+const NW_ICON_LIKE = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>';
+const NW_ICON_COMMENT = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>';
+const NW_ICON_SHARE = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.3"/><circle cx="6" cy="12" r="2.3"/><circle cx="18" cy="19" r="2.3"/><line x1="8" y1="10.8" x2="16" y2="6.3"/><line x1="8" y1="13.2" x2="16" y2="17.7"/></svg>';
+
+let nwArticles = [];
+// Category pages are real routes (/news/category/<slug>/, a separate
+// prerendered copy of this same file -- scripts/prerender-news.js),
+// not a query string, so the active filter comes from the path itself.
+// Chips are real <a href> links (not buttons with a client-side filter
+// + re-render): that makes every category reachable via a crawlable
+// link in the raw HTML, and sidesteps a hydration mismatch -- a client
+// re-render that reset the filter on every page load would otherwise
+// undo the whole point of a dedicated category route.
+const NW_CAT_MATCH = location.pathname.match(/^\/news\/category\/([a-z0-9-]+)\/?$/);
+let nwActiveCat = NW_CAT_MATCH ? NW_CAT_MATCH[1] : null;
+
+// Distinct categories actually present across the loaded articles, in
+// first-seen order -- not every row in news_categories necessarily has
+// a published article yet, so the chip row only offers ones that do.
+function nwDistinctCats() {
+  const seen = new Map();
+  nwArticles.forEach(a => nwCatsFor(a).forEach(c => { if (!seen.has(c.slug)) seen.set(c.slug, c); }));
+  return [...seen.values()];
+}
+function nwRenderChips() {
+  const row = document.getElementById('nwChipRow');
+  if (!row) return;
+  const lang = nwGetLang();
+  const cats = nwDistinctCats();
+  if (!cats.length) { row.innerHTML = ''; row.hidden = true; return; }
+  row.hidden = false;
+  const allChip = `<a class="chip" href="/news/"${nwActiveCat === null ? ' aria-current="page"' : ''}>ყველა</a>`;
+  const catChips = cats.map(c => {
+    const name = (lang === 'en' && c.name_en) ? c.name_en : c.name_ka;
+    return `<a class="chip" href="/news/category/${c.slug}/"${nwActiveCat === c.slug ? ' aria-current="page"' : ''}>${name.replace(/</g, '&lt;')}</a>`;
+  }).join('');
+  row.innerHTML = allChip + catChips;
+}
+
+// Supabase Storage image transforms (confirmed enabled on this project):
+// the object endpoint (/storage/v1/object/public/...) ignores query
+// params entirely -- resizing requires the separate render endpoint
+// (/storage/v1/render/image/public/...). Covers are uploaded at full
+// camera resolution (2400x1616 measured) into a 343px card slot.
+function nwTransformUrl(url, width, quality, height, resize = 'cover') {
+  const marker = '/storage/v1/object/public/';
+  const idx = url ? url.indexOf(marker) : -1;
+  if (idx === -1) return url;
+  const base = url.slice(0, idx) + '/storage/v1/render/image/public/' + url.slice(idx + marker.length);
+  return `${base}${base.includes('?') ? '&' : '?'}width=${width}&height=${height}&resize=${resize}&quality=${quality}`;
+}
+// sizes: array of [width, height] pairs -- a bare width list left height
+// unset, so the render endpoint kept the source's native 2400x1616 and
+// only scaled width, stretching the delivered pixels (see commit message).
+function nwSrcset(url, sizes, quality) {
+  if (!url) return '';
+  return sizes.map(([w, h]) => `${nwTransformUrl(url, w, quality, h)} ${w}w`).join(', ');
+}
+
+// Hero treatment reuses .nw-card/.nw-card-wrap/.nw-card-img/.nw-card-body
+// completely unmodified (this phase's "keep .nw-card as-is" instruction
+// -- its 12px radius and flush 16:9 crop are already correct) plus
+// .article-card--hero as a second, non-conflicting class so the PRD's
+// named component is present in the markup; .nw-card-dek is the one
+// element the hero needs that .nw-card didn't already have.
+function nwHeroCardHtml(a, lang) {
+  const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), lang, 'short') : '';
+  const dek = (lang === 'en' && a.meta_description_en) ? a.meta_description_en : a.meta_description_ka;
+  const img = a.cover_image_url
+    ? `<img class="nw-card-img" src="${nwTransformUrl(a.cover_image_url, 400, 75, 225)}" srcset="${nwSrcset(a.cover_image_url, [[400, 225], [800, 450], [1200, 675]], 75)}" sizes="(min-width: 480px) 343px, 100vw" width="800" height="450" alt="${nwCoverAltFor(a, lang).replace(/"/g, '&quot;')}" loading="lazy" decoding="async" />`
+    : '';
+  return `
+    <div class="nw-card-wrap">
+      <a class="nw-card article-card--hero" href="/news/${encodeURIComponent(a.slug)}/">
+        ${img}
+        ${nwCatPillHtml(a, lang)}
+        <div class="nw-card-body">
+          <h2 class="nw-card-title">${nwTitleFor(a, lang)}</h2>
+          ${dek ? `<p class="nw-card-dek">${dek.replace(/</g, '&lt;')}</p>` : ''}
+          <div class="nw-card-meta"><time datetime="${a.published_at || ''}">${dateStr}</time> · ${nwReadingTime(a, lang)} წთ კითხვა</div>
+          <div class="nw-card-stats">
+            <span class="nw-card-stat">${NW_ICON_LIKE} <span>${nwLikeCount(a)}</span></span>
+            <span class="nw-card-stat">${NW_ICON_COMMENT} <span>${nwCommentCount(a)}</span></span>
+          </div>
+        </div>
+      </a>
+      <button type="button" class="nw-card-share" data-share-slug="${a.slug}" title="გაზიარება" aria-label="გაზიარება">${NW_ICON_SHARE}</button>
+    </div>`;
+}
+
+// PRD 8.3 -- the compact list card for every article after the hero.
+function nwListCardHtml(a, lang) {
+  const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), lang, 'short') : '';
+  const img = a.cover_image_url
+    ? `<img class="acl-thumb" src="${nwTransformUrl(a.cover_image_url, 224, 75, 168)}" srcset="${nwSrcset(a.cover_image_url, [[224, 168], [336, 252]], 75)}" sizes="112px" width="112" height="84" alt="${nwCoverAltFor(a, lang).replace(/"/g, '&quot;')}" loading="lazy" decoding="async" />`
+    : '';
+  return `
+    <div class="nw-card-wrap">
+      <a class="nw-card article-card--list" href="/news/${encodeURIComponent(a.slug)}/">
+        ${img}
+        <div class="acl-content">
+          ${nwCatPillHtml(a, lang)}
+          <h2 class="acl-title">${nwTitleFor(a, lang)}</h2>
+          <div class="acl-meta"><time datetime="${a.published_at || ''}">${dateStr}</time> · ${nwReadingTime(a, lang)} წთ კითხვა</div>
+        </div>
+      </a>
+      <button type="button" class="nw-card-share" data-share-slug="${a.slug}" title="გაზიარება" aria-label="გაზიარება">${NW_ICON_SHARE}</button>
+    </div>`;
+}
+
+function nwRender() {
+  const lang = nwGetLang();
+  document.querySelectorAll('#nwLang button').forEach(b => b.classList.toggle('on', b.dataset.lang === lang));
+  nwRenderChips();
+
+  const grid = document.getElementById('nwGrid');
+  const filtered = nwActiveCat
+    ? nwArticles.filter(a => nwCatsFor(a).some(c => c.slug === nwActiveCat))
+    : nwArticles;
+
+  if (!filtered.length) { grid.innerHTML = '<div class="nw-empty">სტატია ჯერ არ არის</div>'; return; }
+
+  const [hero, ...rest] = filtered;
+  grid.innerHTML = nwHeroCardHtml(hero, lang) + rest.map(a => nwListCardHtml(a, lang)).join('');
+}
+
+document.getElementById('nwLang').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-lang]');
+  if (!btn) return;
+  nwSetLang(btn.dataset.lang);
+  nwRender();
+});
+
+// ─────────────────────────────────────────────────────────────
+//  SHARE — delegated at the grid level (same pattern as the #nwLang
+//  listener above) rather than one inline onclick per card: slugs are
+//  DB-constrained to [a-z0-9-] (news_table.sql's slug format check),
+//  so a data-attribute lookup is both safe and simpler than escaping
+//  arbitrary article titles into an inline onclick string.
+// ─────────────────────────────────────────────────────────────
+document.getElementById('nwGrid').addEventListener('click', (e) => {
+  const btn = e.target.closest('.nw-card-share');
+  if (!btn) return;
+  e.preventDefault();
+  e.stopPropagation();
+  const art = nwArticles.find(a => a.slug === btn.dataset.shareSlug);
+  if (!art) return;
+  const url = `${location.origin}/news/${encodeURIComponent(art.slug)}/`;
+  nwShare(url, nwTitleFor(art, nwGetLang()));
+});
+
+// Web Share API first (native share sheet -- Messenger/Instagram/
+// WhatsApp/Telegram all show up automatically there if installed,
+// nothing to build per-platform). Falls back to a custom popover only
+// when unsupported or the share itself fails for a reason other than
+// the user cancelling.
+async function nwShare(url, title) {
+  const data = { title, url };
+  if (navigator.share && (!navigator.canShare || navigator.canShare(data))) {
+    try { await navigator.share(data); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  nwOpenSharePopover(url, title);
+}
+
+function nwOpenSharePopover(url, title) {
+  document.getElementById('nwShareCopyStatus').textContent = '';
+  document.getElementById('nwShareWhatsapp').href = 'https://wa.me/?text=' + encodeURIComponent(title + ' ' + url);
+  document.getElementById('nwShareTelegram').href = 'https://t.me/share/url?url=' + encodeURIComponent(url) + '&text=' + encodeURIComponent(title);
+  document.getElementById('nwSharePopBg').dataset.url = url;
+  document.getElementById('nwSharePopBg').classList.add('show');
+}
+function nwCloseSharePopover() {
+  document.getElementById('nwSharePopBg').classList.remove('show');
+}
+async function nwCopyShareLink() {
+  const url = document.getElementById('nwSharePopBg').dataset.url || '';
+  const statusEl = document.getElementById('nwShareCopyStatus');
+  try {
+    await navigator.clipboard.writeText(url);
+    statusEl.textContent = 'კოპირებულია ✓';
+  } catch (e) {
+    // Clipboard API needs a secure context/permission and isn't
+    // available everywhere -- execCommand('copy') via a throwaway
+    // textarea is the standard fallback.
+    const ta = document.createElement('textarea');
+    ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand('copy'); statusEl.textContent = 'კოპირებულია ✓'; }
+    catch (e2) { statusEl.textContent = 'ვერ დაკოპირდა'; }
+    document.body.removeChild(ta);
+  }
+}
+
+async function nwLoad() {
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // RLS (news_select_published policy, supabase/news_table.sql) already
+  // restricts anon reads to is_published=true -- the explicit filter
+  // here is just defense-in-depth / clarity, not the real gate.
+  // news_reactions!left(count) / news_comments!left(count) are
+  // PostgREST embedded aggregate counts, not per-article round-trips --
+  // !left keeps articles with zero likes/comments in the result (a
+  // filtered embed defaults to an inner join, which would otherwise
+  // drop them). news_comments RLS (news_comments_select_public) already
+  // restricts anon reads to is_deleted=false, so counting it needs no
+  // extra filter; news_reactions has no such restriction, hence the
+  // explicit reaction=eq.like filter below to count likes only (not
+  // dislikes). body_ka/body_en are fetched only to compute reading time
+  // client-side (Math.ceil(wordCount/160)) -- there's no separate excerpt
+  // column, and meta_description_* doubles as the hero card's dek.
+  const { data, error } = await sb
+    .from('news')
+    .select('id,title_ka,title_en,slug,body_ka,body_en,cover_image_url,cover_image_alt_ka,cover_image_alt_en,meta_description_ka,meta_description_en,published_at,news_article_categories(category_id,news_categories(id,name_ka,name_en,slug)),news_reactions!left(count),news_comments!left(count)')
+    .eq('is_published', true)
+    .eq('news_reactions.reaction', 'like')
+    .order('published_at', { ascending: false });
+
+  if (error) { document.getElementById('nwGrid').innerHTML = `<div class="nw-empty">შეცდომა: ${error.message}</div>`; return; }
+  nwArticles = data || [];
+  nwRender();
+}
+
+document.addEventListener('DOMContentLoaded', nwLoad);
+</script>
+</body>
+</html>

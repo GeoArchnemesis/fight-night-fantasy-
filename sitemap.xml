@@ -86,4 +86,28 @@
     <priority>0.5</priority>
   </url>
 <!-- NEWS:END -->
+  <!-- Category listing pages (/news/category/<slug>/) -- maintained by
+       scripts/prerender-news.js, same convention as the NEWS block above. -->
+  <!-- NEWS-CAT:START -->
+  <url>
+    <loc>https://fnf.ge/news/category/mma/</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://fnf.ge/news/category/football/</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://fnf.ge/news/category/la-liga/</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://fnf.ge/news/category/ligue-1/</loc>
+    <lastmod>2026-10-21</lastmod>
+    <priority>0.4</priority>
+  </url>
+<!-- NEWS-CAT:END -->
 </urlset>

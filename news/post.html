@@ -119,42 +119,51 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
    was no existing two-col-to-stacked content grid elsewhere to copy
    the mechanics from, so the breakpoint VALUE is reused for
    consistency even though the grid itself is new here. */
-.nw-layout{flex:1;width:min(1100px,94vw);margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:40px;align-items:start}
+/* width used 94vw here and 92vw on .nw-comments below -- two different
+   vw fractions mean two different effective side-gutters (11.25px vs
+   15px at 375px, and drifting further apart at other widths), so the
+   H1 and the comments block were never actually edge-aligned. Both now
+   compute from the same var(--gutter), just with different max-widths
+   (this stays the two-column 1100px layout; .nw-comments matches the
+   article column alone at 760px, not the full width+sidebar). */
+.nw-layout{flex:1;width:min(1100px,calc(100% - 2*var(--gutter)));margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:40px;align-items:start}
 .nw-art{min-width:0;padding:clamp(24px,5vw,48px) 0 60px}
 .nw-sidebar{padding:clamp(24px,5vw,48px) 0 60px}
 .nw-sidebar-inner{position:sticky;top:20px}
 .nw-sidebar-title{font-family:var(--display);font-weight:700;font-size:1.1rem;margin-bottom:14px;color:var(--text)}
 .nw-sidebar-list{display:flex;flex-direction:column;gap:14px;max-height:72vh;overflow-y:auto;padding-right:4px}
-.nw-sidebar-item{display:flex;gap:10px;text-decoration:none;color:inherit}
-.nw-sidebar-item:hover .nw-sidebar-item-title{color:var(--gold)}
-.nw-sidebar-thumb{width:76px;height:54px;object-fit:cover;border-radius:6px;background:var(--surface-2);flex-shrink:0}
-.nw-sidebar-item-body{min-width:0}
-.nw-sidebar-item-title{font-size:.84rem;font-weight:600;color:var(--text);line-height:1.3;margin-bottom:3px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;transition:color .15s}
-.nw-sidebar-item-date{font-size:var(--fs-meta);color:var(--muted)}
+.nw-sidebar-list .article-card--list{padding:0;margin-bottom:0}
+.nw-sidebar-list .article-card--list:hover .acl-title{color:var(--gold)}
 @media(max-width:920px){
   .nw-layout{grid-template-columns:1fr;gap:0}
   .nw-sidebar{padding-top:0}
   .nw-sidebar-inner{position:static}
   .nw-sidebar-list{flex-direction:row;overflow-x:auto;overflow-y:visible;max-height:none;padding:4px 4px 14px}
-  .nw-sidebar-item{flex-direction:column;flex:0 0 150px}
-  .nw-sidebar-thumb{width:150px;height:92px}
-  .nw-sidebar-item-title{-webkit-line-clamp:3}
+  .nw-sidebar-list .article-card--list{flex-direction:column;flex:0 0 150px;gap:8px}
+  .nw-sidebar-list .acl-thumb{width:150px;height:112px}
+  .nw-sidebar-list .acl-title{-webkit-line-clamp:3}
 }
-.nw-back{display:inline-block;color:var(--muted);font-size:.85rem;text-decoration:none;margin-bottom:18px}
+/* 96x20 measured -- an invisible ::after hit-area overlay instead of
+   padding, so the link doesn't visually grow and push the H1 down
+   (same technique as #testBanner's inline link, Phase 2). */
+.nw-back{position:relative;display:inline-block;color:var(--muted);font-size:.85rem;text-decoration:none;margin-bottom:18px}
+.nw-back::after{content:"";position:absolute;top:50%;left:0;transform:translateY(-50%);width:100%;min-width:44px;height:44px}
 .nw-back:hover{color:var(--text)}
 .nw-lang{display:inline-flex;gap:6px;border:1px solid var(--line);border-radius:8px;padding:4px;margin-bottom:18px}
-.nw-lang button{background:none;border:none;color:var(--muted);font-family:inherit;font-weight:700;font-size:var(--fs-meta);padding:6px 14px;border-radius:6px;cursor:pointer}
+.nw-lang button{background:none;border:none;color:var(--muted);font-family:inherit;font-weight:700;font-size:var(--fs-meta);padding:6px 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:6px;cursor:pointer}
 .nw-lang button.on{background:var(--surface);color:var(--text)}
-.nw-art-title{font-family:var(--display);font-weight:700;font-size:clamp(2rem,5.5vw,2.9rem);line-height:1.05;margin-bottom:10px}
+/* line-height is unitless (a ratio), not a fixed px, because font-size
+   is itself fluid (clamp 32-46.4px) -- 1.1875 is exactly 38px/32px, so
+   it hits the PRD's target line-height at the clamp's floor and scales
+   proportionally above it, rather than going right back to colliding
+   Georgian ascenders/descenders once the viewport grows past the floor. */
+.nw-art-title{font-family:var(--display);font-weight:700;font-size:clamp(2rem,5.5vw,2.9rem);line-height:1.1875;margin-bottom:10px}
 .nw-art-meta{color:var(--muted);font-size:.85rem;margin-bottom:20px}
 .nw-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
-.nw-chip{display:inline-block;font-family:var(--mono);font-size:var(--fs-meta);font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--gold);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:4px 10px}
 .nw-reactions{display:flex;align-items:center;gap:10px;margin-bottom:22px;flex-wrap:wrap}
-.nw-react-btn{display:inline-flex;align-items:center;gap:7px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:7px 14px;color:var(--text);font-size:.85rem;font-family:inherit;cursor:pointer;transition:border-color .15s,color .15s}
-.nw-react-btn:hover{border-color:var(--muted)}
-.nw-react-btn.on{border-color:var(--gold);color:var(--gold)}
-.nw-icon{width:16px;height:16px;flex:none;display:block}
-.nw-react-msg{color:var(--muted);font-size:var(--fs-meta)}
+.nw-icon{width:18px;height:18px;flex:none;display:block}
+.nw-react-msg{color:var(--muted);font-size:var(--fs-meta);position:fixed;left:50%;transform:translateX(-50%);bottom:calc(68px + env(safe-area-inset-bottom,0px));white-space:nowrap;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-pill);padding:6px 14px}
+.nw-react-msg:empty{display:none}
 .nw-share-pop-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:999;display:none;align-items:center;justify-content:center;padding:20px}
 .nw-share-pop-bg.show{display:flex}
 .nw-share-pop{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px;max-width:320px;width:100%}
@@ -163,7 +172,19 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
 .nw-share-opt:hover{border-color:var(--muted)}
 .nw-share-copy-status{margin-left:auto;color:var(--green);font-size:var(--fs-meta)}
 .nw-share-close{width:100%;background:none;border:1px solid var(--line);border-radius:8px;padding:9px;color:var(--muted);font-family:inherit;font-size:.85rem;cursor:pointer}
-.nw-art-cover{width:100%;max-height:420px;object-fit:cover;border-radius:12px;margin-bottom:24px;display:block}
+/* aspect-ratio (not max-height) owns this box's height -- max-height:420px
+   used to silently crop it at wide viewports (16:9 at 760px column width
+   is 427.5px, 7.5px taller than the old cap), on top of which the UA
+   stylesheet was already deriving an implicit 16:9 from the img's own
+   width/height attributes, fighting the max-height. Made explicit here
+   instead of leaving it as a side effect of those attributes.
+   height:auto is load-bearing: the <img height="..."> HTML attribute is a
+   presentational hint the UA stylesheet turns into `height:<attr>px`, and
+   since that counts as a definite (non-auto) height, aspect-ratio has
+   nothing to resolve and the box gets a fixed pixel height regardless of
+   width -- without height:auto here this renders as a near-square box at
+   narrow widths and a short, too-wide one at wide widths, never 16:9. */
+.nw-art-cover{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;border-radius:12px;margin-bottom:24px;display:block}
 .nw-art-fallback-note{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 14px;font-size:var(--fs-meta);color:var(--muted);margin-bottom:18px}
 .nw-art-body{color:var(--text);font-size:1rem;line-height:1.8}
 .nw-art-body h2{font-family:var(--display);font-weight:700;color:var(--gold);font-size:1.3rem;margin:24px 0 10px}
@@ -172,7 +193,7 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
 .nw-art-body a{color:var(--blue-soft)}
 .nw-loading,.nw-notfound{color:var(--muted);font-size:.9rem;padding:40px 0;text-align:center}
 
-.nw-comments{width:min(760px,92vw);margin:0 auto;padding:0 0 60px;border-top:1px solid var(--line);padding-top:36px}
+.nw-comments{width:min(760px,calc(100% - 2*var(--gutter)));margin:0 auto;padding:0 0 60px;border-top:1px solid var(--line);padding-top:36px}
 .nw-comments-title{font-family:var(--display);font-weight:700;font-size:1.4rem;margin-bottom:18px}
 .nw-comment-login{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px;margin-bottom:24px}
 .nw-comment-login p{color:var(--text);font-size:.9rem;margin-bottom:12px}
@@ -232,6 +253,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 </div></nav>
 
+<!-- PRD 8.9 -- measures #nwArt's own box, reset per article (see the
+     scroll handler near nwRenderReactions() below), not the whole
+     document, so it's meaningful once Phase 5's continuous-reading
+     appends a second article. -->
+<div class="read-progress" id="nwReadProgress"><i></i></div>
+
 <div class="nw-layout">
 <main class="nw-art" id="nwArt">
 <a class="nw-back" href="/news/">← სიახლეები</a>
@@ -245,6 +272,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 </aside>
 </div>
+
+<!-- PRD 8.8 -- filled by nwRenderReactions(); like/dislike/share moved
+     here from the old inline #nwReactions row, each a 44x44 .btn--icon. -->
+<div class="article-actions" id="nwArticleActions"></div>
 
 <section class="nw-comments" id="nwCommentsWrap" style="display:none">
   <h2 class="nw-comments-title">კომენტარები (<span id="nwCommentCount">0</span>)</h2>
@@ -511,7 +542,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <span class="mnav-lbl">პროფილი</span>
   </a>
 </nav>
-<script defer src="/fantasy-nav.js?v=6"></script>
+<script defer src="/fantasy-nav.js?v=7"></script>
 <script defer src="/app.js?v=209"></script>
 <script>
 (function(){var fx=document.getElementById('navFx');if(!fx)return;
@@ -582,16 +613,20 @@ let nwCurrentUrl = '';
 // (/storage/v1/render/image/public/...). Covers are uploaded at full
 // camera resolution (2400x1616 measured), so every display slot needs
 // this instead of the raw original.
-function nwTransformUrl(url, width, quality) {
+function nwTransformUrl(url, width, quality, height, resize = 'cover') {
   const marker = '/storage/v1/object/public/';
   const idx = url ? url.indexOf(marker) : -1;
   if (idx === -1) return url;
   const base = url.slice(0, idx) + '/storage/v1/render/image/public/' + url.slice(idx + marker.length);
-  return `${base}${base.includes('?') ? '&' : '?'}width=${width}&quality=${quality}`;
+  return `${base}${base.includes('?') ? '&' : '?'}width=${width}&height=${height}&resize=${resize}&quality=${quality}`;
 }
-function nwSrcset(url, widths, quality) {
+// sizes: array of [width, height] pairs, one target aspect ratio per slot --
+// a bare width list (the old signature) left height unset, so the render
+// endpoint kept the source's native 2400x1616 and only scaled width,
+// stretching the delivered pixels into the wrong ratio (see commit message).
+function nwSrcset(url, sizes, quality) {
   if (!url) return '';
-  return widths.map(w => `${nwTransformUrl(url, w, quality)} ${w}w`).join(', ');
+  return sizes.map(([w, h]) => `${nwTransformUrl(url, w, quality, h)} ${w}w`).join(', ');
 }
 
 // Fallback description when meta_description_* is empty: strip tags from
@@ -602,6 +637,13 @@ function nwExcerpt(html, maxLen) {
   const cut = text.slice(0, maxLen);
   const lastSpace = cut.lastIndexOf(' ');
   return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trim() + '…';
+}
+
+// Math.ceil(wordCount / 160), mirrors news/index.html's nwReadingTime().
+function nwReadingTime(body) {
+  const text = (body || '').replace(/<[^>]+>/g, ' ').trim();
+  const words = text ? text.split(/\s+/).length : 0;
+  return Math.max(1, Math.ceil(words / 160));
 }
 
 function nwRenderArticle() {
@@ -637,7 +679,7 @@ function nwRenderArticle() {
   document.getElementById('nwTwDesc').setAttribute('content', metaDesc);
   if (a.published_at) document.getElementById('nwArticlePublished').setAttribute('content', a.published_at);
   if (a.cover_image_url) {
-    const ogImg = nwTransformUrl(a.cover_image_url, 1200, 75) + '&height=630&resize=cover';
+    const ogImg = nwTransformUrl(a.cover_image_url, 1200, 75, 630);
     document.getElementById('nwOgImage').setAttribute('content', ogImg);
     document.getElementById('nwTwImage').setAttribute('content', ogImg);
   }
@@ -650,8 +692,9 @@ function nwRenderArticle() {
 
   const cats = (a.news_article_categories || []).map(x => x.news_categories).filter(Boolean);
   const chipsHtml = cats.length
-    ? `<div class="nw-chips">${cats.map(c => `<span class="nw-chip">${(effectiveLang === 'en' && c.name_en) ? c.name_en : c.name_ka}</span>`).join('')}</div>`
+    ? `<div class="nw-chips">${cats.map(c => `<span class="nw-cat-pill">${((effectiveLang === 'en' && c.name_en) ? c.name_en : c.name_ka).replace(/</g, '&lt;')}</span>`).join('')}</div>`
     : '';
+  const readMins = nwReadingTime(body);
 
   document.getElementById('nwArt').innerHTML = `
     <a class="nw-back" href="/news/">← სიახლეები</a>
@@ -662,9 +705,8 @@ function nwRenderArticle() {
     ${fallbackNote}
     ${chipsHtml}
     <h1 class="nw-art-title">${title}</h1>
-    <div class="nw-art-meta">${[a.author, dateStr].filter(Boolean).join(' · ')}</div>
-    <div class="nw-reactions" id="nwReactions"></div>
-    ${a.cover_image_url ? `<img class="nw-art-cover" src="${nwTransformUrl(a.cover_image_url, 800, 75)}" srcset="${nwSrcset(a.cover_image_url, [400, 800, 1200], 75)}" sizes="(min-width: 768px) 700px, 100vw" width="1600" height="900" alt="${alt.replace(/"/g, '&quot;')}" loading="eager" fetchpriority="high" decoding="async" />` : ''}
+    <div class="nw-art-meta">${[a.author, dateStr ? `<time datetime="${a.published_at || ''}">${dateStr}</time>` : ''].filter(Boolean).join(' · ')}${dateStr ? ` · ${readMins} წთ კითხვა` : ''}</div>
+    ${a.cover_image_url ? `<img class="nw-art-cover" src="${nwTransformUrl(a.cover_image_url, 800, 75, 450)}" srcset="${nwSrcset(a.cover_image_url, [[400, 225], [800, 450], [1200, 675], [1600, 900]], 75)}" sizes="(min-width: 1100px) 760px, (min-width: 768px) 700px, 100vw" width="800" height="450" alt="${alt.replace(/"/g, '&quot;')}" loading="eager" fetchpriority="high" decoding="async" />` : ''}
     <div class="nw-art-body">${body}</div>
   `;
   document.querySelectorAll('#nwLang button').forEach(b => {
@@ -925,13 +967,20 @@ async function nwRefreshMyReaction() {
   nwRenderReactions();
 }
 
+// PRD 8.8 -- like/dislike/share used to be an inline row inside #nwArt
+// (61x35 and 126x35, both under the 44px minimum); now a fixed pill
+// outside #nwArt (so it isn't destroyed by nwRenderArticle()'s innerHTML
+// writes), each control a 44x44 .btn--icon with the count as a separate
+// label rather than inline button text.
 function nwRenderReactions() {
-  const box = document.getElementById('nwReactions');
+  const box = document.getElementById('nwArticleActions');
   if (!box) return;
   box.innerHTML = `
-    <button type="button" class="nw-react-btn ${nwMyReactionVal === 'like' ? 'on' : ''}" onclick="nwToggleReaction('like')">${NW_ICON_LIKE} <span>${nwReactionCounts.like}</span></button>
-    <button type="button" class="nw-react-btn ${nwMyReactionVal === 'dislike' ? 'on' : ''}" onclick="nwToggleReaction('dislike')">${NW_ICON_DISLIKE} <span>${nwReactionCounts.dislike}</span></button>
-    <button type="button" class="nw-react-btn" onclick="nwShare(nwCurrentUrl, nwCurrentTitle)">${NW_ICON_SHARE} გაზიარება</button>
+    <button type="button" class="btn--icon ${nwMyReactionVal === 'like' ? 'on' : ''}" onclick="nwToggleReaction('like')" aria-label="მომწონს" aria-pressed="${nwMyReactionVal === 'like'}">${NW_ICON_LIKE}</button>
+    <span class="aa-count">${nwReactionCounts.like}</span>
+    <button type="button" class="btn--icon ${nwMyReactionVal === 'dislike' ? 'on' : ''}" onclick="nwToggleReaction('dislike')" aria-label="არ მომწონს" aria-pressed="${nwMyReactionVal === 'dislike'}">${NW_ICON_DISLIKE}</button>
+    <span class="aa-count">${nwReactionCounts.dislike}</span>
+    <button type="button" class="btn--icon" onclick="nwShare(nwCurrentUrl, nwCurrentTitle)" aria-label="გაზიარება">${NW_ICON_SHARE}</button>
     <span class="nw-react-msg" id="nwReactMsg"></span>`;
 }
 
@@ -1018,15 +1067,26 @@ async function nwCopyShareLink() {
 // ─────────────────────────────────────────────────────────────
 let nwSidebarArticles = [];
 
-async function nwLoadSidebarArticles(excludeSlug) {
+// categoryIds=[] (article has no categories) intentionally yields an
+// empty related list rather than falling back to "any recent article"
+// -- the PRD's own wording is "sharing a category", not "recent".
+async function nwLoadSidebarArticles(excludeSlug, categoryIds) {
+  if (!categoryIds || !categoryIds.length) { nwSidebarArticles = []; nwRenderSidebarList(); return; }
+  // !inner forces the join to actually filter (a left/default embed
+  // would otherwise ignore the .in() below); articles with more than
+  // one matching category can come back more than once, deduped by
+  // slug client-side -- hence fetching more than 3 before slicing.
   const { data, error } = await nwGetClient()
     .from('news')
-    .select('title_ka,title_en,slug,cover_image_url,cover_image_alt_ka,cover_image_alt_en,published_at')
+    .select('title_ka,title_en,slug,body_ka,body_en,cover_image_url,cover_image_alt_ka,cover_image_alt_en,published_at,news_article_categories!inner(category_id,news_categories(id,name_ka,name_en,slug))')
     .eq('is_published', true)
     .neq('slug', excludeSlug)
+    .in('news_article_categories.category_id', categoryIds)
     .order('published_at', { ascending: false })
-    .limit(8);
-  nwSidebarArticles = error ? [] : (data || []);
+    .limit(9);
+  if (error) { nwSidebarArticles = []; nwRenderSidebarList(); return; }
+  const seen = new Set();
+  nwSidebarArticles = (data || []).filter(a => (seen.has(a.slug) ? false : (seen.add(a.slug), true))).slice(0, 3);
   nwRenderSidebarList();
 }
 
@@ -1041,14 +1101,15 @@ function nwRenderSidebarList() {
     const alt = ((lang === 'en' && a.cover_image_alt_en) ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
     const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), lang, 'short') : '';
     const thumb = a.cover_image_url
-      ? `<img class="nw-sidebar-thumb" src="${nwTransformUrl(a.cover_image_url, 160, 75)}" width="152" height="108" alt="${nwEscapeHtml(alt)}" loading="lazy" decoding="async" />`
-      : `<div class="nw-sidebar-thumb"></div>`;
+      ? `<img class="acl-thumb" src="${nwTransformUrl(a.cover_image_url, 224, 75, 168)}" srcset="${nwSrcset(a.cover_image_url, [[224, 168], [336, 252]], 75)}" sizes="112px" width="112" height="84" alt="${nwEscapeHtml(alt)}" loading="lazy" decoding="async" />`
+      : '';
+    const readMins = nwReadingTime((lang === 'en' && a.body_en) ? a.body_en : a.body_ka);
     return `
-    <a class="nw-sidebar-item" href="/news/${encodeURIComponent(a.slug)}/">
+    <a class="article-card--list" href="/news/${encodeURIComponent(a.slug)}/">
       ${thumb}
-      <div class="nw-sidebar-item-body">
-        <div class="nw-sidebar-item-title">${nwEscapeHtml(title)}</div>
-        <div class="nw-sidebar-item-date">${dateStr}</div>
+      <div class="acl-content">
+        <h3 class="acl-title">${nwEscapeHtml(title)}</h3>
+        <div class="acl-meta"><time datetime="${a.published_at || ''}">${dateStr}</time> · ${readMins} წთ კითხვა</div>
       </div>
     </a>`;
   }).join('');
@@ -1064,8 +1125,6 @@ async function nwLoad() {
   const slug = pathMatch ? pathMatch[1] : new URLSearchParams(location.search).get('slug');
   if (!slug) { nwShowNotFound(); return; }
 
-  nwLoadSidebarArticles(slug); // independent of the main article fetch below, runs concurrently
-
   // news_article_categories(category_id,news_categories(...)) embeds
   // the article's categories in the same request -- see
   // supabase/news_categories.sql for the two new FKs this relies on.
@@ -1079,6 +1138,11 @@ async function nwLoad() {
   if (error || !data) { nwShowNotFound(); return; }
   nwArticle = data;
   nwRenderArticle();
+  // Needs this article's own category ids first (to match "shares a
+  // category"), so this can no longer fire concurrently with the fetch
+  // above the way it used to when it just showed any recent article.
+  const categoryIds = (data.news_article_categories || []).map(x => x.category_id).filter(Boolean);
+  nwLoadSidebarArticles(slug, categoryIds);
 
   document.getElementById('nwCommentsWrap').style.display = 'block';
   await nwInitEngagement();
@@ -1089,6 +1153,27 @@ function nwShowNotFound() {
     <a class="nw-back" href="/news/">← სიახლეები</a>
     <div class="nw-notfound">სტატია ვერ მოიძებნა.</div>`;
 }
+
+// PRD 8.9 -- progress through #nwArt's own box (top of its content to
+// the bottom of its content, relative to the viewport), not the whole
+// document, so this stays meaningful once Phase 5's continuous reading
+// appends a second <article> below. rAF-throttled per the PRD's own
+// INP guidance (8.9, 11) rather than running on every scroll event.
+let nwProgressRaf = null;
+function nwUpdateReadProgress() {
+  const art = document.getElementById('nwArt');
+  const bar = document.getElementById('nwReadProgress');
+  if (!art || !bar) return;
+  const r = art.getBoundingClientRect();
+  const total = r.height - innerHeight;
+  const scrolled = total > 0 ? Math.min(1, Math.max(0, -r.top / total)) : (r.top <= 0 ? 1 : 0);
+  bar.firstElementChild.style.width = (scrolled * 100) + '%';
+}
+window.addEventListener('scroll', () => {
+  if (nwProgressRaf) return;
+  nwProgressRaf = requestAnimationFrame(() => { nwUpdateReadProgress(); nwProgressRaf = null; });
+}, { passive: true });
+window.addEventListener('resize', nwUpdateReadProgress);
 
 document.addEventListener('DOMContentLoaded', nwLoad);
 </script>
