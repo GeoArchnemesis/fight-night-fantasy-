@@ -94,3 +94,39 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
   else build();
 })();
+
+// ============================================================
+//  ufc-quiz-nav — "ქვიზი" ბმულის ჩამატება ნავში, ყველა გვერდზე
+//  სადაც fantasy-nav.js ჩატვირთულია (ადრე მხოლოდ /ufc/-ის ინლაინ
+//  ასლში იყო, ამიტომ /news/-ზე და სხვაგან ქვიზის ბმული საერთოდ
+//  არ ჩანდა -- იხ. commit message). ბმული ემატება ზედა ნავის
+//  ძირითად ჯგუფში (#navLinks) -- იგივე ადგილას, სადაც
+//  "ლიდერბორდი"/"ბილეთების ისტორია"/"პროფილი" (დესკტოპზე .d-only)
+//  და "ბრძოლები"/"ლიდერბორდი"/"წესები" (ჰამბურგერ-მენიუში .m-only)
+//  ზის -- და არა "ფენტეზის ტიპი"-ს ჩამოსაშლელში. საკუთარი
+//  idempotent guard და "ორჯერ არ ჩასვა" შემოწმება, ცალკე
+//  __FNF_FANTASY_NAV__-ისგან, რადგან ეს დამოუკიდებელი ფუნქციაა.
+// ============================================================
+(function () {
+  if (window.__FNF_QUIZ_NAV__) return;
+  window.__FNF_QUIZ_NAV__ = true;
+
+  function build() {
+    var nav = document.getElementById('navLinks');
+    if (!nav || nav.querySelector('.quiz-nav-link')) return;
+
+    var d = document.createElement('a');
+    d.className = 'd-only quiz-nav-link';
+    d.href = '/ufc/quiz/';
+    d.textContent = 'ქვიზი';
+    nav.appendChild(d);
+
+    var m = document.createElement('a');
+    m.className = 'm-only quiz-nav-link';
+    m.href = '/ufc/quiz/';
+    m.textContent = 'ქვიზი';
+    nav.appendChild(m);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
+  else build();
+})();

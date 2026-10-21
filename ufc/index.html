@@ -634,41 +634,7 @@ function openSocial(type){
     <span class="mnav-lbl">პროფილი</span>
   </a>
 </nav>
-<script defer src="/fantasy-nav.js?v=6"></script>
-<script>
-/* ── ufc-quiz-nav — "ქვიზი" ბმულის ჩამატება ნავში, მხოლოდ /ufc/ გვერდებზე.
-   ბმული ემატება ზედა ნავის ძირითად ჯგუფში (#navLinks) — იგივე ადგილას,
-   სადაც "ლიდერბორდი"/"ბილეთების ისტორია"/"პროფილი" (დესკტოპზე .d-only)
-   და "ბრძოლები"/"ლიდერბორდი"/"წესები" (ჰამბურგერ-მენიუში .m-only) ზის —
-   და არა "ფენტეზის ტიპი"-ს ჩამოსაშლელში (ეს სხვა დანიშნულების dropdown-ია
-   და ადრე იქ იმალებოდა). fantasy-nav.js-ის იდენტური idempotent
-   DOM-injection პატერნი, მაგრამ ცალკე ფაილად (არ ეხება სხვა სპორტის
-   გვერდებს). ── */
-(function(){
-  if(window.__FNF_QUIZ_NAV__) return;
-  window.__FNF_QUIZ_NAV__ = true;
-  if(!/^\/ufc\//.test(location.pathname)) return;
-
-  function build(){
-    var nav = document.getElementById('navLinks');
-    if(!nav || nav.querySelector('.quiz-nav-link')) return;
-
-    var d = document.createElement('a');
-    d.className = 'd-only quiz-nav-link';
-    d.href = '/ufc/quiz/';
-    d.textContent = 'ქვიზი';
-    nav.appendChild(d);
-
-    var m = document.createElement('a');
-    m.className = 'm-only quiz-nav-link';
-    m.href = '/ufc/quiz/';
-    m.textContent = 'ქვიზი';
-    nav.appendChild(m);
-  }
-  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
-  else build();
-})();
-</script>
+<script defer src="/fantasy-nav.js?v=7"></script>
 <script defer src="/app.js?v=209"></script>
 <!-- ── REPORT CONTACT POPUP ── -->
 <div id="reportPopup" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(5,4,8,.8);backdrop-filter:blur(6px);justify-content:center;align-items:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
