@@ -368,11 +368,10 @@ function normalizeRow(row){
 async function fetchQuestions(dbLevel){
   if(!sb || !dbLevel){ console.warn("[quiz] sb არ არის — ვერ წამოვიღე სერვერიდან."); return null; }
   try{
-    const { data, error } = await sb
-      .from('quiz_questions')
-      .select('*')
-      .eq('level', dbLevel)
-      .eq('is_active', true);
+    // get_ai_quiz_questions (supabase/quiz_no_repeat.sql) ირჩევს 10 კითხვას
+    // სერვერზე, user-ის „ნანახის" ისტორიის გათვალისწინებით (no-repeat) —
+    // კლიენტს აღარ სჭირდება მთელი პულის წამოღება/shuffle/slice.
+    const { data, error } = await sb.rpc('get_ai_quiz_questions', { p_game_type: 'quiz', p_level: dbLevel });
     if(error){ console.error("[quiz] Supabase შეცდომა:", error.message||error); return null; }
     // ⚠️ განზრახ არ ვბეჭდავთ არც კითხვის, არც პასუხის შემცველ მონაცემებს კონსოლში (anti-cheat).
     if(!Array.isArray(data) || !data.length) return null;
@@ -397,11 +396,8 @@ function normalizeGuessRow(row){
 async function fetchGuessQuestions(dbLevel){
   if(!sb || !dbLevel) return null;
   try{
-    const { data, error } = await sb
-      .from('guess_who_questions')
-      .select('*')
-      .eq('level', dbLevel)
-      .eq('is_active', true);
+    // იხ. ზემოთ fetchQuestions-ის შენიშვნა — იგივე no-repeat RPC, guess-who პულზე.
+    const { data, error } = await sb.rpc('get_ai_quiz_questions', { p_game_type: 'guess', p_level: dbLevel });
     if(error){ console.error("[quiz] Supabase შეცდომა (ვინ ვარ?):", error.message||error); return null; }
     // ⚠️ აქაც არ ვბეჭდავთ მონაცემებს (პასუხებს) კონსოლში.
     if(!Array.isArray(data) || !data.length) return null;
@@ -609,7 +605,9 @@ async function beginQuiz(){
   }
   if(!pool || !pool.length) return { ok:false, reason:"server" };
 
-  S.questions = shuffle(pool).slice(0, QUESTIONS_PER_GAME);
+  // pool უკვე სერვერზეა შერჩეული (no-repeat RPC, იხ. fetchQuestions/
+  // fetchGuessQuestions) — აქ აღარ სჭირდება ხელახალი shuffle/slice.
+  S.questions = pool;
   S.qi = 0;
   S.playerPicks = []; S.playerPoints = []; S.oppPoints = [];
   const acc = (S.aiAcc != null) ? S.aiAcc : AI_ACCURACY;
