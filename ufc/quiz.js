@@ -480,8 +480,10 @@ const backBtn = $("#back-to-gametype");
 if(backBtn) backBtn.addEventListener("click", ()=> show("screen-gametype"));
 
 /* ============================================================
-   1) რეჟიმის არჩევა — ამ ეტაპზე მხოლოდ "AI-ის წინააღმდეგ" (startLobby).
-   "ადამიანის წინააღმდეგ" ბარათი დაბლოკილია (data-locked), იხ. index.html.
+   1) რეჟიმის არჩევა — "AI-ის წინააღმდეგ" (startLobby) ან "ადამიანის
+   წინააღმდეგ" (startPvpSetup — PvP ჯგუფური ოთახი, იხ. §2.5 ქვემოთ).
+   data-locked მხარდაჭერა დარჩენილია მომავალში ხელახლა გამოსაყენებლად,
+   თუ ოდესმე კიდევ რომელიმე ბარათი დაიბლოკება.
    ============================================================ */
 $$("#screen-mode .mode").forEach(card=>{
   if(card.dataset.locked === "true") return; // მომავალში ჯერ არ ჩართული ბარათებისთვის
@@ -494,7 +496,8 @@ $$("#screen-mode .mode").forEach(card=>{
    2) ლობი — სირთულის არჩევა, შემდეგ "დაწყება"
    ============================================================ */
 function startLobby(mode){
-  if(mode !== "ai") return; // დაცვა — ამ ფაზაში მხოლოდ AI
+  if(mode === "pvp"){ startPvpSetup(); return; }
+  if(mode !== "ai") return; // დაცვა — დანარჩენი არაცნობილი რეჟიმებისთვის
   const you = $("#lob-you"), youName = $("#lob-you-name"), youStat = $("#lob-you-status");
   const opp = $("#lob-opp"), oppName = $("#lob-opp-name"), oppStat = $("#lob-opp-status");
   you.textContent = "🤠"; you.className = "avatar you on";
@@ -590,6 +593,337 @@ function showGuessAIStart(action){
     }
   });
 }
+
+/* ============================================================
+   2.5) PvP — ჯგუფური ოთახი (ჰოსტი + 8-მდე მეგობარი)
+   იხ. supabase/quiz_group_pvp.sql. კითხვა-პასუხის ეკრანები (screen-quiz /
+   screen-guess) AI-ის რეჟიმის იდენტურია — სხვაობა მხოლოდ: 1) პასუხები
+   ემატება სერვერზე (submit_quiz_answer) ავტორიტეტული ქულის დასათვლელად,
+   2) ბოლო კითხვის შემდეგ კარტების ბრძოლის ნაცვლად "ველოდებით
+   დანარჩენებს" ეკრანზე გადადის, სანამ ოთახის ყველა მოთამაშე არ
+   დაასრულებს (PRD §2.4 — ჯგუფურ რეჟიმში კითხვა-კითხვაზე reveal არ არის).
+   ============================================================ */
+let PVP = null; // { roomId, code, isHost, myId, myName, maxPlayers, players, started, resultsShown }
+
+function resetPvp(){
+  if(PVP){
+    try{ if(PVP.playersChannel) sb.removeChannel(PVP.playersChannel); }catch(e){}
+    try{ if(PVP.roomChannel) sb.removeChannel(PVP.roomChannel); }catch(e){}
+  }
+  PVP = null;
+}
+
+function startPvpSetup(){
+  resetPvp();
+  const diffWrap = $("#pvp-create-diff");
+  diffWrap.innerHTML = "";
+  let chosenLevel = null;
+  const createBtn = $("#pvp-create-btn");
+  createBtn.disabled = true;
+  createBtn.textContent = "ოთახის შექმნა";
+
+  const chips = document.createElement("div");
+  chips.className = "diff-chips";
+  DIFFICULTY.forEach(d=>{
+    const c = document.createElement("button");
+    c.className = "chip"; c.textContent = d.label + (d.enabled ? "" : " 🔒");
+    if(!d.enabled){
+      c.disabled = true;
+      c.title = "მალე დაემატება — ჯერ არ არის კითხვები ამ დონეზე სერვერზე.";
+    } else {
+      c.onclick = ()=>{
+        chosenLevel = d.dbLevel;
+        chips.querySelectorAll(".chip").forEach(x=> x.classList.remove("sel"));
+        c.classList.add("sel");
+        createBtn.disabled = false;
+      };
+    }
+    chips.appendChild(c);
+  });
+  diffWrap.appendChild(chips);
+  const defaultChip = Array.from(chips.children).find((_,i)=> DIFFICULTY[i].enabled);
+  if(defaultChip) defaultChip.click();
+
+  createBtn.onclick = ()=> requireAuth(()=> createPvpRoom(chosenLevel));
+
+  const codeInput = $("#pvp-join-code");
+  const joinErr = $("#pvp-join-error");
+  joinErr.style.display = "none";
+  // დეპ-ლინკი (fnf.ge/ufc/quiz/?room=ABC123) — კოდი წინასწარ ივსება.
+  const urlCode = new URLSearchParams(location.search).get("room");
+  codeInput.value = urlCode ? urlCode.toUpperCase() : "";
+
+  $("#pvp-join-btn").onclick = ()=> requireAuth(()=> joinPvpRoom(codeInput.value));
+
+  show("screen-pvp-setup");
+}
+
+function pvpErrorMessage(err){
+  const msg = (err && err.message) || "";
+  if(msg.includes("room not found")) return "ასეთი ოთახი ვერ მოიძებნა.";
+  if(msg.includes("room expired")) return "ოთახს ვადა გაუვიდა.";
+  if(msg.includes("already full or finished")) return "ოთახი უკვე დაწყებულია ან დასრულდა.";
+  if(msg.includes("room is full")) return "ოთახი სავსეა.";
+  if(msg.includes("own room")) return "საკუთარ ოთახში ვერ შეხვალ.";
+  return msg || "დაფიქსირდა შეცდომა — სცადე თავიდან.";
+}
+
+async function createPvpRoom(level){
+  if(!level || !sb) return;
+  const btn = $("#pvp-create-btn");
+  btn.disabled = true; btn.textContent = "იქმნება…";
+  try{
+    const { data, error } = await sb.rpc('create_quiz_room', { p_game_type: S.gameType || 'quiz', p_level: level });
+    if(error || !data || !data.length){
+      alert("ოთახის შექმნა ვერ მოხერხდა: " + pvpErrorMessage(error));
+      btn.disabled = false; btn.textContent = "ოთახის შექმნა";
+      return;
+    }
+    const row = data[0];
+    S.gameType = S.gameType || 'quiz';
+    enterPvpLobby({ roomId: row.room_id, code: row.code, isHost: true, questions: row.questions });
+  }catch(e){
+    alert("დაფიქსირდა შეცდომა — სცადე თავიდან.");
+    btn.disabled = false; btn.textContent = "ოთახის შექმნა";
+  }
+}
+
+async function joinPvpRoom(codeRaw){
+  const code = (codeRaw || "").trim().toUpperCase();
+  const err = $("#pvp-join-error");
+  err.style.display = "none";
+  if(code.length < 4){ err.textContent = "შეიყვანე სწორი კოდი."; err.style.display = "block"; return; }
+  if(!sb) return;
+  const btn = $("#pvp-join-btn");
+  btn.disabled = true; btn.textContent = "შედის…";
+  try{
+    const { data, error } = await sb.rpc('join_quiz_room', { p_code: code });
+    if(error || !data || !data.length){
+      err.textContent = pvpErrorMessage(error);
+      err.style.display = "block";
+      btn.disabled = false; btn.textContent = "ოთახში შესვლა";
+      return;
+    }
+    const row = data[0];
+    S.gameType = row.game_type;
+    enterPvpLobby({ roomId: row.room_id, code, isHost: false, questions: row.questions });
+  }catch(e){
+    err.textContent = "დაფიქსირდა შეცდომა — სცადე თავიდან.";
+    err.style.display = "block";
+    btn.disabled = false; btn.textContent = "ოთახში შესვლა";
+  }
+}
+
+function enterPvpLobby({ roomId, code, isHost, questions }){
+  PVP = {
+    roomId, code, isHost,
+    myId: currentAuthUser && currentAuthUser.id,
+    myName: currentAuthUser && currentAuthUser.nick,
+    players: [],
+    maxPlayers: 9,
+    questions: questions || [],
+    started: false,
+    resultsShown: false,
+  };
+  $("#pvp-room-code").textContent = code;
+  const startBtn = $("#pvp-start-btn");
+  startBtn.style.display = isHost ? "" : "none";
+  startBtn.disabled = true;
+  startBtn.textContent = "დაწყება";
+  $("#pvp-lobby-hint").textContent = isHost ? "ველოდებით მინიმუმ 1 მეგობარს..." : "ველოდებით ჰოსტს დაწყებას...";
+  $("#pvp-lobby-hint").style.display = "";
+  renderPvpLobbyList();
+  subscribePvpRoom();
+  refreshPvpPlayers();
+  show("screen-pvp-lobby");
+}
+
+function subscribePvpRoom(){
+  if(!sb || !sb.channel || !PVP) return;
+  PVP.playersChannel = sb.channel("pvp-players-" + PVP.roomId)
+    .on("postgres_changes", { event: "*", schema: "public", table: "quiz_room_players", filter: `room_id=eq.${PVP.roomId}` },
+      ()=> refreshPvpPlayers())
+    .subscribe();
+  PVP.roomChannel = sb.channel("pvp-room-" + PVP.roomId)
+    .on("postgres_changes", { event: "UPDATE", schema: "public", table: "quiz_rooms", filter: `id=eq.${PVP.roomId}` },
+      payload=>{
+        const row = payload.new || {};
+        if(row.status === "active") onPvpRoomActive();
+        else if(row.status === "finished") onPvpRoomFinished();
+        else if(row.status === "abandoned") onPvpRoomAbandoned();
+      })
+    .subscribe();
+}
+
+async function refreshPvpPlayers(){
+  if(!PVP || !sb) return;
+  const { data, error } = await sb
+    .from("quiz_room_players")
+    .select("player_id,player_name,is_host,finished_at")
+    .eq("room_id", PVP.roomId)
+    .order("joined_at", { ascending: true });
+  if(error){ console.warn("[quiz] PvP player list fetch failed:", error); return; }
+  PVP.players = data || [];
+  const lobbyEl = document.getElementById("screen-pvp-lobby");
+  const waitEl = document.getElementById("screen-pvp-wait");
+  if(lobbyEl && lobbyEl.classList.contains("active")) renderPvpLobbyList();
+  if(waitEl && waitEl.classList.contains("active")) renderPvpWaitCount();
+}
+
+function renderPvpLobbyList(){
+  if(!PVP) return;
+  const list = $("#pvp-players-list"); list.innerHTML = "";
+  PVP.players.forEach(p=>{
+    const row = document.createElement("div");
+    row.className = "pvp-player";
+    const isMe = p.player_id === PVP.myId;
+    row.innerHTML = `<span class="ava">${p.is_host ? "👑" : "🤠"}</span>`+
+      `<span class="nm">${p.player_name}${isMe ? " (შენ)" : ""}</span>`+
+      (p.is_host ? `<span class="tag">ჰოსტი</span>` : "");
+    list.appendChild(row);
+  });
+  $("#pvp-players-count").textContent = `${PVP.players.length} / ${PVP.maxPlayers} მოთამაშე`;
+  if(PVP.isHost){
+    const enough = PVP.players.length >= 2;
+    $("#pvp-start-btn").disabled = !enough;
+    $("#pvp-lobby-hint").style.display = enough ? "none" : "";
+  }
+}
+
+function renderPvpWaitCount(){
+  if(!PVP) return;
+  const finished = PVP.players.filter(p=> p.finished_at).length;
+  $("#pvp-wait-count").textContent = `${finished} / ${PVP.players.length} დაასრულა`;
+}
+
+function onPvpRoomActive(){
+  if(!PVP || PVP.started) return;
+  PVP.started = true;
+  S.questions = PVP.questions || [];
+  S.qi = 0;
+  S.playerPicks = []; S.playerPoints = [];
+  if(S.gameType === "guess") S.gCluesShown = 1;
+  show(S.gameType === "guess" ? "screen-guess" : "screen-quiz");
+  renderQuestion();
+}
+
+function finishPvpQuiz(){
+  show("screen-pvp-wait");
+  renderPvpWaitCount();
+}
+
+async function submitPvpAnswer(qIndex, pick){
+  if(!PVP || !sb) return;
+  try{
+    const { error } = await sb.rpc('submit_quiz_answer', { p_room_id: PVP.roomId, p_question_index: qIndex, p_pick: pick });
+    if(error) console.warn("[quiz] PvP submit_quiz_answer failed:", error.message || error);
+  }catch(e){ console.warn("[quiz] PvP submit_quiz_answer failed:", e); }
+}
+
+async function revealPvpClue(qIndex){
+  if(!PVP || !sb) return;
+  try{
+    const { error } = await sb.rpc('reveal_quiz_clue', { p_room_id: PVP.roomId, p_question_index: qIndex });
+    if(error) console.warn("[quiz] PvP reveal_quiz_clue failed:", error.message || error);
+  }catch(e){ console.warn("[quiz] PvP reveal_quiz_clue failed:", e); }
+}
+
+async function onPvpRoomFinished(){
+  if(!PVP || PVP.resultsShown) return;
+  PVP.resultsShown = true;
+  try{
+    const { data, error } = await sb.rpc('get_quiz_results', { p_room_id: PVP.roomId });
+    if(error || !data || !data.length){
+      alert("შედეგების ჩატვირთვა ვერ მოხერხდა.");
+      return;
+    }
+    renderPvpResults(data[0]);
+    show("screen-pvp-results");
+  }catch(e){ console.warn("[quiz] PvP get_quiz_results failed:", e); }
+}
+
+function onPvpRoomAbandoned(){
+  if(!PVP) return;
+  alert("ოთახი დაიხურა.");
+  resetPvp();
+  S.gameType = null;
+  show("screen-mode");
+}
+
+function renderPvpResults(result){
+  const players = (result && result.players) || [];
+  const podiumEl = $("#pvp-podium"); podiumEl.innerHTML = "";
+  const restEl = $("#pvp-rest-list"); restEl.innerHTML = "";
+
+  const top3 = players.slice(0, 3);
+  const slots = [ { idx:1, cls:"p2", ring:"🥈" }, { idx:0, cls:"p1", ring:"🥇" }, { idx:2, cls:"p3", ring:"🥉" } ];
+  slots.forEach(s=>{
+    const p = top3[s.idx];
+    const slot = document.createElement("div");
+    slot.className = "podium-slot " + s.cls;
+    if(!p){ slot.style.visibility = "hidden"; podiumEl.appendChild(slot); return; }
+    const isMe = PVP && p.player_id === PVP.myId;
+    slot.innerHTML = `<div class="podium-ring">${s.ring}</div>`+
+      `<div class="podium-nm">${p.player_name}${isMe ? " (შენ)" : ""}</div>`+
+      `<div class="podium-pts">${p.total_score} ქულა</div>`+
+      `<div class="podium-base"></div>`;
+    podiumEl.appendChild(slot);
+  });
+
+  players.slice(3).forEach((p,i)=>{
+    const isMe = PVP && p.player_id === PVP.myId;
+    const row = document.createElement("div");
+    row.className = "pvp-rest-row";
+    row.innerHTML = `<span class="rank">${i+4}</span>`+
+      `<span class="nm">${p.player_name}${isMe ? " (შენ)" : ""}</span>`+
+      `<span class="pts">${p.total_score}</span>`;
+    restEl.appendChild(row);
+  });
+}
+
+$("#back-to-mode-from-pvp").addEventListener("click", ()=>{ resetPvp(); show("screen-mode"); });
+
+$("#pvp-leave-btn").addEventListener("click", async ()=>{
+  if(PVP){ try{ await sb.rpc('leave_quiz_room', { p_room_id: PVP.roomId }); }catch(e){} }
+  resetPvp();
+  show("screen-mode");
+});
+
+$("#pvp-start-btn").addEventListener("click", async ()=>{
+  if(!PVP || !PVP.isHost) return;
+  const btn = $("#pvp-start-btn");
+  btn.disabled = true; btn.textContent = "იწყება…";
+  try{
+    const { error } = await sb.rpc('start_quiz_room', { p_room_id: PVP.roomId });
+    if(error){
+      alert("დაწყება ვერ მოხერხდა: " + pvpErrorMessage(error));
+      btn.disabled = false; btn.textContent = "დაწყება";
+    }
+    // წარმატების შემთხვევაში quiz_rooms-ის Realtime UPDATE (status->active)
+    // თავად გამოიძახებს onPvpRoomActive()-ს ყველასთვის, ჰოსტის ჩათვლით.
+  }catch(e){
+    alert("დაფიქსირდა შეცდომა.");
+    btn.disabled = false; btn.textContent = "დაწყება";
+  }
+});
+
+$("#pvp-copy-link").addEventListener("click", ()=>{
+  if(!PVP) return;
+  const url = location.origin + "/ufc/quiz/?room=" + PVP.code;
+  const btn = $("#pvp-copy-link");
+  const done = ()=>{ btn.textContent = "დაკოპირდა ✓"; setTimeout(()=> btn.textContent = "ბმულის კოპირება", 1500); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(done).catch(()=> prompt("დააკოპირე ბმული:", url));
+  } else {
+    prompt("დააკოპირე ბმული:", url);
+  }
+});
+
+$("#pvp-results-done").addEventListener("click", ()=>{
+  resetPvp();
+  S.gameType = null;
+  show("screen-gametype");
+});
 
 /* ============================================================
    3) ქვიზი
@@ -728,6 +1062,7 @@ function submitGuess(){
 
   S.playerPicks[S.qi] = val;
   S.playerPoints[S.qi] = points;
+  if(PVP) submitPvpAnswer(S.qi, val);
 
   if(result.correct){
     fb.classList.add("ok"); fb.classList.remove("bad");
@@ -746,8 +1081,7 @@ function submitGuess(){
 
 function advanceGuessQuestion(){
   S.qi++;
-  if(S.qi >= S.questions.length){ finishQuiz(); }
-  else { renderQuestion(); }
+  advanceOrFinish();
 }
 
 $("#gq-next-clue").addEventListener("click", ()=>{
@@ -756,6 +1090,7 @@ $("#gq-next-clue").addEventListener("click", ()=>{
   if(S.gCluesShown < item.clues.length){
     S.gCluesShown++;
     renderGuessClues();
+    if(PVP) revealPvpClue(S.qi);
     if(S.gCluesShown >= item.clues.length) $("#gq-next-clue").disabled = true;
   }
 });
@@ -771,12 +1106,24 @@ function answer(chosen, btn){
     opts.forEach((o,i)=>{ if(i!==chosen) o.classList.add("dim"); });
   }
   S.playerPicks[S.qi] = chosen; // -1 თუ დრო ამოიწურა
+  if(PVP) submitPvpAnswer(S.qi, chosen);
 
   setTimeout(()=>{
     S.qi++;
-    if(S.qi >= S.questions.length){ finishQuiz(); }
-    else { renderQuestion(); }
+    advanceOrFinish();
   }, chosen>=0 ? 620 : 300);
+}
+
+/* PvP-ში "შემდეგი კითხვა / დასრულება" იგივეა, რაც AI-ის წინააღმდეგ — გარდა
+   იმისა, რომ ბოლო კითხვის შემდეგ კარტების ბრძოლის ნაცვლად (ეს მხოლოდ AI-ის
+   წინააღმდეგ რეჟიმშია საჭირო) პირდაპირ "ველოდებით დანარჩენებს" ეკრანზე
+   გადადის, სანამ ოთახის ყველა მოთამაშე არ დაასრულებს (PRD §2.4). */
+function advanceOrFinish(){
+  if(S.qi >= S.questions.length){
+    if(PVP){ finishPvpQuiz(); } else { finishQuiz(); }
+  } else {
+    renderQuestion();
+  }
 }
 
 /* ============================================================

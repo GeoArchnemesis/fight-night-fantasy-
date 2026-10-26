@@ -36,7 +36,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-<link rel="stylesheet" href="/style.css?v=202">
+<link rel="stylesheet" href="/style.css?v=203">
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
@@ -245,6 +245,45 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .name-entry label{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);text-align:center}
 #quizRoot .name-entry input{width:100%;font-family:var(--head);font-size:.92rem;color:var(--text);text-align:center;padding:12px 14px;border-radius:8px;border:1px solid var(--line);background:var(--ink)}
 #quizRoot .name-entry input:focus{outline:none;border-color:var(--gold)}
+
+/* ---------- PvP (group, host + up to 8 friends) ---------- */
+#quizRoot .pvp-setup{display:flex;flex-direction:column;gap:16px}
+#quizRoot .pvp-panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+#quizRoot .pvp-panel h3{font-family:var(--display);font-weight:700;font-size:1rem;margin-bottom:12px;text-align:center}
+#quizRoot .pvp-divider{text-align:center;color:var(--muted);font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase}
+#quizRoot .pvp-lobby{display:flex;flex-direction:column;align-items:center;gap:16px;width:100%}
+#quizRoot .pvp-code-box{text-align:center}
+#quizRoot .pvp-code-label{font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2)}
+#quizRoot .pvp-code{font-family:var(--display);font-weight:700;font-size:2rem;letter-spacing:4px;color:var(--gold);margin-top:4px}
+#quizRoot .pvp-players{width:100%;display:flex;flex-direction:column;gap:8px}
+#quizRoot .pvp-player{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+#quizRoot .pvp-player .ava{width:30px;height:30px;border-radius:50%;background:var(--ink);border:1px solid var(--line);display:grid;place-items:center;font-size:14px;flex-shrink:0}
+#quizRoot .pvp-player .nm{flex:1;font-family:var(--head);font-weight:700;font-size:.9rem}
+#quizRoot .pvp-player .tag{font-family:var(--mono);font-size:.62rem;color:var(--gold);text-transform:uppercase;letter-spacing:.05em}
+#quizRoot .pvp-count{font-family:var(--mono);font-size:.78rem;color:var(--muted)}
+#quizRoot .pvp-wait{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:60px 0;text-align:center}
+#quizRoot .pvp-wait-spinner{font-size:40px;display:inline-block;animation:qzSpin 1.6s linear infinite}
+@keyframes qzSpin{to{transform:rotate(360deg)}}
+#quizRoot .podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;align-items:end;gap:10px;margin-bottom:18px}
+#quizRoot .podium-slot{display:flex;flex-direction:column;align-items:center;gap:6px}
+#quizRoot .podium-ring{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-size:26px;background:var(--ink);border:3px solid var(--line)}
+#quizRoot .podium-slot.p1 .podium-ring{width:78px;height:78px;font-size:32px;border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,196,81,.25)}
+#quizRoot .podium-slot.p2 .podium-ring{border-color:var(--silver);box-shadow:0 0 0 3px rgba(201,205,214,.2)}
+#quizRoot .podium-slot.p3 .podium-ring{border-color:var(--bronze);box-shadow:0 0 0 3px rgba(205,127,50,.2)}
+#quizRoot .podium-nm{font-family:var(--head);font-weight:700;font-size:.86rem;text-align:center;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#quizRoot .podium-pts{font-family:var(--mono);font-weight:700;font-size:.9rem}
+#quizRoot .podium-slot.p1 .podium-pts{color:var(--gold)}
+#quizRoot .podium-slot.p2 .podium-pts{color:var(--silver)}
+#quizRoot .podium-slot.p3 .podium-pts{color:var(--bronze)}
+#quizRoot .podium-base{width:100%;border-radius:8px 8px 0 0;background:var(--surface);border:1px solid var(--line);border-bottom:none}
+#quizRoot .podium-slot.p1 .podium-base{height:70px;border-color:var(--gold)}
+#quizRoot .podium-slot.p2 .podium-base{height:48px;border-color:var(--silver)}
+#quizRoot .podium-slot.p3 .podium-base{height:34px;border-color:var(--bronze)}
+#quizRoot .pvp-rest{display:flex;flex-direction:column;gap:8px}
+#quizRoot .pvp-rest-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+#quizRoot .pvp-rest-row .rank{font-family:var(--mono);font-weight:700;color:var(--muted);width:20px}
+#quizRoot .pvp-rest-row .nm{flex:1;font-family:var(--head);font-weight:700;font-size:.88rem}
+#quizRoot .pvp-rest-row .pts{font-family:var(--mono);font-weight:700;color:var(--text)}
 </style>
 </head>
 <body>
@@ -319,17 +358,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="slot" title="შენ">👤</div>
         </div>
       </div>
-      <div class="mode locked" data-locked="true" aria-disabled="true" aria-label="ადამიანის წინააღმდეგ — მალე">
-        <span class="mode-soon">მალე 🔒</span>
+      <div class="mode" tabindex="0" role="button" aria-label="ადამიანის წინააღმდეგ — მეგობრის მოწვევა" data-mode="pvp">
         <span class="glyph">👥</span>
         <h2>ადამიანის<br>წინააღმდეგ</h2>
         <div class="slots">
-          <div class="slot" title="შენ">🤠</div>
-          <div class="slot" title="მოწინააღმდეგე">👤</div>
+          <div class="slot on" title="შენ">🤠</div>
+          <div class="slot" title="მეგობრები">👥</div>
         </div>
+        <p>მოიწვიე 8-მდე მეგობარი</p>
       </div>
     </div>
-    <p class="tinyinfo">ამ ეტაპზე ხელმისაწვდომია მხოლოდ AI-ის წინააღმდეგ თამაში. ონლაინ დუელი მალე დაემატება.</p>
+    <p class="tinyinfo">აირჩიე ვისთან ითამაშებ — AI-ის წინააღმდეგ, ან მეგობრების ოთახი.</p>
   </section>
 
   <!-- LOBBY -->
@@ -357,6 +396,60 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div style="text-align:center;font-family:var(--display);font-weight:700;font-size:13px;color:var(--muted);letter-spacing:1px" id="lobby-belt">🥊 აირჩიე სირთულე</div>
       <div id="lobby-action" class="btn-row" style="width:100%;max-width:340px"></div>
     </div>
+  </section>
+
+  <!-- PvP — SETUP (create room / join by code) -->
+  <section id="screen-pvp-setup" class="screen">
+    <div class="back-row"><button class="back-btn" id="back-to-mode-from-pvp">← უკან</button></div>
+    <div class="pvp-setup">
+      <div class="pvp-panel">
+        <h3>ოთახის შექმნა</h3>
+        <div id="pvp-create-diff" class="difficulty"></div>
+        <button class="btn btn-primary" id="pvp-create-btn" style="width:100%;margin-top:10px" disabled>ოთახის შექმნა</button>
+      </div>
+      <div class="pvp-divider">ან</div>
+      <div class="pvp-panel">
+        <h3>ოთახში შესვლა</h3>
+        <div class="name-entry">
+          <input type="text" id="pvp-join-code" placeholder="კოდი, მაგ. AB12CD" maxlength="6" autocomplete="off" style="text-transform:uppercase" />
+        </div>
+        <button class="btn btn-gold" id="pvp-join-btn" style="width:100%;margin-top:10px">ოთახში შესვლა</button>
+        <div id="pvp-join-error" style="color:var(--red);font-size:.82rem;margin-top:8px;display:none"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PvP — LOBBY -->
+  <section id="screen-pvp-lobby" class="screen">
+    <div class="back-row"><button class="back-btn" id="pvp-leave-btn">← ოთახის დატოვება</button></div>
+    <div class="pvp-lobby">
+      <div class="pvp-code-box">
+        <div class="pvp-code-label">ოთახის კოდი</div>
+        <div class="pvp-code" id="pvp-room-code">——————</div>
+        <button class="btn btn-ghost" id="pvp-copy-link" style="margin-top:8px">ბმულის კოპირება</button>
+      </div>
+      <div class="pvp-players" id="pvp-players-list"></div>
+      <div class="pvp-count" id="pvp-players-count">1 / 9 მოთამაშე</div>
+      <button class="btn btn-primary" id="pvp-start-btn" style="width:100%" disabled>დაწყება</button>
+      <p class="tinyinfo" id="pvp-lobby-hint">ველოდებით მინიმუმ 1 მეგობარს...</p>
+    </div>
+  </section>
+
+  <!-- PvP — WAITING FOR OTHERS -->
+  <section id="screen-pvp-wait" class="screen">
+    <div class="pvp-wait">
+      <div class="pvp-wait-spinner">⏳</div>
+      <h2>ელოდებით დანარჩენებს...</h2>
+      <div id="pvp-wait-count" class="tinyinfo">0 / 0 დაასრულა</div>
+    </div>
+  </section>
+
+  <!-- PvP — RESULTS (podium) -->
+  <section id="screen-pvp-results" class="screen">
+    <h2 style="text-align:center;font-family:var(--display);margin-bottom:18px">შედეგები</h2>
+    <div class="podium" id="pvp-podium"></div>
+    <div class="pvp-rest" id="pvp-rest-list"></div>
+    <button class="btn btn-primary" id="pvp-results-done" style="width:100%;margin-top:18px">დასრულება</button>
   </section>
 
   <!-- QUIZ -->
@@ -577,7 +670,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=10"></script>
+<script src="/ufc/quiz.js?v=11"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){
