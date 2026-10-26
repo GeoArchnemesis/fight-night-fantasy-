@@ -1057,12 +1057,27 @@ function submitGuess(){
   const fb = $("#gq-feedback");
   fb.classList.add("show");
 
+  S.playerPicks[S.qi] = val;
+
+  if(PVP){
+    // PvP ანტი-ჩიტის დიზაინით (quiz_group_pvp.sql) კლიენტს სწორი პასუხი
+    // საერთოდ არ მოსდის — ლოკალური შემოწმება/reveal ჯგუფურ რეჟიმში აღარ
+    // ხდება (PRD §2.4: პირდაპირ podium, შუალედური reveal გარეშე). ქულას
+    // სერვერი ითვლის submit_quiz_answer-ში, სრული სურათი get_quiz_results-ით
+    // ჩანს თამაშის ბოლოს.
+    S.playerPoints[S.qi] = 0;
+    submitPvpAnswer(S.qi, val);
+    fb.classList.add("ok"); fb.classList.remove("bad");
+    fb.innerHTML = `პასუხი გაგზავნილია <span class="sub">შედეგი თამაშის ბოლოს გამოჩნდება</span>`;
+    const nextBtnPvp = $("#gq-next-q");
+    nextBtnPvp.style.display = "";
+    nextBtnPvp.onclick = ()=> advanceGuessQuestion();
+    return;
+  }
+
   const result = val ? isGuessCorrect(val, item.answer) : { correct:false, exact:false };
   const points = result.correct ? Math.max(1, Math.min(4, 5 - S.gCluesShown)) : 0;
-
-  S.playerPicks[S.qi] = val;
   S.playerPoints[S.qi] = points;
-  if(PVP) submitPvpAnswer(S.qi, val);
 
   if(result.correct){
     fb.classList.add("ok"); fb.classList.remove("bad");
