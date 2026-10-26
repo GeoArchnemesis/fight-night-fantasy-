@@ -240,7 +240,7 @@ begin
 
   -- Already in this room (refresh / double-tap on "join") — idempotent,
   -- just return the room as-is instead of erroring.
-  if exists (select 1 from public.quiz_room_players where room_id = v_room.id and player_id = v_player.player_id) then
+  if exists (select 1 from public.quiz_room_players where quiz_room_players.room_id = v_room.id and quiz_room_players.player_id = v_player.player_id) then
     return query select v_room.id, v_room.game_type, v_room.level, v_room.questions, v_room.host_name;
     return;
   end if;
@@ -252,7 +252,7 @@ begin
     raise exception 'cannot join your own room';
   end if;
 
-  select count(*) into v_count from public.quiz_room_players where room_id = v_room.id;
+  select count(*) into v_count from public.quiz_room_players where quiz_room_players.room_id = v_room.id;
   if v_count >= v_room.max_players then
     raise exception 'room is full';
   end if;
