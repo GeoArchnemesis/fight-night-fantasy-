@@ -669,10 +669,10 @@ function renderLeaderboard() {
     const nmSize = nm.length > 16 ? 'var(--fs-meta)' : nm.length > 12 ? '.88rem' : '1rem';
     const ptsStr = sign + fmt(r.pts);
     const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
-    return `<div class="lb-row ${you ? 'you' : ''}${r.verified ? ' verified-row' : ''}">
+    return `<a class="lb-row ${you ? 'you' : ''}${r.verified ? ' verified-row' : ''}" href="/profile/?u=${encodeURIComponent(nm)}" style="text-decoration:none;color:inherit">
       <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
       <span class="lb-user"><span class="lb-ava-glove">${r.icon || '🥊'}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name" style="font-size:${nmSize}">${nm}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
-      <span class="lb-roi"></span><span class="lb-pts" style="font-size:${ptsSize}">${ptsStr}</span></div>`;
+      <span class="lb-roi"></span><span class="lb-pts" style="font-size:${ptsSize}">${ptsStr}</span></a>`;
   }).join('');
   renderLbFullButton(fullSorted);
 }
@@ -691,10 +691,10 @@ function openLbPopup(fullSorted) {
     const you = currentUser && r.id === currentUser.id; const sign = r.pts > 0 ? '+' : '';
     const badge = r.verified ? '<span class="lb-verified-badge">' + checkSvg + '</span>' : '';
     const nm = r.name || '—';
-    return `<div class="lb-row ${you ? 'you' : ''}${r.verified ? ' verified-row' : ''}">
+    return `<a class="lb-row ${you ? 'you' : ''}${r.verified ? ' verified-row' : ''}" href="/profile/?u=${encodeURIComponent(nm)}" style="text-decoration:none;color:inherit">
       <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
       <span class="lb-user"><span class="lb-ava-glove">${r.icon || '🥊'}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name">${nm}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
-      <span class="lb-pts">${sign + fmt(r.pts)}</span></div>`;
+      <span class="lb-pts">${sign + fmt(r.pts)}</span></a>`;
   }).join('');
   overlay.innerHTML = `<div class="lb-popup"><div class="lb-popup-head"><h3>სრული ლიდერბორდი</h3><button class="x" id="lbPopupClose">&times;</button></div><div class="lb-popup-body">${rowsHtml}</div></div>`;
   document.body.appendChild(overlay);
@@ -811,6 +811,12 @@ function openModal(mode) {
   if (modal) modal.classList.add('show');
 }
 function closeModal() { if (modal) modal.classList.remove('show'); authError(''); }
+// Phase Q3: ნავში ავატარი ფოტოს პრეფერირებს, თუ users.avatar_type==='photo'.
+function navAvaHtml(user) {
+  return (user.avatar_type === 'photo' && user.avatar_url)
+    ? `<img src="${user.avatar_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+    : (user.icon || '🥊');
+}
 function updateNavForUser(user) {
   document.body.classList.toggle('logged-in', !!user);
   const joinBtn = $('joinBtn'), signinBtn = $('signinBtn'), pill = document.querySelector('.balance-pill');
@@ -820,13 +826,13 @@ function updateNavForUser(user) {
     if (signinBtn) signinBtn.style.display = 'none';
     if (!navUser) {
       navUser = document.createElement('div'); navUser.id = 'navUser'; navUser.className = 'nav-user';
-      navUser.innerHTML = `<span class="nav-ava">${user.icon || '🥊'}</span><span class="nav-nick">${user.nick}</span>
+      navUser.innerHTML = `<span class="nav-ava">${navAvaHtml(user)}</span><span class="nav-nick">${user.nick}</span>
         <div class="nav-dropdown" id="navDropdown"><button class="nav-dd-item" id="ddProfile">პროფილი</button><button class="nav-dd-item danger" id="ddLogout">გამოსვლა</button></div>`;
       if (joinBtn && joinBtn.parentNode) joinBtn.parentNode.insertBefore(navUser, joinBtn);
       navUser.onclick = (e) => { if (e.target.closest('.nav-dropdown')) return; $('navDropdown').classList.toggle('show'); };
       $('ddProfile').onclick = () => { $('navDropdown').classList.remove('show'); openProfile(); };
       $('ddLogout').onclick = () => { $('navDropdown').classList.remove('show'); doLogout(); };
-    } else { navUser.querySelector('.nav-nick').textContent = user.nick; navUser.querySelector('.nav-ava').textContent = user.icon || '🥊'; }
+    } else { navUser.querySelector('.nav-nick').textContent = user.nick; navUser.querySelector('.nav-ava').innerHTML = navAvaHtml(user); }
     navUser.style.display = 'flex';
     if (pill) pill.classList.add('visible');
     addMobileMenuLinks();
@@ -856,7 +862,8 @@ async function loadUserProfile(userId, fallbackEmail) {
     nick: ud?.nick || (fallbackEmail || '').split('@')[0],
     balance: null, icon: ud?.icon || '🥊',   // რეალურ ბალანსს refreshBalance (get_sport_balance) წამოიღებს
     phone: ud?.phone || null, telegram: ud?.telegram || null,
-    birth_year: ud?.birth_year || null, gender: ud?.gender || null
+    birth_year: ud?.birth_year || null, gender: ud?.gender || null,
+    avatar_url: ud?.avatar_url || null, avatar_type: ud?.avatar_type || 'emoji'
   };
 }
 async function hydrateUserData() {

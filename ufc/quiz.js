@@ -56,6 +56,12 @@ const fmt = n => Number.isFinite(+n) ? Math.round(+n).toLocaleString('en-US') : 
    არანაირი ბილეთი/ფსონი/სეტლმენტი — ეს ყველაფერი ამ გვერდზე არც კი
    არსებობს (არც markup, არც RPC-ები). "პროფილი" ბმული გადის /profile/-ზე,
    რადგან პროფილის რედაქტირების მოდალი აქ არ იტვირთება. ------------- */
+// Phase Q3: ნავში ავატარი ფოტოს პრეფერირებს, თუ users.avatar_type==='photo'.
+function navAvaHtml(user){
+  return (user.avatar_type === 'photo' && user.avatar_url)
+    ? `<img src="${user.avatar_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+    : (user.icon || '🥊');
+}
 function updateAuthNav(user){
   document.body.classList.toggle('logged-in', !!user);
   const joinBtn = document.getElementById('joinBtn'), signinBtn = document.getElementById('signinBtn'),
@@ -67,7 +73,7 @@ function updateAuthNav(user){
     if(signinBtn) signinBtn.style.display = 'none';
     if(!navUser){
       navUser = document.createElement('div'); navUser.id = 'navUser'; navUser.className = 'nav-user';
-      navUser.innerHTML = `<span class="nav-ava">${user.icon || '🥊'}</span><span class="nav-nick">${user.nick}</span>
+      navUser.innerHTML = `<span class="nav-ava">${navAvaHtml(user)}</span><span class="nav-nick">${user.nick}</span>
         <div class="nav-dropdown" id="navDropdown"><a class="nav-dd-item" href="/profile/">პროფილი</a><button class="nav-dd-item danger" id="ddLogout">გამოსვლა</button></div>`;
       if(joinBtn && joinBtn.parentNode) joinBtn.parentNode.insertBefore(navUser, joinBtn);
       navUser.addEventListener('click', e=>{ if(e.target.closest('.nav-dropdown')) return; document.getElementById('navDropdown').classList.toggle('show'); });
@@ -75,7 +81,7 @@ function updateAuthNav(user){
       if(ddLogout) ddLogout.addEventListener('click', async ()=>{ document.getElementById('navDropdown').classList.remove('show'); try{ await sb.auth.signOut(); }catch(e){} });
     } else {
       navUser.querySelector('.nav-nick').textContent = user.nick;
-      navUser.querySelector('.nav-ava').textContent = user.icon || '🥊';
+      navUser.querySelector('.nav-ava').innerHTML = navAvaHtml(user);
     }
     navUser.style.display = 'flex';
     if(balancePill){
@@ -245,14 +251,15 @@ async function fetchAuthUser(session){
   if(!session) return null;
   let ud = null;
   try{
-    const res = await sb.from('users').select('nick,icon,balance').eq('id', session.user.id).maybeSingle();
+    const res = await sb.from('users').select('nick,icon,balance,avatar_url,avatar_type').eq('id', session.user.id).maybeSingle();
     ud = res.data;
   }catch(e){ console.warn('[quiz] auth user fetch failed:', e); }
   return {
     id: session.user.id,
     nick: ud?.nick || session.user.user_metadata?.nick || (session.user.email || '').split('@')[0],
     icon: ud?.icon || '🥊',
-    balance: (ud && ud.balance != null) ? ud.balance : null
+    balance: (ud && ud.balance != null) ? ud.balance : null,
+    avatar_url: ud?.avatar_url || null, avatar_type: ud?.avatar_type || 'emoji'
   };
 }
 

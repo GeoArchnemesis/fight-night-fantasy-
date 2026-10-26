@@ -23,6 +23,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<!-- Phase Q3: avatar circular crop. Cropper.js 1.6.2 (current stable,
+     vanilla JS, no framework) — loaded via CDN like supabase-js above. -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
+<script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
 <style>
 /* პროფილის გვერდი — ცალკე */
 .pf-page{min-height:100vh;display:flex;flex-direction:column}
@@ -36,6 +40,40 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .pf-guest h3{font-family:var(--display);font-weight:700;font-size:1.5rem;margin-bottom:10px}
 .pf-guest p{color:var(--muted);font-size:.9rem;margin-bottom:20px}
 .pf-card{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:clamp(20px,4vw,32px)}
+
+/* ---------- Phase Q3: avatar (emoji + photo/crop) ---------- */
+.pf-avatar-row{display:flex;align-items:center;gap:20px;margin-bottom:24px;flex-wrap:wrap}
+.pf-avatar-display{width:84px;height:84px;border-radius:50%;flex-shrink:0;background:var(--ink);border:2px solid var(--line);display:grid;place-items:center;font-size:40px;overflow:hidden}
+.pf-avatar-display img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+.pf-avatar-controls{flex:1;min-width:200px}
+.pf-crop-modal{position:fixed;inset:0;z-index:500;background:rgba(5,4,8,.85);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px}
+.pf-crop-box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:22px;max-width:420px;width:100%}
+.pf-crop-box h3{font-family:var(--display);font-weight:700;margin-bottom:14px;text-align:center;font-size:1.2rem}
+.pf-crop-wrap{max-height:50vh;overflow:hidden;border-radius:8px;margin-bottom:16px;background:#000}
+.pf-crop-wrap img{display:block;max-width:100%}
+.pf-crop-actions{display:flex;gap:10px}
+.pf-crop-actions .btn{flex:1;justify-content:center}
+.pf-crop-err{color:var(--red);font-size:.82rem;margin-top:10px;text-align:center}
+
+/* ---------- Phase Q3: bio ---------- */
+#profBio{width:100%;font-family:inherit;font-size:.92rem;color:var(--text);background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:12px 14px;resize:vertical;min-height:72px}
+#profBio:focus{outline:none;border-color:var(--gold)}
+.pf-bio-count{text-align:right;font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-top:4px}
+.pf-bio-readonly{color:var(--text-2);font-size:.92rem;line-height:1.5;white-space:pre-wrap}
+
+/* ---------- Phase Q3: visiting-mode banner ---------- */
+.pf-visiting-note{display:flex;align-items:center;gap:8px;background:rgba(245,196,81,.08);border:1px solid rgba(245,196,81,.3);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--gold);margin-bottom:18px}
+
+/* ---------- Phase Q3: sport tabs + ticket history ---------- */
+.pf-section-label{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);margin:28px 0 12px}
+.pf-tickets-list{display:flex;flex-direction:column;gap:10px}
+
+/* ---------- Phase Q3: read/liked articles slider ---------- */
+.pf-articles-row{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+.pf-article-card{position:relative;flex:0 0 150px;scroll-snap-align:start;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--ink);text-decoration:none;color:inherit;display:block}
+.pf-article-card img{width:100%;height:84px;object-fit:cover;display:block;background:var(--surface-2)}
+.pf-article-card .pf-article-title{font-size:.78rem;font-weight:700;padding:8px 10px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}
+.pf-article-heart{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;background:rgba(5,4,8,.65);display:grid;place-items:center;font-size:12px}
 </style>
 <style>
 /* ── MOBILE BOTTOM NAV (mnav) — მხოლოდ მობილურზე ── */
@@ -100,18 +138,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <a class="btn btn-primary" id="guestLink" href="/ufc/" style="display:inline-block">შესვლა</a>
   </div>
 
+  <!-- სტუმრის ნახვის რეჟიმი: ასეთი ნიკი ვერ მოიძებნა -->
+  <div class="pf-guest" id="pfNotFound" style="display:none">
+    <h3>მომხმარებელი ვერ მოიძებნა</h3>
+    <p>ასეთი ნიკით ანგარიში არ არსებობს.</p>
+    <a class="btn btn-primary" id="notFoundLink" href="/ufc/" style="display:inline-block">მთავარზე დაბრუნება</a>
+  </div>
+
   <!-- პროფილის ფორმა -->
   <div id="pfContent" style="display:none">
-    <h1 class="pf-title">პროფილი</h1>
-    <p class="pf-sub">შეცვალე შენი ანგარიშის პარამეტრები</p>
+    <p class="pf-visiting-note" id="pfVisitingNote" style="display:none">👀 სტუმრობ <b id="pfVisitingNick"></b>-ის საჯარო პროფილს — მხოლოდ შენი საკუთარი პროფილი რედაქტირდება.</p>
+
+    <h1 class="pf-title" id="pfTitleHeading">პროფილი</h1>
+    <p class="pf-sub" id="pfSubHeading">შეცვალე შენი ანგარიშის პარამეტრები</p>
     <div class="pf-card">
 
-      <div class="profile-section">
-        <span class="field-label" id="iconPickerLabel">აირჩიე აიქონი</span>
-        <div class="icon-picker" id="iconPicker" role="radiogroup" aria-labelledby="iconPickerLabel"></div>
+      <div class="pf-avatar-row">
+        <div class="pf-avatar-display" id="pfAvatarDisplay">🥊</div>
+        <div class="pf-avatar-controls" id="pfAvatarControls">
+          <span class="field-label" id="iconPickerLabel">აირჩიე ემოჯი</span>
+          <div class="icon-picker" id="iconPicker" role="radiogroup" aria-labelledby="iconPickerLabel"></div>
+          <button type="button" class="btn btn-ghost" id="avatarUploadBtn" style="margin-top:10px">📷 ფოტოს ატვირთვა</button>
+          <input type="file" id="avatarFileInput" accept="image/*" style="display:none" />
+        </div>
       </div>
 
-      <div class="profile-section">
+      <div class="profile-section" id="nickEditSection">
         <div class="field">
           <label for="profNick">სახელი (ნიქნეიმი)</label>
           <input type="text" id="profNick" placeholder="მაგ. UFC.King" maxlength="20" />
@@ -119,42 +171,81 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
 
       <div class="profile-section">
-        <div class="field">
-          <label for="profEmail">ელ. ფოსტა</label>
-          <input type="email" id="profEmail" placeholder="შეიყვანე მეილი" />
+        <div id="bioEditWrap">
+          <div class="field">
+            <label for="profBio">ბიო</label>
+            <textarea id="profBio" maxlength="300" rows="3" placeholder="მოკლედ მოგვიყევი შენს შესახებ..."></textarea>
+          </div>
+          <div class="pf-bio-count" id="profBioCount">0 / 300</div>
         </div>
+        <p class="pf-bio-readonly" id="pfBioReadonly" style="display:none"></p>
       </div>
 
-      <div class="profile-section">
-        <div class="field-label" style="margin-bottom:8px">საკონტაქტო ინფორმაცია</div>
-        <div class="field">
-          <label for="profPhone">მობილურის ნომერი</label>
-          <input type="tel" id="profPhone" placeholder="მაგ. 555123456" />
+      <div id="pfPrivateSection">
+        <div class="profile-section">
+          <div class="field">
+            <label for="profEmail">ელ. ფოსტა</label>
+            <input type="email" id="profEmail" placeholder="შეიყვანე მეილი" />
+          </div>
         </div>
-        <div class="field">
-          <label for="profTelegram">ტელეგრამი</label>
-          <input type="text" id="profTelegram" placeholder="მაგ. @username" />
+
+        <div class="profile-section">
+          <div class="field-label" style="margin-bottom:8px">საკონტაქტო ინფორმაცია</div>
+          <div class="field">
+            <label for="profPhone">მობილურის ნომერი</label>
+            <input type="tel" id="profPhone" placeholder="მაგ. 555123456" />
+          </div>
+          <div class="field">
+            <label for="profTelegram">ტელეგრამი</label>
+            <input type="text" id="profTelegram" placeholder="მაგ. @username" />
+          </div>
         </div>
+
+        <div class="profile-section">
+          <div class="field-label" style="margin-bottom:12px">პასვორდის შეცვლა</div>
+          <div class="field">
+            <label for="profOldPass">ძველი პასვორდი</label>
+            <input type="password" id="profOldPass" placeholder="შეიყვანე ძველი პასვორდი" />
+          </div>
+          <div class="field">
+            <label for="profNewPass">ახალი პასვორდი</label>
+            <input type="password" id="profNewPass" placeholder="მინ. 6 სიმბოლო" />
+          </div>
+        </div>
+
+        <div id="profileMsg" style="font-size:.85rem;margin-bottom:10px;display:none"></div>
+        <button class="btn btn-primary" id="profileSave" style="width:100%;justify-content:center;padding:14px">შენახვა</button>
+        <button class="btn btn-ghost" id="profileLogout" style="width:100%;margin-top:10px;text-align:center;display:block">გამოსვლა</button>
       </div>
 
-      <div class="profile-section">
-        <div class="field-label" style="margin-bottom:12px">პასვორდის შეცვლა</div>
-        <div class="field">
-          <label for="profOldPass">ძველი პასვორდი</label>
-          <input type="password" id="profOldPass" placeholder="შეიყვანე ძველი პასვორდი" />
-        </div>
-        <div class="field">
-          <label for="profNewPass">ახალი პასვორდი</label>
-          <input type="password" id="profNewPass" placeholder="მინ. 6 სიმბოლო" />
-        </div>
-      </div>
+      <!-- Phase Q3 §3.3: 9 sport tabs (UFC, F1, NBA, 6 football leagues) —
+           ticket history, own profile or (via the §3.0 SELECT policy)
+           whoever's profile this is. Styled like the leaderboard's
+           .lb-tabs/.lb-tab (style.css), no new tab CSS needed. -->
+      <div class="pf-section-label">ბილეთების ისტორია</div>
+      <div class="lb-tabs" id="pfSportTabs"></div>
+      <div class="pf-tickets-list" id="pfTicketsList"></div>
 
-      <div id="profileMsg" style="font-size:.85rem;margin-bottom:10px;display:none"></div>
-      <button class="btn btn-primary" id="profileSave" style="width:100%;justify-content:center;padding:14px">შენახვა</button>
-      <button class="btn btn-ghost" id="profileLogout" style="width:100%;margin-top:10px;text-align:center;display:block">გამოსვლა</button>
+      <!-- Phase Q3 §3.4: read + liked articles slider -->
+      <div class="pf-section-label">წაკითხული სტატიები</div>
+      <div class="pf-articles-row" id="pfArticlesRow"></div>
+      <p class="tinyinfo" id="pfArticlesEmpty" style="display:none">ჯერ არცერთი სტატია არ წაგიკითხავს.</p>
     </div>
   </div>
 </main>
+</div>
+
+<!-- Phase Q3: avatar crop modal (Cropper.js) -->
+<div class="pf-crop-modal" id="pfCropModal" style="display:none">
+  <div class="pf-crop-box">
+    <h3>ფოტოს მორგება</h3>
+    <div class="pf-crop-wrap"><img id="pfCropImg" alt="" /></div>
+    <div class="pf-crop-actions">
+      <button type="button" class="btn btn-ghost" id="pfCropCancel">გაუქმება</button>
+      <button type="button" class="btn btn-primary" id="pfCropSave">შენახვა</button>
+    </div>
+    <p class="pf-crop-err" id="pfCropErr" style="display:none"></p>
+  </div>
 </div>
 
 <!-- ლოგო/ღილაკები იმ ფენტეზზე გადავიდეს, სადაც ბოლოს იყავი -->
@@ -171,11 +262,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var b = document.getElementById('brandLink');  if (b) b.href = url;
   var k = document.getElementById('backLink');   if (k) k.href = url;
   var g = document.getElementById('guestLink');  if (g) g.href = url;
+  var nf = document.getElementById('notFoundLink'); if (nf) nf.href = url;
   var bb = document.getElementById('backBtn');   if (bb) bb.onclick = function(){ location.href = url; };
   // ქვედა nav: ლიდერბორდი/ბილეთები იმ სპორტზე, საიდანაც მოვედი
   var lb = document.getElementById('mnavLb'); if (lb) lb.onclick = function(){ location.href = url + '#leaderboard'; };
   var tk = document.getElementById('mnavTk'); if (tk) tk.onclick = function(){ location.href = url + '#tickets'; };
-  // dropdown: მიმდინარე სპორტი მოვნიშნოთ "on"-ით (ლინკის ნაცვლад)
+  // dropdown: მიმდინარე სპორტი მოვნიშნოთ "on"-ით (ლინკის ნაცვლად)
   var pop = document.getElementById('mnavSportPop');
   if (pop) { var cur = pop.querySelector('a[href="'+url+'"]'); if (cur) { var d=document.createElement('div'); d.className='mnav-pop-opt on'; d.innerHTML = cur.innerHTML; cur.replaceWith(d); } }
 })();
@@ -188,12 +280,209 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
     auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, lock: (name,t,fn)=>fn() }
   });
-  const AVATAR_ICONS = ['\ud83e\udd4a','\ud83c\udfc6','\ud83d\udd25','\u26a1','\ud83d\udcaa','\ud83e\udd81','\ud83d\udc3a','\ud83d\udc4a','\ud83d\udc8e','\ud83c\udfaf','\u2b50','\ud83e\udd85'];
+  const AVATAR_ICONS = ['🥊','🏆','🔥','⚡','💪','🦁','🐺','👊','💎','🎯','⭐','🦅'];
   const fmt = n => Number.isFinite(+n) ? Math.round(+n).toLocaleString('en-US') : '0';
-  // რომელი ფენტეზიდან მოვიდა — ბალანსი ამის მიხედვით ჩაიტვირთება
+  // რომელი ფენტეზიდან მოვიდა — ბალანსი ამის მიხედვით ჩაიტვირთება (ყოველთვის
+  // შემსვლელი viewer-ის, არა იმის ვისაც სტუმრობს — ნავში ყოველთვის საკუთარი
+  // ბალანსი ჩანს)
   let SPORT = 'ufc';
   try { SPORT = localStorage.getItem('fnf_sport') || 'ufc'; } catch(e){}
-  let currentUser = null;
+  let currentUser = null;   // ყოველთვის: ვინც შემოვიდა (viewer)
+  let viewTarget = null;    // რისი პროფილიც ჩანს — საკუთარი რეჟიმში === currentUser
+  let isOwnProfile = true;
+  let pendingAvatarType = 'emoji';
+  let cropper = null;
+
+  /* ============================================================
+     Phase Q3 §3.3 — 9 სპორტის ტაბი + ბილეთების ისტორია.
+     ყველა 4 სპორტის app.js-ის loadUserTickets()-ის ლოგიკის კონსოლიდაცია —
+     ზუსტად იგივე join-ები/ველები, უბრალოდ ერთ ადგილას, ერთი ბარათის
+     ფორმატისთვის (სერვერზე cashout აქ არ არსებობს — მხოლოდ ისტორიის
+     ჩვენებაა, ქეშაუთი რჩება თითოეული სპორტის საკუთარ გვერდზე). ---------- */
+  const SPORT_TABS = [
+    { key:'ufc', label:'UFC' }, { key:'f1', label:'F1' }, { key:'nba', label:'NBA' },
+    { key:'esp1', label:'La Liga' }, { key:'eng1', label:'EPL' }, { key:'ita1', label:'Serie A' },
+    { key:'ger1', label:'Bundesliga' }, { key:'fra1', label:'Ligue 1' }, { key:'ucl', label:'UCL' }
+  ];
+  const FOOTBALL_KEYS = ['esp1','eng1','ita1','ger1','fra1','ucl'];
+  const STATUS_LABEL = { open:'მიმდინარე', won:'მოგებული', lost:'წაგებული', cashout:'ქეშაუთი', pending:'მიმდინარე', void:'ანულირებული' };
+  const STATUS_MAP = { pending:'open', open:'open', won:'won', lost:'lost', cashout:'cashout', void:'void', voided:'void' };
+  const RES_MAP = { won:'ok', lost:'no', void:'void', ok:'ok', no:'no' };
+  const KIND_SHORT = { race:'რბოლა', quali:'კვალიფიკაცია', fastest_lap:'უსწრაფესი წრე', sprint:'სპრინტი', sprint_quali:'სპრინტ-კვალ.' };
+  let activeSportTab = null;
+
+  function rebuildSelName(fighterName, s){
+    const a = [];
+    if(fighterName) a.push(fighterName + ' მოგება'); else if(s.picked_fighter) a.push((s.picked_fighter === 'red' ? 'Red' : 'Blue') + ' მოგება');
+    if(s.picked_round) a.push(s.picked_round + '-ე რაუნდი'); if(s.picked_method) a.push(s.picked_method);
+    return a.join(' · ') || '—';
+  }
+  function resParts(res){
+    const cls = res === 'ok' ? 'ok' : res === 'no' ? 'no' : '';
+    const txt = res === 'ok' ? '✓' : res === 'no' ? '✗' : '';
+    return { cls, txt };
+  }
+
+  function normalizeUfcTicket(tk){
+    const sels = (tk.ticket_selections || []).map(s => {
+      const f = s.fight || {};
+      const redName = f.red?.name || '', blueName = f.blue?.name || '';
+      const fighterName = s.picked_fighter === 'red' ? redName : blueName;
+      const name = rebuildSelName(fighterName, s);
+      const parts = name.split(' · '); const fName = (parts[0] || '').replace(' მოგება', '');
+      const pickLabel = parts.slice(1).join(' · ') || 'გამარჯვებული';
+      const r = resParts(s.result || null);
+      return { kind:'fighters', redName: redName || 'Red', blueName: blueName || 'Blue', isRed: s.picked_fighter === 'red', fighterName: fName, pickLabel, odds: Number(s.odds || 0), resCls: r.cls, resTxt: r.txt };
+    });
+    return { id: tk.id, type: tk.type, stake: Number(tk.stake), odds: Number(tk.total_odds), status: STATUS_MAP[tk.status] || tk.status, sels };
+  }
+  function normalizeF1Ticket(tk){
+    const sels = (tk.f1_selections || []).map(s => {
+      const mk = s.market || {}; const r = resParts(s.result ? (RES_MAP[s.result] || null) : null);
+      return { kind:'simple', left: KIND_SHORT[mk.kind] || mk.kind || '', pickLabel: (s.driver && s.driver.name) || '—', odds: Number(s.odds || 0), resCls: r.cls, resTxt: r.txt };
+    });
+    return { id: tk.id, type: tk.type, stake: Number(tk.stake), odds: Number(tk.total_odds), status: STATUS_MAP[tk.status] || tk.status, sels };
+  }
+  function normalizeNbaTicket(tk){
+    const sels = (tk.nba_selections || []).map(s => {
+      const g = s.game || {};
+      const pickName = s.picked_side === 'home' ? (g.home_team || '—') : (g.away_team || '—');
+      const matchup = `${g.away_abbr || g.away_team || '?'} @ ${g.home_abbr || g.home_team || '?'}`;
+      const r = resParts(s.result ? (RES_MAP[s.result] || null) : null);
+      return { kind:'simple', left: matchup, pickLabel: pickName, odds: Number(s.odds || 0), resCls: r.cls, resTxt: r.txt };
+    });
+    return { id: tk.id, type: tk.type, stake: Number(tk.stake), odds: Number(tk.total_odds), status: STATUS_MAP[tk.status] || tk.status, sels };
+  }
+  function normalizeSoccerTicket(tk){
+    const sels = (tk.soccer_selections || []).map(s => {
+      const mk = s.market || {}; const m = mk.match || {};
+      let pickName;
+      if (mk.kind === 'over_under') pickName = (s.outcome === 'over' ? 'მეტი ' : 'ნაკლები ') + (mk.line ?? '');
+      else if (s.outcome === '1') pickName = m.home_team || 'მასპინძელი';
+      else if (s.outcome === 'x') pickName = 'ფრე';
+      else pickName = m.away_team || 'სტუმარი';
+      const matchup = `${m.home_team || m.home_abbr || '?'} — ${m.away_team || m.away_abbr || '?'}`;
+      const r = resParts(s.result ? (RES_MAP[s.result] || null) : null);
+      return { kind:'simple', left: matchup, pickLabel: pickName, odds: Number(s.odds || 0), resCls: r.cls, resTxt: r.txt };
+    });
+    return { id: tk.id, type: tk.type, stake: Number(tk.stake), odds: Number(tk.total_odds), status: STATUS_MAP[tk.status] || tk.status, sels };
+  }
+
+  async function fetchTicketsForTab(userId, key){
+    if (key === 'ufc') {
+      const { data, error } = await sb.from('tickets')
+        .select(`id,type,stake,total_odds,status,placed_at,ticket_selections(fight_id,picked_fighter,picked_round,picked_method,odds,result,fight:fights!fight_id(red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)))`)
+        .eq('user_id', userId).order('placed_at', { ascending: false });
+      if (error) throw error; return (data || []).map(normalizeUfcTicket);
+    }
+    if (key === 'f1') {
+      const { data, error } = await sb.from('f1_tickets')
+        .select(`id,type,stake,total_odds,status,placed_at,f1_selections(market_id,driver_id,odds,result,market:f1_markets!market_id(kind),driver:f1_drivers!driver_id(name))`)
+        .eq('user_id', userId).order('placed_at', { ascending: false });
+      if (error) throw error; return (data || []).map(normalizeF1Ticket);
+    }
+    if (key === 'nba') {
+      const { data, error } = await sb.from('nba_tickets')
+        .select(`id,type,stake,total_odds,status,placed_at,nba_selections(game_id,picked_side,odds,result,game:nba_games!game_id(home_team,away_team,home_abbr,away_abbr))`)
+        .eq('user_id', userId).order('placed_at', { ascending: false });
+      if (error) throw error; return (data || []).map(normalizeNbaTicket);
+    }
+    // football — 6 ლიგა, league კოდით ფილტრი
+    const { data, error } = await sb.from('soccer_tickets')
+      .select(`id,type,stake,total_odds,status,placed_at,soccer_selections(outcome,odds,result,market:soccer_markets!market_id(kind,line,match:soccer_matches!match_id(home_team,away_team,home_abbr,away_abbr)))`)
+      .eq('user_id', userId).eq('league', key).order('placed_at', { ascending: false });
+    if (error) throw error; return (data || []).map(normalizeSoccerTicket);
+  }
+
+  function ticketCardHtml(t){
+    const potentialWin = Math.round((t.stake || 0) * (t.odds || 0));
+    const statusColor = t.status === 'won' ? 'var(--green)' : (t.status === 'lost' ? 'var(--red-soft)' : (t.status === 'cashout' ? 'var(--gold)' : (t.status === 'void' ? 'var(--muted)' : '#ff9d3c')));
+    const selsHtml = t.sels.map(s => {
+      const left = s.kind === 'fighters'
+        ? `<span class="tk-sel-dot red"></span><span class="tk-sel-red">${s.redName}</span><span class="tk-sel-vs">vs</span><span class="tk-sel-blue">${s.blueName}</span><span class="tk-sel-dot blue"></span>`
+        : `<span class="tk-sel-red">${s.left}</span>`;
+      const pickText = s.kind === 'fighters' ? `${s.fighterName} — ${s.pickLabel}` : s.pickLabel;
+      return `<div class="tk-sel"><div class="tk-sel-main">
+          <div class="tk-sel-fighters">${left}</div>
+          <div class="tk-sel-pick ${s.kind === 'fighters' ? 'pick-' + (s.isRed ? 'red' : 'blue') : 'pick-red'}">${pickText}</div></div>
+        <div class="tk-sel-right">${s.resTxt ? `<span class="tk-sel-result ${s.resCls}">${s.resTxt}</span>` : ''}<span class="tk-sel-odds">${s.odds.toFixed(2)}</span></div></div>`;
+    }).join('');
+    const payHtml = t.status === 'won' ? `<span style="color:var(--green)">+${fmt(potentialWin)} ქულა</span>`
+      : t.status === 'lost' ? `<span style="color:var(--red-soft)">${fmt(potentialWin)} ქულა</span>`
+      : t.status === 'cashout' ? `<span style="color:var(--gold)">ქეშაუთი</span>`
+      : t.status === 'void' ? `<span style="color:var(--muted)">${fmt(t.stake)} ქულა დაბრუნდა</span>`
+      : `<span class="tk-foot-label">შეს. მოგება</span><span style="color:var(--gold)">${fmt(potentialWin)}</span>`;
+    return `<div class="ticket tk-${t.status}">
+      <div class="tk-head"><div class="tk-head-left"><span class="tk-status ${t.status}" style="color:${statusColor}">${STATUS_LABEL[t.status] || t.status}</span><span class="tk-type">${t.type === 'express' ? 'ექსპრესი · ' + t.sels.length + ' მოვლენა' : 'სინგლი'}</span></div></div>
+      <div class="tk-sels">${selsHtml || '<div class="tk-empty" style="padding:10px">პოზიციები არ არის</div>'}</div>
+      <div class="tk-foot"><span class="tk-foot-type">${t.type === 'express' ? 'ექსპრესი' : 'სინგლი'}</span><span class="tk-foot-pay">${payHtml}</span></div>
+    </div>`;
+  }
+
+  function renderSportTabsUI(){
+    const wrap = document.getElementById('pfSportTabs');
+    wrap.innerHTML = SPORT_TABS.map(t => `<button class="lb-tab ${t.key === activeSportTab ? 'on' : ''}" data-tab="${t.key}">${t.label}</button>`).join('');
+    wrap.querySelectorAll('.lb-tab').forEach(b => b.onclick = () => selectSportTab(b.dataset.tab));
+  }
+
+  async function selectSportTab(key){
+    activeSportTab = key;
+    renderSportTabsUI();
+    const listEl = document.getElementById('pfTicketsList');
+    listEl.innerHTML = '<div class="tk-empty">იტვირთება…</div>';
+    try {
+      const rows = await fetchTicketsForTab(viewTarget.id, key);
+      listEl.innerHTML = rows.length ? rows.map(ticketCardHtml).join('') : '<div class="tk-empty">ბილეთები არ არის.</div>';
+    } catch (e) {
+      console.warn('[profile] fetchTicketsForTab failed:', e);
+      listEl.innerHTML = '<div class="tk-empty">ბილეთების ჩატვირთვა ვერ მოხერხდა.</div>';
+    }
+  }
+
+  function defaultTabKey(){
+    if (SPORT === 'f1' || SPORT === 'nba') return SPORT;
+    if (SPORT === 'football') {
+      let lg = 'esp1';
+      try { lg = localStorage.getItem('fnf_league') || 'esp1'; } catch(e){}
+      return FOOTBALL_KEYS.includes(lg) ? lg : 'esp1';
+    }
+    return 'ufc';
+  }
+
+  /* ============================================================
+     Phase Q3 §3.4 — წაკითხული/დალაიქებული სტატიების სლაიდერი.
+     news_article_views-ს არ გააჩნია FK news.slug-ზე (განზრახ, იხ.
+     profile_redesign.sql-ის შენიშვნა) — ამიტომ ორი ცალკე query +
+     კლიენტის მხარეს შეერთება, Supabase-ის ავტომატური embed-ის მაგივრად. */
+  async function loadAndRenderArticles(userId){
+    const rowEl = document.getElementById('pfArticlesRow');
+    const emptyEl = document.getElementById('pfArticlesEmpty');
+    try {
+      const { data: views, error: vErr } = await sb.from('news_article_views')
+        .select('article_slug,last_viewed_at').eq('user_id', userId).order('last_viewed_at', { ascending: false });
+      if (vErr || !views || !views.length) { rowEl.innerHTML = ''; emptyEl.style.display = 'block'; return; }
+      const slugs = views.map(v => v.article_slug);
+      const { data: articles } = await sb.from('news').select('id,slug,title_ka,cover_image_url').in('slug', slugs);
+      const bySlug = {}; (articles || []).forEach(a => { bySlug[a.slug] = a; });
+      const ids = (articles || []).map(a => a.id);
+      let liked = new Set();
+      if (ids.length) {
+        const { data: likes } = await sb.from('news_reactions').select('news_id').eq('user_id', userId).eq('reaction', 'like').in('news_id', ids);
+        (likes || []).forEach(l => liked.add(l.news_id));
+      }
+      const ordered = views.map(v => bySlug[v.article_slug]).filter(Boolean);
+      if (!ordered.length) { rowEl.innerHTML = ''; emptyEl.style.display = 'block'; return; }
+      emptyEl.style.display = 'none';
+      rowEl.innerHTML = ordered.map(a => `<a class="pf-article-card" href="/news/${a.slug}/">
+          <img src="${a.cover_image_url || '/og-image.png'}" alt="" loading="lazy" />
+          ${liked.has(a.id) ? '<span class="pf-article-heart">❤️</span>' : ''}
+          <div class="pf-article-title">${a.title_ka || ''}</div>
+        </a>`).join('');
+    } catch (e) {
+      console.warn('[profile] loadAndRenderArticles failed:', e);
+      rowEl.innerHTML = ''; emptyEl.style.display = 'block';
+    }
+  }
 
   function passwordError(pass){
     if(pass.length < 6) return 'პაროლი მინ. 6 სიმბოლო';
@@ -208,18 +497,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     else el.style.display = 'none';
   }
 
+  function renderAvatarDisplay(){
+    const el = document.getElementById('pfAvatarDisplay');
+    const u = viewTarget || currentUser;
+    if (u && u.avatar_type === 'photo' && u.avatar_url) el.innerHTML = `<img src="${u.avatar_url}" alt="" />`;
+    else el.textContent = (u && u.icon) || '🥊';
+  }
+
   function fillForm(){
     document.getElementById('profNick').value = currentUser.nick || '';
     document.getElementById('profEmail').value = currentUser.email || '';
     document.getElementById('profPhone').value = currentUser.phone || '';
     document.getElementById('profTelegram').value = currentUser.telegram || '';
+    document.getElementById('profBio').value = currentUser.bio || '';
+    document.getElementById('profBioCount').textContent = (currentUser.bio || '').length + ' / 300';
     document.getElementById('profOldPass').value = '';
     document.getElementById('profNewPass').value = '';
     const bal = document.getElementById('balNav'); if(bal) bal.textContent = fmt(currentUser.balance);
     const pill = document.querySelector('.balance-pill'); if(pill) pill.classList.add('visible');
     const picker = document.getElementById('iconPicker');
-    picker.innerHTML = AVATAR_ICONS.map(ic => '<button class="icon-opt ' + ((currentUser.icon||'\ud83e\udd4a')===ic?'active':'') + '" data-icon="'+ic+'">'+ic+'</button>').join('');
-    picker.querySelectorAll('.icon-opt').forEach(b => b.onclick = () => { picker.querySelectorAll('.icon-opt').forEach(x=>x.classList.remove('active')); b.classList.add('active'); });
+    picker.innerHTML = AVATAR_ICONS.map(ic => '<button type="button" class="icon-opt ' + ((currentUser.icon||'🥊')===ic?'active':'') + '" data-icon="'+ic+'">'+ic+'</button>').join('');
+    picker.querySelectorAll('.icon-opt').forEach(b => b.onclick = () => {
+      picker.querySelectorAll('.icon-opt').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      pendingAvatarType = 'emoji';
+      renderAvatarDisplay();
+    });
   }
 
   async function saveProfile(){
@@ -228,10 +531,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     const email = (document.getElementById('profEmail').value||'').trim();
     const phone = (document.getElementById('profPhone').value||'').trim();
     const telegram = (document.getElementById('profTelegram').value||'').trim().replace(/^@/,'');
+    const bio = (document.getElementById('profBio').value||'').trim().slice(0,300);
     const oldPass = document.getElementById('profOldPass').value||'';
     const newPass = document.getElementById('profNewPass').value||'';
     const selIcon = document.querySelector('#iconPicker .icon-opt.active');
-    const icon = selIcon ? selIcon.dataset.icon : currentUser.icon || '\ud83e\udd4a';
+    const icon = selIcon ? selIcon.dataset.icon : currentUser.icon || '🥊';
     if(nick && !/^[a-zA-Z0-9._]{3,20}$/.test(nick)){ profileMsg('სახელი: 3-20 სიმბოლო (ასოები, ციფრები, . _)','var(--red)'); return; }
     try{
       const nickChanged = nick && nick !== currentUser.nick;
@@ -244,8 +548,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       }
       const phoneChanged = phone !== (currentUser.phone||'');
       const telegramChanged = telegram !== (currentUser.telegram||'');
-      if(nickChanged || icon !== currentUser.icon || phoneChanged || telegramChanged){
-        const upd = { nick: nick || currentUser.nick, icon };
+      const bioChanged = bio !== (currentUser.bio||'');
+      const avatarTypeChanged = pendingAvatarType !== currentUser.avatar_type;
+      if(nickChanged || icon !== currentUser.icon || phoneChanged || telegramChanged || bioChanged || avatarTypeChanged){
+        const upd = { nick: nick || currentUser.nick, icon, bio: bio || null, avatar_type: pendingAvatarType };
         if(phoneChanged) upd.phone = phone || null;
         if(telegramChanged) upd.telegram = telegram || null;
         let { data: updData, error: updErr } = await sb.from('users').update(upd).eq('id',currentUser.id).select('id');
@@ -256,8 +562,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         if(!updData || updData.length===0){ profileMsg('შენახვა დაბლოკილია (RLS).','var(--red)'); return; }
         if(nickChanged) currentUser.nick = nick;
         currentUser.icon = icon;
+        currentUser.bio = bio || null;
+        currentUser.avatar_type = pendingAvatarType;
         if(phoneChanged) currentUser.phone = phone || null;
         if(telegramChanged) currentUser.telegram = telegram || null;
+        renderAvatarDisplay();
       }
       if(email && email !== currentUser.email){
         const { error } = await sb.auth.updateUser({ email });
@@ -276,7 +585,72 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     }catch(e){ profileMsg('შეცდომა: '+e.message,'var(--red)'); }
   }
 
+  /* ============================================================
+     Phase Q3 §3.1 — ფოტოს ატვირთვა + Cropper.js მრგვალი crop.
+     ინახება კვადრატული სურათი (ევას/ბექენდში მომრგვალება არ ხდება) —
+     მრგვალი ჩვენება ყველგან მხოლოდ CSS-ითაა (border-radius:50% +
+     object-fit:cover). ატვირთვისთანავე პირდაპირ ინახება (არა "დაწყება"-ს
+     დალოდება) — ცალკე, გამოკვეთილი ნაბიჯია crop-მოდალში. ---------- */
+  function initAvatarUpload(){
+    const fileInput = document.getElementById('avatarFileInput');
+    document.getElementById('avatarUploadBtn').addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => {
+      const file = e.target.files && e.target.files[0];
+      fileInput.value = '';
+      if(!file) return;
+      if(!file.type.startsWith('image/')){ alert('მხოლოდ სურათის ატვირთვაა შესაძლებელი.'); return; }
+      const img = document.getElementById('pfCropImg');
+      img.src = URL.createObjectURL(file);
+      document.getElementById('pfCropErr').style.display = 'none';
+      document.getElementById('pfCropModal').style.display = 'flex';
+      if(cropper) cropper.destroy();
+      cropper = new Cropper(img, { aspectRatio: 1, viewMode: 1, background: false, autoCropArea: 1 });
+    });
+    document.getElementById('pfCropCancel').addEventListener('click', closeCropModal);
+    document.getElementById('pfCropSave').addEventListener('click', saveCroppedAvatar);
+  }
+  function closeCropModal(){
+    document.getElementById('pfCropModal').style.display = 'none';
+    if(cropper){ cropper.destroy(); cropper = null; }
+  }
+  async function saveCroppedAvatar(){
+    if(!cropper || !currentUser) return;
+    const errEl = document.getElementById('pfCropErr'); errEl.style.display = 'none';
+    const saveBtn = document.getElementById('pfCropSave'); saveBtn.disabled = true; saveBtn.textContent = 'ინახება…';
+    try{
+      const canvas = cropper.getCroppedCanvas({ width: 512, height: 512 });
+      const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.9));
+      if(!blob) throw new Error('crop ვერ მოხერხდა');
+      const path = `${currentUser.id}/${Date.now()}.jpg`;
+      const { error: upErr } = await sb.storage.from('avatars').upload(path, blob, { upsert: false, contentType: 'image/jpeg' });
+      if(upErr) throw upErr;
+      const { data: pub } = sb.storage.from('avatars').getPublicUrl(path);
+      const avatarUrl = pub.publicUrl;
+      const { data: updData, error: updErr } = await sb.from('users').update({ avatar_url: avatarUrl, avatar_type: 'photo' }).eq('id', currentUser.id).select('id');
+      if(updErr) throw updErr;
+      if(!updData || !updData.length) throw new Error('შენახვა დაბლოკილია (RLS)');
+      currentUser.avatar_url = avatarUrl; currentUser.avatar_type = 'photo'; pendingAvatarType = 'photo';
+      viewTarget = currentUser;
+      renderAvatarDisplay();
+      closeCropModal();
+    }catch(e){
+      errEl.textContent = 'ატვირთვა ვერ მოხერხდა: ' + (e.message || 'უცნობი შეცდომა');
+      errEl.style.display = 'block';
+    }finally{
+      saveBtn.disabled = false; saveBtn.textContent = 'შენახვა';
+    }
+  }
+
   async function doLogout(){ await sb.auth.signOut(); location.href = '/'; }
+
+  function applyModeVisibility(){
+    document.getElementById('nickEditSection').style.display = isOwnProfile ? '' : 'none';
+    document.getElementById('pfAvatarControls').style.display = isOwnProfile ? '' : 'none';
+    document.getElementById('pfPrivateSection').style.display = isOwnProfile ? '' : 'none';
+    document.getElementById('bioEditWrap').style.display = isOwnProfile ? '' : 'none';
+    document.getElementById('pfBioReadonly').style.display = isOwnProfile ? 'none' : '';
+    document.getElementById('pfVisitingNote').style.display = isOwnProfile ? 'none' : 'flex';
+  }
 
   async function init(){
     let session = null;
@@ -286,17 +660,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     let ud = null;
     try{ const res = await sb.from('users').select('*').eq('id', session.user.id).maybeSingle(); ud = res.data; }catch(e){}
 
-    // ── ბალანსი იმ ფენტეზის მიხედვით, საიდანაც მოვიდა ──
-    // UFC → users.balance; F1/NBA → get_sport_balance RPC (user_balances, sport-ის მიხედვით).
-    // თუ RPC ვერ იმუშავებს, UFC-ის ბალანსზე ვრჩებით, გვერდი მაინც იტვირთება.
+    // ── ბალანსი იმ ფენტეზის მიხედვით, საიდანაც მოვიდა (ყოველთვის viewer-ის საკუთარი) ──
     let balance = (ud && ud.balance != null) ? ud.balance : 1000;
-    // ფეხბურთი → get_sport_balance('soccer_<league>'), ლიგა fnf_league-დან (default esp1)
     let balSport = null;
     if (SPORT === 'f1' || SPORT === 'nba') balSport = SPORT;
     else if (SPORT === 'football') {
       let lg = 'esp1';
       try { lg = localStorage.getItem('fnf_league') || 'esp1'; } catch(e){}
-      if (!['esp1','eng1','ita1','ger1','fra1','ucl'].includes(lg)) lg = 'esp1';
+      if (!FOOTBALL_KEYS.includes(lg)) lg = 'esp1';
       balSport = 'soccer_' + lg;
     }
     if (balSport) {
@@ -310,13 +681,48 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       id: session.user.id, email: session.user.email,
       nick: ud?.nick || (session.user.email||'').split('@')[0],
       balance: balance,
-      icon: ud?.icon || '\ud83e\udd4a',
-      phone: ud?.phone || null, telegram: ud?.telegram || null
+      icon: ud?.icon || '🥊',
+      phone: ud?.phone || null, telegram: ud?.telegram || null,
+      bio: ud?.bio || null, avatar_url: ud?.avatar_url || null, avatar_type: ud?.avatar_type || 'emoji'
     };
+    pendingAvatarType = currentUser.avatar_type;
+
+    // ── Phase Q3 §3.0: ?u=<nick> → სტუმრის ნახვის რეჟიმი ──
+    const targetNick = (new URLSearchParams(location.search).get('u') || '').trim();
+    if (targetNick && targetNick !== currentUser.nick) {
+      isOwnProfile = false;
+      try {
+        const { data, error } = await sb.rpc('get_public_profile', { p_nick: targetNick });
+        if (error || !data || !data.length) { document.getElementById('pfNotFound').style.display = 'block'; return; }
+        viewTarget = data[0];
+      } catch (e) { document.getElementById('pfNotFound').style.display = 'block'; return; }
+    } else {
+      isOwnProfile = true;
+      viewTarget = currentUser;
+    }
+
     document.getElementById('pfContent').style.display = 'block';
-    fillForm();
-    document.getElementById('profileSave').addEventListener('click', saveProfile);
-    document.getElementById('profileLogout').addEventListener('click', doLogout);
+    applyModeVisibility();
+    renderAvatarDisplay();
+    document.getElementById('pfTitleHeading').textContent = isOwnProfile ? 'პროფილი' : (viewTarget.nick || 'პროფილი');
+    document.getElementById('pfSubHeading').textContent = isOwnProfile ? 'შეცვალე შენი ანგარიშის პარამეტრები' : 'საჯარო პროფილი';
+    document.getElementById('pfVisitingNick').textContent = viewTarget.nick || '';
+
+    if (isOwnProfile) {
+      fillForm();
+      initAvatarUpload();
+      document.getElementById('profBio').addEventListener('input', e => {
+        document.getElementById('profBioCount').textContent = e.target.value.length + ' / 300';
+      });
+      document.getElementById('profileSave').addEventListener('click', saveProfile);
+      document.getElementById('profileLogout').addEventListener('click', doLogout);
+    } else {
+      document.getElementById('pfBioReadonly').textContent = viewTarget.bio || 'ბიო არ არის დამატებული.';
+    }
+
+    renderSportTabsUI();
+    await selectSportTab(defaultTabKey());
+    await loadAndRenderArticles(viewTarget.id);
   }
   init();
 })();

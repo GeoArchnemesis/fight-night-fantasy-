@@ -670,10 +670,10 @@ function renderLeaderboard() {
     const nmSize = nm.length > 16 ? 'var(--fs-meta)' : nm.length > 12 ? '.88rem' : '1rem';
     const ptsStr = sign + fmt(r.pts);
     const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
-    return `<div class="lb-row ${you ? 'you' : ''}${verified ? ' verified-row' : ''}">
+    return `<a class="lb-row ${you ? 'you' : ''}${verified ? ' verified-row' : ''}" href="/profile/?u=${encodeURIComponent(nm)}" style="text-decoration:none;color:inherit">
       <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
       <span class="lb-user"><span class="lb-ava-glove">${r.icon || '🥊'}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name" style="font-size:${nmSize}">${nm}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
-      <span class="lb-roi"></span><span class="lb-pts" style="font-size:${ptsSize}">${ptsStr}</span></div>`;
+      <span class="lb-roi"></span><span class="lb-pts" style="font-size:${ptsSize}">${ptsStr}</span></a>`;
   }).join('');
   renderLbFullButton(fullSorted);
 }
@@ -698,10 +698,10 @@ function openLbPopup(fullSorted) {
     const nmSize = nm.length > 16 ? 'var(--fs-meta)' : nm.length > 12 ? '.88rem' : '1rem';
     const ptsStr = sign + fmt(r.pts);
     const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
-    return `<div class="lb-row ${you ? 'you' : ''}${verified ? ' verified-row' : ''}">
+    return `<a class="lb-row ${you ? 'you' : ''}${verified ? ' verified-row' : ''}" href="/profile/?u=${encodeURIComponent(nm)}" style="text-decoration:none;color:inherit">
       <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
       <span class="lb-user"><span class="lb-ava-glove">${r.icon || '🥊'}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name" style="font-size:${nmSize}">${nm}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
-      <span class="lb-pts" style="font-size:${ptsSize}">${ptsStr}</span></div>`;
+      <span class="lb-pts" style="font-size:${ptsSize}">${ptsStr}</span></a>`;
   }).join('');
   overlay.innerHTML = `<div class="lb-popup"><div class="lb-popup-head"><h3>სრული ლიდერბორდი</h3><button class="x" id="lbPopupClose" aria-label="დახურვა">&times;</button></div><div class="lb-popup-body">${rowsHtml}</div></div>`;
   document.body.appendChild(overlay);
@@ -872,6 +872,13 @@ function updateSecHead() {
   const secHead = document.querySelector('#card .sec-head'); if (!secHead) return;
   secHead.style.display = (!currentUser || isEventInProgress()) ? 'none' : '';
 }
+// Phase Q3: ნავში ავატარი ფოტოს პრეფერირებს, თუ users.avatar_type==='photo' —
+// თორემ ემოჯი, ძველებურად.
+function navAvaHtml(user) {
+  return (user.avatar_type === 'photo' && user.avatar_url)
+    ? `<img src="${user.avatar_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+    : (user.icon || '🥊');
+}
 function updateNavForUser(user) {
   document.body.classList.toggle('logged-in', !!user);   // მობილურის ქვედა ბარი (.mnav) ამ კლასზეა დამოკიდებული
   const joinBtn = document.getElementById('joinBtn'), signinBtn = document.getElementById('signinBtn'), balancePill = document.querySelector('.balance-pill');
@@ -881,13 +888,13 @@ function updateNavForUser(user) {
     if (signinBtn) signinBtn.style.display = 'none';
     if (!navUser) {
       navUser = document.createElement('div'); navUser.id = 'navUser'; navUser.className = 'nav-user';
-      navUser.innerHTML = `<span class="nav-ava">${user.icon || '🥊'}</span><span class="nav-nick">${user.nick}</span>
+      navUser.innerHTML = `<span class="nav-ava">${navAvaHtml(user)}</span><span class="nav-nick">${user.nick}</span>
         <div class="nav-dropdown" id="navDropdown"><button class="nav-dd-item" id="ddProfile">პროფილი</button><button class="nav-dd-item danger" id="ddLogout">გამოსვლა</button></div>`;
       if (joinBtn && joinBtn.parentNode) joinBtn.parentNode.insertBefore(navUser, joinBtn);
       navUser.onclick = (e) => { if (e.target.closest('.nav-dropdown')) return; document.getElementById('navDropdown').classList.toggle('show'); };
       document.getElementById('ddProfile').onclick = () => { document.getElementById('navDropdown').classList.remove('show'); openProfile(); };
       document.getElementById('ddLogout').onclick = () => { document.getElementById('navDropdown').classList.remove('show'); doLogout(); };
-    } else { navUser.querySelector('.nav-nick').textContent = user.nick; navUser.querySelector('.nav-ava').textContent = user.icon || '🥊'; }
+    } else { navUser.querySelector('.nav-nick').textContent = user.nick; navUser.querySelector('.nav-ava').innerHTML = navAvaHtml(user); }
     navUser.style.display = 'flex';
     if (balancePill) balancePill.classList.add('visible');
     addMobileMenuLinks();
@@ -953,7 +960,7 @@ async function doRegister() {
   // phone/birth_year/gender მაინც შეინახება
   try { await sb.from('users').update({ phone: phone || null, birth_year: +birthYear, gender }).eq('id', data.user.id); } catch (e) {}
   try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({ registration_ip: ipData.ip, last_login_ip: ipData.ip }).eq('id', data.user.id); } catch (e) {}
-  currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: phone || ud?.phone || null, telegram: ud?.telegram || null, birth_year: +birthYear || ud?.birth_year || null, gender: gender || ud?.gender || null };
+  currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: phone || ud?.phone || null, telegram: ud?.telegram || null, birth_year: +birthYear || ud?.birth_year || null, gender: gender || ud?.gender || null, avatar_url: ud?.avatar_url || null, avatar_type: ud?.avatar_type || 'emoji' };
   // ერთი საერთო event_id ბრაუზერისთვის (GTM) და სერვერისთვის (Meta CAPI) — Deduplicated
   var fbEventId = 'reg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
   window.dataLayer = window.dataLayer || [];
@@ -980,7 +987,7 @@ async function doSignIn() {
   if (error) { authError('არასწორი მეილი ან პაროლი'); return; }
   let ud = null;
   try { const res = await sb.from('users').select('*').eq('id', data.user.id).maybeSingle(); ud = res.data; } catch (e) {}
-  currentUser = { id: data.user.id, email, nick: ud?.nick || email, balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null, birth_year: ud?.birth_year || null, gender: ud?.gender || null };
+  currentUser = { id: data.user.id, email, nick: ud?.nick || email, balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null, birth_year: ud?.birth_year || null, gender: ud?.gender || null, avatar_url: ud?.avatar_url || null, avatar_type: ud?.avatar_type || 'emoji' };
   closeModal(); updateNavForUser(currentUser); await hydrateUserData();
 }
 
@@ -1017,7 +1024,8 @@ async function applySession(session) {
     currentUser = { id: session.user.id, email: session.user.email,
       nick: ud?.nick || session.user.user_metadata?.nick || (session.user.email || '').split('@')[0],
       balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0,
-      icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null, birth_year: ud?.birth_year || null, gender: ud?.gender || null };
+      icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null, birth_year: ud?.birth_year || null, gender: ud?.gender || null,
+      avatar_url: ud?.avatar_url || null, avatar_type: ud?.avatar_type || 'emoji' };
     try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({ last_login_ip: ipData.ip }).eq('id', session.user.id); } catch (e) {}
     updateNavForUser(currentUser);
     await hydrateUserData();

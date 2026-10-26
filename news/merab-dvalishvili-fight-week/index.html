@@ -800,6 +800,23 @@ async function nwApplyAuthState(session) {
   nwRenderCommentAuthArea();
   nwRenderComments();
   await nwRefreshMyReaction();
+  nwTrackArticleView();
+}
+
+// Phase Q3 (QUIZ-AND-PROFILE-PRD.md §3.4): records a signed-in user's view
+// of this article for their profile's "read articles" slider
+// (news_article_views, supabase/profile_redesign.sql). Signed-out visitors
+// are not tracked. Fire-and-forget -- a failed write here shouldn't block
+// anything else on the page, and the upsert's own ON CONFLICT already
+// makes repeat views/re-logins idempotent (first_viewed_at is left alone
+// on conflict since it isn't in the payload; only last_viewed_at updates).
+async function nwTrackArticleView() {
+  if (!nwCurrentUser || !nwArticle || !nwArticle.slug) return;
+  try {
+    await nwGetClient().from('news_article_views')
+      .upsert({ user_id: nwCurrentUser.id, article_slug: nwArticle.slug, last_viewed_at: new Date().toISOString() },
+              { onConflict: 'user_id,article_slug' });
+  } catch (e) {}
 }
 
 function nwRenderCommentAuthArea() {
