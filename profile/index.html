@@ -73,6 +73,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .pf-bio-count{text-align:right;font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-top:4px}
 .pf-bio-readonly{color:var(--text-2);font-size:.92rem;line-height:1.5;white-space:pre-wrap}
 
+/* ---------- R5: email-already-registered inline field error ---------- */
+#profEmail.err{border-color:var(--red)}
+.pf-field-err{color:var(--red);font-size:.78rem;margin-top:6px}
+
 /* ---------- Phase Q3: sport tabs + ticket history ---------- */
 .pf-section-label{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);margin:28px 0 12px}
 .pf-tickets-list{display:flex;flex-direction:column;gap:10px}
@@ -245,6 +249,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="field">
                 <label for="profEmail">ელ. ფოსტა</label>
                 <input type="email" id="profEmail" placeholder="შეიყვანე მეილი" />
+                <p class="pf-field-err" id="profEmailErr" style="display:none">აღნიშნული მეილი უკვე რეგისტრირებულია</p>
               </div>
             </div>
 
@@ -680,6 +685,10 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     const newPass = document.getElementById('profNewPass').value||'';
     const selIcon = document.querySelector('#iconPicker .icon-opt.active');
     const icon = selIcon ? selIcon.dataset.icon : currentUser.icon || '🥊';
+    const emailInputEl = document.getElementById('profEmail');
+    const emailErrEl = document.getElementById('profEmailErr');
+    emailInputEl.classList.remove('err');
+    emailErrEl.style.display = 'none';
     if(nick && !/^[a-zA-Z0-9._]{3,20}$/.test(nick)){ profileMsg('სახელი: 3-20 სიმბოლო (ასოები, ციფრები, . _)','var(--red)'); return; }
     try{
       const nickChanged = nick && nick !== currentUser.nick;
@@ -714,7 +723,16 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       }
       if(email && email !== currentUser.email){
         const { error } = await sb.auth.updateUser({ email });
-        if(error){ profileMsg('მეილის შეცვლა ვერ მოხერხდა: '+error.message,'var(--red)'); return; }
+        if(error){
+          const msg = String(error.message || '').toLowerCase();
+          if(msg.includes('already') && msg.includes('registered')){
+            emailInputEl.classList.add('err');
+            emailErrEl.style.display = 'block';
+          } else {
+            profileMsg('მეილის შეცვლა ვერ მოხერხდა: '+error.message,'var(--red)');
+          }
+          return;
+        }
         currentUser.email = email;
       }
       if(newPass){

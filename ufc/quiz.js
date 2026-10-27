@@ -165,18 +165,25 @@ function setAuthModalMode(mode){
   const sub = document.getElementById('quizAuthSub');
   const submitBtn = document.getElementById('quizAuthSubmit');
   const switchWrap = document.getElementById('quizAuthSwitch');
+  // R5: sign-in (არა რეგისტრაცია) დასაშვებია მეილის/ნიქნეიმის/ნომრით — label/placeholder მხოლოდ signin-ზე იცვლება
+  const emailLabel = document.querySelector('label[for="quizAuthEmail"]');
+  const emailInput = document.getElementById('quizAuthEmail');
   if(mode === 'signup'){
     if(nickField) nickField.style.display = '';
     if(title) title.textContent = 'რეგისტრაცია';
     if(sub) sub.textContent = 'თამაშის დასაწყებად საჭიროა ანგარიში.';
     if(submitBtn) submitBtn.textContent = 'რეგისტრაცია';
     if(switchWrap) switchWrap.innerHTML = 'უკვე გაქვს ანგარიში? <button type="button" id="quizAuthSwitchBtn">შესვლა</button>';
+    if(emailLabel) emailLabel.textContent = 'ელ. ფოსტა';
+    if(emailInput) emailInput.placeholder = 'შეიყვანე შენი მეილი';
   } else {
     if(nickField) nickField.style.display = 'none';
     if(title) title.textContent = 'შესვლა';
     if(sub) sub.textContent = 'თამაშის დასაწყებად საჭიროა ავტორიზაცია.';
     if(submitBtn) submitBtn.textContent = 'შესვლა';
     if(switchWrap) switchWrap.innerHTML = 'არ გაქვს ანგარიში? <button type="button" id="quizAuthSwitchBtn">რეგისტრაცია</button>';
+    if(emailLabel) emailLabel.textContent = 'ელ.ფოსტა / ნიქნეიმი / ნომერი';
+    if(emailInput) emailInput.placeholder = 'შეიყვანე ელ.ფოსტა, ნიქნეიმი ან ნომერი';
   }
   const switchBtn = document.getElementById('quizAuthSwitchBtn');
   if(switchBtn) switchBtn.addEventListener('click', ()=> setAuthModalMode(mode === 'signup' ? 'signin' : 'signup'));

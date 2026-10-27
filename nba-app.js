@@ -748,6 +748,10 @@ function openModal(mode) {
   const sw = $('modalSwitch'); if (sw) sw.innerHTML = mode === 'join' ? 'უკვე გაქვს ანგარიში? <button id="switchMode">შესვლა</button>' : 'ახალი ხარ აქ? <button id="switchMode">რეგისტრაცია</button>';
   const swb = $('switchMode'); if (swb) swb.onclick = () => openModal(mode === 'join' ? 'signin' : 'join');
   const fw = $('forgotWrap'); if (fw) fw.style.display = mode === 'signin' ? 'block' : 'none';
+  // R5: sign-in (არა რეგისტრაცია) დასაშვებია მეილის/ნიქნეიმის/ნომრით — label/placeholder მხოლოდ signin-ზე იცვლება
+  const inEmailLabelEl = document.querySelector('label[for="inEmail"]');
+  if (inEmailLabelEl) inEmailLabelEl.textContent = mode === 'signin' ? 'ელ.ფოსტა / ნიქნეიმი / ნომერი' : 'ელ. ფოსტა';
+  if ($('inEmail')) $('inEmail').placeholder = mode === 'signin' ? 'შეიყვანე ელ.ფოსტა, ნიქნეიმი ან ნომერი' : 'შეიყვანე შენი მეილი';
   if (modal) modal.classList.add('show');
 }
 function closeModal() { if (modal) modal.classList.remove('show'); authError(''); }
