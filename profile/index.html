@@ -30,8 +30,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <style>
 /* პროფილის გვერდი — ცალკე */
 .pf-page{min-height:100vh;display:flex;flex-direction:column}
-.pf-main{flex:1;width:min(560px,92vw);margin:0 auto;padding:clamp(24px,5vw,48px) 0 120px}
-.pf-back{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-family:var(--mono);font-size:var(--fs-meta);color:var(--muted);margin-bottom:24px;transition:color .15s;cursor:pointer;background:none;border:none}
+.pf-main{flex:1;width:min(1200px,94vw);margin:0 auto;padding:clamp(20px,4vw,36px) 0 60px}
+.pf-back{display:inline-flex;align-items:center;gap:8px;min-height:44px;font-family:var(--mono);font-size:var(--fs-meta);color:var(--muted);margin-bottom:20px;transition:color .15s;cursor:pointer;background:none;border:none}
 .pf-back:hover{color:var(--text)}
 .pf-title{font-family:var(--display);font-weight:700;font-size:clamp(2rem,6vw,2.8rem);line-height:1;margin-bottom:6px}
 .pf-sub{color:var(--muted);font-size:.9rem;margin-bottom:28px}
@@ -41,11 +41,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .pf-guest p{color:var(--muted);font-size:.9rem;margin-bottom:20px}
 .pf-card{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:clamp(20px,4vw,32px)}
 
-/* ---------- Phase Q3: avatar (emoji + photo/crop) ---------- */
-.pf-avatar-row{display:flex;align-items:center;gap:20px;margin-bottom:24px;flex-wrap:wrap}
-.pf-avatar-display{width:84px;height:84px;border-radius:50%;flex-shrink:0;background:var(--ink);border:2px solid var(--line);display:grid;place-items:center;font-size:40px;overflow:hidden}
+/* ---------- R4: desktop two-column layout, mobile single stack ---------- */
+.pf-layout{display:grid;grid-template-columns:260px 1fr;gap:32px;align-items:start}
+.pf-left{display:flex;flex-direction:column;align-items:center;gap:14px;position:sticky;top:90px}
+.pf-right{min-width:0}
+@media(max-width:920px){
+  .pf-layout{display:flex;flex-direction:column;gap:0}
+  .pf-left{position:static;margin-bottom:26px}
+}
+
+/* ---------- Phase Q3: avatar (emoji + photo/crop) — R4: moved into .pf-left ---------- */
+.pf-avatar-display{width:180px;height:180px;border-radius:50%;flex-shrink:0;background:var(--ink);border:2px solid var(--line);display:grid;place-items:center;font-size:76px;overflow:hidden}
 .pf-avatar-display img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-.pf-avatar-controls{flex:1;min-width:200px}
+@media(max-width:920px){.pf-avatar-display{width:140px;height:140px;font-size:60px}}
+.pf-avatar-controls{width:100%}
+.btn-green{background:var(--green);color:#06130c}
 .pf-crop-modal{position:fixed;inset:0;z-index:500;background:rgba(5,4,8,.85);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:20px}
 .pf-crop-box{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:22px;max-width:420px;width:100%}
 .pf-crop-box h3{font-family:var(--display);font-weight:700;margin-bottom:14px;text-align:center;font-size:1.2rem}
@@ -61,19 +71,30 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .pf-bio-count{text-align:right;font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-top:4px}
 .pf-bio-readonly{color:var(--text-2);font-size:.92rem;line-height:1.5;white-space:pre-wrap}
 
-/* ---------- Phase Q3: visiting-mode banner ---------- */
-.pf-visiting-note{display:flex;align-items:center;gap:8px;background:rgba(245,196,81,.08);border:1px solid rgba(245,196,81,.3);border-radius:8px;padding:10px 14px;font-size:.84rem;color:var(--gold);margin-bottom:18px}
-
 /* ---------- Phase Q3: sport tabs + ticket history ---------- */
 .pf-section-label{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-2);margin:28px 0 12px}
 .pf-tickets-list{display:flex;flex-direction:column;gap:10px}
 
-/* ---------- Phase Q3: read/liked articles slider ---------- */
-.pf-articles-row{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
-.pf-article-card{position:relative;flex:0 0 150px;scroll-snap-align:start;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--ink);text-decoration:none;color:inherit;display:block}
-.pf-article-card img{width:100%;height:84px;object-fit:cover;display:block;background:var(--surface-2)}
+/* ---------- R4: articles section label + public/private switch ---------- */
+.pf-articles-label-row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.pf-switch{display:flex;align-items:center;gap:8px;cursor:pointer;font-family:var(--mono);font-size:.7rem;letter-spacing:.04em;color:var(--muted-2);text-transform:none}
+.pf-switch input{position:absolute;opacity:0;width:0;height:0}
+.pf-switch-track{width:36px;height:20px;border-radius:999px;background:var(--line);position:relative;transition:background .15s;flex-shrink:0}
+.pf-switch-thumb{position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:var(--text);transition:transform .15s}
+.pf-switch input:checked + .pf-switch-track{background:var(--green)}
+.pf-switch input:checked + .pf-switch-track .pf-switch-thumb{transform:translateX(16px);background:#06130c}
+
+/* ---------- Phase Q3: read/liked articles — R4: 3-col grid on desktop, horizontal scroll on mobile ---------- */
+.pf-articles-row{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.pf-article-card{position:relative;scroll-snap-align:start;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--ink);text-decoration:none;color:inherit;display:block}
+.pf-article-card img{width:100%;height:120px;object-fit:cover;display:block;background:var(--surface-2)}
 .pf-article-card .pf-article-title{font-size:.78rem;font-weight:700;padding:8px 10px;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:2.6em}
 .pf-article-heart{position:absolute;top:6px;right:6px;width:24px;height:24px;border-radius:50%;background:rgba(5,4,8,.65);display:grid;place-items:center;font-size:12px}
+@media(max-width:920px){
+  .pf-articles-row{display:flex;overflow-x:auto;gap:12px;padding-bottom:6px;scroll-snap-type:x proximity;-webkit-overflow-scrolling:touch}
+  .pf-article-card{flex:0 0 150px}
+  .pf-article-card img{height:84px}
+}
 </style>
 <style>
 /* ── MOBILE BOTTOM NAV (mnav) — მხოლოდ მობილურზე ── */
@@ -101,7 +122,27 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 @media(max-width:920px){
   .mnav{display:flex}   /* პროფილზე ყოველთვის ჩანს — აქ მოხვედრა ისედაც ლოგინს ნიშნავს */
   body{padding-bottom:calc(66px + env(safe-area-inset-bottom,0px))}
+  .d-only{display:none !important}
 }
+</style>
+<style>
+/* ── R4: დესკტოპ ტოპ ნავი (ufc/index.html-ის nav-fx/.d-only-ის იდენტური ასლი —
+     პროფილის გვერდს აქამდე საერთოდ არ ჰქონდა სრული ნავიგაცია) ── */
+.nav-fx{position:relative}
+.nav-fx-lbl{font-size:var(--fs-meta);letter-spacing:.04em;font-weight:700;color:var(--muted);cursor:pointer;transition:color .2s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.nav-fx:hover .nav-fx-lbl{color:var(--text)}
+.nav-fx-caret{font-size:var(--fs-meta);transition:transform .2s}
+.nav-fx:hover .nav-fx-caret{transform:rotate(180deg)}
+.nav-fx::after{content:"";position:absolute;top:100%;left:0;right:0;height:14px}
+.nav-fx-pop{position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:150px;display:flex;flex-direction:column;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s,transform .2s,visibility .2s;z-index:60}
+.nav-fx:hover .nav-fx-pop{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.nav-fx-pop a{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:7px;font-family:var(--head);font-weight:700;font-size:.9rem;color:var(--text);text-decoration:none;transition:background .15s;white-space:nowrap}
+.nav-fx-pop a:hover{background:rgba(255,255,255,.05)}
+.nav-fx.open .nav-fx-lbl{color:var(--text)}
+.nav-fx.open .nav-fx-caret{transform:rotate(180deg)}
+.nav-fx.open .nav-fx-pop{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.nav-fx-pop a.on{background:rgba(245,196,81,.1);color:var(--gold)}
+.fx-tag{font-family:var(--mono);font-size:var(--fs-meta);font-weight:700;letter-spacing:.04em;color:var(--green);text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -119,6 +160,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <img src="/logo.png?v=2" alt="Fight Night Fantasy" />
 <span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
 </a>
+<div class="nav-links" id="navLinks">
+  <div class="nav-fx d-only" id="navFx">
+    <span class="nav-fx-lbl">ფენტეზის ტიპი <span class="nav-fx-caret">▾</span></span>
+    <div class="nav-fx-pop" id="navFxPop">
+      <a href="/ufc/">UFC <span class="fx-tag">აქტიური</span></a>
+      <a href="/f1/">F1 <span class="fx-tag">აქტიური</span></a>
+      <a href="/nba/">NBA <span class="fx-tag">აქტიური</span></a>
+    </div>
+  </div>
+  <a id="navLb" class="d-only">ლიდერბორდი</a>
+  <a id="navTk" class="d-only">ბილეთების ისტორია</a>
+  <a href="/news/" class="d-only">სიახლეები</a>
+</div>
 <div class="nav-cta">
   <div class="balance-pill"><span class="coin"></span><b id="balNav">1,000</b> ქულა</div>
   <a class="btn btn-ghost" id="backLink" href="/ufc/">მთავარი</a>
@@ -147,89 +201,106 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- პროფილის ფორმა -->
   <div id="pfContent" style="display:none">
-    <p class="pf-visiting-note" id="pfVisitingNote" style="display:none">👀 სტუმრობ <b id="pfVisitingNick"></b>-ის საჯარო პროფილს — მხოლოდ შენი საკუთარი პროფილი რედაქტირდება.</p>
-
-    <h1 class="pf-title" id="pfTitleHeading">პროფილი</h1>
-    <p class="pf-sub" id="pfSubHeading">შეცვალე შენი ანგარიშის პარამეტრები</p>
     <div class="pf-card">
+      <div class="pf-layout">
 
-      <div class="pf-avatar-row">
-        <div class="pf-avatar-display" id="pfAvatarDisplay">🥊</div>
-        <div class="pf-avatar-controls" id="pfAvatarControls">
-          <span class="field-label" id="iconPickerLabel">აირჩიე ემოჯი</span>
-          <div class="icon-picker" id="iconPicker" role="radiogroup" aria-labelledby="iconPickerLabel"></div>
-          <button type="button" class="btn btn-ghost" id="avatarUploadBtn" style="margin-top:10px">📷 ფოტოს ატვირთვა</button>
-          <input type="file" id="avatarFileInput" accept="image/*" style="display:none" />
+        <!-- R4: მარცხენა სვეტი — მრგვალი ფოტო + მწვანე "ფოტოს შეცვლა" ღილაკი -->
+        <aside class="pf-left">
+          <div class="pf-avatar-display" id="pfAvatarDisplay">🥊</div>
+          <div class="pf-avatar-controls" id="pfAvatarControls">
+            <button type="button" class="btn btn-green" id="avatarUploadBtn" style="width:100%;justify-content:center">📷 ფოტოს შეცვლა</button>
+            <input type="file" id="avatarFileInput" accept="image/*" style="display:none" />
+            <span class="field-label" id="iconPickerLabel" style="display:block;margin-top:14px">ან აირჩიე ემოჯი</span>
+            <div class="icon-picker" id="iconPicker" role="radiogroup" aria-labelledby="iconPickerLabel"></div>
+          </div>
+        </aside>
+
+        <!-- R4: მარჯვენა სვეტი — სახელი → ბიო → ანგარიშის პარამეტრები → ბილეთები → სტატიები -->
+        <div class="pf-right">
+          <h1 class="pf-title" id="pfTitleHeading">პროფილი</h1>
+          <p class="pf-sub" id="pfSubHeading">შეცვალე შენი ანგარიშის პარამეტრები</p>
+
+          <div class="profile-section">
+            <div id="bioEditWrap">
+              <div class="field">
+                <label for="profBio">ბიო</label>
+                <textarea id="profBio" maxlength="300" rows="3" placeholder="მოკლედ მოგვიყევი შენს შესახებ..."></textarea>
+              </div>
+              <div class="pf-bio-count" id="profBioCount">0 / 300</div>
+            </div>
+            <p class="pf-bio-readonly" id="pfBioReadonly" style="display:none"></p>
+          </div>
+
+          <div id="pfPrivateSection">
+            <div class="profile-section" id="nickEditSection">
+              <div class="field">
+                <label for="profNick">სახელი (ნიქნეიმი)</label>
+                <input type="text" id="profNick" placeholder="მაგ. UFC.King" maxlength="20" />
+              </div>
+            </div>
+
+            <div class="profile-section">
+              <div class="field">
+                <label for="profEmail">ელ. ფოსტა</label>
+                <input type="email" id="profEmail" placeholder="შეიყვანე მეილი" />
+              </div>
+            </div>
+
+            <div class="profile-section">
+              <div class="field-label" style="margin-bottom:8px">საკონტაქტო ინფორმაცია</div>
+              <div class="field">
+                <label for="profPhone">მობილურის ნომერი</label>
+                <input type="tel" id="profPhone" placeholder="მაგ. 555123456" />
+              </div>
+              <div class="field">
+                <label for="profTelegram">ტელეგრამი</label>
+                <input type="text" id="profTelegram" placeholder="მაგ. @username" />
+              </div>
+            </div>
+
+            <div class="profile-section">
+              <div class="field-label" style="margin-bottom:12px">პასვორდის შეცვლა</div>
+              <div class="field">
+                <label for="profOldPass">ძველი პასვორდი</label>
+                <input type="password" id="profOldPass" placeholder="შეიყვანე ძველი პასვორდი" />
+              </div>
+              <div class="field">
+                <label for="profNewPass">ახალი პასვორდი</label>
+                <input type="password" id="profNewPass" placeholder="მინ. 6 სიმბოლო" />
+              </div>
+            </div>
+
+            <div id="profileMsg" style="font-size:.85rem;margin-bottom:10px;display:none"></div>
+            <button class="btn btn-primary" id="profileSave" style="width:100%;justify-content:center;padding:14px">შენახვა</button>
+            <button class="btn btn-ghost" id="profileLogout" style="width:100%;margin-top:10px;text-align:center;display:block">გამოსვლა</button>
+          </div>
+
+          <!-- Phase Q3 §3.3: 9 sport tabs (UFC, F1, NBA, 6 football leagues) —
+               ticket history, own profile or (via the §3.0 SELECT policy)
+               whoever's profile this is. Styled like the leaderboard's
+               .lb-tabs/.lb-tab (style.css), no new tab CSS needed. R4: cards
+               are now collapsed by default (see ticketCardHtml/renderTicketRows). -->
+          <div class="pf-section-label">ბილეთების ისტორია</div>
+          <div class="lb-tabs" id="pfSportTabs"></div>
+          <div class="pf-tickets-list" id="pfTicketsList"></div>
+
+          <!-- Phase Q3 §3.4 / R4: read + liked articles — 3-col grid on desktop,
+               horizontal scroll on mobile, own-profile visibility switch
+               (articles_public, default true — see profile_updates.sql). -->
+          <div id="pfArticlesSection">
+            <div class="pf-section-label pf-articles-label-row">
+              <span>წაკითხული სტატიები</span>
+              <label class="pf-switch" id="pfArticlesToggleWrap" style="display:none">
+                <input type="checkbox" id="pfArticlesToggle" checked />
+                <span class="pf-switch-track"><span class="pf-switch-thumb"></span></span>
+                <span>საჯაროდ ჩანს</span>
+              </label>
+            </div>
+            <div class="pf-articles-row" id="pfArticlesRow"></div>
+            <p class="tinyinfo" id="pfArticlesEmpty" style="display:none">ჯერ არცერთი სტატია არ წაგიკითხავს.</p>
+          </div>
         </div>
       </div>
-
-      <div class="profile-section" id="nickEditSection">
-        <div class="field">
-          <label for="profNick">სახელი (ნიქნეიმი)</label>
-          <input type="text" id="profNick" placeholder="მაგ. UFC.King" maxlength="20" />
-        </div>
-      </div>
-
-      <div class="profile-section">
-        <div id="bioEditWrap">
-          <div class="field">
-            <label for="profBio">ბიო</label>
-            <textarea id="profBio" maxlength="300" rows="3" placeholder="მოკლედ მოგვიყევი შენს შესახებ..."></textarea>
-          </div>
-          <div class="pf-bio-count" id="profBioCount">0 / 300</div>
-        </div>
-        <p class="pf-bio-readonly" id="pfBioReadonly" style="display:none"></p>
-      </div>
-
-      <div id="pfPrivateSection">
-        <div class="profile-section">
-          <div class="field">
-            <label for="profEmail">ელ. ფოსტა</label>
-            <input type="email" id="profEmail" placeholder="შეიყვანე მეილი" />
-          </div>
-        </div>
-
-        <div class="profile-section">
-          <div class="field-label" style="margin-bottom:8px">საკონტაქტო ინფორმაცია</div>
-          <div class="field">
-            <label for="profPhone">მობილურის ნომერი</label>
-            <input type="tel" id="profPhone" placeholder="მაგ. 555123456" />
-          </div>
-          <div class="field">
-            <label for="profTelegram">ტელეგრამი</label>
-            <input type="text" id="profTelegram" placeholder="მაგ. @username" />
-          </div>
-        </div>
-
-        <div class="profile-section">
-          <div class="field-label" style="margin-bottom:12px">პასვორდის შეცვლა</div>
-          <div class="field">
-            <label for="profOldPass">ძველი პასვორდი</label>
-            <input type="password" id="profOldPass" placeholder="შეიყვანე ძველი პასვორდი" />
-          </div>
-          <div class="field">
-            <label for="profNewPass">ახალი პასვორდი</label>
-            <input type="password" id="profNewPass" placeholder="მინ. 6 სიმბოლო" />
-          </div>
-        </div>
-
-        <div id="profileMsg" style="font-size:.85rem;margin-bottom:10px;display:none"></div>
-        <button class="btn btn-primary" id="profileSave" style="width:100%;justify-content:center;padding:14px">შენახვა</button>
-        <button class="btn btn-ghost" id="profileLogout" style="width:100%;margin-top:10px;text-align:center;display:block">გამოსვლა</button>
-      </div>
-
-      <!-- Phase Q3 §3.3: 9 sport tabs (UFC, F1, NBA, 6 football leagues) —
-           ticket history, own profile or (via the §3.0 SELECT policy)
-           whoever's profile this is. Styled like the leaderboard's
-           .lb-tabs/.lb-tab (style.css), no new tab CSS needed. -->
-      <div class="pf-section-label">ბილეთების ისტორია</div>
-      <div class="lb-tabs" id="pfSportTabs"></div>
-      <div class="pf-tickets-list" id="pfTicketsList"></div>
-
-      <!-- Phase Q3 §3.4: read + liked articles slider -->
-      <div class="pf-section-label">წაკითხული სტატიები</div>
-      <div class="pf-articles-row" id="pfArticlesRow"></div>
-      <p class="tinyinfo" id="pfArticlesEmpty" style="display:none">ჯერ არცერთი სტატია არ წაგიკითხავს.</p>
     </div>
   </div>
 </main>
@@ -267,9 +338,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   // ქვედა nav: ლიდერბორდი/ბილეთები იმ სპორტზე, საიდანაც მოვედი
   var lb = document.getElementById('mnavLb'); if (lb) lb.onclick = function(){ location.href = url + '#leaderboard'; };
   var tk = document.getElementById('mnavTk'); if (tk) tk.onclick = function(){ location.href = url + '#tickets'; };
+  // R4: დესკტოპის ტოპ ნავი — იგივე ლინკები, href-ით (არა onclick-ით)
+  var nlb = document.getElementById('navLb'); if (nlb) nlb.href = url + '#leaderboard';
+  var ntk = document.getElementById('navTk'); if (ntk) ntk.href = url + '#tickets';
   // dropdown: მიმდინარე სპორტი მოვნიშნოთ "on"-ით (ლინკის ნაცვლად)
   var pop = document.getElementById('mnavSportPop');
   if (pop) { var cur = pop.querySelector('a[href="'+url+'"]'); if (cur) { var d=document.createElement('div'); d.className='mnav-pop-opt on'; d.innerHTML = cur.innerHTML; cur.replaceWith(d); } }
+  var dpop = document.getElementById('navFxPop');
+  if (dpop) { var dcur = dpop.querySelector('a[href="'+url+'"]'); if (dcur) dcur.classList.add('on'); }
+})();
+</script>
+<script>
+(function(){var fx=document.getElementById('navFx');if(!fx)return;
+fx.addEventListener('click',function(e){
+  if(e.target.closest('.nav-fx-pop a'))return;      /* ლინკზე დაჭერა → გადასვლა */
+  e.preventDefault();fx.classList.toggle('open');
+});
+document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.classList.remove('open');});
 })();
 </script>
 
@@ -394,9 +479,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     if (error) throw error; return (data || []).map(normalizeSoccerTicket);
   }
 
-  function ticketCardHtml(t){
+  // R4: ბილეთები შეკეცილია ნაგულისხმევად (აქტიურიც და დახურულიც ერთნაირად) —
+  // იგივე collapsed/expanded პატერნი რასაც app.js-ის renderTicketCard იყენებს
+  // (tk-collapsed-info/.tkc-col უკვე style.css-შია, ახალი CSS არ სჭირდება).
+  let tkCollapsed = {};
+
+  function ticketCardHtml(t, key){
+    const isCollapsed = tkCollapsed[key] !== false;
     const potentialWin = Math.round((t.stake || 0) * (t.odds || 0));
     const statusColor = t.status === 'won' ? 'var(--green)' : (t.status === 'lost' ? 'var(--red-soft)' : (t.status === 'cashout' ? 'var(--gold)' : (t.status === 'void' ? 'var(--muted)' : '#ff9d3c')));
+    const winColor = t.status === 'won' ? 'var(--green)' : t.status === 'lost' ? 'var(--red-soft)' : 'var(--gold)';
+    const winText = t.status === 'won' ? '+' + fmt(potentialWin) : fmt(potentialWin);
+    const collapsedView = `<div class="tk-collapsed-info">
+        <div class="tkc-col"><span class="tkc-lbl">პოზიცია</span><span class="tkc-val">${t.sels.length}</span></div>
+        <div class="tkc-col"><span class="tkc-lbl">ფსონი</span><span class="tkc-val">${fmt(t.stake)}</span></div>
+        <div class="tkc-col"><span class="tkc-lbl">კოეფ.</span><span class="tkc-val">${t.odds.toFixed(2)}</span></div>
+        <div class="tkc-col"><span class="tkc-lbl">${t.status === 'cashout' ? 'ქეშაუთი' : t.status === 'void' ? 'დაბრუნდა' : 'შესაძლო მოგება'}</span><span class="tkc-val" style="color:${winColor}">${t.status === 'cashout' ? '✓' : t.status === 'void' ? fmt(t.stake) : winText}</span></div>
+      </div>`;
     const selsHtml = t.sels.map(s => {
       const left = s.kind === 'fighters'
         ? `<span class="tk-sel-dot red"></span><span class="tk-sel-red">${s.redName}</span><span class="tk-sel-vs">vs</span><span class="tk-sel-blue">${s.blueName}</span><span class="tk-sel-dot blue"></span>`
@@ -412,10 +511,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       : t.status === 'cashout' ? `<span style="color:var(--gold)">ქეშაუთი</span>`
       : t.status === 'void' ? `<span style="color:var(--muted)">${fmt(t.stake)} ქულა დაბრუნდა</span>`
       : `<span class="tk-foot-label">შეს. მოგება</span><span style="color:var(--gold)">${fmt(potentialWin)}</span>`;
-    return `<div class="ticket tk-${t.status}">
-      <div class="tk-head"><div class="tk-head-left"><span class="tk-status ${t.status}" style="color:${statusColor}">${STATUS_LABEL[t.status] || t.status}</span><span class="tk-type">${t.type === 'express' ? 'ექსპრესი · ' + t.sels.length + ' მოვლენა' : 'სინგლი'}</span></div></div>
+    return `<div class="ticket tk-${t.status} ${isCollapsed ? 'collapsed' : ''}">
+      <div class="tk-head" data-tktoggle="${key}"><div class="tk-head-left"><span class="tk-status ${t.status}" style="color:${statusColor}">${STATUS_LABEL[t.status] || t.status}</span><span class="tk-type">${t.type === 'express' ? 'ექსპრესი · ' + t.sels.length + ' მოვლენა' : 'სინგლი'}</span></div><span class="tk-arrow ${isCollapsed ? '' : 'open'}">▾</span></div>
+      ${isCollapsed ? collapsedView : `
       <div class="tk-sels">${selsHtml || '<div class="tk-empty" style="padding:10px">პოზიციები არ არის</div>'}</div>
       <div class="tk-foot"><span class="tk-foot-type">${t.type === 'express' ? 'ექსპრესი' : 'სინგლი'}</span><span class="tk-foot-pay">${payHtml}</span></div>
+      `}
     </div>`;
   }
 
@@ -425,6 +526,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     wrap.querySelectorAll('.lb-tab').forEach(b => b.onclick = () => selectSportTab(b.dataset.tab));
   }
 
+  function renderTicketRows(sportKey, rows){
+    const listEl = document.getElementById('pfTicketsList');
+    if (!rows.length) { listEl.innerHTML = '<div class="tk-empty">ბილეთები არ არის.</div>'; return; }
+    listEl.innerHTML = rows.map((t, i) => ticketCardHtml(t, sportKey + ':' + (t.id != null ? t.id : i))).join('');
+    listEl.querySelectorAll('[data-tktoggle]').forEach(b => b.onclick = () => {
+      const k = b.dataset.tktoggle;
+      tkCollapsed[k] = tkCollapsed[k] === false ? true : false;
+      renderTicketRows(sportKey, rows);
+    });
+  }
+
   async function selectSportTab(key){
     activeSportTab = key;
     renderSportTabsUI();
@@ -432,7 +544,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     listEl.innerHTML = '<div class="tk-empty">იტვირთება…</div>';
     try {
       const rows = await fetchTicketsForTab(viewTarget.id, key);
-      listEl.innerHTML = rows.length ? rows.map(ticketCardHtml).join('') : '<div class="tk-empty">ბილეთები არ არის.</div>';
+      renderTicketRows(key, rows);
     } catch (e) {
       console.warn('[profile] fetchTicketsForTab failed:', e);
       listEl.innerHTML = '<div class="tk-empty">ბილეთების ჩატვირთვა ვერ მოხერხდა.</div>';
@@ -644,12 +756,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   async function doLogout(){ await sb.auth.signOut(); location.href = '/'; }
 
   function applyModeVisibility(){
-    document.getElementById('nickEditSection').style.display = isOwnProfile ? '' : 'none';
     document.getElementById('pfAvatarControls').style.display = isOwnProfile ? '' : 'none';
     document.getElementById('pfPrivateSection').style.display = isOwnProfile ? '' : 'none';
     document.getElementById('bioEditWrap').style.display = isOwnProfile ? '' : 'none';
     document.getElementById('pfBioReadonly').style.display = isOwnProfile ? 'none' : '';
-    document.getElementById('pfVisitingNote').style.display = isOwnProfile ? 'none' : 'flex';
+  }
+
+  /* ---------- R4: წაკითხული სტატიების საჯაროდ/დამალვის toggle ---------- */
+  function applyArticlesToggleUI(){
+    const wrap = document.getElementById('pfArticlesToggleWrap');
+    if (!isOwnProfile) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'flex';
+    const cb = document.getElementById('pfArticlesToggle');
+    cb.checked = currentUser.articles_public !== false;
+    cb.onchange = async () => {
+      const val = cb.checked;
+      try {
+        const { error } = await sb.from('users').update({ articles_public: val }).eq('id', currentUser.id);
+        if (error) throw error;
+        currentUser.articles_public = val;
+      } catch (e) {
+        console.warn('[profile] articles_public update failed:', e);
+        cb.checked = !val;
+      }
+    };
   }
 
   async function init(){
@@ -683,7 +813,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       balance: balance,
       icon: ud?.icon || '🥊',
       phone: ud?.phone || null, telegram: ud?.telegram || null,
-      bio: ud?.bio || null, avatar_url: ud?.avatar_url || null, avatar_type: ud?.avatar_type || 'emoji'
+      bio: ud?.bio || null, avatar_url: ud?.avatar_url || null, avatar_type: ud?.avatar_type || 'emoji',
+      articles_public: ud?.articles_public !== false
     };
     pendingAvatarType = currentUser.avatar_type;
 
@@ -706,7 +837,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     renderAvatarDisplay();
     document.getElementById('pfTitleHeading').textContent = isOwnProfile ? 'პროფილი' : (viewTarget.nick || 'პროფილი');
     document.getElementById('pfSubHeading').textContent = isOwnProfile ? 'შეცვალე შენი ანგარიშის პარამეტრები' : 'საჯარო პროფილი';
-    document.getElementById('pfVisitingNick').textContent = viewTarget.nick || '';
 
     if (isOwnProfile) {
       fillForm();
@@ -719,10 +849,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     } else {
       document.getElementById('pfBioReadonly').textContent = viewTarget.bio || 'ბიო არ არის დამატებული.';
     }
+    applyArticlesToggleUI();
 
     renderSportTabsUI();
     await selectSportTab(defaultTabKey());
-    await loadAndRenderArticles(viewTarget.id);
+    // R4: visiting mode — სტატიები დამალულია თუ დამსაჯარებლებმა ამორთო articles_public
+    // (own profile ყოველთვის ხედავს საკუთარს, toggle-ის მდგომარეობის მიუხედავად).
+    if (!isOwnProfile && viewTarget.articles_public === false) {
+      document.getElementById('pfArticlesSection').style.display = 'none';
+    } else {
+      await loadAndRenderArticles(viewTarget.id);
+    }
   }
   init();
 })();
