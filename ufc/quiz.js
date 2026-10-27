@@ -19,8 +19,10 @@
    ============================================================ */
 const QUESTIONS_PER_GAME = 10;   // რამდენი კითხვა თითო თამაშში — სინქრონში ჰყავი supabase/quiz_pvp.sql-ის "limit 10"-თან
 const AI_ACCURACY        = 0.60; // ნაგულისხმევი AI სიზუსტე (overridable დონის მიხედვით)
-const TIME_PER_Q         = 15;   // წამი თითო კითხვაზე (მრავალპასუხიანი ქვიზი)
+const TIME_PER_Q         = 15;   // წამი თითო კითხვაზე (მრავალპასუხიანი ქვიზი, AI-ის წინააღმდეგ)
 const CARD_SPEED_MS      = 170;  // კარტის ბრძოლის სისწრაფე
+const PVP_TIME_PER_Q     = 30;   // PDF p7: PvP-ში (ორივე ტიპი) — 30 წამი თითო კითხვაზე, AI-ის 15-ისგან დამოუკიდებლად
+const PVP_GUESS_CLUE_BONUS = 5;  // PDF p7: "ვინ ვარ?" PvP-ში ყოველი ახალი მინიშნება +5 წამს მატებს დროს
 
 /* ---- Supabase (მხოლოდ კითხვა — ანონიმური, საჯარო key) ----
    ვცდილობთ ვიპოვოთ არსებული კლიენტი (window.sb / window.supabaseClient),
@@ -236,11 +238,26 @@ async function doQuizAuthSubmit(){
   }
 }
 
+// PDF p5: ამ გვერდის ავტორიზაციის მოდალს (app.js-ის მთავარი auth-მოდალისგან
+// დამოუკიდებელი, იხ. ფაილის თავი) Google-ით შესვლა საერთოდ არ ჰქონდა —
+// app.js-ის handleGoogleAuth()-ის იდენტური ლოგიკა, მხოლოდ redirectTo
+// განსხვავებულია: აქ მთელი მიმდინარე URL (search-ის ჩათვლით) გამოიყენება,
+// რომ ?room=<კოდი> დეპ-ლინკი OAuth-ის შემდეგაც შემორჩეს — წინააღმდეგ
+// შემთხვევაში მოწვეული, რომელსაც Google-ით შესვლა უწევდა, ოთახის კოდს
+// დაკარგავდა გადამისამართების დროს.
+async function handleQuizGoogleAuth(){
+  if(!sb) { showAuthError('სერვერთან კავშირი ვერ დამყარდა.'); return; }
+  const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
+  if(error) showAuthError(error.message || 'Google-ით შესვლა ვერ მოხერხდა.');
+}
+
 (function initAuthModal(){
   const close = document.getElementById('quizAuthClose');
   if(close) close.addEventListener('click', cancelAuthModal);
   const bg = document.getElementById('quizAuthModal');
   if(bg) bg.addEventListener('click', e=>{ if(e.target === bg) cancelAuthModal(); });
+  const googleBtn = document.getElementById('quizAuthGoogleBtn');
+  if(googleBtn) googleBtn.addEventListener('click', handleQuizGoogleAuth);
   const submit = document.getElementById('quizAuthSubmit');
   if(submit) submit.addEventListener('click', doQuizAuthSubmit);
   const form = document.getElementById('quizAuthForm');
@@ -323,6 +340,7 @@ const S = {
   aiAnswers:[],     // AI-ის სისწორე თითო კითხვაზე (bool)
   timer:null,
   timeLeft:0,
+  timeTotal:0,  // PvP-ში იზრდება მინიშნების ყოველ გახსნაზე — ბარის % ამის მიმართ ითვლება
   bIndex:0,
   cbYou:0,
   cbOpp:0,
@@ -1039,12 +1057,13 @@ function renderMCQuestion(){
 
 function startTimer(){
   clearInterval(S.timer);
-  S.timeLeft = TIME_PER_Q;
+  S.timeLeft = PVP ? PVP_TIME_PER_Q : TIME_PER_Q;
+  S.timeTotal = S.timeLeft;
   const bar = $("#q-timer");
   bar.style.width = "100%";
   S.timer = setInterval(()=>{
     S.timeLeft -= 0.25;
-    bar.style.width = Math.max(0,(S.timeLeft/TIME_PER_Q)*100)+"%";
+    bar.style.width = Math.max(0,(S.timeLeft/S.timeTotal)*100)+"%";
     if(S.timeLeft<=0){ clearInterval(S.timer); answer(-1,null); }
   }, 250);
 }
@@ -1073,8 +1092,31 @@ function renderGuessQuestion(){
   nextQBtn.style.display = "none";
   nextQBtn.onclick = null;
 
+  if(PVP){
+    startGuessPvpTimer();
+  } else {
+    clearInterval(S.timer);
+    $("#gq-timer-row").style.display = "none"; // AI-ის წინააღმდეგ — თაიმერი არ ჩანს
+  }
+}
+
+// PDF p7-p8: "ვინ ვარ?" PvP-ში — 30 წამი, ყოველი ახალი მინიშნება +5 წამს
+// მატებს (ქულის ჯარიმა უცვლელი რჩება — reveal_quiz_clue-ს არსებული
+// ლოგიკა, ახალი scoring არაფერი დამატებული). დრო რომ ამოიწურება,
+// submitGuess(true) იძახება — "ნაძალადევი" submit, ცარიელი ველის
+// დაბლოკვის გარეშე, ყოველთვის გადადის შემდეგ კითხვაზე.
+function startGuessPvpTimer(){
   clearInterval(S.timer);
-  $("#gq-timer-row").style.display = "none"; // AI-ის წინააღმდეგ — თაიმერი არ ჩანს
+  S.timeLeft = PVP_TIME_PER_Q;
+  S.timeTotal = PVP_TIME_PER_Q;
+  const bar = $("#gq-timer");
+  bar.style.width = "100%";
+  $("#gq-timer-row").style.display = "";
+  S.timer = setInterval(()=>{
+    S.timeLeft -= 0.25;
+    bar.style.width = Math.max(0,(S.timeLeft/S.timeTotal)*100)+"%";
+    if(S.timeLeft<=0){ clearInterval(S.timer); submitGuess(true); }
+  }, 250);
 }
 
 function renderGuessClues(){
@@ -1089,11 +1131,23 @@ function renderGuessClues(){
   wrap.scrollTop = wrap.scrollHeight;
 }
 
-function submitGuess(){
-  clearInterval(S.timer);
+function submitGuess(forced){
   const item = S.questions[S.qi];
   const val = ($("#gq-input").value || "").trim();
 
+  // PDF p7-p8: PvP-ში ცარიელი ველით "პასუხის გაცემა" დაჭერა (დრო ჯერ არ
+  // ამოწურულა — forced არ არის) იბლოკება, წითლად "ველი ცარიელია" —
+  // მხოლოდ დროის ამოწურვა (startGuessPvpTimer-ის submitGuess(true))
+  // გადადის ცარიელი ველითაც ავტომატურად შემდეგ კითხვაზე.
+  if(PVP && !forced && !val){
+    const fb = $("#gq-feedback");
+    fb.classList.add("show","bad");
+    fb.classList.remove("ok");
+    fb.innerHTML = `<span style="color:var(--red)">ველი ცარიელია</span>`;
+    return;
+  }
+
+  clearInterval(S.timer);
   $("#gq-answer-area").style.display = "none";
   const fb = $("#gq-feedback");
   fb.classList.add("show");
@@ -1105,14 +1159,11 @@ function submitGuess(){
     // საერთოდ არ მოსდის — ლოკალური შემოწმება/reveal ჯგუფურ რეჟიმში აღარ
     // ხდება (PRD §2.4: პირდაპირ podium, შუალედური reveal გარეშე). ქულას
     // სერვერი ითვლის submit_quiz_answer-ში, სრული სურათი get_quiz_results-ით
-    // ჩანს თამაშის ბოლოს.
+    // ჩანს თამაშის ბოლოს. PDF p6: შუალედური "პასუხი გაგზავნილია" ტექსტის
+    // მაგივრად — დუმილად, პირდაპირ შემდეგ კითხვაზე.
     S.playerPoints[S.qi] = 0;
     submitPvpAnswer(S.qi, val);
-    fb.classList.add("ok"); fb.classList.remove("bad");
-    fb.innerHTML = `პასუხი გაგზავნილია <span class="sub">შედეგი თამაშის ბოლოს გამოჩნდება</span>`;
-    const nextBtnPvp = $("#gq-next-q");
-    nextBtnPvp.style.display = "";
-    nextBtnPvp.onclick = ()=> advanceGuessQuestion();
+    advanceGuessQuestion();
     return;
   }
 
@@ -1146,7 +1197,11 @@ $("#gq-next-clue").addEventListener("click", ()=>{
   if(S.gCluesShown < item.clues.length){
     S.gCluesShown++;
     renderGuessClues();
-    if(PVP) revealPvpClue(S.qi);
+    if(PVP){
+      revealPvpClue(S.qi);
+      S.timeLeft += PVP_GUESS_CLUE_BONUS;
+      S.timeTotal += PVP_GUESS_CLUE_BONUS;
+    }
     if(S.gCluesShown >= item.clues.length) $("#gq-next-clue").disabled = true;
   }
 });
