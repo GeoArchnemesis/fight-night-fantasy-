@@ -23,6 +23,20 @@ const TIME_PER_Q         = 15;   // წამი თითო კითხვა
 const CARD_SPEED_MS      = 170;  // კარტის ბრძოლის სისწრაფე
 const PVP_TIME_PER_Q     = 30;   // PDF p7: PvP-ში (ორივე ტიპი) — 30 წამი თითო კითხვაზე, AI-ის 15-ისგან დამოუკიდებლად
 const PVP_GUESS_CLUE_BONUS = 5;  // PDF p7: "ვინ ვარ?" PvP-ში ყოველი ახალი მინიშნება +5 წამს მატებს დროს
+const TIMER_AMBER_MS = 10000; // ბოლო ~10 წამი — ბარი ყვითლდება
+const TIMER_RED_MS   = 5000;  // ბოლო ~5 წამი — ბარი წითლდება
+
+/* prefers-reduced-motion: თაიმერის ბარი წყვეტს უწყვეტ (rAF) ანიმაციას და
+   მხოლოდ მთელ წამებზე "ხტება" (იგივე სიხშირით, რითაც რიცხვი იცვლება) —
+   დანარჩენი ქვიზის ანიმაციები (#quizRoot *) CSS-ით კი ისედაც გამორთულია. */
+let REDUCE_MOTION = false;
+if(typeof window !== "undefined" && window.matchMedia){
+  const rmQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  REDUCE_MOTION = rmQuery.matches;
+  const onRmChange = e => { REDUCE_MOTION = e.matches; };
+  if(rmQuery.addEventListener) rmQuery.addEventListener("change", onRmChange);
+  else if(rmQuery.addListener) rmQuery.addListener(onRmChange);
+}
 
 /* ---- Supabase (მხოლოდ კითხვა — ანონიმური, საჯარო key) ----
    ვცდილობთ ვიპოვოთ არსებული კლიენტი (window.sb / window.supabaseClient),
@@ -358,9 +372,13 @@ const S = {
   playerPoints:[],  // "ვინ ვარ?" — მოთამაშის ქულები თითო კითხვაზე (0-4)
   oppPoints:[],     // "ვინ ვარ?" — AI-ის ქულები თითო კითხვაზე
   aiAnswers:[],     // AI-ის სისწორე თითო კითხვაზე (bool)
-  timer:null,
-  timeLeft:0,
-  timeTotal:0,  // PvP-ში იზრდება მინიშნების ყოველ გახსნაზე — ბარის % ამის მიმართ ითვლება
+  timerRaf:null,     // rAF ციკლის handle (requestQuestionTimer-ის)
+  timerDeadline:0,   // performance.now() დროის ნიშნული, როცა დრო ამოიწურება
+  timerTotal:0,      // მთლიანი ხანგრძლივობა ms-ში — მინიშნების ბონუსზე იზრდება, ბარის % ამის მიმართ ითვლება
+  timerBar:null,     // მიმდინარე კითხვის bar <i> ელემენტი
+  timerNum:null,     // მიმდინარე კითხვის წამების რიცხვი-ელემენტი
+  timerOnTimeout:null,
+  timerLastSec:null, // prefers-reduced-motion — ბოლოს ჩვენებული მთელი წამი, 1/წმ-ში განახლებისთვის
   bIndex:0,
   cbYou:0,
   cbOpp:0,
@@ -374,6 +392,9 @@ const S = {
 const $ = s => document.querySelector(s);
 const $$ = s => Array.from(document.querySelectorAll(s));
 function show(id){
+  // კითხვის ეკრანებიდან (quiz/guess) გასვლისას თაიმერის rAF ციკლი ყოველთვის
+  // წყდება აქ ერთ ადგილას — არც ერთი stray loop არ რჩება ფონში.
+  if(id !== "screen-quiz" && id !== "screen-guess") stopQuestionTimer();
   $$(".screen").forEach(e=>e.classList.remove("active"));
   $("#"+id).classList.add("active");
   // მინი-ჰერო (სათაური) მხოლოდ პირველ ("აირჩიე თამაში") ეკრანზე ჩანს —
@@ -1075,17 +1096,68 @@ function renderMCQuestion(){
   startTimer();
 }
 
-function startTimer(){
-  clearInterval(S.timer);
-  S.timeLeft = PVP ? PVP_TIME_PER_Q : TIME_PER_Q;
-  S.timeTotal = S.timeLeft;
-  const bar = $("#q-timer");
+/* ---------- კითხვის თაიმერი — საერთო ძრავა (#q-timer და #gq-timer) ----------
+   ერთადერთი წყარო დროისთვის: S.timerDeadline (performance.now() ნიშნული).
+   ბარის % და წამების რიცხვი ყოველ ფრეიმზე ამის მიხედვით ითვლება (rAF) —
+   მინიშნების ბონუსი უბრალოდ deadline-ს და total-ს წევს წინ, ასე რომ ბარი
+   ახალ სიგრძემდე CSS width-ტრანზიციით გლუვად "იზრდება", ნაცვლად ხტომისა. */
+function stopQuestionTimer(){
+  if(S.timerRaf) cancelAnimationFrame(S.timerRaf);
+  S.timerRaf = null;
+  S.timerLastSec = null;
+}
+
+function startQuestionTimer(bar, num, totalMs, onTimeout){
+  stopQuestionTimer();
+  S.timerBar = bar;
+  S.timerNum = num;
+  S.timerTotal = totalMs;
+  S.timerDeadline = performance.now() + totalMs;
+  S.timerOnTimeout = onTimeout;
   bar.style.width = "100%";
-  S.timer = setInterval(()=>{
-    S.timeLeft -= 0.25;
-    bar.style.width = Math.max(0,(S.timeLeft/S.timeTotal)*100)+"%";
-    if(S.timeLeft<=0){ clearInterval(S.timer); answer(-1,null); }
-  }, 250);
+  bar.classList.remove("amber","red");
+  if(num) num.textContent = Math.ceil(totalMs/1000);
+  S.timerRaf = requestAnimationFrame(tickQuestionTimer);
+}
+
+function extendQuestionTimer(bonusMs){
+  if(!S.timerRaf) return;
+  S.timerDeadline += bonusMs;
+  S.timerTotal += bonusMs;
+}
+
+function tickQuestionTimer(){
+  const remaining = S.timerDeadline - performance.now();
+  const sec = Math.max(0, Math.ceil(remaining/1000));
+
+  // ჩვეულებრივ ყოველ ფრეიმზე ვნახავთ; prefers-reduced-motion-ში — მხოლოდ
+  // მაშინ, როცა მთელი წამი იცვლება (იგივე სიხშირით, რითაც რიცხვი).
+  if(!REDUCE_MOTION || sec !== S.timerLastSec){
+    S.timerLastSec = sec;
+    if(S.timerNum) S.timerNum.textContent = sec;
+    if(S.timerBar){
+      const pct = REDUCE_MOTION
+        ? Math.max(0, Math.min(100, (sec*1000/S.timerTotal)*100))
+        : Math.max(0, Math.min(100, (remaining/S.timerTotal)*100));
+      S.timerBar.style.width = pct + "%";
+      S.timerBar.classList.toggle("red", remaining <= TIMER_RED_MS);
+      S.timerBar.classList.toggle("amber", remaining > TIMER_RED_MS && remaining <= TIMER_AMBER_MS);
+    }
+  }
+
+  if(remaining <= 0){
+    S.timerRaf = null;
+    const cb = S.timerOnTimeout;
+    S.timerOnTimeout = null;
+    if(cb) cb();
+    return;
+  }
+  S.timerRaf = requestAnimationFrame(tickQuestionTimer);
+}
+
+function startTimer(){
+  const totalMs = (PVP ? PVP_TIME_PER_Q : TIME_PER_Q) * 1000;
+  startQuestionTimer($("#q-timer"), $("#q-timer-num"), totalMs, ()=> answer(-1, null));
 }
 
 /* ---------- „ვინ ვარ?“ — პროგრესული მინიშნებები (AI-ის წინააღმდეგ) ----------
@@ -1112,31 +1184,17 @@ function renderGuessQuestion(){
   nextQBtn.style.display = "none";
   nextQBtn.onclick = null;
 
-  if(PVP){
-    startGuessPvpTimer();
-  } else {
-    clearInterval(S.timer);
-    $("#gq-timer-row").style.display = "none"; // AI-ის წინააღმდეგ — თაიმერი არ ჩანს
-  }
+  startGuessTimer();
 }
 
-// PDF p7-p8: "ვინ ვარ?" PvP-ში — 30 წამი, ყოველი ახალი მინიშნება +5 წამს
-// მატებს (ქულის ჯარიმა უცვლელი რჩება — reveal_quiz_clue-ს არსებული
-// ლოგიკა, ახალი scoring არაფერი დამატებული). დრო რომ ამოიწურება,
-// submitGuess(true) იძახება — "ნაძალადევი" submit, ცარიელი ველის
-// დაბლოკვის გარეშე, ყოველთვის გადადის შემდეგ კითხვაზე.
-function startGuessPvpTimer(){
-  clearInterval(S.timer);
-  S.timeLeft = PVP_TIME_PER_Q;
-  S.timeTotal = PVP_TIME_PER_Q;
-  const bar = $("#gq-timer");
-  bar.style.width = "100%";
+// PDF p7-p8: "ვინ ვარ?" — 30 წამი (PvP-ის და AI-ის წინააღმდეგ ორივეში),
+// ყოველი ახალი მინიშნება +5 წამს მატებს (ქულის ჯარიმა უცვლელი რჩება —
+// reveal_quiz_clue-ს არსებული ლოგიკა, ახალი scoring არაფერი დამატებული).
+// დრო რომ ამოიწურება, submitGuess(true) იძახება — "ნაძალადევი" submit,
+// ცარიელი ველის დაბლოკვის გარეშე, ყოველთვის გადადის შემდეგ კითხვაზე.
+function startGuessTimer(){
   $("#gq-timer-row").style.display = "";
-  S.timer = setInterval(()=>{
-    S.timeLeft -= 0.25;
-    bar.style.width = Math.max(0,(S.timeLeft/S.timeTotal)*100)+"%";
-    if(S.timeLeft<=0){ clearInterval(S.timer); submitGuess(true); }
-  }, 250);
+  startQuestionTimer($("#gq-timer"), $("#gq-timer-num"), PVP_TIME_PER_Q*1000, ()=> submitGuess(true));
 }
 
 function renderGuessClues(){
@@ -1157,7 +1215,7 @@ function submitGuess(forced){
 
   // PDF p7-p8: PvP-ში ცარიელი ველით "პასუხის გაცემა" დაჭერა (დრო ჯერ არ
   // ამოწურულა — forced არ არის) იბლოკება, წითლად "ველი ცარიელია" —
-  // მხოლოდ დროის ამოწურვა (startGuessPvpTimer-ის submitGuess(true))
+  // მხოლოდ დროის ამოწურვა (startGuessTimer-ის submitGuess(true))
   // გადადის ცარიელი ველითაც ავტომატურად შემდეგ კითხვაზე.
   if(PVP && !forced && !val){
     const fb = $("#gq-feedback");
@@ -1167,7 +1225,7 @@ function submitGuess(forced){
     return;
   }
 
-  clearInterval(S.timer);
+  stopQuestionTimer();
   $("#gq-answer-area").style.display = "none";
   const fb = $("#gq-feedback");
   fb.classList.add("show");
@@ -1217,11 +1275,8 @@ $("#gq-next-clue").addEventListener("click", ()=>{
   if(S.gCluesShown < item.clues.length){
     S.gCluesShown++;
     renderGuessClues();
-    if(PVP){
-      revealPvpClue(S.qi);
-      S.timeLeft += PVP_GUESS_CLUE_BONUS;
-      S.timeTotal += PVP_GUESS_CLUE_BONUS;
-    }
+    if(PVP) revealPvpClue(S.qi);
+    extendQuestionTimer(PVP_GUESS_CLUE_BONUS*1000);
     if(S.gCluesShown >= item.clues.length) $("#gq-next-clue").disabled = true;
   }
 });
@@ -1229,7 +1284,7 @@ $("#gq-submit").addEventListener("click", ()=> submitGuess());
 $("#gq-input").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); submitGuess(); }});
 
 function answer(chosen, btn){
-  clearInterval(S.timer);
+  stopQuestionTimer();
   const opts = $$("#q-opts .opt");
   opts.forEach(o=> o.disabled = true);
   if(chosen>=0){
@@ -1481,7 +1536,7 @@ $("#cb-skip").addEventListener("click", ()=>{
 $("#cb-restart").addEventListener("click", resetToMode);
 
 function resetToMode(){
-  clearInterval(S.timer); clearTimeout(S.cbTimer); clearTimeout(S.cbReveal);
+  stopQuestionTimer(); clearTimeout(S.cbTimer); clearTimeout(S.cbReveal);
   S.gameType = null;
   show("screen-gametype");
 }

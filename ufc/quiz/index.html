@@ -161,8 +161,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 #quizRoot .quiz-head{display:flex;align-items:center;justify-content:center;margin-bottom:14px}
 #quizRoot .qcount{font-family:var(--mono);font-weight:700;font-size:.78rem;letter-spacing:.1em;color:var(--text)}
-#quizRoot .timer{height:6px;background:var(--ink);border-radius:999px;overflow:hidden;margin-bottom:16px}
-#quizRoot .timer>i{display:block;height:100%;width:100%;background:linear-gradient(90deg,var(--green),var(--gold),var(--red-soft));transition:width .25s linear}
+#quizRoot .timer-wrap{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+#quizRoot .timer-wrap .timer{flex:1;margin-bottom:0}
+#quizRoot .timer{height:6px;background:var(--ink);border-radius:999px;overflow:hidden}
+#quizRoot .timer>i{display:block;height:100%;width:100%;background:var(--green);transition:width .3s ease-out,background-color .6s ease}
+#quizRoot .timer>i.amber{background:var(--gold)}
+#quizRoot .timer>i.red{background:var(--red)}
+#quizRoot .timer-num{font-family:var(--mono);font-weight:700;font-size:.78rem;color:var(--text);min-width:1.4em;text-align:right;font-variant-numeric:tabular-nums}
 #quizRoot .qcard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px 18px}
 #quizRoot .qnum{font-family:var(--mono);color:var(--red-soft);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase}
 #quizRoot .qtext{font-size:1.05rem;font-weight:700;line-height:1.45;margin:10px 0 18px}
@@ -437,7 +442,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- QUIZ -->
   <section id="screen-quiz" class="screen">
     <div class="quiz-head"><span class="qcount"><span id="q-idx">1</span>/<span id="q-total">10</span></span></div>
-    <div class="timer"><i id="q-timer"></i></div>
+    <div class="timer-wrap"><div class="timer"><i id="q-timer"></i></div><span class="timer-num" id="q-timer-num">15</span></div>
     <div class="qcard">
       <div class="qnum">კითხვა <span id="q-num">1</span></div>
       <div class="qtext" id="q-text">—</div>
@@ -448,7 +453,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- GUESS WHO -->
   <section id="screen-guess" class="screen">
     <div class="quiz-head"><span class="qcount"><span id="gq-idx">1</span>/<span id="gq-total">10</span></span></div>
-    <div class="timer" id="gq-timer-row" style="display:none"><i id="gq-timer"></i></div>
+    <div class="timer-wrap" id="gq-timer-row" style="display:none"><div class="timer"><i id="gq-timer"></i></div><span class="timer-num" id="gq-timer-num">30</span></div>
     <div class="qcard">
       <div class="qnum">კითხვა <span id="gq-num">1</span></div>
       <div class="qtext" style="margin-bottom:14px">პასუხი შეიყვანე #ქართულად</div>
@@ -661,7 +666,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=17"></script>
+<script src="/ufc/quiz.js?v=18"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){
