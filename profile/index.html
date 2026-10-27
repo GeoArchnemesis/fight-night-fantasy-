@@ -633,6 +633,15 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     }
   }
 
+  // R5: ნომრის ნორმალიზაცია — ციფრებად, თავიდან +995/995/0 პრეფიქსის მოცილებით,
+  // რომ "555 123 456" და "+995555123456" ერთ და იმავე მნიშვნელობად ჩაითვალოს
+  // users_phone_unique ინდექსისთვის.
+  function normalizePhone(raw){
+    let digits = String(raw || '').replace(/\D/g, '');
+    if (digits.startsWith('995') && digits.length > 9) digits = digits.slice(3);
+    if (digits.startsWith('0') && digits.length > 9) digits = digits.slice(1);
+    return digits;
+  }
   function passwordError(pass){
     if(pass.length < 6) return 'პაროლი მინ. 6 სიმბოლო';
     if(!/[A-Z]/.test(pass)) return 'პაროლში მინ. 1 დიდი ასო (A-Z)';
@@ -678,7 +687,7 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     if(!currentUser) return;
     const nick = (document.getElementById('profNick').value||'').trim();
     const email = (document.getElementById('profEmail').value||'').trim();
-    const phone = (document.getElementById('profPhone').value||'').trim();
+    const phone = normalizePhone((document.getElementById('profPhone').value||'').trim());
     const telegram = (document.getElementById('profTelegram').value||'').trim().replace(/^@/,'');
     const bio = (document.getElementById('profBio').value||'').trim().slice(0,300);
     const oldPass = document.getElementById('profOldPass').value||'';
@@ -700,6 +709,12 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
         if(taken){ profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს','var(--red)'); return; }
       }
       const phoneChanged = phone !== (currentUser.phone||'');
+      if(phoneChanged && phone){
+        // R5: ნომრის უნიკალურობა — is_phone_taken RPC (supabase/phone_uniqueness.sql),
+        // is_nick_taken-ის ანალოგიურად, საკუთარი id გამორიცხულია.
+        const { data: phoneTaken } = await sb.rpc('is_phone_taken', { p_phone: phone, p_exclude_user_id: currentUser.id });
+        if(phoneTaken){ profileMsg('ეს ნომერი უკვე რეგისტრირებულია','var(--red)'); return; }
+      }
       const telegramChanged = telegram !== (currentUser.telegram||'');
       const bioChanged = bio !== (currentUser.bio||'');
       const avatarTypeChanged = pendingAvatarType !== currentUser.avatar_type;
@@ -709,7 +724,16 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
         if(telegramChanged) upd.telegram = telegram || null;
         let { data: updData, error: updErr } = await sb.from('users').update(upd).eq('id',currentUser.id).select('id');
         if(updErr){
-          if(String(updErr.message||'').toLowerCase().includes('duplicate') || updErr.code==='23505'){ profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს','var(--red)'); return; }
+          // R5: duplicate-key (23505) ადრე ყოველთვის ნიკის დუბლირებად ითვლებოდა —
+          // ახლა ნომერსაც აქვს unique index, ამიტომ constraint/message-ში 'phone'-ს
+          // ვამოწმებთ, რომ სწორი ველი დავადანაშაულოთ (defense-in-depth,
+          // race condition-ების წინააღმდეგ — ზემოთა RPC-ჩექი უკვე ასატარებს ამას).
+          const isDup = String(updErr.message||'').toLowerCase().includes('duplicate') || updErr.code==='23505';
+          if(isDup){
+            const dupMsg = String(updErr.message||'') + ' ' + String(updErr.details||'') + ' ' + String(updErr.constraint||'');
+            profileMsg(dupMsg.toLowerCase().includes('phone') ? 'ეს ნომერი უკვე რეგისტრირებულია' : 'ასეთი ზედმეტსახელი უკვე არსებობს','var(--red)');
+            return;
+          }
           profileMsg('შენახვა ვერ მოხერხდა: '+updErr.message,'var(--red)'); return;
         }
         if(!updData || updData.length===0){ profileMsg('შენახვა დაბლოკილია (RLS).','var(--red)'); return; }

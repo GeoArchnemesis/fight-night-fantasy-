@@ -236,8 +236,21 @@ async function doQuizAuthSubmit(){
       // data.session არსებობს (email-დადასტურება გამორთულია) — sb.auth.onAuthStateChange
       // თავად გამოიძახებს applyAuthSession-ს, რომელიც _pendingAuthAction-საც გაუშვებს.
     } else {
-      const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-      if(error){ showAuthError('არასწორი მეილი ან პაროლი'); if(btn) btn.disabled = false; return; }
+      // R5: email ველი ახლა მეილი/ნიქნეიმი/ნომერი შეიძლება იყოს — '@'-იანი
+      // შემთხვევა უცვლელად signInWithPassword-ზე მიდის, არა-'@'-იანი კი
+      // ახალ login-with-identifier edge function-ზე (resolve+signIn
+      // სერვერის მხარეს, რეალური მეილი ბრაუზერამდე არასდროს აღწევს).
+      if(email.includes('@')){
+        const { error } = await sb.auth.signInWithPassword({ email, password: pass });
+        if(error){ showAuthError('არასწორი მეილი ან პაროლი'); if(btn) btn.disabled = false; return; }
+      } else {
+        let resp;
+        try{ resp = await sb.functions.invoke('login-with-identifier', { body: { identifier: email, password: pass } }); }
+        catch(e){ resp = { data: null, error: e }; }
+        if(resp.error || !resp.data || !resp.data.ok || !resp.data.session){ showAuthError('არასწორი მეილი ან პაროლი'); if(btn) btn.disabled = false; return; }
+        const { error: setErr } = await sb.auth.setSession({ access_token: resp.data.session.access_token, refresh_token: resp.data.session.refresh_token });
+        if(setErr){ showAuthError('არასწორი მეილი ან პაროლი'); if(btn) btn.disabled = false; return; }
+      }
     }
   }catch(e){
     showAuthError('დაფიქსირდა შეცდომა — სცადე თავიდან.');

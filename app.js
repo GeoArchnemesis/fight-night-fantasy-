@@ -825,6 +825,16 @@ tick(); setInterval(tick, 1000);
 const modal = document.getElementById('modal');
 let modalMode = 'join';
 
+// R5: ნომრის ნორმალიზაცია — ციფრებად, თავიდან +995/995/0 პრეფიქსის მოცილებით,
+// რომ "555 123 456" და "+995555123456" ერთ და იმავე მნიშვნელობად ჩაითვალოს
+// users_phone_unique ინდექსისთვის. ის, რაც უკვე სწორადაა აკრეფილი
+// ("555123456", placeholder-ის მიხედვით), უცვლელი რჩება.
+function normalizePhone(raw) {
+  let digits = String(raw || '').replace(/\D/g, '');
+  if (digits.startsWith('995') && digits.length > 9) digits = digits.slice(3);
+  if (digits.startsWith('0') && digits.length > 9) digits = digits.slice(1);
+  return digits;
+}
 function passwordError(pass) {
   if (pass.length < 6) return 'პაროლი მინ. 6 სიმბოლო';
   if (!/[A-Z]/.test(pass)) return 'პაროლში მინ. 1 დიდი ასო (A-Z)';
@@ -940,7 +950,7 @@ async function doRegister() {
   const email = (document.getElementById('inEmail').value || '').trim();
   const pass = document.getElementById('inPass').value || '';
   const passConfirm = document.getElementById('inPassConfirm').value || '';
-  const phone = (document.getElementById('inRegPhone') && document.getElementById('inRegPhone').value || '').trim();
+  const phone = normalizePhone((document.getElementById('inRegPhone') && document.getElementById('inRegPhone').value || '').trim());
   const birthYear = (document.getElementById('inBirthYear') && document.getElementById('inBirthYear').value || '').trim();
   const genderEl = document.querySelector('input[name="gender"]:checked');
   const gender = genderEl ? genderEl.value : '';
@@ -951,12 +961,25 @@ async function doRegister() {
   const pErr = passwordError(pass); if (pErr) { authError(pErr); return; }
   if (pass !== passConfirm) { authError('პაროლები არ ემთხვევა'); return; }
   if (!phone) { authError('შეიყვანე მობილურის ნომერი'); return; }
+  // R5: ნომრის უნიკალურობა — is_phone_taken RPC, nick-ის ანალოგიურად (supabase/phone_uniqueness.sql)
+  try { const { data: phoneTaken } = await sb.rpc('is_phone_taken', { p_phone: phone, p_exclude_user_id: null }); if (phoneTaken) { authError('ეს ნომერი უკვე რეგისტრირებულია'); return; } } catch (e) {}
   if (!birthYear || !/^\d{4}$/.test(birthYear) || +birthYear < 1900 || +birthYear > MAX_BIRTH_YEAR) { authError('შეიყვანე სწორი დაბადების წელი (მაგ. 1998)'); return; }
   if (!gender) { authError('აირჩიე სქესი'); return; }
   const btn = document.getElementById('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
   const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick, phone, birth_year: +birthYear, gender } } });
   btn.disabled = false; btn.textContent = 'რეგისტრაცია';
-  if (error) { const msg = error.message || ''; if (msg.includes('already registered') || msg.includes('already been registered')) authError('ეს ელ. ფოსტა უკვე რეგისტრირებულია — სცადე შესვლა'); else if (msg.includes('Database error')) authError('ეს სახელი უკვე დაკავებულია — სცადე სხვა'); else authError(msg); return; }
+  if (error) {
+    const msg = error.message || '';
+    if (msg.includes('already registered') || msg.includes('already been registered')) authError('ეს ელ. ფოსტა უკვე რეგისტრირებულია — სცადე შესვლა');
+    // R5: "Database error" ადრე ყოველთვის ნიკის დუბლირებად ითვლებოდა — ახლა
+    // ნომერსაც აქვს unique index, ამიტომ წინასწარ ვამოწმებთ phone-ს თავად
+    // შეტყობინებაში (defense-in-depth რასის პირობებისთვის — ზუსტი ტექსტი,
+    // რასაც Postgres/Supabase ამ ტრიგერის გზით აბრუნებს, არ არის
+    // დადასტურებული ცოცხალ გარემოში, საჭიროა რეალური ტესტი დეპლოიმენტის შემდეგ).
+    else if (msg.includes('Database error')) authError(msg.toLowerCase().includes('phone') ? 'ეს ნომერი უკვე რეგისტრირებულია' : 'ეს სახელი უკვე დაკავებულია — სცადე სხვა');
+    else authError(msg);
+    return;
+  }
   if (!data.session) { const el = document.getElementById('authError'); el.style.color = 'var(--green)'; el.textContent = 'რეგისტრაცია წარმატებულია! ანგარიშის გასააქტიურებლად დაადასტურე ელ.ფოსტა — შეამოწმე საფოსტო ყუთი (ასევე spam/junk).'; el.style.display = 'block'; return; }
   await new Promise(r => setTimeout(r, 1000));
   let ud = null;
@@ -982,17 +1005,34 @@ async function doRegister() {
   closeModal(); updateNavForUser(currentUser); await hydrateUserData();
 }
 
+// R5: #inEmail ახლა მეილი/ნიქნეიმი/ნომერი შეიძლება იყოს — '@'-იანი შემთხვევა
+// უცვლელად signInWithPassword-ზე მიდის, არა-'@'-იანი კი ახალ
+// login-with-identifier edge function-ზე (resolve+signIn სერვერის მხარეს,
+// რეალური მეილი ბრაუზერამდე არასდროს აღწევს).
 async function doSignIn() {
-  const email = (document.getElementById('inEmail').value || '').trim();
+  const typed = (document.getElementById('inEmail').value || '').trim();
   const pass = document.getElementById('inPass').value || '';
-  if (!email || !pass) { authError('შეიყვანე ელ. ფოსტა და პაროლი'); return; }
+  if (!typed || !pass) { authError('შეიყვანე ელ. ფოსტა და პაროლი'); return; }
   const btn = document.getElementById('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
-  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  let userId, email = typed;
+  if (typed.includes('@')) {
+    const { data, error } = await sb.auth.signInWithPassword({ email: typed, password: pass });
+    if (error) { btn.disabled = false; btn.textContent = 'შესვლა'; authError('არასწორი მეილი ან პაროლი'); return; }
+    userId = data.user.id;
+  } else {
+    let resp;
+    try { resp = await sb.functions.invoke('login-with-identifier', { body: { identifier: typed, password: pass } }); }
+    catch (e) { resp = { data: null, error: e }; }
+    if (resp.error || !resp.data || !resp.data.ok || !resp.data.session) { btn.disabled = false; btn.textContent = 'შესვლა'; authError('არასწორი მეილი ან პაროლი'); return; }
+    const { error: setErr } = await sb.auth.setSession({ access_token: resp.data.session.access_token, refresh_token: resp.data.session.refresh_token });
+    if (setErr) { btn.disabled = false; btn.textContent = 'შესვლა'; authError('არასწორი მეილი ან პაროლი'); return; }
+    userId = resp.data.session.user.id;
+    email = resp.data.session.user.email || typed;
+  }
   btn.disabled = false; btn.textContent = 'შესვლა';
-  if (error) { authError('არასწორი მეილი ან პაროლი'); return; }
   let ud = null;
-  try { const res = await sb.from('users').select('*').eq('id', data.user.id).maybeSingle(); ud = res.data; } catch (e) {}
-  currentUser = { id: data.user.id, email, nick: ud?.nick || email, balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null, birth_year: ud?.birth_year || null, gender: ud?.gender || null, avatar_url: ud?.avatar_url || null, avatar_type: ud?.avatar_type || 'emoji' };
+  try { const res = await sb.from('users').select('*').eq('id', userId).maybeSingle(); ud = res.data; } catch (e) {}
+  currentUser = { id: userId, email, nick: ud?.nick || email, balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: ud?.phone || null, telegram: ud?.telegram || null, birth_year: ud?.birth_year || null, gender: ud?.gender || null, avatar_url: ud?.avatar_url || null, avatar_type: ud?.avatar_type || 'emoji' };
   closeModal(); updateNavForUser(currentUser); await hydrateUserData();
 }
 

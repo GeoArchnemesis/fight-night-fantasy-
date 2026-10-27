@@ -764,6 +764,15 @@ tick(); setInterval(tick, 1000);
 // ── AUTH ──
 const modal = $('modal');
 let modalMode = 'join';
+// R5: ნომრის ნორმალიზაცია — ციფრებად, თავიდან +995/995/0 პრეფიქსის მოცილებით,
+// რომ "555 123 456" და "+995555123456" ერთ და იმავე მნიშვნელობად ჩაითვალოს
+// users_phone_unique ინდექსისთვის.
+function normalizePhone(raw) {
+  let digits = String(raw || '').replace(/\D/g, '');
+  if (digits.startsWith('995') && digits.length > 9) digits = digits.slice(3);
+  if (digits.startsWith('0') && digits.length > 9) digits = digits.slice(1);
+  return digits;
+}
 function passwordError(pass) {
   if (pass.length < 6) return 'პაროლი მინ. 6 სიმბოლო';
   if (!/[A-Z]/.test(pass)) return 'პაროლში მინ. 1 დიდი ასო (A-Z)';
@@ -871,7 +880,7 @@ async function doRegister() {
   const email = ($('inEmail').value || '').trim();
   const pass = $('inPass').value || '';
   const passConfirm = $('inPassConfirm').value || '';
-  const phone = ($('inRegPhone') && $('inRegPhone').value || '').trim();
+  const phone = normalizePhone(($('inRegPhone') && $('inRegPhone').value || '').trim());
   const birthYear = ($('inBirthYear') && $('inBirthYear').value || '').trim();
   const gEl = document.querySelector('input[name="gender"]:checked');
   const gender = gEl ? gEl.value : '';
@@ -881,12 +890,22 @@ async function doRegister() {
   const pErr = passwordError(pass); if (pErr) { authError(pErr); return; }
   if (pass !== passConfirm) { authError('პაროლები არ ემთხვევა'); return; }
   if (!phone) { authError('შეიყვანე მობილურის ნომერი'); return; }
+  // R5: ნომრის უნიკალურობა — is_phone_taken RPC (supabase/phone_uniqueness.sql)
+  try { const { data: phoneTaken } = await sb.rpc('is_phone_taken', { p_phone: phone, p_exclude_user_id: null }); if (phoneTaken) { authError('ეს ნომერი უკვე რეგისტრირებულია'); return; } } catch (e) {}
   if (!birthYear || !/^\d{4}$/.test(birthYear) || +birthYear < 1900 || +birthYear > MAX_BIRTH_YEAR) { authError('შეიყვანე სწორი დაბადების წელი'); return; }
   if (!gender) { authError('აირჩიე სქესი'); return; }
   const btn = $('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
   const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick, phone, birth_year: +birthYear, gender } } });
   btn.disabled = false; btn.textContent = 'რეგისტრაცია';
-  if (error) { const msg = error.message || ''; if (msg.includes('already registered') || msg.includes('already been registered')) authError('ეს ელ. ფოსტა უკვე რეგისტრირებულია'); else authError(msg); return; }
+  if (error) {
+    const msg = error.message || '';
+    if (msg.includes('already registered') || msg.includes('already been registered')) authError('ეს ელ. ფოსტა უკვე რეგისტრირებულია');
+    // R5: defense-in-depth race-condition catch — ზუსტი ტექსტი, რასაც ეს
+    // ტრიგერი რეალურად აბრუნებს, არ არის დადასტურებული, საჭიროა ტესტი.
+    else if (msg.includes('Database error') && msg.toLowerCase().includes('phone')) authError('ეს ნომერი უკვე რეგისტრირებულია');
+    else authError(msg);
+    return;
+  }
   if (!data.session) { const el = $('authError'); el.style.color = 'var(--green)'; el.textContent = 'რეგისტრაცია წარმატებულია! დაადასტურე ელ.ფოსტა.'; el.style.display = 'block'; return; }
   await new Promise(r => setTimeout(r, 1000));
   try { await sb.from('users').update({ phone: phone || null, birth_year: +birthYear, gender }).eq('id', data.user.id); } catch (e) {}
@@ -907,15 +926,32 @@ async function doRegister() {
   } catch (e) {}
   closeModal(); updateNavForUser(currentUser); await hydrateUserData();
 }
+// R5: #inEmail ახლა მეილი/ნიქნეიმი/ნომერი შეიძლება იყოს — '@'-იანი შემთხვევა
+// უცვლელად signInWithPassword-ზე მიდის, არა-'@'-იანი კი ახალ
+// login-with-identifier edge function-ზე (resolve+signIn სერვერის მხარეს,
+// რეალური მეილი ბრაუზერამდე არასდროს აღწევს).
 async function doSignIn() {
-  const email = ($('inEmail').value || '').trim();
+  const typed = ($('inEmail').value || '').trim();
   const pass = $('inPass').value || '';
-  if (!email || !pass) { authError('შეიყვანე ელ. ფოსტა და პაროლი'); return; }
+  if (!typed || !pass) { authError('შეიყვანე ელ. ფოსტა და პაროლი'); return; }
   const btn = $('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
-  const { data, error } = await sb.auth.signInWithPassword({ email, password: pass });
+  let userId, email = typed;
+  if (typed.includes('@')) {
+    const { data, error } = await sb.auth.signInWithPassword({ email: typed, password: pass });
+    if (error) { btn.disabled = false; btn.textContent = 'შესვლა'; authError('არასწორი მეილი ან პაროლი'); return; }
+    userId = data.user.id;
+  } else {
+    let resp;
+    try { resp = await sb.functions.invoke('login-with-identifier', { body: { identifier: typed, password: pass } }); }
+    catch (e) { resp = { data: null, error: e }; }
+    if (resp.error || !resp.data || !resp.data.ok || !resp.data.session) { btn.disabled = false; btn.textContent = 'შესვლა'; authError('არასწორი მეილი ან პაროლი'); return; }
+    const { error: setErr } = await sb.auth.setSession({ access_token: resp.data.session.access_token, refresh_token: resp.data.session.refresh_token });
+    if (setErr) { btn.disabled = false; btn.textContent = 'შესვლა'; authError('არასწორი მეილი ან პაროლი'); return; }
+    userId = resp.data.session.user.id;
+    email = resp.data.session.user.email || typed;
+  }
   btn.disabled = false; btn.textContent = 'შესვლა';
-  if (error) { authError('არასწორი მეილი ან პაროლი'); return; }
-  currentUser = await loadUserProfile(data.user.id, email);
+  currentUser = await loadUserProfile(userId, email);
   closeModal(); updateNavForUser(currentUser); await hydrateUserData();
 }
 async function doLogout() { await sb.auth.signOut(); currentUser = null; state.tickets = []; renderTickets(); updateNavForUser(null); }
