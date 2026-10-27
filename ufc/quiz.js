@@ -505,13 +505,7 @@ $$("#screen-mode .mode").forEach(card=>{
 function startLobby(mode){
   if(mode === "pvp"){ startPvpSetup(); return; }
   if(mode !== "ai") return; // დაცვა — დანარჩენი არაცნობილი რეჟიმებისთვის
-  const you = $("#lob-you"), youName = $("#lob-you-name"), youStat = $("#lob-you-status");
-  const opp = $("#lob-opp"), oppName = $("#lob-opp-name"), oppStat = $("#lob-opp-status");
-  you.textContent = "🤠"; you.className = "avatar you on";
-  youName.textContent = "შენ"; youStat.textContent = "";
-  opp.textContent = "🤖"; opp.className = "avatar on";
-  oppName.textContent = "AI"; oppStat.innerHTML = '<span class="ready">მზადაა</span>';
-  $("#lobby-belt").textContent = "🥊 აირჩიე სირთულე";
+  $("#lobby-belt").textContent = "აირჩიე სირთულე";
 
   const action = $("#lobby-action");
   action.innerHTML = "";

@@ -103,7 +103,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 /* ============================================================
    UFC ქვიზი — კომპონენტები (ყველა ახალი წესი #quizRoot/.qz-hero-ქვეშ
    არის დასქოუპილი, რომ საიტის გლობალურ სტილებს არ შეეჯახოს).
-   ტიპოგრაფიის სისტემა: headline-ები (.mode h2, .cbf-title, .fighter .nm) —
+   ტიპოგრაფიის სისტემა: headline-ები (.mode h2, .cbf-title) —
    var(--display), ყველა ცოცხალი რიცხვი/მთვლელი/ლეიბლი (მსგავსად საიტის
    .cd-num/.bb-n/.lb-pts/.market-label-ის) — var(--mono).
    ============================================================ */
@@ -136,17 +136,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .tinyinfo{margin-top:12px;text-align:center;color:var(--muted-2);font-size:12px;line-height:1.5}
 
 #quizRoot .arena{display:flex;flex-direction:column;align-items:center;gap:20px;padding:6px 0}
-#quizRoot .octagon{position:relative;width:min(62vw,190px);aspect-ratio:1;margin:0 auto;display:flex;align-items:center;justify-content:center}
-#quizRoot .octagon svg{position:absolute;inset:0;width:100%;height:100%}
-#quizRoot .fighters{display:flex;align-items:center;justify-content:center;gap:14px;z-index:2}
-#quizRoot .fighter{display:flex;flex-direction:column;align-items:center;gap:7px;width:92px}
-#quizRoot .avatar{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-size:24px;background:var(--ink);border:2px solid var(--line);color:var(--muted);transition:.3s}
-#quizRoot .avatar.on{border-color:var(--green);color:var(--text);background:rgba(58,209,126,.1)}
-#quizRoot .avatar.you.on{border-color:var(--blue);background:rgba(46,123,255,.1)}
-#quizRoot .fighter .nm{font-family:var(--display);font-weight:700;font-size:15px;line-height:1.3}
-#quizRoot .fighter .st{font-family:var(--mono);font-size:.68rem;color:var(--muted);min-height:15px}
-#quizRoot .fighter .st .ready{color:var(--green)}
-#quizRoot .vs-badge{font-family:var(--mono);font-weight:700;font-size:.82rem;letter-spacing:.08em;color:var(--red-soft);z-index:2}
 
 #quizRoot .btn-row{margin-top:16px;display:flex;flex-direction:column;gap:10px;width:100%}
 #quizRoot .btn:disabled{opacity:.4;cursor:not-allowed}
@@ -158,10 +147,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .difficulty{width:100%;display:flex;flex-direction:column;gap:10px}
 #quizRoot .diff-label{text-align:center;font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted-2)}
 #quizRoot .diff-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-#quizRoot .chip{font-family:var(--head);font-weight:700;font-size:.82rem;padding:12px 6px;border-radius:8px;cursor:pointer;color:var(--text);border:1px solid var(--line);background:var(--ink);transition:.15s;line-height:1.3}
+#quizRoot .chip{font-family:var(--head);font-weight:700;font-size:.82rem;padding:12px 6px;border-radius:8px;cursor:pointer;color:var(--text);border:1px solid var(--line);background:var(--ink);transition:.15s;line-height:1.3;text-align:center}
 #quizRoot .chip:hover{border-color:var(--muted)}
 #quizRoot .chip.sel{border-color:var(--gold);background:rgba(245,196,81,.14);color:var(--gold)}
 #quizRoot .chip:disabled{opacity:.4;cursor:not-allowed;color:var(--muted)}
+/* PDF p1: PvP room-create difficulty selector shows the SELECTED chip in
+   green (reusing --green), not the AI-mode picker's gold — scoped to this
+   one container only, AI-mode difficulty selection (buildDifficultyPicker)
+   is untouched. */
+#pvp-create-diff .chip.sel{border-color:var(--green);background:rgba(58,209,126,.14);color:var(--green)}
 #quizRoot .diff-note{display:none;border-radius:8px;padding:11px 14px;font-size:.82rem;line-height:1.5;font-weight:600;background:var(--ink);border:1px solid var(--line);border-left:3px solid currentColor;text-align:left}
 #quizRoot .diff-note.show{display:block}
 
@@ -322,7 +316,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- ── MINI-HERO (მხოლოდ "აირჩიე თამაში" ეკრანზე ჩანს — quiz.js show() მართავს) ── -->
 <header class="hero qz-hero" id="quizHero"><div class="wrap hero-in">
-<h1 class="qz-title reveal d1"><span class="qz-title-ico" aria-hidden="true">🥊</span> UFC ქვიზი</h1>
+<h1 class="qz-title reveal d1">UFC ქვიზი</h1>
 </div></header>
 
 <!-- ── QUIZ APP ── -->
@@ -343,12 +337,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <p>გამოიცანი მებრძოლი მისი ისტორიით</p>
       </div>
     </div>
-    <p class="tinyinfo">აირჩიე თამაშის ტიპი გასაგრძელებლად.</p>
   </section>
 
   <!-- MODE SELECT -->
   <section id="screen-mode" class="screen">
-    <div class="back-row"><button class="back-btn" id="back-to-gametype">← თამაშის შეცვლა</button></div>
+    <div class="back-row"><button class="back-btn" id="back-to-gametype">← უკან</button></div>
     <div class="modes">
       <div class="mode" tabindex="0" role="button" aria-label="AI-ის წინააღმდეგ" data-mode="ai">
         <span class="glyph">🤖</span>
@@ -368,48 +361,28 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <p>მოიწვიე 8-მდე მეგობარი</p>
       </div>
     </div>
-    <p class="tinyinfo">აირჩიე ვისთან ითამაშებ — AI-ის წინააღმდეგ, ან მეგობრების ოთახი.</p>
   </section>
 
   <!-- LOBBY -->
   <section id="screen-lobby" class="screen">
     <div class="arena">
-      <div class="octagon">
-        <svg viewBox="0 0 100 100" aria-hidden="true">
-          <polygon points="30,4 70,4 96,30 96,70 70,96 30,96 4,70 4,30" fill="none" stroke="#2A2738" stroke-width="1.2"/>
-          <polygon points="30,4 70,4 96,30 96,70 70,96 30,96 4,70 4,30" fill="none" stroke="rgba(243,29,37,.25)" stroke-width=".4"/>
-        </svg>
-        <div class="fighters">
-          <div class="fighter">
-            <div class="avatar" id="lob-you">👤</div>
-            <div class="nm" id="lob-you-name">Player 1</div>
-            <div class="st" id="lob-you-status"></div>
-          </div>
-          <div class="vs-badge">VS</div>
-          <div class="fighter">
-            <div class="avatar" id="lob-opp">👤</div>
-            <div class="nm" id="lob-opp-name">Player 2</div>
-            <div class="st" id="lob-opp-status"></div>
-          </div>
-        </div>
-      </div>
-      <div style="text-align:center;font-family:var(--display);font-weight:700;font-size:13px;color:var(--muted);letter-spacing:1px" id="lobby-belt">🥊 აირჩიე სირთულე</div>
+      <div style="text-align:center;font-family:var(--display);font-weight:700;font-size:13px;color:var(--muted);letter-spacing:1px" id="lobby-belt">აირჩიე სირთულე</div>
       <div id="lobby-action" class="btn-row" style="width:100%;max-width:340px"></div>
     </div>
   </section>
 
   <!-- PvP — SETUP (create room / join by code) -->
   <section id="screen-pvp-setup" class="screen">
-    <div class="back-row"><button class="back-btn" id="back-to-mode-from-pvp">← უკან</button></div>
+    <div class="back-row"><button class="back-btn" id="back-to-mode-from-pvp">← უკან დაბრუნება</button></div>
     <div class="pvp-setup">
       <div class="pvp-panel">
-        <h3>ოთახის შექმნა</h3>
+        <h3>აირჩიე დონე</h3>
         <div id="pvp-create-diff" class="difficulty"></div>
         <button class="btn btn-primary" id="pvp-create-btn" style="width:100%;margin-top:10px" disabled>ოთახის შექმნა</button>
       </div>
       <div class="pvp-divider">ან</div>
       <div class="pvp-panel">
-        <h3>ოთახში შესვლა</h3>
+        <h3>ოთახში შესასვლელად შეიყვანე კოდი</h3>
         <div class="name-entry">
           <input type="text" id="pvp-join-code" placeholder="კოდი, მაგ. AB12CD" maxlength="6" autocomplete="off" style="text-transform:uppercase" />
         </div>
@@ -670,7 +643,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=12"></script>
+<script src="/ufc/quiz.js?v=13"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){
