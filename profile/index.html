@@ -44,6 +44,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 /* ---------- R4: desktop two-column layout, mobile single stack ---------- */
 .pf-layout{display:grid;grid-template-columns:260px 1fr;gap:32px;align-items:start}
 .pf-left{display:flex;flex-direction:column;align-items:center;gap:14px;position:sticky;top:90px}
+.pf-left .pf-title{font-size:1.5rem;text-align:center;width:100%;margin-bottom:4px}
+.pf-left .pf-sub{text-align:center;width:100%}
 .pf-right{min-width:0}
 @media(max-width:920px){
   .pf-layout{display:flex;flex-direction:column;gap:0}
@@ -204,7 +206,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="pf-card">
       <div class="pf-layout">
 
-        <!-- R4: მარცხენა სვეტი — მრგვალი ფოტო + მწვანე "ფოტოს შეცვლა" ღილაკი -->
+        <!-- R4/Giorgi-fix: მარცხენა სვეტი — ფოტო → მწვანე ღილაკი → სახელი → ბიო -->
         <aside class="pf-left">
           <div class="pf-avatar-display" id="pfAvatarDisplay">🥊</div>
           <div class="pf-avatar-controls" id="pfAvatarControls">
@@ -213,14 +215,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <span class="field-label" id="iconPickerLabel" style="display:block;margin-top:14px">ან აირჩიე ემოჯი</span>
             <div class="icon-picker" id="iconPicker" role="radiogroup" aria-labelledby="iconPickerLabel"></div>
           </div>
-        </aside>
 
-        <!-- R4: მარჯვენა სვეტი — სახელი → ბიო → ანგარიშის პარამეტრები → ბილეთები → სტატიები -->
-        <div class="pf-right">
           <h1 class="pf-title" id="pfTitleHeading">პროფილი</h1>
           <p class="pf-sub" id="pfSubHeading">შეცვალე შენი ანგარიშის პარამეტრები</p>
 
-          <div class="profile-section">
+          <div class="profile-section" style="width:100%">
             <div id="bioEditWrap">
               <div class="field">
                 <label for="profBio">ბიო</label>
@@ -230,7 +229,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </div>
             <p class="pf-bio-readonly" id="pfBioReadonly" style="display:none"></p>
           </div>
+        </aside>
 
+        <!-- R4/Giorgi-fix: მარჯვენა სვეტი — ანგარიშის პარამეტრები → ბილეთები → სტატიები -->
+        <div class="pf-right">
           <div id="pfPrivateSection">
             <div class="profile-section" id="nickEditSection">
               <div class="field">
@@ -279,7 +281,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                ticket history, own profile or (via the §3.0 SELECT policy)
                whoever's profile this is. Styled like the leaderboard's
                .lb-tabs/.lb-tab (style.css), no new tab CSS needed. R4: cards
-               are now collapsed by default (see ticketCardHtml/renderTicketRows). -->
+               are grouped into aktiuri/mogebuli/tsagebuli, each collapsed by
+               default (see ticketCardHtml/renderTicketGroups). -->
           <div class="pf-section-label">ბილეთების ისტორია</div>
           <div class="lb-tabs" id="pfSportTabs"></div>
           <div class="pf-tickets-list" id="pfTicketsList"></div>
@@ -289,7 +292,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                (articles_public, default true — see profile_updates.sql). -->
           <div id="pfArticlesSection">
             <div class="pf-section-label pf-articles-label-row">
-              <span>წაკითხული სტატიები</span>
+              <span id="pfArticlesHeading">წაკითხული სტატიები</span>
               <label class="pf-switch" id="pfArticlesToggleWrap" style="display:none">
                 <input type="checkbox" id="pfArticlesToggle" checked />
                 <span class="pf-switch-track"><span class="pf-switch-thumb"></span></span>
@@ -526,14 +529,43 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     wrap.querySelectorAll('.lb-tab').forEach(b => b.onclick = () => selectSportTab(b.dataset.tab));
   }
 
-  function renderTicketRows(sportKey, rows){
+  // Giorgi-fix: ბილეთების ისტორია ახლა 3 ჯგუფადაა დაშლილი (აქტიური/მოგებული/
+  // წაგებული), თითოეული ნაგულისხმევად შეკეცილი — ჯგუფის დაწკაპება შლის მთლიან
+  // სიას. ჯგუფის შიგნით ცალკეული ბილეთი კვლავ თავისი ძველი collapse-ით
+  // იხსნება (ticketCardHtml/tkCollapsed უცვლელია). ქეშაუთი/ანულირებული
+  // ბილეთები ამ ხედვიდან სრულიად გამოტოვებულია (Giorgi-ს გადაწყვეტილებით).
+  const TICKET_GROUPS = [
+    { key: 'active', label: 'აქტიური', statuses: ['open'], color: '#ff9d3c', cls: 'tk-open' },
+    { key: 'won', label: 'მოგებული', statuses: ['won'], color: 'var(--green)', cls: 'tk-won' },
+    { key: 'lost', label: 'წაგებული', statuses: ['lost'], color: 'var(--red-soft)', cls: 'tk-lost' }
+  ];
+  let groupCollapsed = {};
+
+  function renderTicketGroups(sportKey, rows){
     const listEl = document.getElementById('pfTicketsList');
-    if (!rows.length) { listEl.innerHTML = '<div class="tk-empty">ბილეთები არ არის.</div>'; return; }
-    listEl.innerHTML = rows.map((t, i) => ticketCardHtml(t, sportKey + ':' + (t.id != null ? t.id : i))).join('');
+    const visible = rows.filter(t => t.status !== 'cashout' && t.status !== 'void');
+    if (!visible.length) { listEl.innerHTML = '<div class="tk-empty">ბილეთები არ არის.</div>'; return; }
+    listEl.innerHTML = TICKET_GROUPS.map(g => {
+      const groupRows = visible.filter(t => g.statuses.includes(t.status));
+      const gKey = sportKey + ':' + g.key;
+      const isOpen = groupCollapsed[gKey] === false;
+      const bodyHtml = !groupRows.length
+        ? '<div class="tk-empty">ბილეთები არ არის.</div>'
+        : groupRows.map((t, i) => ticketCardHtml(t, gKey + ':' + (t.id != null ? t.id : i))).join('');
+      return `<div class="ticket ${g.cls}">
+        <div class="tk-head" data-tkgroup="${gKey}"><div class="tk-head-left"><span class="tk-status" style="color:${g.color}">${g.label}</span><span class="tk-type">${groupRows.length}</span></div><span class="tk-arrow ${isOpen ? 'open' : ''}">▾</span></div>
+        ${isOpen ? `<div class="pf-tickets-list" style="padding:12px">${bodyHtml}</div>` : ''}
+      </div>`;
+    }).join('');
+    listEl.querySelectorAll('[data-tkgroup]').forEach(b => b.onclick = () => {
+      const k = b.dataset.tkgroup;
+      groupCollapsed[k] = groupCollapsed[k] === false ? true : false;
+      renderTicketGroups(sportKey, rows);
+    });
     listEl.querySelectorAll('[data-tktoggle]').forEach(b => b.onclick = () => {
       const k = b.dataset.tktoggle;
       tkCollapsed[k] = tkCollapsed[k] === false ? true : false;
-      renderTicketRows(sportKey, rows);
+      renderTicketGroups(sportKey, rows);
     });
   }
 
@@ -544,7 +576,7 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     listEl.innerHTML = '<div class="tk-empty">იტვირთება…</div>';
     try {
       const rows = await fetchTicketsForTab(viewTarget.id, key);
-      renderTicketRows(key, rows);
+      renderTicketGroups(key, rows);
     } catch (e) {
       console.warn('[profile] fetchTicketsForTab failed:', e);
       listEl.innerHTML = '<div class="tk-empty">ბილეთების ჩატვირთვა ვერ მოხერხდა.</div>';
@@ -836,7 +868,8 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     applyModeVisibility();
     renderAvatarDisplay();
     document.getElementById('pfTitleHeading').textContent = isOwnProfile ? 'პროფილი' : (viewTarget.nick || 'პროფილი');
-    document.getElementById('pfSubHeading').textContent = isOwnProfile ? 'შეცვალე შენი ანგარიშის პარამეტრები' : 'საჯარო პროფილი';
+    document.getElementById('pfSubHeading').textContent = isOwnProfile ? 'შეცვალე შენი ანგარიშის პარამეტრები' : '';
+    document.getElementById('pfArticlesHeading').textContent = isOwnProfile ? 'წაკითხული სტატიები' : ((viewTarget.nick || '') + '-ის წაკითხული სტატიები');
 
     if (isOwnProfile) {
       fillForm();

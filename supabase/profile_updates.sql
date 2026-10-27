@@ -19,6 +19,16 @@
 --      it without a second round trip. Same safe, narrow column set as
 --      before (id/nick/icon/bio/avatar_url/avatar_type) plus this one
 --      boolean — still no phone/telegram/balance/email exposure.
+--   3. GRANT (fix, found live by Giorgi testing the toggle) — adding the
+--      column did NOT grant authenticated UPDATE on it (column-level
+--      grants on public.users for nick/icon/bio/phone/telegram/
+--      avatar_url/avatar_type already exist live in Supabase, from before
+--      this repo's migration files — see CLAUDE.md's note that grants
+--      aren't version-controlled here — but a brand-new column is never
+--      automatically covered by an existing column-list grant). Without
+--      this, profile/index.html's toggle update silently fails with
+--      "permission denied" and the checkbox snaps back on. This is the
+--      only reason to re-run this file if you already ran it once.
 --
 --  Note on enforcement scope (read before relying on this for anything
 --  more sensitive than "did I read this article"): news_article_views
@@ -37,6 +47,12 @@
 -- 1) users — articles_public (NEW)
 -- ============================================================
 alter table public.users add column if not exists articles_public boolean not null default true;
+
+-- fix (this is the line Giorgi must re-run the file for): the new column
+-- above is not automatically covered by any existing column-level UPDATE
+-- grant on public.users — without this, the toggle in profile/index.html
+-- fails with "permission denied" and silently reverts.
+grant update (articles_public) on public.users to authenticated;
 
 
 -- ============================================================
