@@ -451,82 +451,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <button class="btn btn-primary" id="recoverySubmit">პასვორდის დაყენება</button>
 </div></div>
 
-<!-- ── PROFILE MODAL ── -->
-<div class="modal-bg" id="profileModal"><div class="modal modal-profile">
-<button class="modal-close" id="profileClose" aria-label="დახურვა">&times;</button>
-<h3>პროფილი</h3>
-<p class="sub">შეცვალე შენი ანგარიშის პარამეტრები</p>
-
-<!-- Avatar Icon Picker -->
-<div class="profile-section">
-  <span class="field-label" id="iconPickerLabel">აირჩიე აიქონი</span>
-  <div class="icon-picker" id="iconPicker" role="radiogroup" aria-labelledby="iconPickerLabel"></div>
-</div>
-
-<!-- Nickname -->
-<div class="profile-section">
-  <div class="field">
-    <label for="profNick">სახელი (ნიქნეიმი)</label>
-    <input type="text" id="profNick" name="nickname" placeholder="მაგ. UFC.King" autocomplete="nickname" maxlength="20" />
-  </div>
-</div>
-
-<!-- Email -->
-<div class="profile-section">
-  <div class="field">
-    <label for="profEmail">ელ. ფოსტა</label>
-    <input type="email" id="profEmail" name="email" placeholder="შეიყვანე მეილი" autocomplete="email" />
-  </div>
-</div>
-
-<!-- Contact Info -->
-<div class="profile-section">
-  <div class="field-label" style="margin-bottom:8px">საკონტაქტო ინფორმაცია</div>
-  <div class="field">
-    <label for="profPhone">მობილურის ნომერი</label>
-    <input type="tel" id="profPhone" name="tel" placeholder="მაგ. 555123456" autocomplete="tel" />
-  </div>
-  <div class="field">
-    <label for="profTelegram">ტელეგრამი</label>
-    <input type="text" id="profTelegram" placeholder="მაგ. @username" />
-  </div>
-</div>
-
-<!-- ID Verification
-<div class="profile-section">
-  <div class="field-label" style="margin-bottom:8px">ვერიფიკაცია</div>
-  <p style="font-size:var(--fs-meta);color:var(--muted);line-height:1.6;margin:0 0 10px">
-    პრიზის მისაღებად საჭიროა ვერიფიკაცია — ატვირთე სელფი, სადაც ჩანხარ პირადობის მოწმობასთან ერთად (ორივე — სახე და მოწმობა — გარკვევით უნდა იკითხებოდეს). <b>ლიდერბორდზეც მხოლოდ ვერიფიცირებული მომხმარებლები ჩანან</b> — შენი ქულა მანამდეც ერიცხება, უბრალოდ საჯარო სიაში არ გამოჩნდება.
-  </p>
-  <div id="verifStatus" style="font-size:.85rem;margin-bottom:10px"></div>
-  <div id="verifUploadWrap">
-    <input type="file" id="verifPhotoInput" accept="image/*" capture="environment" style="display:none" />
-    <button type="button" class="btn btn-ghost" id="verifPickBtn" style="width:100%">📷 ფოტოს არჩევა</button>
-    <img id="verifPreview" style="display:none;max-width:100%;border-radius:8px;margin-top:10px" />
-    <button type="button" class="btn btn-primary" id="verifSubmitBtn" style="width:100%;margin-top:10px;display:none">ვერიფიკაციის გაგზავნა</button>
-  </div>
-</div>  -->
-
-<!-- Password Change -->
-<form id="profPassForm" method="post" action="#" onsubmit="event.preventDefault();document.getElementById('profileSave').click()">
-<div class="profile-section">
-  <div class="field-label" style="margin-bottom:12px">პასვორდის შეცვლა</div>
-  <div class="field">
-    <label for="profOldPass">ძველი პასვორდი</label>
-    <input type="password" id="profOldPass" name="current-password" placeholder="შეიყვანე ძველი პასვორდი" autocomplete="current-password" />
-  </div>
-  <div class="field">
-<label for="profNewPass">ახალი პასვორდი</label>
-    <input type="password" id="profNewPass" name="new-password" placeholder="მინ. 8 სიმბოლო" autocomplete="new-password" />
-  </div>
-</div>
-</form>
-
-<div id="profileMsg" style="font-size:.85rem;margin-bottom:10px;display:none"></div>
-<button class="btn btn-primary" id="profileSave">შენახვა</button>
-<button class="btn btn-ghost" id="profileLogout" style="width:100%;margin-top:10px;text-align:center;display:block">გამოსვლა</button>
-</div></div>
-
 <!-- ── CONTACT INFO POPUP ── -->
 <div class="modal-bg" id="contactInfoModal"><div class="modal modal-contact">
 <h3>შეავსე პროფილი</h3>
@@ -617,7 +541,7 @@ function openSocial(type){
 </nav>
 <script>window.LEAGUE='ger1';</script>
 <script defer src="/fantasy-nav.js?v=7"></script>
-<script defer src="/football-app.js?v=12"></script>
+<script defer src="/football-app.js?v=13"></script>
 <!-- ── REPORT CONTACT POPUP ── -->
 <div id="reportPopup" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(5,4,8,.8);backdrop-filter:blur(6px);justify-content:center;align-items:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--surface,#14121c);border:1px solid var(--line,#2a2734);border-radius:12px;padding:28px;max-width:340px;width:100%;text-align:center">

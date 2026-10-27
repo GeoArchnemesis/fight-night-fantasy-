@@ -345,67 +345,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <button class="btn btn-primary" id="recoverySubmit">პასვორდის დაყენება</button>
 </div></div>
 
-<!-- ── PROFILE MODAL ── -->
-<div class="modal-bg" id="profileModal"><div class="modal modal-profile">
-<button class="modal-close" id="profileClose" aria-label="დახურვა">&times;</button>
-<h3>პროფილი</h3>
-<p class="sub">შეცვალე შენი ანგარიშის პარამეტრები</p>
-
-<!-- Avatar Icon Picker -->
-<div class="profile-section">
-  <span class="field-label" id="iconPickerLabel">აირჩიე აიქონი</span>
-  <div class="icon-picker" id="iconPicker" role="radiogroup" aria-labelledby="iconPickerLabel"></div>
-</div>
-
-<!-- Nickname -->
-<div class="profile-section">
-  <div class="field">
-    <label for="profNick">სახელი (ნიქნეიმი)</label>
-    <input type="text" id="profNick" name="nickname" placeholder="მაგ. UFC.King" autocomplete="nickname" maxlength="20" />
-  </div>
-</div>
-
-<!-- Email -->
-<div class="profile-section">
-  <div class="field">
-    <label for="profEmail">ელ. ფოსტა</label>
-    <input type="email" id="profEmail" name="email" placeholder="შეიყვანე მეილი" autocomplete="email" />
-  </div>
-</div>
-
-<!-- Contact Info -->
-<div class="profile-section">
-  <div class="field-label" style="margin-bottom:8px">საკონტაქტო ინფორმაცია</div>
-  <div class="field">
-    <label for="profPhone">მობილურის ნომერი</label>
-    <input type="tel" id="profPhone" name="tel" placeholder="მაგ. 555123456" autocomplete="tel" />
-  </div>
-  <div class="field">
-    <label for="profTelegram">ტელეგრამი</label>
-    <input type="text" id="profTelegram" placeholder="მაგ. @username" />
-  </div>
-</div>
-
-<!-- Password Change -->
-<form id="profPassForm" method="post" action="#" onsubmit="event.preventDefault();document.getElementById('profileSave').click()">
-<div class="profile-section">
-  <div class="field-label" style="margin-bottom:12px">პასვორდის შეცვლა</div>
-  <div class="field">
-    <label for="profOldPass">ძველი პასვორდი</label>
-    <input type="password" id="profOldPass" name="current-password" placeholder="შეიყვანე ძველი პასვორდი" autocomplete="current-password" />
-  </div>
-  <div class="field">
-<label for="profNewPass">ახალი პასვორდი</label>
-    <input type="password" id="profNewPass" name="new-password" placeholder="მინ. 8 სიმბოლო" autocomplete="new-password" />
-  </div>
-</div>
-</form>
-
-<div id="profileMsg" style="font-size:.85rem;margin-bottom:10px;display:none"></div>
-<button class="btn btn-primary" id="profileSave">შენახვა</button>
-<button class="btn btn-ghost" id="profileLogout" style="width:100%;margin-top:10px;text-align:center;display:block">გამოსვლა</button>
-</div></div>
-
 <!-- ── CONTACT INFO POPUP ── -->
 <div class="modal-bg" id="contactInfoModal"><div class="modal modal-contact">
 <h3>შეავსე პროფილი</h3>
@@ -462,7 +401,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </a>
 </nav>
 <script defer src="/fantasy-nav.js?v=7"></script>
-<script defer src="/app.js?v=209"></script>
+<script defer src="/app.js?v=210"></script>
 <script>
 (function(){var fx=document.getElementById('navFx');if(!fx)return;
 fx.addEventListener('click',function(e){

@@ -892,7 +892,7 @@ function updateNavForUser(user) {
         <div class="nav-dropdown" id="navDropdown"><button class="nav-dd-item" id="ddProfile">პროფილი</button><button class="nav-dd-item danger" id="ddLogout">გამოსვლა</button></div>`;
       if (joinBtn && joinBtn.parentNode) joinBtn.parentNode.insertBefore(navUser, joinBtn);
       navUser.onclick = (e) => { if (e.target.closest('.nav-dropdown')) return; document.getElementById('navDropdown').classList.toggle('show'); };
-      document.getElementById('ddProfile').onclick = () => { document.getElementById('navDropdown').classList.remove('show'); openProfile(); };
+      document.getElementById('ddProfile').onclick = () => { document.getElementById('navDropdown').classList.remove('show'); location.href = '/profile/'; };
       document.getElementById('ddLogout').onclick = () => { document.getElementById('navDropdown').classList.remove('show'); doLogout(); };
     } else { navUser.querySelector('.nav-nick').textContent = user.nick; navUser.querySelector('.nav-ava').innerHTML = navAvaHtml(user); }
     navUser.style.display = 'flex';
@@ -913,7 +913,7 @@ function updateNavForUser(user) {
 
 function addMobileMenuLinks() {
   const navLinks = document.getElementById('navLinks'); if (!navLinks) return;
-  if (!document.getElementById('mProfile')) { const p = document.createElement('a'); p.href = '#'; p.id = 'mProfile'; p.className = 'nav-mobile-only'; p.textContent = 'პროფილი'; p.onclick = (e) => { e.preventDefault(); navLinks.classList.remove('open'); openProfile(); }; navLinks.insertBefore(p, navLinks.firstChild); }
+  if (!document.getElementById('mProfile')) { const p = document.createElement('a'); p.href = '#'; p.id = 'mProfile'; p.className = 'nav-mobile-only'; p.textContent = 'პროფილი'; p.onclick = (e) => { e.preventDefault(); navLinks.classList.remove('open'); location.href = '/profile/'; }; navLinks.insertBefore(p, navLinks.firstChild); }
   if (!document.getElementById('mLogout')) { const l = document.createElement('a'); l.href = '#'; l.id = 'mLogout'; l.className = 'nav-mobile-only danger'; l.textContent = 'გამოსვლა'; l.onclick = (e) => { e.preventDefault(); navLinks.classList.remove('open'); doLogout(); }; navLinks.appendChild(l); }
 }
 function removeMobileMenuLinks() { const p = document.getElementById('mProfile'); if (p) p.remove(); const l = document.getElementById('mLogout'); if (l) l.remove(); }
@@ -1040,24 +1040,6 @@ sb.auth.onAuthStateChange((event, session) => {
   }, 0);
 });
 
-// ── PROFILE MODAL ──
-function openProfile() {
-  if (!currentUser) return;
-  const pm = document.getElementById('profileModal');
-  document.getElementById('profNick').value = currentUser.nick || '';
-  document.getElementById('profEmail').value = currentUser.email || '';
-  document.getElementById('profPhone').value = currentUser.phone || '';
-  document.getElementById('profTelegram').value = currentUser.telegram || '';
-  document.getElementById('profOldPass').value = '';
-  document.getElementById('profNewPass').value = '';
-  profileMsg('', '');
-  const picker = document.getElementById('iconPicker');
-  picker.innerHTML = AVATAR_ICONS.map(ic => `<button class="icon-opt ${(currentUser.icon || '🥊') === ic ? 'active' : ''}" data-icon="${ic}">${ic}</button>`).join('');
-  picker.querySelectorAll('.icon-opt').forEach(b => b.onclick = () => { picker.querySelectorAll('.icon-opt').forEach(x => x.classList.remove('active')); b.classList.add('active'); });
-  pm.classList.add('show'); loadVerificationStatus();
-}
-function closeProfile() { document.getElementById('profileModal').classList.remove('show'); }
-
 // ── ID VERIFICATION ──
 let verifSelectedFile = null;
 async function loadVerificationStatus() {
@@ -1099,65 +1081,6 @@ async function submitVerificationPhoto() {
 $on('verifPickBtn', 'click', pickVerificationPhoto);
 $on('verifPhotoInput', 'change', onVerificationFileSelected);
 $on('verifSubmitBtn', 'click', submitVerificationPhoto);
-
-function profileMsg(msg, color) { const el = document.getElementById('profileMsg'); if (msg) { el.textContent = msg; el.style.color = color || 'var(--green)'; el.style.display = 'block'; } else { el.style.display = 'none'; } }
-
-async function saveProfile() {
-  if (!currentUser) return;
-  const nick = (document.getElementById('profNick').value || '').trim();
-  const email = (document.getElementById('profEmail').value || '').trim();
-  const phone = (document.getElementById('profPhone').value || '').trim();
-  const telegram = (document.getElementById('profTelegram').value || '').trim().replace(/^@/, '');
-  const oldPass = document.getElementById('profOldPass').value || '';
-  const newPass = document.getElementById('profNewPass').value || '';
-  const selectedIcon = document.querySelector('#iconPicker .icon-opt.active');
-  const icon = selectedIcon ? selectedIcon.dataset.icon : currentUser.icon || '🥊';
-  if (nick && !/^[a-zA-Z0-9._]{3,20}$/.test(nick)) { profileMsg('სახელი: 3-20 სიმბოლო (ასოები, ციფრები, . _)', 'var(--red)'); return; }
-  try {
-    const nickChanged = nick && nick !== currentUser.nick;
-    if (nickChanged) {
-      let taken = false;
-      const rpcRes = await sb.rpc('is_nick_taken', { p_nick: nick, p_exclude_user_id: currentUser.id });
-      if (rpcRes.error) { const { data: fb } = await sb.from('leaderboard_view').select('id').eq('nick', nick).neq('id', currentUser.id).maybeSingle(); taken = !!fb; }
-      else taken = !!rpcRes.data;
-      if (taken) { profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს', 'var(--red)'); return; }
-    }
-    const phoneChanged = phone !== (currentUser.phone || '');
-    const telegramChanged = telegram !== (currentUser.telegram || '');
-    if (nickChanged || icon !== currentUser.icon || phoneChanged || telegramChanged) {
-      const upd = { nick: nick || currentUser.nick, icon };
-      if (phoneChanged) upd.phone = phone || null; if (telegramChanged) upd.telegram = telegram || null;
-      let { data: updData, error: updErr } = await sb.from('users').update(upd).eq('id', currentUser.id).select('id');
-      if (updErr) {
-        if (updErr.message && updErr.message.includes('column') && (phoneChanged || telegramChanged)) {
-          const retry = await sb.from('users').update({ nick: nick || currentUser.nick, icon }).eq('id', currentUser.id).select('id');
-          if (retry.error) { profileMsg('შენახვა ვერ მოხერხდა: ' + retry.error.message, 'var(--red)'); return; }
-          updData = retry.data;
-        } else if (String(updErr.message || '').toLowerCase().includes('duplicate') || updErr.code === '23505') { profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს', 'var(--red)'); return; }
-        else { profileMsg('შენახვა ვერ მოხერხდა: ' + updErr.message, 'var(--red)'); return; }
-      }
-      if (!updData || updData.length === 0) { profileMsg('შენახვა დაბლოკილია (RLS). გაუშვი კონსოლიდირებული SQL Supabase-ში.', 'var(--red)'); return; }
-      if (nickChanged) currentUser.nick = nick;
-      currentUser.icon = icon;
-      if (phoneChanged) currentUser.phone = phone || null;
-      if (telegramChanged) currentUser.telegram = telegram || null;
-    }
-    if (email && email !== currentUser.email) {
-      const { error } = await sb.auth.updateUser({ email });
-      if (error) { profileMsg('მეილის შეცვლა ვერ მოხერხდა: ' + error.message, 'var(--red)'); return; }
-      currentUser.email = email;
-    }
-    if (newPass) {
-      const pErr = passwordError(newPass); if (pErr) { profileMsg('ახალი ' + pErr, 'var(--red)'); return; }
-      if (!oldPass) { profileMsg('შეიყვანე ძველი პაროლი', 'var(--red)'); return; }
-      const { error: signErr } = await sb.auth.signInWithPassword({ email: currentUser.email, password: oldPass });
-      if (signErr) { profileMsg('ძველი პაროლი არასწორია', 'var(--red)'); document.getElementById('profOldPass').value = ''; document.getElementById('profNewPass').value = ''; return; }
-      const { error: upErr } = await sb.auth.updateUser({ password: newPass });
-      if (upErr) { profileMsg('პაროლის შეცვლა ვერ მოხერხდა', 'var(--red)'); return; }
-    }
-    updateNavForUser(currentUser); renderLeaderboard(); profileMsg('წარმატებით შეინახა!', 'var(--green)');
-  } catch (e) { profileMsg('შეცდომა: ' + e.message, 'var(--red)'); }
-}
 
 // ── FORGOT / RESET PASSWORD ──
 function openForgotPassword() {
@@ -1238,15 +1161,10 @@ $on('forgotModal', 'click', e => { if (e.target.id === 'forgotModal') closeForgo
 $on('forgotSubmit', 'click', sendPasswordReset);
 $on('recoverySubmit', 'click', submitNewPassword);
 $on('backToLogin', 'click', () => { closeForgotModal(); openModal('signin'); });
-$on('profileClose', 'click', closeProfile);
-$on('profileModal', 'click', e => { if (e.target.id === 'profileModal') closeProfile(); });
-$on('profileSave', 'click', saveProfile);
-$on('profileLogout', 'click', () => { closeProfile(); doLogout(); });
-
 $on('activeToggle', 'click', () => { const act = $('activeTickets'), arrow = $('activeArrow'); if (!act) return; const isOpen = act.style.display !== 'none'; act.style.display = isOpen ? 'none' : 'flex'; if (arrow) arrow.classList.toggle('open', !isOpen); });
 $on('historyToggle', 'click', () => { const hist = $('historyTickets'), arrow = $('historyArrow'); if (!hist) return; const isOpen = hist.style.display !== 'none'; hist.style.display = isOpen ? 'none' : 'flex'; if (arrow) arrow.classList.toggle('open', !isOpen); });
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeSlip(); closeForgotModal(); closeProfile(); closeContactInfoPopup(); } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal(); closeSlip(); closeForgotModal(); closeContactInfoPopup(); } });
 
 const navLinks = $('navLinks');
 $on('menuBtn', 'click', () => { if (navLinks) navLinks.classList.toggle('open'); });
