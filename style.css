@@ -404,9 +404,11 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .read-progress>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--red),var(--gold));transition:width 60ms linear}
 @media(prefers-reduced-motion:reduce){.read-progress>i{transition:none}}
 
-/* Floating article action bar (PRD 8.8) -- like/dislike/share, each a
-   44x44 .btn--icon */
-.article-actions{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:190;display:flex;align-items:center;gap:var(--sp-2);padding:8px;border-radius:var(--r-pill);background:rgba(31,28,43,.92);backdrop-filter:blur(16px);box-shadow:var(--sh-3)}
+/* Article action bar (PRD 8.8, later un-floated per Giorgi's R6 review --
+   it no longer tracks scroll; sits in normal document flow right after
+   .nw-layout, same spot it already had in the DOM) -- like/dislike/share,
+   each a 44x44 .btn--icon */
+.article-actions{width:min(1100px,calc(100% - 2*var(--gutter)));margin:0 auto;display:flex;align-items:center;gap:var(--sp-2);padding:var(--sp-3) 0;border-top:1px solid var(--line)}
 .article-actions .aa-count{font-size:var(--fs-meta);color:var(--text);min-width:14px;text-align:center}
 .article-actions .btn--icon.on{color:var(--gold)}
 @media(prefers-reduced-motion:reduce){.skeleton{animation:none}}

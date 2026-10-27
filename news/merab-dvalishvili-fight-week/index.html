@@ -62,7 +62,7 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
-<link rel="stylesheet" href="/style.css?v=201" />
+<link rel="stylesheet" href="/style.css?v=202" />
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <style>
 /* ── MOBILE BOTTOM NAV (mnav) — მხოლოდ მობილურზე ── (ufc/index.html-იდან, nav-ის სრულად აღსადგენად) */
@@ -217,6 +217,7 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
 .nw-comment-delete{margin-left:auto;background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem;padding:2px 4px}
 .nw-comment-delete:hover{color:var(--red)}
 .nw-comment-body{color:var(--text);font-size:.9rem;line-height:1.6;white-space:pre-wrap;word-break:break-word}
+.nw-comment-more{display:block;background:none;border:none;color:var(--gold);font-size:.85rem;font-weight:700;font-family:inherit;cursor:pointer;padding:4px 0 0;margin:0}
 </style>
 <script type="application/ld+json" id="nwJsonLd">{"@context":"https://schema.org","@type":"Article","headline":"მერაბ დვალიშვილი - საბრძოლო კვირა","datePublished":"1998-10-18T03:00:00+00:00","dateModified":"1998-10-18T03:00:00+00:00","image":"https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/object/public/news-images/1792351283095-gettyimages-2250452193.jpg","author":{"@type":"Person","name":"GeoArchnemesis"}}</script>
 </head>
@@ -834,10 +835,19 @@ function nwRenderComments() {
   if (!box) return;
   if (!nwComments.length) { box.innerHTML = '<div class="nw-comment-empty">კომენტარი ჯერ არ არის — იყავი პირველი.</div>'; return; }
 
+  // Facebook-style truncation -- comments over ~300 chars show a
+  // "მეტის ნახვა" link that reveals the rest (one-way expand, button
+  // removed once clicked, no separate "show less" affordance).
+  const NW_COMMENT_TRUNCATE_LEN = 300;
   box.innerHTML = nwComments.map(c => {
     const nick = nwCommenterNames[c.user_id] || 'Fan';
     const dateStr = nwFormatDateKa(new Date(c.created_at), 'short');
     const canDelete = nwCurrentUser && (nwCurrentUser.id === c.user_id || nwCurrentUser.isAdmin);
+    const body = c.body || '';
+    const isLong = body.length > NW_COMMENT_TRUNCATE_LEN;
+    const bodyHtml = isLong
+      ? `<span class="nw-comment-short">${nwEscapeHtml(body.slice(0, NW_COMMENT_TRUNCATE_LEN))}…</span><span class="nw-comment-full" style="display:none">${nwEscapeHtml(body)}</span><button type="button" class="nw-comment-more" onclick="nwExpandComment(this)">მეტის ნახვა</button>`
+      : nwEscapeHtml(body);
     return `
     <div class="nw-comment">
       <div class="nw-comment-head">
@@ -845,9 +855,19 @@ function nwRenderComments() {
         <span class="nw-comment-date">${dateStr}</span>
         ${canDelete ? `<button type="button" class="nw-comment-delete" onclick="nwDeleteComment('${c.id}')" title="წაშლა">🗑️</button>` : ''}
       </div>
-      <div class="nw-comment-body">${nwEscapeHtml(c.body)}</div>
+      <div class="nw-comment-body">${bodyHtml}</div>
     </div>`;
   }).join('');
+}
+
+function nwExpandComment(btn) {
+  const wrap = btn.closest('.nw-comment-body');
+  if (!wrap) return;
+  const shortEl = wrap.querySelector('.nw-comment-short');
+  const fullEl = wrap.querySelector('.nw-comment-full');
+  if (shortEl) shortEl.style.display = 'none';
+  if (fullEl) fullEl.style.display = '';
+  btn.remove();
 }
 
 async function nwSubmitComment() {
