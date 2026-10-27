@@ -721,6 +721,7 @@ function enterPvpLobby({ roomId, code, isHost, questions }){
     myId: currentAuthUser && currentAuthUser.id,
     myName: currentAuthUser && currentAuthUser.nick,
     players: [],
+    avatarsById: {},
     maxPlayers: 9,
     questions: questions || [],
     started: false,
@@ -756,6 +757,21 @@ function subscribePvpRoom(){
     .subscribe();
 }
 
+async function fetchPvpAvatars(){
+  if(!PVP || !sb) return;
+  try{
+    const { data, error } = await sb.rpc('get_quiz_room_player_avatars', { p_room_id: PVP.roomId });
+    if(error){ console.warn("[quiz] PvP avatars fetch failed:", error.message || error); return; }
+    (data || []).forEach(row=>{ PVP.avatarsById[row.player_id] = row; });
+  }catch(e){ console.warn("[quiz] PvP avatars fetch failed:", e); }
+}
+
+function pvpAvatarHtml(playerId){
+  const a = PVP && PVP.avatarsById && PVP.avatarsById[playerId];
+  if(a && a.avatar_type === "photo" && a.avatar_url) return `<img src="${a.avatar_url}" alt="" />`;
+  return (a && a.icon) || "🥊";
+}
+
 async function refreshPvpPlayers(){
   if(!PVP || !sb) return;
   const { data, error } = await sb
@@ -765,6 +781,7 @@ async function refreshPvpPlayers(){
     .order("joined_at", { ascending: true });
   if(error){ console.warn("[quiz] PvP player list fetch failed:", error); return; }
   PVP.players = data || [];
+  await fetchPvpAvatars();
   const lobbyEl = document.getElementById("screen-pvp-lobby");
   const waitEl = document.getElementById("screen-pvp-wait");
   if(lobbyEl && lobbyEl.classList.contains("active")) renderPvpLobbyList();
@@ -778,11 +795,20 @@ function renderPvpLobbyList(){
     const row = document.createElement("div");
     row.className = "pvp-player";
     const isMe = p.player_id === PVP.myId;
-    row.innerHTML = `<span class="ava">${p.is_host ? "👑" : "🤠"}</span>`+
+    row.innerHTML = `<span class="ava">${pvpAvatarHtml(p.player_id)}</span>`+
       `<span class="nm">${p.player_name}${isMe ? " (შენ)" : ""}</span>`+
       (p.is_host ? `<span class="tag">ჰოსტი</span>` : "");
     list.appendChild(row);
   });
+  // PDF p9: ბოლო მოთამაშის ქვეშ — ცარიელი ადგილების გრაფა, ვიზუალურად
+  // რომ ჩანდეს თავისუფალი ადგილი და ველოდებით კიდევ ვინმეს.
+  const emptySeats = Math.max(0, PVP.maxPlayers - PVP.players.length);
+  for(let i=0; i<emptySeats; i++){
+    const row = document.createElement("div");
+    row.className = "pvp-player-empty";
+    row.innerHTML = `<span class="ava">+</span><span class="nm">თავისუფალი ადგილი</span>`;
+    list.appendChild(row);
+  }
   $("#pvp-players-count").textContent = `${PVP.players.length} / ${PVP.maxPlayers} მოთამაშე`;
   if(PVP.isHost){
     const enough = PVP.players.length >= 2;
@@ -857,14 +883,17 @@ function renderPvpResults(result){
   const restEl = $("#pvp-rest-list"); restEl.innerHTML = "";
 
   const top3 = players.slice(0, 3);
-  const slots = [ { idx:1, cls:"p2", ring:"🥈" }, { idx:0, cls:"p1", ring:"🥇" }, { idx:2, cls:"p3", ring:"🥉" } ];
+  const slots = [ { idx:1, cls:"p2" }, { idx:0, cls:"p1" }, { idx:2, cls:"p3" } ];
   slots.forEach(s=>{
     const p = top3[s.idx];
     const slot = document.createElement("div");
     slot.className = "podium-slot " + s.cls;
     if(!p){ slot.style.visibility = "hidden"; podiumEl.appendChild(slot); return; }
     const isMe = PVP && p.player_id === PVP.myId;
-    slot.innerHTML = `<div class="podium-ring">${s.ring}</div>`+
+    // PDF p1: პოდიუმში ემოჯის ნაცვლად მოთამაშის რეალური სურათი/აიქონი —
+    // ფერადი რგოლი (ოქრო/ვერცხლი/ბრინჯაო) კი .podium-slot.pN-ზეა, უცვლელი.
+    const avaHtml = (p.avatar_type === "photo" && p.avatar_url) ? `<img src="${p.avatar_url}" alt="" />` : (p.icon || "🥊");
+    slot.innerHTML = `<div class="podium-ring">${avaHtml}</div>`+
       `<div class="podium-nm">${p.player_name}${isMe ? " (შენ)" : ""}</div>`+
       `<div class="podium-pts">${p.total_score} ქულა</div>`+
       `<div class="podium-base"></div>`;
@@ -912,11 +941,22 @@ $("#pvp-copy-link").addEventListener("click", ()=>{
   if(!PVP) return;
   const url = location.origin + "/ufc/quiz/?room=" + PVP.code;
   const btn = $("#pvp-copy-link");
-  const done = ()=>{ btn.textContent = "დაკოპირდა ✓"; setTimeout(()=> btn.textContent = "ბმულის კოპირება", 1500); };
+  const done = ()=>{ btn.textContent = "დაკოპირდა ✓"; setTimeout(()=> btn.textContent = "ოთახის ლინკის კოპირება", 1500); };
   if(navigator.clipboard && navigator.clipboard.writeText){
     navigator.clipboard.writeText(url).then(done).catch(()=> prompt("დააკოპირე ბმული:", url));
   } else {
     prompt("დააკოპირე ბმული:", url);
+  }
+});
+
+$("#pvp-copy-code").addEventListener("click", ()=>{
+  if(!PVP) return;
+  const btn = $("#pvp-copy-code");
+  const done = ()=>{ btn.textContent = "დაკოპირდა ✓"; setTimeout(()=> btn.textContent = "კოდის კოპირება", 1500); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(PVP.code).then(done).catch(()=> prompt("დააკოპირე კოდი:", PVP.code));
+  } else {
+    prompt("დააკოპირე კოდი:", PVP.code);
   }
 });
 
