@@ -578,13 +578,11 @@ function buildDifficultyPicker(action, { onReady, startLabel, onStart }){
 
   const wrap = document.createElement("div");
   wrap.className = "difficulty";
-  const lab = document.createElement("div");
-  lab.className = "diff-label"; lab.textContent = "აირჩიე სირთულე";
   const chips = document.createElement("div");
   chips.className = "diff-chips";
   const note = document.createElement("div");
   note.className = "diff-note";
-  wrap.appendChild(lab); wrap.appendChild(chips); wrap.appendChild(note);
+  wrap.appendChild(chips); wrap.appendChild(note);
 
   const startBtn = document.createElement("button");
   startBtn.className = "btn btn-primary"; startBtn.textContent = startLabel;
@@ -1164,11 +1162,19 @@ function startTimer(){
    თაიმერი არაა — უპასუხე შენი ტემპით; პასუხის შემდეგ დაუყოვნებლივ ჩანს
    სწორია თუ არა, „შემდეგი“ ღილაკზე დაჭერით გააგრძელებ. ქულა დამოკიდებულია
    რამდენი მინიშნება გახსენი პასუხის გაცემამდე: 1→4, 2→3, 3→2, 4→1. ------ */
+function guessPointsNow(){
+  return Math.max(1, Math.min(4, 5 - S.gCluesShown));
+}
+function updateGuessPoints(){
+  const el = $("#gq-points");
+  if(el) el.textContent = guessPointsNow() + " ქულა";
+}
 function renderGuessQuestion(){
   const item = S.questions[S.qi];
   $("#gq-idx").textContent = S.qi+1;
   $("#gq-num").textContent = S.qi+1;
   S.gCluesShown = 1;
+  updateGuessPoints();
   renderGuessClues();
 
   const inp = $("#gq-input");
@@ -1246,7 +1252,7 @@ function submitGuess(forced){
   }
 
   const result = val ? isGuessCorrect(val, item.answer) : { correct:false, exact:false };
-  const points = result.correct ? Math.max(1, Math.min(4, 5 - S.gCluesShown)) : 0;
+  const points = result.correct ? guessPointsNow() : 0;
   S.playerPoints[S.qi] = points;
 
   if(result.correct){
@@ -1274,6 +1280,7 @@ $("#gq-next-clue").addEventListener("click", ()=>{
   if(!item) return;
   if(S.gCluesShown < item.clues.length){
     S.gCluesShown++;
+    updateGuessPoints();
     renderGuessClues();
     if(PVP) revealPvpClue(S.qi);
     extendQuestionTimer(PVP_GUESS_CLUE_BONUS*1000);

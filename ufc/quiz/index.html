@@ -145,17 +145,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .btn-green:hover{filter:brightness(1.05)}
 
 #quizRoot .difficulty{width:100%;display:flex;flex-direction:column;gap:10px}
-#quizRoot .diff-label{text-align:center;font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
 #quizRoot .diff-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 #quizRoot .chip{font-family:var(--head);font-weight:700;font-size:.82rem;padding:12px 6px;border-radius:8px;cursor:pointer;color:var(--text);border:1px solid var(--line);background:var(--ink);transition:.15s;line-height:1.3;text-align:center}
 #quizRoot .chip:hover{border-color:var(--muted)}
-#quizRoot .chip.sel{border-color:var(--gold);background:rgba(245,196,81,.14);color:var(--gold)}
+#quizRoot .chip.sel{border-color:var(--green);background:rgba(58,209,126,.14);color:var(--green)}
 #quizRoot .chip:disabled{opacity:.4;cursor:not-allowed;color:var(--muted)}
-/* PDF p1: PvP room-create difficulty selector shows the SELECTED chip in
-   green (reusing --green), not the AI-mode picker's gold — scoped to this
-   one container only, AI-mode difficulty selection (buildDifficultyPicker)
-   is untouched. */
-#pvp-create-diff .chip.sel{border-color:var(--green);background:rgba(58,209,126,.14);color:var(--green)}
+/* R2: vs-AI picker now matches PvP room-create — SELECTED chip is green
+   (reusing --green) in both; no gold selected-chip state remains. */
 #quizRoot .diff-note{display:none;border-radius:8px;padding:11px 14px;font-size:.82rem;line-height:1.5;font-weight:600;background:var(--ink);border:1px solid var(--line);border-left:3px solid currentColor;text-align:left}
 #quizRoot .diff-note.show{display:block}
 
@@ -235,6 +231,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .gq-clues{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;max-height:168px;overflow-y:auto;padding-right:4px}
 #quizRoot .gq-clue{background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:.88rem;line-height:1.45;text-align:left}
 #quizRoot .gq-clue-num{color:var(--gold);font-weight:700;font-family:var(--mono);margin-right:6px}
+#quizRoot .gq-hint-row{display:flex;align-items:center;gap:10px}
+#quizRoot .gq-points{font-family:var(--mono);font-weight:700;font-size:.78rem;color:var(--gold);white-space:nowrap}
 #quizRoot .gq-feedback{display:none;margin-top:12px;border-radius:8px;padding:12px 14px;font-size:.88rem;line-height:1.45;font-weight:700;text-align:center}
 #quizRoot .gq-feedback.show{display:block;animation:qzFade .25s ease both}
 #quizRoot .gq-feedback.ok{background:rgba(58,209,126,.14);border:1px solid var(--green);color:var(--text)}
@@ -459,7 +457,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="qtext" style="margin-bottom:14px">პასუხი შეიყვანე #ქართულად</div>
       <div class="gq-clues" id="gq-clues"></div>
       <div id="gq-answer-area">
-        <button class="btn btn-ghost" id="gq-next-clue" style="margin-top:6px;width:100%">+ შემდეგი მინიშნება</button>
+        <div class="gq-hint-row" style="margin-top:6px">
+          <button class="btn btn-ghost" id="gq-next-clue" style="flex:1">+ შემდეგი მინიშნება</button>
+          <span class="gq-points" id="gq-points">4 ქულა</span>
+        </div>
         <div class="name-entry" style="margin-top:18px">
           <input type="text" id="gq-input" aria-label="ჩაწერე მებრძოლის სახელი და გვარი" autocomplete="off" />
         </div>
@@ -666,7 +667,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=18"></script>
+<script src="/ufc/quiz.js?v=19"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){
