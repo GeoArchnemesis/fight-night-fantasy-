@@ -653,7 +653,7 @@ function renderLeaderboard() {
     const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
     return `<a class="lb-row ${you ? 'you' : ''}${r.verified ? ' verified-row' : ''}" href="/profile/?u=${encodeURIComponent(nm)}" style="text-decoration:none;color:inherit">
       <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
-      <span class="lb-user"><span class="lb-ava-glove">${r.icon || '🥊'}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name" style="font-size:${nmSize}">${nm}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
+      <span class="lb-user"><span class="lb-ava-glove">${navAvaHtml(r)}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name" style="font-size:${nmSize}">${nm}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
       <span class="lb-roi"></span><span class="lb-pts" style="font-size:${ptsSize}">${ptsStr}</span></a>`;
   }).join('');
   renderLbFullButton(fullSorted);
@@ -675,7 +675,7 @@ function openLbPopup(fullSorted) {
     const nm = r.name || '—';
     return `<a class="lb-row ${you ? 'you' : ''}${r.verified ? ' verified-row' : ''}" href="/profile/?u=${encodeURIComponent(nm)}" style="text-decoration:none;color:inherit">
       <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
-      <span class="lb-user"><span class="lb-ava-glove">${r.icon || '🥊'}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name">${nm}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
+      <span class="lb-user"><span class="lb-ava-glove">${navAvaHtml(r)}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name">${nm}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
       <span class="lb-pts">${sign + fmt(r.pts)}</span></a>`;
   }).join('');
   overlay.innerHTML = `<div class="lb-popup"><div class="lb-popup-head"><h3>სრული ლიდერბორდი</h3><button class="x" id="lbPopupClose">&times;</button></div><div class="lb-popup-body">${rowsHtml}</div></div>`;
@@ -700,7 +700,7 @@ async function loadLeaderboard(period) {
     if (_currentLbPeriod === 'goat') {
       const { data, error } = await sb.from('f1_leaderboard_view').select('*').order('score', { ascending: false });
       if (error || !data) return;
-      rows = data.map(u => ({ id: u.id, name: u.nick || '—', pts: Number(u.score) || 0, icon: u.icon || '🥊', verified: !!u.verified }));
+      rows = data.map(u => ({ id: u.id, name: u.nick || '—', pts: Number(u.score) || 0, icon: u.icon || '🥊', avatar_type: u.avatar_type, avatar_url: u.avatar_url, verified: !!u.verified }));
     } else {
       const since = periodStartDate(_currentLbPeriod).toISOString();
       let { data: hist, error: hErr } = await sb.from('f1_score_history').select('user_id, amount, created_at').gte('created_at', since);
@@ -708,9 +708,9 @@ async function loadLeaderboard(period) {
       if (hErr || !hist) { LEADERBOARD.length = 0; renderLeaderboard(); renderLbTabs(); return; }
       const { data: usersData } = await sb.from('f1_leaderboard_view').select('*');
       const userMap = {};
-      (usersData || []).forEach(u => { userMap[u.id] = { nick: u.nick || '—', icon: u.icon || '🥊', verified: !!u.verified }; });
+      (usersData || []).forEach(u => { userMap[u.id] = { nick: u.nick || '—', icon: u.icon || '🥊', avatar_type: u.avatar_type, avatar_url: u.avatar_url, verified: !!u.verified }; });
       const map = {};
-      hist.forEach(h => { const uid = h.user_id; if (!map[uid]) map[uid] = { id: uid, name: userMap[uid]?.nick || '—', icon: userMap[uid]?.icon || '🥊', pts: 0, verified: userMap[uid]?.verified || false }; map[uid].pts += Number(h.amount) || 0; });
+      hist.forEach(h => { const uid = h.user_id; if (!map[uid]) map[uid] = { id: uid, name: userMap[uid]?.nick || '—', icon: userMap[uid]?.icon || '🥊', avatar_type: userMap[uid]?.avatar_type, avatar_url: userMap[uid]?.avatar_url, pts: 0, verified: userMap[uid]?.verified || false }; map[uid].pts += Number(h.amount) || 0; });
       rows = Object.values(map).filter(r => r.pts > 0).sort((a, b) => b.pts - a.pts);
     }
     LEADERBOARD.length = 0; rows.forEach(r => LEADERBOARD.push(r));
