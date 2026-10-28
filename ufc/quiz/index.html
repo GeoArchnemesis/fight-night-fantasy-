@@ -146,7 +146,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 #quizRoot .difficulty{width:100%;display:flex;flex-direction:column;gap:10px}
 #quizRoot .diff-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-#quizRoot .chip{font-family:var(--head);font-weight:700;font-size:.82rem;padding:12px 6px;border-radius:8px;cursor:pointer;color:var(--text);border:1px solid var(--line);background:var(--ink);transition:.15s;line-height:1.3;text-align:center}
+/* p8 (LittleMoreUpdates.pdf, 3rd time): labels were left-aligned inside the
+   chip despite text-align:center here — root cause is style.css's own
+   global .chip rule (a separate, unrelated chip-row component) setting
+   display:inline-flex, which makes text-align a no-op since flex children
+   align via justify-content, not text-align. Fixed at the source: */
+#quizRoot .chip{font-family:var(--head);font-weight:700;font-size:.82rem;padding:12px 6px;border-radius:8px;cursor:pointer;color:var(--text);border:1px solid var(--line);background:var(--ink);transition:.15s;line-height:1.3;text-align:center;justify-content:center}
 #quizRoot .chip:hover{border-color:var(--muted)}
 #quizRoot .chip.sel{border-color:var(--green);background:rgba(58,209,126,.14);color:var(--green)}
 #quizRoot .chip:disabled{opacity:.4;cursor:not-allowed;color:var(--muted)}
