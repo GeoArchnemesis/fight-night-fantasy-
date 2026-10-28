@@ -130,7 +130,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .pf-badge-modal-box{padding:52px 8px 14px}
 }
 
-.pf-badges-more{width:100%;margin-top:14px;padding:10px;background:none;border:1px solid var(--line);border-radius:10px;color:var(--gold);font-family:var(--mono);font-size:.78rem;cursor:pointer;text-align:center}
+.pf-badges-more{width:100%;margin-top:14px;padding:10px;background:none;border:1px solid var(--line);border-radius:10px;color:var(--text);font-family:var(--head);font-size:.95rem;cursor:pointer;text-align:center}
 .pf-badges-more:hover{border-color:var(--gold)}
 
 /* ---------- p3: nicer text inputs, scoped to this page's own form
@@ -874,7 +874,7 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       if(error) throw error;
       if(!data || !data.length) throw new Error('row not updated (RLS?)');
       currentUser.bio = bio || null;
-      document.getElementById('pfBioReadonly').textContent = currentUser.bio || 'ჩემს შესახებ არ არის დამატებული.';
+      document.getElementById('pfBioReadonly').textContent = currentUser.bio || 'ინფორმაცია დამატებული არაა.';
       editingBio = false;
       renderBioMode();
     }catch(e){
@@ -1281,7 +1281,7 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     if (isOwnProfile) {
       fillForm();
       initAvatarUpload();
-      document.getElementById('pfBioReadonly').textContent = currentUser.bio || 'ჩემს შესახებ არ არის დამატებული.';
+      document.getElementById('pfBioReadonly').textContent = currentUser.bio || 'ინფორმაცია დამატებული არაა.';
       document.getElementById('profBio').addEventListener('input', e => {
         document.getElementById('profBioCount').textContent = e.target.value.length + ' / 300';
       });
@@ -1321,7 +1321,7 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       document.getElementById('profileSave').addEventListener('click', saveProfile);
       document.getElementById('profileLogout').addEventListener('click', doLogout);
     } else {
-      document.getElementById('pfBioReadonly').textContent = viewTarget.bio || 'ჩემს შესახებ არ არის დამატებული.';
+      document.getElementById('pfBioReadonly').textContent = viewTarget.bio || 'ინფორმაცია დამატებული არაა.';
     }
     applyArticlesToggleUI();
 
