@@ -45,7 +45,15 @@ const corsHeaders = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  // R6: confirmed root cause of "login by nickname/phone always fails" —
+  // the real supabase-js client always sends `apikey` and `x-client-info`
+  // on every functions.invoke() call (verified directly against the actual
+  // library, not assumed), and neither was in this allow-list. Every real
+  // browser's CORS preflight blocked the POST before it ever reached this
+  // function — reproduced live with a headless Chromium against the
+  // deployed function: "Request header field x-client-info is not allowed
+  // by Access-Control-Allow-Headers in preflight response."
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, apikey, x-client-info',
 }
 
 const admin = createClient(

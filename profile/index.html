@@ -83,10 +83,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 /* p3: already-saved bio shows as plain white text (not the dimmer
    --text-2 used elsewhere), with a pencil icon at its start that
    switches to the editable textarea above. */
-.pf-bio-display{display:flex;align-items:flex-start;gap:8px}
-.pf-bio-edit-btn{flex-shrink:0;margin-top:2px;background:none;border:none;color:var(--muted);cursor:pointer;padding:2px;transition:color .15s}
+.pf-bio-display{display:flex;flex-direction:column;gap:6px}
+.pf-bio-heading-row{display:flex;align-items:center;justify-content:center;gap:8px}
+.pf-bio-edit-btn{flex-shrink:0;background:none;border:none;color:var(--muted);cursor:pointer;padding:2px;transition:color .15s}
 .pf-bio-edit-btn:hover{color:var(--gold)}
-.pf-bio-readonly{flex:1;min-width:0;color:var(--text);font-size:.92rem;line-height:1.5;white-space:pre-wrap}
+.pf-bio-readonly{color:var(--text);font-size:.92rem;line-height:1.5;white-space:pre-wrap}
 
 /* ---------- p3: nicer text inputs, scoped to this page's own form
    (.field input is shared site-wide — the login/signup modal on every
@@ -238,8 +239,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="pf-avatar-controls" id="pfAvatarControls">
             <button type="button" class="btn btn-green" id="avatarUploadBtn" style="width:100%;justify-content:center">📷 ფოტოს შეცვლა</button>
             <input type="file" id="avatarFileInput" accept="image/*" style="display:none" />
-            <span class="field-label" id="iconPickerLabel" style="display:block;margin-top:14px">ან აირჩიე ემოჯი</span>
+            <span class="field-label" id="iconPickerLabel" style="display:block;margin-top:14px">ემოჯი პროფილის ფოტოდ</span>
             <div class="icon-picker" id="iconPicker" role="radiogroup" aria-labelledby="iconPickerLabel"></div>
+            <button type="button" class="btn btn-primary" id="pfIconSaveBtn" style="width:100%;margin-top:10px;display:none">შენახვა</button>
           </div>
 
           <h1 class="pf-title" id="pfTitleHeading">პროფილი</h1>
@@ -255,9 +257,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <button type="button" class="btn btn-primary" id="pfBioSaveBtn" style="width:100%;margin-top:10px">შენახვა</button>
             </div>
             <div class="pf-bio-display" id="pfBioDisplay">
-              <button type="button" class="pf-bio-edit-btn" id="pfBioEditBtn" aria-label="ჩემს შესახებ-ის რედაქტირება">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-              </button>
+              <div class="pf-bio-heading-row">
+                <span class="field-label" style="margin-bottom:0;font-size:1.2rem">ჩემს შესახებ</span>
+                <button type="button" class="pf-bio-edit-btn" id="pfBioEditBtn" aria-label="ჩემს შესახებ-ის რედაქტირება">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                </button>
+              </div>
               <p class="pf-bio-readonly" id="pfBioReadonly"></p>
             </div>
           </div>
@@ -270,6 +275,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="field">
                 <label for="profNick">ნიქნეიმი</label>
                 <input type="text" id="profNick" placeholder="მაგ. UFC.King" maxlength="20" />
+                <button type="button" class="btn btn-primary" id="pfNickSaveBtn" style="width:100%;margin-top:10px;display:none">შენახვა</button>
               </div>
             </div>
 
@@ -278,6 +284,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 <label for="profEmail">ელ. ფოსტა</label>
                 <input type="email" id="profEmail" placeholder="შეიყვანე მეილი" />
                 <p class="pf-field-err" id="profEmailErr" style="display:none">აღნიშნული მეილი უკვე რეგისტრირებულია</p>
+                <button type="button" class="btn btn-primary" id="pfEmailSaveBtn" style="width:100%;margin-top:10px;display:none">შენახვა</button>
               </div>
             </div>
 
@@ -286,10 +293,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="field">
                 <label for="profPhone">მობილურის ნომერი</label>
                 <input type="tel" id="profPhone" placeholder="მაგ. 555123456" />
+                <button type="button" class="btn btn-primary" id="pfPhoneSaveBtn" style="width:100%;margin-top:10px;display:none">შენახვა</button>
               </div>
               <div class="field">
                 <label for="profTelegram">ტელეგრამი</label>
                 <input type="text" id="profTelegram" placeholder="მაგ. @username" />
+                <button type="button" class="btn btn-primary" id="pfTelegramSaveBtn" style="width:100%;margin-top:10px;display:none">შენახვა</button>
               </div>
             </div>
 
@@ -746,12 +755,15 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     const bal = document.getElementById('balNav'); if(bal) bal.textContent = fmt(currentUser.balance);
     const pill = document.querySelector('.balance-pill'); if(pill) pill.classList.add('visible');
     const picker = document.getElementById('iconPicker');
-    picker.innerHTML = AVATAR_ICONS.map(ic => '<button type="button" class="icon-opt ' + ((currentUser.icon||'🥊')===ic?'active':'') + '" data-icon="'+ic+'">'+ic+'</button>').join('');
+    // p5: no emoji shows as selected when the current avatar is a photo —
+    // the ring only reflects an actual emoji selection.
+    picker.innerHTML = AVATAR_ICONS.map(ic => '<button type="button" class="icon-opt ' + (currentUser.avatar_type !== 'photo' && (currentUser.icon||'🥊')===ic?'active':'') + '" data-icon="'+ic+'">'+ic+'</button>').join('');
     picker.querySelectorAll('.icon-opt').forEach(b => b.onclick = () => {
       picker.querySelectorAll('.icon-opt').forEach(x=>x.classList.remove('active'));
       b.classList.add('active');
       pendingAvatarType = 'emoji';
       renderAvatarDisplay();
+      document.getElementById('pfIconSaveBtn').style.display = '';
     });
   }
 
@@ -774,6 +786,139 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       renderBioMode();
     }catch(e){
       console.warn('[profile] bio save failed:', e);
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  // p6 — inline per-field saves, same pattern as saveBioOnly above (disable
+  // while saving, .update().select() + row-count check, update
+  // currentUser, re-enable in finally). Validation/error messages for
+  // nick/phone/email/password are the exact same ones saveProfile() below
+  // already uses — not new copy.
+  async function saveIconOnly(){
+    if(!currentUser) return;
+    const selIcon = document.querySelector('#iconPicker .icon-opt.active');
+    const icon = selIcon ? selIcon.dataset.icon : (currentUser.icon || '🥊');
+    const btn = document.getElementById('pfIconSaveBtn');
+    btn.disabled = true;
+    try{
+      const { data, error } = await sb.from('users').update({ icon, avatar_type: 'emoji' }).eq('id', currentUser.id).select('icon');
+      if(error) throw error;
+      if(!data || !data.length) throw new Error('row not updated (RLS?)');
+      currentUser.icon = icon;
+      currentUser.avatar_type = 'emoji';
+      pendingAvatarType = 'emoji';
+      renderAvatarDisplay();
+      btn.style.display = 'none';
+    }catch(e){
+      console.warn('[profile] icon save failed:', e);
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  async function saveNickOnly(){
+    if(!currentUser) return;
+    const nick = (document.getElementById('profNick').value||'').trim();
+    if(!nick || nick === currentUser.nick) return;
+    if(!/^[a-zA-Z0-9._]{3,20}$/.test(nick)){ profileMsg('სახელი: 3-20 სიმბოლო (ასოები, ციფრები, . _)','var(--red)'); return; }
+    const btn = document.getElementById('pfNickSaveBtn');
+    btn.disabled = true;
+    try{
+      let taken = false;
+      const rpc = await sb.rpc('is_nick_taken', { p_nick: nick, p_exclude_user_id: currentUser.id });
+      if(rpc.error){ const {data:fb} = await sb.from('leaderboard_view').select('id').eq('nick',nick).neq('id',currentUser.id).maybeSingle(); taken = !!fb; }
+      else taken = !!rpc.data;
+      if(taken){ profileMsg('ასეთი ზედმეტსახელი უკვე არსებობს','var(--red)'); return; }
+      const { data, error } = await sb.from('users').update({ nick }).eq('id', currentUser.id).select('nick');
+      if(error){
+        const isDup = String(error.message||'').toLowerCase().includes('duplicate') || error.code==='23505';
+        profileMsg(isDup ? 'ასეთი ზედმეტსახელი უკვე არსებობს' : 'შენახვა ვერ მოხერხდა: '+error.message,'var(--red)');
+        return;
+      }
+      if(!data || !data.length){ profileMsg('შენახვა დაბლოკილია (RLS).','var(--red)'); return; }
+      currentUser.nick = nick;
+      btn.style.display = 'none';
+    }catch(e){
+      console.warn('[profile] nick save failed:', e);
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  async function saveEmailOnly(){
+    if(!currentUser) return;
+    const email = (document.getElementById('profEmail').value||'').trim();
+    if(!email || email === currentUser.email) return;
+    const emailInputEl = document.getElementById('profEmail');
+    const emailErrEl = document.getElementById('profEmailErr');
+    emailInputEl.classList.remove('err');
+    emailErrEl.style.display = 'none';
+    const btn = document.getElementById('pfEmailSaveBtn');
+    btn.disabled = true;
+    try{
+      const { error } = await sb.auth.updateUser({ email });
+      if(error){
+        const msg = String(error.message || '').toLowerCase();
+        if(msg.includes('already') && msg.includes('registered')){
+          emailInputEl.classList.add('err');
+          emailErrEl.style.display = 'block';
+        } else {
+          profileMsg('მეილის შეცვლა ვერ მოხერხდა: '+error.message,'var(--red)');
+        }
+        return;
+      }
+      currentUser.email = email;
+      btn.style.display = 'none';
+    }catch(e){
+      console.warn('[profile] email save failed:', e);
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  async function savePhoneOnly(){
+    if(!currentUser) return;
+    const phone = normalizePhone((document.getElementById('profPhone').value||'').trim());
+    if(phone === (currentUser.phone||'')) return;
+    const btn = document.getElementById('pfPhoneSaveBtn');
+    btn.disabled = true;
+    try{
+      if(phone){
+        const { data: phoneTaken } = await sb.rpc('is_phone_taken', { p_phone: phone, p_exclude_user_id: currentUser.id });
+        if(phoneTaken){ profileMsg('ეს ნომერი უკვე რეგისტრირებულია','var(--red)'); return; }
+      }
+      const { data, error } = await sb.from('users').update({ phone: phone || null }).eq('id', currentUser.id).select('phone');
+      if(error){
+        const isDup = String(error.message||'').toLowerCase().includes('duplicate') || error.code==='23505';
+        profileMsg(isDup ? 'ეს ნომერი უკვე რეგისტრირებულია' : 'შენახვა ვერ მოხერხდა: '+error.message,'var(--red)');
+        return;
+      }
+      if(!data || !data.length){ profileMsg('შენახვა დაბლოკილია (RLS).','var(--red)'); return; }
+      currentUser.phone = phone || null;
+      btn.style.display = 'none';
+    }catch(e){
+      console.warn('[profile] phone save failed:', e);
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  async function saveTelegramOnly(){
+    if(!currentUser) return;
+    const telegram = (document.getElementById('profTelegram').value||'').trim().replace(/^@/,'');
+    if(telegram === (currentUser.telegram||'')) return;
+    const btn = document.getElementById('pfTelegramSaveBtn');
+    btn.disabled = true;
+    try{
+      const { data, error } = await sb.from('users').update({ telegram: telegram || null }).eq('id', currentUser.id).select('telegram');
+      if(error){ profileMsg('შენახვა ვერ მოხერხდა: '+error.message,'var(--red)'); return; }
+      if(!data || !data.length){ profileMsg('შენახვა დაბლოკილია (RLS).','var(--red)'); return; }
+      currentUser.telegram = telegram || null;
+      btn.style.display = 'none';
+    }catch(e){
+      console.warn('[profile] telegram save failed:', e);
     }finally{
       btn.disabled = false;
     }
@@ -866,6 +1011,11 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
         if(upErr){ profileMsg('პაროლის შეცვლა ვერ მოხერხდა','var(--red)'); return; }
       }
       profileMsg('წარმატებით შეინახა!','var(--green)');
+      // p6: the full-form save just persisted everything below too — hide
+      // any per-field save buttons left showing from unsaved edits.
+      ['pfIconSaveBtn','pfNickSaveBtn','pfEmailSaveBtn','pfPhoneSaveBtn','pfTelegramSaveBtn'].forEach(id=>{
+        const el = document.getElementById(id); if(el) el.style.display = 'none';
+      });
     }catch(e){ profileMsg('შეცდომა: '+e.message,'var(--red)'); }
   }
 
@@ -915,6 +1065,9 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       if(!updData || !updData.length) throw new Error('შენახვა დაბლოკილია (RLS)');
       currentUser.avatar_url = avatarUrl; currentUser.avatar_type = 'photo'; pendingAvatarType = 'photo';
       viewTarget = currentUser;
+      // p5: now that the avatar is a photo, no emoji should show selected.
+      document.querySelectorAll('#iconPicker .icon-opt.active').forEach(x=>x.classList.remove('active'));
+      document.getElementById('pfIconSaveBtn').style.display = 'none';
       renderAvatarDisplay();
       closeCropModal();
     }catch(e){
@@ -1046,6 +1199,31 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
         document.getElementById('profBio').focus();
       });
       document.getElementById('pfBioSaveBtn').addEventListener('click', saveBioOnly);
+
+      // p6 — inline per-field save buttons: appear as soon as that field's
+      // value differs from what's actually saved, hide again if reverted.
+      document.getElementById('pfNickSaveBtn').addEventListener('click', saveNickOnly);
+      document.getElementById('profNick').addEventListener('input', e => {
+        document.getElementById('pfNickSaveBtn').style.display = (e.target.value.trim() !== currentUser.nick) ? '' : 'none';
+      });
+
+      document.getElementById('pfEmailSaveBtn').addEventListener('click', saveEmailOnly);
+      document.getElementById('profEmail').addEventListener('input', e => {
+        document.getElementById('pfEmailSaveBtn').style.display = (e.target.value.trim() !== currentUser.email) ? '' : 'none';
+      });
+
+      document.getElementById('pfPhoneSaveBtn').addEventListener('click', savePhoneOnly);
+      document.getElementById('profPhone').addEventListener('input', e => {
+        document.getElementById('pfPhoneSaveBtn').style.display = (normalizePhone(e.target.value.trim()) !== (currentUser.phone||'')) ? '' : 'none';
+      });
+
+      document.getElementById('pfTelegramSaveBtn').addEventListener('click', saveTelegramOnly);
+      document.getElementById('profTelegram').addEventListener('input', e => {
+        document.getElementById('pfTelegramSaveBtn').style.display = (e.target.value.trim().replace(/^@/,'') !== (currentUser.telegram||'')) ? '' : 'none';
+      });
+
+      document.getElementById('pfIconSaveBtn').addEventListener('click', saveIconOnly);
+
       document.getElementById('profileSave').addEventListener('click', saveProfile);
       document.getElementById('profileLogout').addEventListener('click', doLogout);
     } else {

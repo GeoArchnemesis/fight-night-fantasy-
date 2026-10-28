@@ -210,6 +210,15 @@ function showAuthError(msg){
   el.textContent = msg; el.style.display = 'block';
 }
 
+// R6: same as app.js's normalizePhone() — this page doesn't load app.js,
+// so it needs its own copy.
+function normalizePhone(raw){
+  let digits = String(raw || '').replace(/\D/g, '');
+  if(digits.startsWith('995') && digits.length > 9) digits = digits.slice(3);
+  if(digits.startsWith('0') && digits.length > 9) digits = digits.slice(1);
+  return digits;
+}
+
 async function doQuizAuthSubmit(){
   const email = (document.getElementById('quizAuthEmail').value || '').trim();
   const pass = document.getElementById('quizAuthPass').value || '';
@@ -258,8 +267,13 @@ async function doQuizAuthSubmit(){
         const { error } = await sb.auth.signInWithPassword({ email, password: pass });
         if(error){ showAuthError('არასწორი მეილი ან პაროლი'); if(btn) btn.disabled = false; return; }
       } else {
+        // R6: a phone-shaped identifier (digits/spaces/dashes/+/parens only)
+        // is normalized the same way it's stored — a real nickname can
+        // never match this (registration only allows [a-zA-Z0-9._], no
+        // spaces/dashes/+/parens), so this can't mangle a nickname login.
+        const identifier = /^[\d\s()+-]+$/.test(email) ? normalizePhone(email) : email;
         let resp;
-        try{ resp = await sb.functions.invoke('login-with-identifier', { body: { identifier: email, password: pass } }); }
+        try{ resp = await sb.functions.invoke('login-with-identifier', { body: { identifier, password: pass } }); }
         catch(e){ resp = { data: null, error: e }; }
         if(resp.error || !resp.data || !resp.data.ok || !resp.data.session){ showAuthError('არასწორი მეილი ან პაროლი'); if(btn) btn.disabled = false; return; }
         const { error: setErr } = await sb.auth.setSession({ access_token: resp.data.session.access_token, refresh_token: resp.data.session.refresh_token });

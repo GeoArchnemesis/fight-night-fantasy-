@@ -954,8 +954,13 @@ async function doSignIn() {
     if (error) { btn.disabled = false; btn.textContent = 'შესვლა'; authError('არასწორი მეილი ან პაროლი'); return; }
     userId = data.user.id;
   } else {
+    // R6: a phone-shaped identifier (digits/spaces/dashes/+/parens only) is
+    // normalized the same way it's stored — a real nickname can never match
+    // this (registration only allows [a-zA-Z0-9._], no spaces/dashes/+/
+    // parens), so this can't mangle a nickname login.
+    const identifier = /^[\d\s()+-]+$/.test(typed) ? normalizePhone(typed) : typed;
     let resp;
-    try { resp = await sb.functions.invoke('login-with-identifier', { body: { identifier: typed, password: pass } }); }
+    try { resp = await sb.functions.invoke('login-with-identifier', { body: { identifier, password: pass } }); }
     catch (e) { resp = { data: null, error: e }; }
     if (resp.error || !resp.data || !resp.data.ok || !resp.data.session) { btn.disabled = false; btn.textContent = 'შესვლა'; authError('არასწორი მეილი ან პაროლი'); return; }
     const { error: setErr } = await sb.auth.setSession({ access_token: resp.data.session.access_token, refresh_token: resp.data.session.refresh_token });
