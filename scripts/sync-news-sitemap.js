@@ -4,7 +4,7 @@
 //
 //  There is no build step in this repo (see CLAUDE.md), so nothing
 //  regenerates sitemap.xml automatically when an article is
-//  published/unpublished through admin/news.html -- that editor only
+//  published/unpublished through EPJQI8FX/news.html -- that editor only
 //  talks to Supabase from the browser, it has no access to this
 //  repo's files. Run this script manually (or wire it into a GitHub
 //  Action later, same as the other scripts/*.js automation) whenever

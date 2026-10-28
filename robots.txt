@@ -1,32 +1,17 @@
 User-agent: *
 Allow: /
-Disallow: /admin/
-Disallow: /scripts/
-Disallow: /supabase/
 
 # AI crawlers explicitly allowed (deliberate policy, not just the default wildcard)
 User-agent: GPTBot
 Allow: /
-Disallow: /admin/
-Disallow: /scripts/
-Disallow: /supabase/
 
 User-agent: ClaudeBot
 Allow: /
-Disallow: /admin/
-Disallow: /scripts/
-Disallow: /supabase/
 
 User-agent: PerplexityBot
 Allow: /
-Disallow: /admin/
-Disallow: /scripts/
-Disallow: /supabase/
 
 User-agent: Google-Extended
 Allow: /
-Disallow: /admin/
-Disallow: /scripts/
-Disallow: /supabase/
 
 Sitemap: https://fnf.ge/sitemap.xml
