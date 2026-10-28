@@ -63,6 +63,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .pf-crop-box h3{font-family:var(--display);font-weight:700;margin-bottom:14px;text-align:center;font-size:1.2rem}
 .pf-crop-wrap{max-height:50vh;overflow:hidden;border-radius:8px;margin-bottom:16px;background:#000}
 .pf-crop-wrap img{display:block;max-width:100%}
+/* p1 (LittleMoreUpdates.pdf): crop box must be circular — what's cropped is
+   what's displayed everywhere (avatars render as circles site-wide). This is
+   Cropper.js's own documented "round" pattern: aspectRatio stays 1 (square
+   crop data — a circular mask on a square image is visually identical to a
+   circular crop, and every avatar <img> already renders via border-radius:
+   50%), only the visible mask/outline becomes circular via CSS. */
+.pf-crop-wrap .cropper-view-box,.pf-crop-wrap .cropper-face{border-radius:50%}
 .pf-crop-actions{display:flex;gap:10px}
 .pf-crop-actions .btn{flex:1;justify-content:center}
 .pf-crop-err{color:var(--red);font-size:.82rem;margin-top:10px;text-align:center}
