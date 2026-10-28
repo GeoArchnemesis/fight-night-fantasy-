@@ -1,7 +1,8 @@
 // ============================================================
 //  PRERENDER NEWS — bakes one static /news/<slug>/index.html per
-//  published article, and injects real <a href> anchors + titles
-//  into news/index.html's initial grid markup.
+//  published article (plus an /en/news/<slug>/index.html twin when the
+//  article has English content), and injects real <a href> anchors +
+//  titles into news/index.html's / news/en-index's initial grid markup.
 //
 //  Why: fnf.ge has no build step and no per-route SSR (see CLAUDE.md),
 //  so today /news/post.html?slug=X ships a generic placeholder
@@ -15,23 +16,48 @@
 //
 //  The generated page is NOT a different page: it's the same
 //  news/post.html template with its placeholder content replaced and
-//  three HTML comment markers removed. The exact same <script> tags
-//  run afterwards, so comments/reactions/share/language-toggle all
-//  still work -- nwLoad() derives the slug from the path (it's one of
-//  /news/<slug>/, not ?slug=X) and re-fetches + re-renders the same
-//  content on top. That re-render is harmless (idempotent, same data,
-//  just re-draws the identical DOM) -- it exists for comments/
-//  reactions/the language toggle, not because the baked content is
-//  wrong.
+//  HTML comment markers removed. The exact same <script> tags run
+//  afterwards, so comments/reactions/share all still work -- nwLoad()
+//  derives the slug (and language, from the /en/ path prefix) from the
+//  URL -- and re-fetches + re-renders the same content on top. That
+//  re-render is harmless (idempotent, same data, just re-draws the
+//  identical DOM), not because the baked content is wrong.
+//
+//  Categories were removed (2026-10-22, owner decision) -- every
+//  article lives directly under /news/ (or /en/news/ for its English
+//  twin), no /news/category/<slug>/ hubs, no category pill, no
+//  category-based "related articles". See the removed buildCategoryPage
+//  in git history if this ever needs reviving.
+//
+//  English (2026-10-22): title_en/meta_title_en/meta_description_en/
+//  cover_image_alt_en/body_en were already written by the admin but
+//  never had their own crawlable URL -- EN was a client-side toggle on
+//  the *same* /news/<slug>/ URL, so Google only ever saw Georgian. Each
+//  eligible article (title_en AND body_en both non-empty) now also gets
+//  a real /en/news/<slug>/ page, with reciprocal hreflang on both
+//  twins and no hreflang block at all when no EN twin exists.
 //
 //  Read-only against Supabase (anon key, same one already embedded in
 //  every frontend file -- no service_role needed, since this only
 //  ever reads is_published=true rows, same filter the public site
-//  already applies). Writes only local files under news/.
+//  already applies). Writes local files under news/ and en/news/, plus
+//  the homepage and the nine sport pages' NEWS-HOME/NEWS-SPORT marker
+//  blocks and sitemap.xml's NEWS-EN block (internal links,
+//  FNF-SEO-PRD.md §5).
 //
 //  Usage:
 //    node scripts/prerender-news.js
 //    SUPABASE_URL=... SUPABASE_ANON_KEY=... node scripts/prerender-news.js
+//
+//  *** RUN THIS AFTER EVERY CHANGE TO news/post.html OR news/index.html. ***
+//  This has bitten the same way twice during Phases 0b-5: a fix lands in
+//  the source template (new markup, new JS), but the already-generated
+//  copies under news/<slug>/index.html (and its en/news/<slug>/ twin)
+//  are untouched static files -- they keep shipping whatever HTML existed
+//  the last time this script ran, silently drifting out of date with no
+//  error from anything (the site still "works", it's just serving stale
+//  markup to crawlers and to anyone who lands on the generated page
+//  directly). There is no file-watcher or CI hook enforcing this yet.
 // ============================================================
 
 const fs = require('fs');
@@ -45,14 +71,30 @@ const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ||
 const REPO_ROOT = path.join(__dirname, '..');
 const TEMPLATE_PATH = path.join(REPO_ROOT, 'news', 'post.html');
 const LISTING_PATH = path.join(REPO_ROOT, 'news', 'index.html');
+const EN_NEWS_DIR = path.join(REPO_ROOT, 'en', 'news');
 
 const log = (m) => console.log(`[${new Date().toISOString()}] ${m}`);
+
+// Approved author bios (2026-10-22), for the Person schema and the
+// author-line tooltip. Keyed by the exact `author` string in Supabase.
+// Georgian only -- not shown on EN pages (would read oddly mid-English).
+const AUTHOR_BIOS = {
+  GeoArchnemesis: 'GeoArchnemesis — FNF.GE-ის ჟურნალისტი და დამფუძნებელი.',
+};
 
 function xmlEscapeAttr(s) {
   return String(s).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 function escapeHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+// An article counts as having a real English version only when BOTH the
+// headline and the body are non-empty -- a lone meta_title_en with no
+// body would ship a half-English page, which is exactly what task 2a
+// says to skip.
+function hasEn(a) {
+  return !!(a.title_en && a.title_en.trim() && a.body_en && a.body_en.trim());
 }
 
 // Mirrors nwTransformUrl()/nwSrcset() in news/post.html and
@@ -83,19 +125,13 @@ function excerpt(html, maxLen) {
   return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trim() + '…';
 }
 
-// Mirrors nwReadingTime() in both news/post.html and news/index.html.
-function readingTime(body) {
-  const text = (body || '').replace(/<[^>]+>/g, ' ').trim();
-  const words = text ? text.split(/\s+/).length : 0;
-  return Math.max(1, Math.ceil(words / 160));
-}
-function catsOf(a) {
-  return (a.news_article_categories || []).map((x) => x.news_categories).filter(Boolean);
-}
-function catPillHtml(a) {
-  const cats = catsOf(a);
-  if (!cats.length) return '';
-  return `<span class="nw-cat-pill">${escapeHtml(cats[0].name_ka)}</span>`;
+// schema.org BreadcrumbList -- positions are 1-based and sequential.
+function breadcrumbJsonLd(items) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((it, i) => ({ '@type': 'ListItem', position: i + 1, name: it.name, item: it.url })),
+  };
 }
 
 // Mirrors NW_KA_MONTHS_LONG in news/post.html -- do NOT switch this to
@@ -104,74 +140,228 @@ const NW_KA_MONTHS_LONG = ['იანვარი','თებერვალი'
 function formatDateKaLong(d) {
   return d.getDate() + ' ' + NW_KA_MONTHS_LONG[d.getMonth()] + ', ' + d.getFullYear();
 }
+// en-US has no CLAUDE.md caveat (unlike ka-GE) -- Node's built-in ICU
+// handles it fine.
+function formatDateEnLong(d) {
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+function formatDate(d, lang) {
+  return lang === 'en' ? formatDateEnLong(d) : formatDateKaLong(d);
+}
 
-// Up to 3 published articles sharing a category with `a`, excluding
-// itself, newest first -- computed from the in-memory `allArticles`
-// list (already fetched with categories for this whole build run)
-// rather than a second query, since prerendering has every published
-// article in hand already.
-function relatedArticles(a, allArticles) {
-  const ids = new Set(catsOf(a).map((c) => c.id));
-  if (!ids.size) return [];
+// Absolute -- for canonical/og:url/hreflang/JSON-LD, where the spec
+// requires a full URL.
+function urlFor(slug, lang) {
+  return lang === 'en' ? `https://fnf.ge/en/news/${slug}/` : `https://fnf.ge/news/${slug}/`;
+}
+// Relative -- for in-page <a href> navigation (cards, sidebar, lang
+// toggle), matching every other internal link on the site.
+function relUrlFor(slug, lang) {
+  return lang === 'en' ? `/en/news/${slug}/` : `/news/${slug}/`;
+}
+
+// 3 most recent OTHER published articles, newest first -- no longer
+// category-based (categories removed 2026-10-22). On an EN page this
+// only offers other EN-eligible articles, so every sidebar link stays
+// in the same language as the page it's on.
+function relatedArticles(a, allArticles, lang) {
   return allArticles
-    .filter((o) => o.slug !== a.slug && catsOf(o).some((c) => ids.has(c.id)))
+    .filter((o) => o.slug !== a.slug && (lang !== 'en' || hasEn(o)))
     .sort((x, y) => new Date(y.published_at || 0) - new Date(x.published_at || 0))
     .slice(0, 3);
 }
-function sidebarCardHtml(a) {
+
+function sidebarCardHtml(a, lang) {
+  const title = lang === 'en' ? a.title_en : a.title_ka;
+  const alt = (lang === 'en' ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
   const thumb = a.cover_image_url
-    ? `<img class="acl-thumb" src="${transformUrl(a.cover_image_url, 224, 75, 168)}" srcset="${srcset(a.cover_image_url, [[224, 168], [336, 252]], 75)}" sizes="112px" width="112" height="84" alt="${xmlEscapeAttr(a.cover_image_alt_ka || a.title_ka)}" loading="lazy" decoding="async" />`
+    ? `<img class="acl-thumb" src="${transformUrl(a.cover_image_url, 224, 75, 168)}" srcset="${srcset(a.cover_image_url, [[224, 168], [336, 252]], 75)}" sizes="112px" width="112" height="84" alt="${xmlEscapeAttr(alt)}" loading="lazy" decoding="async" />`
     : '';
-  const dateStr = a.published_at ? formatDateKaLong(new Date(a.published_at)) : '';
-  return `<a class="article-card--list" href="/news/${encodeURIComponent(a.slug)}/">${thumb}<div class="acl-content"><h3 class="acl-title">${escapeHtml(a.title_ka)}</h3><div class="acl-meta"><time datetime="${a.published_at || ''}">${escapeHtml(dateStr)}</time> · ${readingTime(a.body_ka)} წთ კითხვა</div></div></a>`;
+  const dateStr = a.published_at ? formatDate(new Date(a.published_at), lang) : '';
+  return `<a class="article-card--list" href="${relUrlFor(a.slug, lang)}">${thumb}<div class="acl-content"><h3 class="acl-title">${escapeHtml(title)}</h3><div class="acl-meta"><time datetime="${a.published_at || ''}">${escapeHtml(dateStr)}</time></div></div></a>`;
 }
 
-function buildArticlePage(template, a, allArticles) {
-  const title = a.title_ka;
-  const metaTitle = a.meta_title_ka || a.title_ka;
-  const metaDesc = a.meta_description_ka || excerpt(a.body_ka, 155);
-  const cleanUrl = `https://fnf.ge/news/${a.slug}/`;
-  const alt = a.cover_image_alt_ka || title;
-  const dateStr = a.published_at ? formatDateKaLong(new Date(a.published_at)) : '';
-  const ogImage = a.cover_image_url ? transformUrl(a.cover_image_url, 1200, 75, 630) : 'https://fnf.ge/logo.png';
-  const readMins = readingTime(a.body_ka);
+// Shared by the homepage strip and each sport page's bottom block --
+// same compact card markup as the article sidebar (.article-card--list),
+// already styled sitewide, so neither new page needs new CSS. Always KA
+// (these are the Georgian-primary site's own pages, not /en/ pages).
+function newsStripHtml(articles, heading) {
+  if (!articles.length) return '';
+  return [
+    '<section id="newsStrip"><div class="wrap">',
+    `<div class="sec-head"><h2>${escapeHtml(heading)}</h2></div>`,
+    '<div class="nw-strip-list">',
+    articles.map((a) => sidebarCardHtml(a, 'ka')).join(''),
+    '</div>',
+    '</div></section>',
+  ].join('\n');
+}
 
-  const cats = catsOf(a);
-  const chipsHtml = cats.length
-    ? `<div class="nw-chips">${cats.map((c) => `<span class="nw-cat-pill">${escapeHtml(c.name_ka)}</span>`).join('')}</div>`
+// Same markup/CSS as /news/'s own hero card (heroCardHtml, defined
+// below) -- duplicated rather than called directly because the
+// homepage's section heading is already an <h2> ("სიახლეები"), so the
+// card title here has to be an <h3> to sit under it instead of beside
+// it in the heading hierarchy. /news/'s own hero keeps <h2> (it sits
+// under that page's <h1>, not an <h2>).
+function homeHeroCardHtml(a) {
+  const alt = a.cover_image_alt_ka || a.title_ka;
+  const dek = a.meta_description_ka;
+  const dateStr = a.published_at ? formatDate(new Date(a.published_at), 'ka') : '';
+  const img = a.cover_image_url
+    ? `<img class="nw-card-img" src="${transformUrl(a.cover_image_url, 400, 75, 225)}" srcset="${srcset(a.cover_image_url, [[400, 225], [800, 450], [1200, 675]], 75)}" sizes="(min-width: 480px) 343px, 100vw" width="800" height="450" alt="${xmlEscapeAttr(alt)}" loading="lazy" decoding="async" />`
     : '';
+  return `
+    <div class="nw-card-wrap">
+      <a class="nw-card article-card--hero" href="${relUrlFor(a.slug, 'ka')}">
+        ${img}
+        <div class="nw-card-body">
+          <h3 class="nw-card-title">${escapeHtml(a.title_ka)}</h3>
+          ${dek ? `<p class="nw-card-dek">${escapeHtml(dek)}</p>` : ''}
+          <div class="nw-card-meta"><time datetime="${xmlEscapeAttr(a.published_at || '')}">${escapeHtml(dateStr)}</time></div>
+        </div>
+      </a>
+    </div>`;
+}
+
+// Homepage-only strip: uses homeHeroCardHtml() above instead of the
+// compact list card below, since the homepage's 3-column grid needs the
+// hero's fluid-width cover image -- the list card's fixed 112px thumb
+// doesn't scale down to the mobile 2-column breakpoint. Sport pages keep
+// newsStripHtml()/the list card below, unchanged -- homepage-only by
+// design.
+function homeNewsStripHtml(articles, heading) {
+  if (!articles.length) return '';
+  return [
+    '<section id="newsStrip"><div class="wrap">',
+    `<div class="sec-head"><h2>${escapeHtml(heading)}</h2></div>`,
+    '<div class="nw-strip-list">',
+    articles.map((a) => homeHeroCardHtml(a)).join(''),
+    '</div>',
+    '</div></section>',
+  ].join('\n');
+}
+
+// Without categories there's no reliable signal for which single sport
+// an article is "about", so the article page's contextual fantasy-page
+// link (FNF-SEO-PRD.md §5d / task 3d) points at the homepage rather than
+// guessing a specific sport. Revisit if a per-article sport field is
+// ever added.
+function sportCtaHtml(lang) {
+  return lang === 'en'
+    ? `<p class="nw-sport-cta">Play fantasy sports at <a href="/">Fight Night Fantasy</a>.</p>`
+    : `<p class="nw-sport-cta">ითამაშე <a href="/">ფენტეზი</a> Fight Night Fantasy-ზე.</p>`;
+}
+
+// Slice-based, marker-preserving substitution (same convention as the
+// NEWS-GRID markers below): the start/end comments stay in the output,
+// not just the generated content between them. This matters for
+// news/index.html specifically, since it's BOTH the source template and
+// the write destination for the KA listing -- a plain needle-consuming
+// replace() would work once, then throw "anchor not found" on every
+// later run because the markers it's looking for would already be gone
+// from the file it just wrote. (news/post.html doesn't have this
+// problem -- its per-article output goes to a different file -- but
+// every call site here uses the same safe helper for consistency.)
+function replaceMarkerBlock(html, startMarker, endMarker, content, label) {
+  const startIdx = html.indexOf(startMarker);
+  const endIdx = html.indexOf(endMarker);
+  if (startIdx === -1 || endIdx === -1) throw new Error(`anchor not found (template drifted?): ${label}`);
+  return html.slice(0, startIdx) + startMarker + content + endMarker + html.slice(endIdx + endMarker.length);
+}
+
+// Reciprocal hreflang (task 2c): present on BOTH twins when an EN
+// version exists, absent entirely (both twins) when it doesn't -- never
+// a one-sided link to a URL that isn't actually being generated.
+function hreflangTags(kaUrl, enUrl, enExists) {
+  if (!enExists) return '';
+  return [
+    `<link rel="alternate" hreflang="ka" href="${kaUrl}" />`,
+    `<link rel="alternate" hreflang="en" href="${enUrl}" />`,
+    `<link rel="alternate" hreflang="x-default" href="${kaUrl}" />`,
+  ].join('\n');
+}
+
+function ogLocaleAlt(lang, enExists) {
+  if (!enExists) return '';
+  const alt = lang === 'en' ? 'ka_GE' : 'en_US';
+  return `<meta property="og:locale:alternate" content="${alt}" />`;
+}
+
+// Real <a href> toggle (task 2g) -- never a client-side switch. Shared by
+// article pages (kaUrl/enUrl = the sibling article URLs) and the listing
+// pages (kaUrl/enUrl = /news/ and /en/news/). On the KA side it only
+// appears when an EN twin exists; the EN side always has one (KA is the
+// required, always-present language).
+function langToggleHtml(kaUrl, enUrl, lang, enExists) {
+  if (lang === 'ka' && !enExists) {
+    return `<div class="nw-lang" id="nwLang"><span aria-current="page">ქართ</span></div>`;
+  }
+  return [
+    `<div class="nw-lang" id="nwLang">`,
+    `<a href="${kaUrl}"${lang === 'ka' ? ' aria-current="page"' : ''}>ქართ</a>`,
+    `<a href="${enUrl}"${lang === 'en' ? ' aria-current="page"' : ''}>Eng</a>`,
+    `</div>`,
+  ].join('');
+}
+
+function buildArticlePage(template, a, allArticles, lang) {
+  const enExists = hasEn(a);
+  const title = lang === 'en' ? a.title_en : a.title_ka;
+  const body = lang === 'en' ? a.body_en : a.body_ka;
+  const metaTitle = lang === 'en' ? (a.meta_title_en || a.title_en) : (a.meta_title_ka || a.title_ka);
+  const metaDesc = (lang === 'en' ? a.meta_description_en : a.meta_description_ka) || excerpt(body, 155);
+  const cleanUrl = urlFor(a.slug, lang);
+  const alt = (lang === 'en' ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
+  const dateStr = a.published_at ? formatDate(new Date(a.published_at), lang) : '';
+  const ogImage = a.cover_image_url ? transformUrl(a.cover_image_url, 1200, 75, 630) : 'https://fnf.ge/logo.png';
+  const backLabel = lang === 'en' ? '← News' : '← სიახლეები';
+  const backHref = lang === 'en' ? '/en/news/' : '/news/';
 
   const coverHtml = a.cover_image_url
     ? `<img class="nw-art-cover" src="${transformUrl(a.cover_image_url, 800, 75, 450)}" srcset="${srcset(a.cover_image_url, [[400, 225], [800, 450], [1200, 675], [1600, 900]], 75)}" sizes="(min-width: 1100px) 760px, (min-width: 768px) 700px, 100vw" width="800" height="450" alt="${xmlEscapeAttr(alt)}" loading="eager" fetchpriority="high" decoding="async" />`
     : '';
 
-  const metaLine = [a.author, dateStr ? `<time datetime="${xmlEscapeAttr(a.published_at)}">${escapeHtml(dateStr)}</time>` : '']
-    .filter(Boolean).join(' · ') + (dateStr ? ` · ${readMins} წთ კითხვა` : '');
+  const authorBio = lang === 'ka' && a.author && AUTHOR_BIOS[a.author];
+  const authorHtml = authorBio ? `<span title="${xmlEscapeAttr(authorBio)}">${a.author}</span>` : a.author;
+  const metaLine = [authorHtml, dateStr ? `<time datetime="${xmlEscapeAttr(a.published_at)}">${escapeHtml(dateStr)}</time>` : '']
+    .filter(Boolean).join(' · ');
 
   const bakedArt = [
-    `<a class="nw-back" href="/news/">← სიახლეები</a>`,
-    `<div class="nw-lang" id="nwLang"><button type="button" data-lang="ka">ქართ</button><button type="button" data-lang="en">Eng</button></div>`,
-    chipsHtml,
+    `<a class="nw-back" href="${backHref}">${backLabel}</a>`,
+    langToggleHtml(relUrlFor(a.slug, 'ka'), relUrlFor(a.slug, 'en'), lang, enExists),
     `<h1 class="nw-art-title">${escapeHtml(title)}</h1>`,
     `<div class="nw-art-meta">${metaLine}</div>`,
     coverHtml,
-    `<div class="nw-art-body">${a.body_ka}</div>`,
+    `<div class="nw-art-body">${body}</div>`,
+    sportCtaHtml(lang),
   ].join('\n');
 
-  const related = relatedArticles(a, allArticles);
+  const related = relatedArticles(a, allArticles, lang);
   const sidebarHtml = related.length
-    ? related.map(sidebarCardHtml).join('')
-    : '<div class="nw-comment-empty">სხვა სტატია ჯერ არ არის</div>';
+    ? related.map((o) => sidebarCardHtml(o, lang)).join('')
+    : `<div class="nw-comment-empty">${lang === 'en' ? 'No other articles yet' : 'სხვა სტატია ჯერ არ არის'}</div>`;
 
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Article',
-    headline: a.title_ka,
+    headline: title,
+    inLanguage: lang,
     datePublished: a.published_at || undefined,
     dateModified: a.published_at || undefined,
     image: a.cover_image_url || undefined,
   };
-  if (a.author) jsonLd.author = { '@type': 'Person', name: a.author };
+  if (a.author) jsonLd.author = { '@type': 'Person', name: a.author, description: authorBio || undefined };
+
+  // BreadcrumbList (task 3a): Home → News → <article title>. No category
+  // level -- categories are gone.
+  const homeLabel = lang === 'en' ? 'Home' : 'მთავარი';
+  const newsLabel = lang === 'en' ? 'News' : 'სიახლეები';
+  const newsUrl = lang === 'en' ? 'https://fnf.ge/en/news/' : 'https://fnf.ge/news/';
+  const breadcrumbLd = breadcrumbJsonLd([
+    { name: homeLabel, url: 'https://fnf.ge/' },
+    { name: newsLabel, url: newsUrl },
+    { name: title, url: cleanUrl },
+  ]);
 
   let html = template;
 
@@ -179,6 +369,10 @@ function buildArticlePage(template, a, allArticles) {
     if (!html.includes(needle)) throw new Error(`prerender anchor not found (template drifted?): ${label}`);
     html = html.replace(needle, replacement);
   };
+
+  if (lang === 'en') {
+    replace('<html lang="ka">', '<html lang="en">', 'html lang attribute');
+  }
 
   replace(
     '<title id="nwTitleTag">სტატია — Fight Night Fantasy</title>',
@@ -195,10 +389,25 @@ function buildArticlePage(template, a, allArticles) {
     `<link rel="canonical" id="nwCanonical" href="${cleanUrl}" />`,
     'canonical'
   );
+  html = replaceMarkerBlock(
+    html, '<!-- HREFLANG:START -->', '<!-- HREFLANG:END -->',
+    hreflangTags(urlFor(a.slug, 'ka'), urlFor(a.slug, 'en'), enExists),
+    'hreflang markers'
+  );
   replace(
     '<meta property="og:url" id="nwOgUrl" content="https://fnf.ge/news/" />',
     `<meta property="og:url" id="nwOgUrl" content="${cleanUrl}" />`,
     'og:url'
+  );
+  replace(
+    '<meta property="og:locale" id="nwOgLocale" content="ka_GE" />',
+    `<meta property="og:locale" id="nwOgLocale" content="${lang === 'en' ? 'en_US' : 'ka_GE'}" />`,
+    'og:locale'
+  );
+  html = replaceMarkerBlock(
+    html, '<!-- OGLOCALEALT:START -->', '<!-- OGLOCALEALT:END -->',
+    ogLocaleAlt(lang, enExists),
+    'og:locale:alternate markers'
   );
   replace(
     '<meta property="og:title" id="nwOgTitle" content="Fight Night Fantasy — სიახლეები" />',
@@ -237,7 +446,7 @@ function buildArticlePage(template, a, allArticles) {
   );
   replace(
     '<script type="application/ld+json">PRERENDER_JSONLD_PLACEHOLDER</script>',
-    `<script type="application/ld+json" id="nwJsonLd">${JSON.stringify(jsonLd)}</script>`,
+    `<script type="application/ld+json" id="nwJsonLd">${JSON.stringify(jsonLd)}</script>\n<script type="application/ld+json" id="nwBreadcrumbLd">${JSON.stringify(breadcrumbLd)}</script>`,
     'json-ld placeholder'
   );
   replace(
@@ -259,119 +468,122 @@ function buildArticlePage(template, a, allArticles) {
 // crop are already correct) plus .article-card--hero as a second class
 // so the PRD's named component is present in the markup; .nw-card-dek
 // is the one element the hero needs that .nw-card didn't already have.
-function heroCardHtml(a) {
-  const dateStr = a.published_at ? formatDateKaLong(new Date(a.published_at)) : '';
-  const dek = a.meta_description_ka;
+function heroCardHtml(a, lang) {
+  const title = lang === 'en' ? a.title_en : a.title_ka;
+  const alt = (lang === 'en' ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
+  const dek = lang === 'en' ? a.meta_description_en : a.meta_description_ka;
+  const dateStr = a.published_at ? formatDate(new Date(a.published_at), lang) : '';
   const img = a.cover_image_url
-    ? `<img class="nw-card-img" src="${transformUrl(a.cover_image_url, 400, 75, 225)}" srcset="${srcset(a.cover_image_url, [[400, 225], [800, 450], [1200, 675]], 75)}" sizes="(min-width: 480px) 343px, 100vw" width="800" height="450" alt="${xmlEscapeAttr(a.cover_image_alt_ka || a.title_ka)}" loading="lazy" decoding="async" />`
+    ? `<img class="nw-card-img" src="${transformUrl(a.cover_image_url, 400, 75, 225)}" srcset="${srcset(a.cover_image_url, [[400, 225], [800, 450], [1200, 675]], 75)}" sizes="(min-width: 480px) 343px, 100vw" width="800" height="450" alt="${xmlEscapeAttr(alt)}" loading="lazy" decoding="async" />`
     : '';
   return `
     <div class="nw-card-wrap">
-      <a class="nw-card article-card--hero" href="/news/${encodeURIComponent(a.slug)}/">
+      <a class="nw-card article-card--hero" href="${relUrlFor(a.slug, lang)}">
         ${img}
-        ${catPillHtml(a)}
         <div class="nw-card-body">
-          <h2 class="nw-card-title">${escapeHtml(a.title_ka)}</h2>
+          <h2 class="nw-card-title">${escapeHtml(title)}</h2>
           ${dek ? `<p class="nw-card-dek">${escapeHtml(dek)}</p>` : ''}
-          <div class="nw-card-meta"><time datetime="${xmlEscapeAttr(a.published_at || '')}">${escapeHtml(dateStr)}</time> · ${readingTime(a.body_ka)} წთ კითხვა</div>
+          <div class="nw-card-meta"><time datetime="${xmlEscapeAttr(a.published_at || '')}">${escapeHtml(dateStr)}</time></div>
         </div>
       </a>
     </div>`;
 }
 
 // PRD 8.3 -- every article after the hero.
-function listCardHtml(a) {
-  const dateStr = a.published_at ? formatDateKaLong(new Date(a.published_at)) : '';
+function listCardHtml(a, lang) {
+  const title = lang === 'en' ? a.title_en : a.title_ka;
+  const alt = (lang === 'en' ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
+  const dateStr = a.published_at ? formatDate(new Date(a.published_at), lang) : '';
   const img = a.cover_image_url
-    ? `<img class="acl-thumb" src="${transformUrl(a.cover_image_url, 224, 75, 168)}" srcset="${srcset(a.cover_image_url, [[224, 168], [336, 252]], 75)}" sizes="112px" width="112" height="84" alt="${xmlEscapeAttr(a.cover_image_alt_ka || a.title_ka)}" loading="lazy" decoding="async" />`
+    ? `<img class="acl-thumb" src="${transformUrl(a.cover_image_url, 224, 75, 168)}" srcset="${srcset(a.cover_image_url, [[224, 168], [336, 252]], 75)}" sizes="112px" width="112" height="84" alt="${xmlEscapeAttr(alt)}" loading="lazy" decoding="async" />`
     : '';
   return `
     <div class="nw-card-wrap">
-      <a class="nw-card article-card--list" href="/news/${encodeURIComponent(a.slug)}/">
+      <a class="nw-card article-card--list" href="${relUrlFor(a.slug, lang)}">
         ${img}
         <div class="acl-content">
-          ${catPillHtml(a)}
-          <h2 class="acl-title">${escapeHtml(a.title_ka)}</h2>
-          <div class="acl-meta"><time datetime="${xmlEscapeAttr(a.published_at || '')}">${escapeHtml(dateStr)}</time> · ${readingTime(a.body_ka)} წთ კითხვა</div>
+          <h2 class="acl-title">${escapeHtml(title)}</h2>
+          <div class="acl-meta"><time datetime="${xmlEscapeAttr(a.published_at || '')}">${escapeHtml(dateStr)}</time></div>
         </div>
       </a>
     </div>`;
 }
 
-function buildListingGrid(articles) {
-  if (!articles.length) return '<div class="nw-empty">სტატია ჯერ არ არის</div>';
+function buildListingGrid(articles, lang) {
+  if (!articles.length) return `<div class="nw-empty">${lang === 'en' ? 'No articles yet' : 'სტატია ჯერ არ არის'}</div>`;
   const [hero, ...rest] = articles;
-  return heroCardHtml(hero) + rest.map(listCardHtml).join('');
+  return heroCardHtml(hero, lang) + rest.map((a) => listCardHtml(a, lang)).join('');
 }
 
-// activeSlug: null on /news/ itself, or the category slug on
-// /news/category/<slug>/ -- real <a href> links, not buttons, so every
-// category is reachable via a crawlable link in the raw HTML (see the
-// matching client-side nwRenderChips() in news/index.html).
-function buildChipRow(allArticles, activeSlug) {
-  const seen = new Map();
-  allArticles.forEach((a) => catsOf(a).forEach((c) => { if (!seen.has(c.slug)) seen.set(c.slug, c); }));
-  const cats = [...seen.values()];
-  if (!cats.length) return '';
-  const allChip = `<a class="chip" href="/news/"${activeSlug === null ? ' aria-current="page"' : ''}>ყველა</a>`;
-  const catChips = cats.map((c) => `<a class="chip" href="/news/category/${c.slug}/"${activeSlug === c.slug ? ' aria-current="page"' : ''}>${escapeHtml(c.name_ka)}</a>`).join('');
-  return allChip + catChips;
-}
-
-// Builds one /news/category/<slug>/ page from the same listing
-// template, filtered to that category's articles (hero + list, same
-// as the main listing), its own chip row (this category marked
-// aria-current), and TODO-marked title/description -- real editorial
-// copy per category is Giorgi's to write, not invented here.
-function buildCategoryPage(listingTemplate, cat, articles, allArticlesForChips) {
-  const filtered = articles.filter((a) => catsOf(a).some((c) => c.slug === cat.slug));
-  const grid = buildListingGrid(filtered);
-  const chips = buildChipRow(allArticlesForChips, cat.slug);
+// Builds either news/index.html (lang='ka') or en/news/index.html
+// (lang='en') from the SAME pristine template -- the EN listing only
+// ever shows EN-eligible articles (task 2a's skip rule applies to the
+// listing too, not just individual article pages).
+function buildListingPage(listingTemplate, articles, lang) {
+  const eligible = lang === 'en' ? articles.filter(hasEn) : articles;
+  const grid = buildListingGrid(eligible, lang);
 
   let html = listingTemplate;
   const replace = (needle, replacement, label) => {
-    if (!html.includes(needle)) throw new Error(`category-page anchor not found (template drifted?): ${label}`);
+    if (!html.includes(needle)) throw new Error(`listing anchor not found (template drifted?): ${label}`);
     html = html.replace(needle, replacement);
   };
 
-  // TODO(giorgi): write real per-category title/description copy --
-  // this is a placeholder template, not reviewed editorial SEO text.
-  const todoTitle = `${cat.name_ka} — სიახლეები | Fight Night Fantasy`;
-  const todoDesc = `${cat.name_ka} კატეგორიის სტატიები Fight Night Fantasy-ზე.`;
-  const catUrl = `https://fnf.ge/news/category/${cat.slug}/`;
+  if (lang === 'en') {
+    replace('<html lang="ka">', '<html lang="en">', 'html lang attribute');
 
-  replace('<title>სიახლეები — Fight Night Fantasy</title>', `<title>${escapeHtml(todoTitle)}</title><!-- TODO(giorgi): placeholder title, write real copy -->`, 'category title');
-  replace(
-    '<meta name="description" content="Fight Night Fantasy — სიახლეები და განახლებები UFC, Formula 1, NBA და ფეხბურთის ფენტეზის შესახებ." />',
-    `<meta name="description" content="${xmlEscapeAttr(todoDesc)}" /><!-- TODO(giorgi): placeholder description, write real copy -->`,
-    'category description'
+    const kaUrl = 'https://fnf.ge/news/';
+    const enUrl = 'https://fnf.ge/en/news/';
+    replace('<title>სიახლეები — Fight Night Fantasy</title>', '<title>News — Fight Night Fantasy</title>', 'title');
+    replace(
+      '<meta name="description" content="სპორტული ფენტეზი, სიახლეები და ანალიზი — UFC, Formula 1, NBA და ფეხბურთი." />',
+      '<meta name="description" content="Sports fantasy news and analysis — UFC, Formula 1, NBA and football." />',
+      'description'
+    );
+    replace('<link rel="canonical" href="https://fnf.ge/news/" />', `<link rel="canonical" href="${enUrl}" />`, 'canonical');
+    html = replaceMarkerBlock(html, '<!-- HREFLANG:START -->', '<!-- HREFLANG:END -->', hreflangTags(kaUrl, enUrl, true), 'hreflang markers');
+    replace('<meta property="og:url" content="https://fnf.ge/news/" />', `<meta property="og:url" content="${enUrl}" />`, 'og:url');
+    replace('<meta property="og:locale" id="nwOgLocale" content="ka_GE" />', '<meta property="og:locale" id="nwOgLocale" content="en_US" />', 'og:locale');
+    html = replaceMarkerBlock(html, '<!-- OGLOCALEALT:START -->', '<!-- OGLOCALEALT:END -->', ogLocaleAlt('en', true), 'og:locale:alternate markers');
+    replace('<meta property="og:title" content="სიახლეები — Fight Night Fantasy" />', '<meta property="og:title" content="News — Fight Night Fantasy" />', 'og:title');
+    replace(
+      '<meta property="og:description" content="Fight Night Fantasy — სიახლეები და განახლებები." />',
+      '<meta property="og:description" content="Fight Night Fantasy — news and updates." />',
+      'og:description'
+    );
+    replace('<meta name="twitter:title" content="სიახლეები — Fight Night Fantasy" />', '<meta name="twitter:title" content="News — Fight Night Fantasy" />', 'twitter:title');
+    replace(
+      '<meta name="twitter:description" content="Fight Night Fantasy — სიახლეები და განახლებები." />',
+      '<meta name="twitter:description" content="Fight Night Fantasy — news and updates." />',
+      'twitter:description'
+    );
+    replace(
+      '{ "@type": "ListItem", "position": 1, "name": "მთავარი", "item": "https://fnf.ge/" },\n    { "@type": "ListItem", "position": 2, "name": "სიახლეები", "item": "https://fnf.ge/news/" }',
+      `{ "@type": "ListItem", "position": 1, "name": "Home", "item": "https://fnf.ge/" },\n    { "@type": "ListItem", "position": 2, "name": "News", "item": "${enUrl}" }`,
+      'breadcrumb'
+    );
+    replace('<h1 class="nw-title">სიახლეები</h1>', '<h1 class="nw-title">News</h1>', 'h1 title');
+  } else {
+    // KA page: still needs the hreflang/locale-alt markers resolved --
+    // present only when at least one EN-eligible article exists.
+    const kaUrl = 'https://fnf.ge/news/';
+    const enUrl = 'https://fnf.ge/en/news/';
+    const anyEn = articles.some(hasEn);
+    html = replaceMarkerBlock(html, '<!-- HREFLANG:START -->', '<!-- HREFLANG:END -->', hreflangTags(kaUrl, enUrl, anyEn), 'hreflang markers');
+    html = replaceMarkerBlock(html, '<!-- OGLOCALEALT:START -->', '<!-- OGLOCALEALT:END -->', ogLocaleAlt('ka', anyEn), 'og:locale:alternate markers');
+  }
+
+  html = replaceMarkerBlock(
+    html, '<!-- LANGTOGGLE:START -->', '<!-- LANGTOGGLE:END -->',
+    langToggleHtml('/news/', '/en/news/', lang, lang === 'en' ? true : articles.some(hasEn)),
+    'lang toggle'
   );
-  replace('<link rel="canonical" href="https://fnf.ge/news/" />', `<link rel="canonical" href="${catUrl}" />`, 'category canonical');
-  replace('<meta property="og:url" content="https://fnf.ge/news/" />', `<meta property="og:url" content="${catUrl}" />`, 'category og:url');
-  replace('<meta property="og:title" content="სიახლეები — Fight Night Fantasy" />', `<meta property="og:title" content="${xmlEscapeAttr(todoTitle)}" />`, 'category og:title');
-  replace(
-    '<meta property="og:description" content="Fight Night Fantasy — სიახლეები და განახლებები." />',
-    `<meta property="og:description" content="${xmlEscapeAttr(todoDesc)}" />`,
-    'category og:description'
-  );
-  // Index-based, not an exact-literal replace() like the six head tags
-  // above: listingTemplate is read fresh off disk each run, and by the
-  // time this runs the main /news/ page has already had its own chip
-  // row and grid baked into that same file on disk for a DIFFERENT
-  // category/filter state -- an exact-literal match against "empty" or
-  // "whatever the previous run happened to leave" is exactly the
-  // fragile thing that broke the first version of this function.
-  const chipOpenTag = '<div class="chip-row" id="nwChipRow"';
-  const chipOpenIdx = html.indexOf(chipOpenTag);
-  if (chipOpenIdx === -1) throw new Error('category-page anchor not found (template drifted?): chip row open tag');
-  const chipCloseIdx = html.indexOf('</div>', chipOpenIdx) + '</div>'.length;
-  html = html.slice(0, chipOpenIdx) + `<div class="chip-row" id="nwChipRow"${chips ? '' : ' hidden'}>${chips}</div>` + html.slice(chipCloseIdx);
 
   const gridStart = '<!-- NEWS-GRID:START -->';
   const gridEnd = '<!-- NEWS-GRID:END -->';
   const gridStartIdx = html.indexOf(gridStart);
   const gridEndIdx = html.indexOf(gridEnd);
-  if (gridStartIdx === -1 || gridEndIdx === -1) throw new Error('category-page anchor not found (template drifted?): grid markers');
+  if (gridStartIdx === -1 || gridEndIdx === -1) throw new Error('listing anchor not found (template drifted?): grid markers');
   html = html.slice(0, gridStartIdx) + gridStart + grid + gridEnd + html.slice(gridEndIdx + gridEnd.length);
 
   return html;
@@ -383,17 +595,12 @@ async function main() {
   log('Fetching published articles...');
   const { data: articles, error } = await sb
     .from('news')
-    .select('*,news_article_categories(category_id,news_categories(id,name_ka,name_en,slug))')
+    .select('*')
     .eq('is_published', true)
     .order('published_at', { ascending: false });
 
   if (error) { log('Supabase error: ' + error.message); process.exit(1); }
-  log(`Found ${articles.length} published article(s).`);
-
-  log('Fetching categories...');
-  const { data: categories, error: catError } = await sb.from('news_categories').select('*');
-  if (catError) { log('Supabase error (categories): ' + catError.message); process.exit(1); }
-  log(`Found ${categories.length} categor${categories.length === 1 ? 'y' : 'ies'}.`);
+  log(`Found ${articles.length} published article(s), ${articles.filter(hasEn).length} with an English version.`);
 
   const template = fs.readFileSync(TEMPLATE_PATH, 'utf8');
   // The template's placeholder JSON-LD tag is injected at runtime by
@@ -404,10 +611,10 @@ async function main() {
     ? template
     : template.replace('</head>', '<script type="application/ld+json">PRERENDER_JSONLD_PLACEHOLDER</script>\n</head>');
 
-  let ok = 0, failed = 0;
+  let ok = 0, failed = 0, enOk = 0, enFailed = 0;
   for (const a of articles) {
     try {
-      const html = buildArticlePage(templateWithPlaceholder, a, articles);
+      const html = buildArticlePage(templateWithPlaceholder, a, articles, 'ka');
       const dir = path.join(REPO_ROOT, 'news', a.slug);
       fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(path.join(dir, 'index.html'), html, 'utf8');
@@ -417,84 +624,137 @@ async function main() {
       log(`✗ ${a.slug}: ${e.message}`);
       failed++;
     }
+
+    if (!hasEn(a)) continue;
+    try {
+      const html = buildArticlePage(templateWithPlaceholder, a, articles, 'en');
+      const dir = path.join(EN_NEWS_DIR, a.slug);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'index.html'), html, 'utf8');
+      log(`✓ en/news/${a.slug}/index.html`);
+      enOk++;
+    } catch (e) {
+      log(`✗ en/${a.slug}: ${e.message}`);
+      enFailed++;
+    }
   }
 
-  // Pristine copy (markers/placeholders intact) captured before the
-  // main listing below is rewritten in place -- buildCategoryPage()
-  // needs the same untouched template for each category page it builds.
+  // Pristine copy (markers/placeholders intact) captured before the KA
+  // listing below is rewritten in place -- the EN listing build needs
+  // the same untouched template.
   const listingPristine = fs.readFileSync(LISTING_PATH, 'utf8');
 
   // Inject real <a href> anchors + titles into news/index.html's
   // initial grid, between marker comments, same convention as
   // scripts/sync-news-sitemap.js's NEWS:START/END block. Everything
   // else in the file (nav, styles, client JS) is untouched -- nwRender()
-  // still re-draws the same grid on top once Supabase replies, for the
-  // KA/EN toggle and live like/comment counts.
-  let listing = listingPristine;
-  const startMarker = '<!-- NEWS-GRID:START -->';
-  const endMarker = '<!-- NEWS-GRID:END -->';
-  const chipMarker = '<div class="chip-row" id="nwChipRow" hidden></div>';
-  if (!listing.includes(startMarker) || !listing.includes(endMarker)) {
-    log('✗ news/index.html has no NEWS-GRID markers -- run the one-time template edit first, skipping listing prerender.');
-  } else {
-    const chips = buildChipRow(articles, null);
-    listing = listing.replace(chipMarker, `<div class="chip-row" id="nwChipRow"${chips ? '' : ' hidden'}>${chips}</div>`);
-    const startIdx = listing.indexOf(startMarker);
-    const endIdx = listing.indexOf(endMarker);
-    const grid = buildListingGrid(articles);
-    listing = listing.slice(0, startIdx) + startMarker + grid + endMarker + listing.slice(endIdx + endMarker.length);
+  // still re-draws the same grid on top once Supabase replies, for live
+  // like/comment counts and infinite scroll.
+  try {
+    const listing = buildListingPage(listingPristine, articles, 'ka');
     fs.writeFileSync(LISTING_PATH, listing, 'utf8');
     log(`✓ news/index.html grid updated (${articles.length} card(s) baked in)`);
+  } catch (e) {
+    log(`✗ news/index.html: ${e.message}`);
   }
 
-  // One /news/category/<slug>/ page per row in news_categories, even
-  // ones with zero articles yet (an empty-state page for a category
-  // that exists but hasn't been used is correct, not broken).
-  let catOk = 0, catFailed = 0;
-  const catSlugs = [];
-  for (const cat of categories) {
-    try {
-      const html = buildCategoryPage(listingPristine, cat, articles, articles);
-      const dir = path.join(REPO_ROOT, 'news', 'category', cat.slug);
-      fs.mkdirSync(dir, { recursive: true });
-      fs.writeFileSync(path.join(dir, 'index.html'), html, 'utf8');
-      log(`✓ news/category/${cat.slug}/index.html`);
-      catSlugs.push(cat.slug);
-      catOk++;
-    } catch (e) {
-      log(`✗ category ${cat.slug}: ${e.message}`);
-      catFailed++;
-    }
+  let enListingOk = false;
+  try {
+    const enListing = buildListingPage(listingPristine, articles, 'en');
+    fs.mkdirSync(EN_NEWS_DIR, { recursive: true });
+    fs.writeFileSync(path.join(EN_NEWS_DIR, 'index.html'), enListing, 'utf8');
+    const enCount = articles.filter(hasEn).length;
+    log(`✓ en/news/index.html grid updated (${enCount} card(s) baked in)`);
+    enListingOk = true;
+  } catch (e) {
+    log(`✗ en/news/index.html: ${e.message}`);
   }
 
-  // Sitemap: per-article entries stay scripts/sync-news-sitemap.js's job
-  // (run separately) -- this script owns the category block it alone
-  // has the data for, inside its own markers so re-runs don't duplicate.
+  // Sitemap: per-article KA entries stay scripts/sync-news-sitemap.js's
+  // job (run separately, service_role) -- this script owns the EN block,
+  // the only sitemap data it alone has (which articles got an EN twin).
   const sitemapPath = path.join(REPO_ROOT, 'sitemap.xml');
   let sitemap = fs.readFileSync(sitemapPath, 'utf8');
-  const catStart = '<!-- NEWS-CAT:START -->';
-  const catEnd = '<!-- NEWS-CAT:END -->';
-  if (!sitemap.includes(catStart) || !sitemap.includes(catEnd)) {
-    log('✗ sitemap.xml has no NEWS-CAT:START/END markers -- add them once, skipping category sitemap entries.');
+  const enStart = '<!-- NEWS-EN:START -->';
+  const enEnd = '<!-- NEWS-EN:END -->';
+  if (!sitemap.includes(enStart) || !sitemap.includes(enEnd)) {
+    log('✗ sitemap.xml has no NEWS-EN:START/END markers -- add them once, skipping EN sitemap entries.');
   } else {
     const today = new Date().toISOString().slice(0, 10);
-    const catUrls = catSlugs.map((slug) => [
+    const enArticles = articles.filter(hasEn);
+    const urls = [enListingOk ? ['https://fnf.ge/en/news/', '0.6'] : null]
+      .concat(enArticles.map((a) => [urlFor(a.slug, 'en'), '0.5']))
+      .filter(Boolean);
+    const enUrls = urls.map(([loc, priority]) => [
       '  <url>',
-      `    <loc>https://fnf.ge/news/category/${slug}/</loc>`,
+      `    <loc>${loc}</loc>`,
       `    <lastmod>${today}</lastmod>`,
-      '    <priority>0.4</priority>',
+      `    <priority>${priority}</priority>`,
       '  </url>',
     ].join('\n')).join('\n');
-    const block = `${catStart}\n${catUrls}\n${catEnd}`;
-    const csi = sitemap.indexOf(catStart);
-    const cei = sitemap.indexOf(catEnd);
-    sitemap = sitemap.slice(0, csi) + block + sitemap.slice(cei + catEnd.length);
+    const block = `${enStart}\n${enUrls}\n${enEnd}`;
+    const esi = sitemap.indexOf(enStart);
+    const eei = sitemap.indexOf(enEnd);
+    sitemap = sitemap.slice(0, esi) + block + sitemap.slice(eei + enEnd.length);
     fs.writeFileSync(sitemapPath, sitemap, 'utf8');
-    log(`✓ sitemap.xml category block updated (${catSlugs.length} categor${catSlugs.length === 1 ? 'y' : 'ies'})`);
+    log(`✓ sitemap.xml EN block updated (${urls.length} url(s))`);
   }
 
-  log(`Done. ${ok} article page(s) written (${failed} failed), ${catOk} category page(s) written (${catFailed} failed).`);
-  if (failed > 0 || catFailed > 0) process.exit(1);
+  // Homepage "სიახლეები" strip (FNF-SEO-PRD.md §5a / task 3b): 3 newest
+  // articles overall, real <a href> anchors baked into the raw HTML.
+  // Renders nothing (not an empty section) when there are no published
+  // articles yet -- same rule as the sport-page blocks below.
+  const homePath = path.join(REPO_ROOT, 'index.html');
+  let home = fs.readFileSync(homePath, 'utf8');
+  const homeStart = '<!-- NEWS-HOME:START -->';
+  const homeEnd = '<!-- NEWS-HOME:END -->';
+  if (!home.includes(homeStart) || !home.includes(homeEnd)) {
+    log('✗ index.html has no NEWS-HOME:START/END markers -- skipping homepage news strip.');
+  } else {
+    const homeArticles = articles.slice(0, 3);
+    const block = homeNewsStripHtml(homeArticles, 'სიახლეები');
+    const hsi = home.indexOf(homeStart);
+    const hei = home.indexOf(homeEnd);
+    home = home.slice(0, hsi) + homeStart + '\n' + block + '\n' + homeEnd + home.slice(hei + homeEnd.length);
+    fs.writeFileSync(homePath, home, 'utf8');
+    log(`✓ index.html news strip updated (${homeArticles.length} article(s))`);
+  }
+
+  // Each sport page's bottom "latest news" block (task 3c). Categories
+  // are gone, so this can no longer be filtered per sport -- every sport
+  // page shows the same 3 newest articles overall (identical to the
+  // homepage strip), per the task's own instruction.
+  const SPORT_NEWS_FILES = [
+    'ufc/index.html', 'f1/index.html', 'nba/index.html',
+    'football/epl/index.html', 'football/laliga/index.html', 'football/seriea/index.html',
+    'football/bundesliga/index.html', 'football/ligue1/index.html', 'football/ucl/index.html',
+  ];
+  const sportArticles = articles.slice(0, 3);
+  const sportBlock = newsStripHtml(sportArticles, 'სიახლეები');
+  for (const file of SPORT_NEWS_FILES) {
+    const spPath = path.join(REPO_ROOT, file);
+    let spHtml;
+    try {
+      spHtml = fs.readFileSync(spPath, 'utf8');
+    } catch (e) {
+      log(`✗ ${file}: ${e.message}`);
+      continue;
+    }
+    const spStart = '<!-- NEWS-SPORT:START -->';
+    const spEnd = '<!-- NEWS-SPORT:END -->';
+    if (!spHtml.includes(spStart) || !spHtml.includes(spEnd)) {
+      log(`✗ ${file} has no NEWS-SPORT:START/END markers -- skipping.`);
+      continue;
+    }
+    const ssi = spHtml.indexOf(spStart);
+    const sei = spHtml.indexOf(spEnd);
+    spHtml = spHtml.slice(0, ssi) + spStart + '\n' + sportBlock + '\n' + spEnd + spHtml.slice(sei + spEnd.length);
+    fs.writeFileSync(spPath, spHtml, 'utf8');
+    log(`✓ ${file} news block updated (${sportArticles.length} article(s))`);
+  }
+
+  log(`Done. ${ok} KA article page(s) written (${failed} failed), ${enOk} EN article page(s) written (${enFailed} failed).`);
+  if (failed > 0 || enFailed > 0) process.exit(1);
 }
 
 main().catch((e) => { log('Fatal: ' + e.message); process.exit(1); });
