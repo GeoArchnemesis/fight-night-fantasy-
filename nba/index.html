@@ -51,7 +51,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .mnav-ic{width:24px;height:24px;flex-shrink:0;opacity:.75;transition:opacity .15s,transform .15s}
 .mnav-btn:hover .mnav-ic,.mnav-btn.on .mnav-ic{opacity:1}
 .mnav-btn.on .mnav-ic{transform:translateY(-1px)}
-.mnav-lbl{font-size:var(--fs-meta);font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:.01em;transition:color .15s}
+.mnav-lbl{font-size:clamp(8px,2.5vw,11px);font-weight:600;color:var(--muted);white-space:normal;overflow-wrap:break-word;max-width:100%;letter-spacing:.01em;transition:color .15s;text-align:center;line-height:1.2;min-height:2.4em}
 .mnav-btn.on .mnav-lbl{color:var(--gold)}
 .mnav-btn:hover .mnav-lbl{color:var(--text)}
 .mnav-pop{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:150px;display:flex;flex-direction:column;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,transform .2s ease,visibility .2s;z-index:48}
@@ -387,10 +387,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="mnav-pop-opt on">NBA <span class="mnav-pop-tag">აქტიური</span></div>
     </div>
   </div>
-  <button class="mnav-btn" onclick="document.getElementById('leaderboard').scrollIntoView({behavior:'smooth'})">
-    <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNzIgNzIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTUyLjIsMTEuOGMuMTYsMCwuMjguMTQuMjQuMy0uMi44OC0uOTQsNC4zLTMuNTksMTcuNTItMS41OSw3Ljk0LTUuNSwxMi41Ny0xMi44MywxMi41N3MtMTEuMjUtNC41LTEyLjgzLTEyLjQ0Yy0yLjQxLTExLjg1LTMuNjctMTcuOTQtMy42Ny0xNy45NGgzMi42OFoiLz48cGF0aCBkPSJNMjMsMzEuNXMuMDgtLjI2LTUuNDItMy45M2MtMi41My0xLjY4LTUuNDYtMy45LTUuNDYtNi45NHMyLjUtNS4xMSw1LjU0LTUuMTFoMS41MSIvPjxwYXRoIGQ9Ik00OC43LDMxLjhzLjA4LS4yNiw1LjU4LTMuOTNjMi41My0xLjY4LDUuNTQtMy45LDUuNTQtNi45NHMtMi4zMy01LjEzLTUuMTctNS4xMmgtMi4xNSIvPjxyZWN0IHg9IjI2LjU1IiB5PSI1MC4zMyIgd2lkdGg9IjE4LjMzIiBoZWlnaHQ9IjkuMTciIHJ4PSIxIi8+PGxpbmUgeDE9IjM2IiB4Mj0iMzYiIHkxPSI1MC4zMyIgeTI9IjQyLjIiLz48L3N2Zz4K" alt="">
-    <span class="mnav-lbl">ლიდერბორდი</span>
-  </button>
+  <a class="mnav-btn" href="/news/">
+    <svg class="mnav-ic" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18h-5"/><path d="M18 14h-8"/><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="10" y="6" rx="1"/></svg>
+    <span class="mnav-lbl">ნიუსები</span>
+  </a>
+  <a class="mnav-btn" href="/ufc/quiz/">
+    <svg class="mnav-ic" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9.2a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4"/><line x1="12" y1="17.5" x2="12.01" y2="17.5"/></svg>
+    <span class="mnav-lbl">ქვიზი</span>
+  </a>
   <button class="mnav-btn only-auth" onclick="document.getElementById('tickets').scrollIntoView({behavior:'smooth'})">
     <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMjQgMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTMgOGEyIDIgMCAwIDEgMi0yaDE0YTIgMiAwIDAgMSAyIDJ2MmEyIDIgMCAwIDAgMCA0djJhMiAyIDAgMCAxLTIgMkg1YTIgMiAwIDAgMS0yLTJ2LTJhMiAyIDAgMCAwIDAtNFY4eiIvPjxsaW5lIHgxPSI5IiB5MT0iNiIgeDI9IjkiIHkyPSIxOCIgc3Ryb2tlLWRhc2hhcnJheT0iMiAyIi8+PC9zdmc+Cg==" alt="">
     <span class="mnav-lbl">ბილეთების ისტორია</span>

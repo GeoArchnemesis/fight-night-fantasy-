@@ -71,7 +71,7 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
 .mnav-ic{width:24px;height:24px;flex-shrink:0;opacity:.75;transition:opacity .15s,transform .15s}
 .mnav-btn:hover .mnav-ic,.mnav-btn.on .mnav-ic{opacity:1}
 .mnav-btn.on .mnav-ic{transform:translateY(-1px)}
-.mnav-lbl{font-size:var(--fs-meta);font-weight:600;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:.01em;transition:color .15s}
+.mnav-lbl{font-size:clamp(8px,2.5vw,11px);font-weight:600;color:var(--muted);white-space:normal;overflow-wrap:break-word;max-width:100%;letter-spacing:.01em;transition:color .15s;text-align:center;line-height:1.2;min-height:2.4em}
 .mnav-btn.on .mnav-lbl{color:var(--gold)}
 .mnav-btn:hover .mnav-lbl{color:var(--text)}
 .mnav-pop{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:150px;display:flex;flex-direction:column;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,transform .2s ease,visibility .2s;z-index:48}
@@ -469,6 +469,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a class="mnav-pop-opt" href="/nba/">NBA <span class="mnav-pop-tag">აქტიური</span></a>
     </div>
   </div>
+  <a class="mnav-btn" href="/news/">
+    <svg class="mnav-ic" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18h-5"/><path d="M18 14h-8"/><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="10" y="6" rx="1"/></svg>
+    <span class="mnav-lbl">ნიუსები</span>
+  </a>
     <a class="mnav-btn" href="/ufc/quiz/">
     <svg class="mnav-ic" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9.2a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4"/><line x1="12" y1="17.5" x2="12.01" y2="17.5"/></svg>
     <span class="mnav-lbl">ქვიზი</span>
