@@ -106,11 +106,29 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 }
 
 /* Modal grid (#pfBadgesModalGrid) -- always 3 columns, newest-to-oldest
-   left-to-right then next row; circle+label scaled down to fit 3-up at
-   the modal's 380px max-width. */
-.pf-badges-modal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 8px}
-.pf-badges-modal-grid .pf-badge-item img{width:68px;height:68px}
-.pf-badges-modal-grid .pf-badge-label{font-size:.66rem;max-width:90px;white-space:normal}
+   left-to-right then next row; same circle/label size as the inline
+   strip (Stage 4 — modal is now large enough for that: 760px desktop). */
+.pf-badges-modal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
+.pf-badges-modal-grid .pf-badge-item img{width:110px;height:110px}
+.pf-badges-modal-grid .pf-badge-label{font-size:.78rem;white-space:normal}
+@media(max-width:920px){
+  .pf-badges-modal-grid{gap:16px 6px}
+  .pf-badges-modal-grid .pf-badge-item img{width:92px;height:92px}
+}
+
+/* Modal chrome (Stage 4) -- #pfBadgesModal is the fixed backdrop,
+   .pf-badge-modal-box the visible card. The box doesn't scroll itself;
+   .pf-badge-modal-scroll (just the grid) does, so the X in the box's own
+   top-right corner stays pinned in place rather than scrolling away with
+   the badge list. */
+.pf-badge-modal-backdrop{padding:20px}
+.pf-badge-modal-box{background:var(--surface,#14121c);border:1px solid var(--line,#2a2734);border-radius:12px;max-width:min(760px,92vw);width:100%;position:relative;padding:52px 24px 24px;text-align:center}
+.pf-badge-modal-scroll{max-height:80vh;overflow-y:auto}
+.pf-badge-modal-close{position:absolute;top:8px;right:8px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:none;border:none;color:var(--muted);cursor:pointer}
+@media(max-width:920px){
+  .pf-badge-modal-backdrop{padding:8px}
+  .pf-badge-modal-box{padding:52px 8px 14px}
+}
 
 .pf-badges-more{width:100%;margin-top:14px;padding:10px;background:none;border:1px solid var(--line);border-radius:10px;color:var(--gold);font-family:var(--mono);font-size:.78rem;cursor:pointer;text-align:center}
 .pf-badges-more:hover{border-color:var(--gold)}
@@ -295,7 +313,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
           <div class="profile-section" id="pfBadgesSection" style="width:100%;display:none">
             <div class="pf-badges-strip" id="pfBadgesGrid"></div>
-            <button type="button" class="pf-badges-more" id="pfBadgesMoreBtn" style="display:none">ყველა ტიტულის ნახვა</button>
+            <button type="button" class="pf-badges-more" id="pfBadgesMoreBtn" style="display:none">ყველა ბეიჯის ნახვა</button>
           </div>
         </aside>
 
@@ -1365,10 +1383,14 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
   </div>
 </div>
 <!-- ── MONTHLY BADGES MODAL ── -->
-<div id="pfBadgesModal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(5,4,8,.8);backdrop-filter:blur(6px);justify-content:center;align-items:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
-  <div style="background:var(--surface,#14121c);border:1px solid var(--line,#2a2734);border-radius:12px;padding:28px;max-width:380px;width:100%;max-height:80vh;overflow-y:auto;text-align:center">
-    <div class="pf-badges-modal-grid" id="pfBadgesModalGrid" style="margin-bottom:16px"></div>
-    <button type="button" onclick="document.getElementById('pfBadgesModal').style.display='none'" style="color:var(--muted,#888);font-size:.9rem;font-family:inherit;cursor:pointer;background:none;border:none">დახურვა</button>
+<div id="pfBadgesModal" class="pf-badge-modal-backdrop" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(5,4,8,.8);backdrop-filter:blur(6px);justify-content:center;align-items:center" onclick="if(event.target===this)this.style.display='none'">
+  <div class="pf-badge-modal-box">
+    <button type="button" class="pf-badge-modal-close" onclick="document.getElementById('pfBadgesModal').style.display='none'" aria-label="დახურვა">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="pf-badge-modal-scroll">
+      <div class="pf-badges-modal-grid" id="pfBadgesModalGrid"></div>
+    </div>
   </div>
 </div>
 </body>
