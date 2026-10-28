@@ -89,11 +89,29 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .pf-bio-edit-btn:hover{color:var(--gold)}
 .pf-bio-readonly{color:var(--text);font-size:.92rem;line-height:1.5;white-space:pre-wrap}
 
-/* ---------- Monthly badges (Stage 2 — profile display) ---------- */
-.pf-badges-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:14px}
+/* ---------- Monthly badges (Stage 2/3 — profile display) ---------- */
 .pf-badge-item{display:flex;flex-direction:column;align-items:center;gap:6px}
-.pf-badge-item img{width:clamp(52px,16vw,72px);height:clamp(52px,16vw,72px);border-radius:50%;object-fit:cover;background:var(--ink);flex-shrink:0}
-.pf-badge-label{font-size:.68rem;color:var(--muted);text-align:center;line-height:1.3;max-width:84px}
+.pf-badge-item img{border-radius:50%;object-fit:cover;background:var(--ink);flex-shrink:0}
+.pf-badge-label{font-size:.78rem;color:var(--muted);text-align:center;line-height:1.3;max-width:150px;white-space:nowrap}
+
+/* Inline strip (#pfBadgesGrid) -- desktop: vertical column, newest on
+   top; mobile: horizontal snap-scroll row, newest leftmost. */
+.pf-badges-strip{display:flex;flex-direction:column;align-items:center;gap:16px}
+.pf-badges-strip .pf-badge-item img{width:110px;height:110px}
+@media(max-width:920px){
+  .pf-badges-strip{flex-direction:row;flex-wrap:nowrap;align-items:flex-start;justify-content:flex-start;overflow-x:auto;overflow-y:hidden;width:0;min-width:100%;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+  .pf-badges-strip::-webkit-scrollbar{display:none}
+  .pf-badges-strip .pf-badge-item{flex-shrink:0;scroll-snap-align:start}
+  .pf-badges-strip .pf-badge-item img{width:92px;height:92px}
+}
+
+/* Modal grid (#pfBadgesModalGrid) -- always 3 columns, newest-to-oldest
+   left-to-right then next row; circle+label scaled down to fit 3-up at
+   the modal's 380px max-width. */
+.pf-badges-modal-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px 8px}
+.pf-badges-modal-grid .pf-badge-item img{width:68px;height:68px}
+.pf-badges-modal-grid .pf-badge-label{font-size:.66rem;max-width:90px;white-space:normal}
+
 .pf-badges-more{width:100%;margin-top:14px;padding:10px;background:none;border:1px solid var(--line);border-radius:10px;color:var(--gold);font-family:var(--mono);font-size:.78rem;cursor:pointer;text-align:center}
 .pf-badges-more:hover{border-color:var(--gold)}
 
@@ -276,7 +294,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
 
           <div class="profile-section" id="pfBadgesSection" style="width:100%;display:none">
-            <div class="pf-badges-grid" id="pfBadgesGrid"></div>
+            <div class="pf-badges-strip" id="pfBadgesGrid"></div>
             <button type="button" class="pf-badges-more" id="pfBadgesMoreBtn" style="display:none">ყველა ტიტულის ნახვა</button>
           </div>
         </aside>
@@ -1349,7 +1367,7 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
 <!-- ── MONTHLY BADGES MODAL ── -->
 <div id="pfBadgesModal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(5,4,8,.8);backdrop-filter:blur(6px);justify-content:center;align-items:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--surface,#14121c);border:1px solid var(--line,#2a2734);border-radius:12px;padding:28px;max-width:380px;width:100%;max-height:80vh;overflow-y:auto;text-align:center">
-    <div class="pf-badges-grid" id="pfBadgesModalGrid" style="margin-bottom:16px"></div>
+    <div class="pf-badges-modal-grid" id="pfBadgesModalGrid" style="margin-bottom:16px"></div>
     <button type="button" onclick="document.getElementById('pfBadgesModal').style.display='none'" style="color:var(--muted,#888);font-size:.9rem;font-family:inherit;cursor:pointer;background:none;border:none">დახურვა</button>
   </div>
 </div>
