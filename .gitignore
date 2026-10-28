@@ -11,3 +11,21 @@ seo-audit-screenshots/
 # running scripts/prerender-news.js locally.
 node_modules/
 package-lock.json
+
+# Internal planning docs / local scratch -- the site deploys straight from the
+# repo root as static files, so anything committed here becomes publicly
+# downloadable at fnf.ge/<path>. These must never ship.
+**/.DS_Store
+LittleFixation.pdf
+LittleMoreUpdates.pdf
+MoreUpdatesOct.pdf
+FNF-SEO-PRD.md
+FNF-UI-UX-PRD.md
+QUIZ-AND-PROFILE-PRD.md
+IMPLEMENTATION-SUMMARY.md
+phase-c-to-g-plan.md
+phase-q-prompt.md
+UI Update.md
+QUIZ-TEXT-STRINGS.txt
+Claude outputs/
+supabase/.temp/
