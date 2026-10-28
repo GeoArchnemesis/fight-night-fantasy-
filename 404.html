@@ -12,6 +12,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>404 — გვერდი ვერ მოიძებნა | Fight Night Fantasy</title>
+<meta name="description" content="ეს გვერდი ვერ მოიძებნა. დაბრუნდი მთავარ გვერდზე." />
 <meta name="robots" content="noindex" />
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 <link rel="stylesheet" href="/style.css?v=207" />
@@ -29,8 +30,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     else if (p === '/ufc.html') target = '/ufc/';
     else if (p === '/nba.html') target = '/nba/';
     else if (p === '/index' || p === '/index.html') target = '/';
-    // ადმინი: /admin და /admin/ რეალურად არ არსებობს — ფაილი /admin/admin.html-ია
-    else if (p === '/admin' || p === '/admin/index.html') target = '/admin/admin.html';
+    // (ადმინის redirect შიმი განზრახ ამოღებულია — /admin/ გადარქმეულია
+    // არასაჯარო მისამართზე; ამ 404-ზე საჭირო არ არის მისი "გამოცნობის" დახმარება.)
     // დიდი/შერეული ასოებით შეყვანილი მისამართები (მაგ. /UFC/, /Football/LaLiga/)
     // — GitHub Pages case-sensitive-ია, ამიტომ ხელით გადავიყვანოთ პატარა ასოებზე.
     // `raw !== p` პირობა კრიტიკულია: მხოლოდ მაშინ გადავამისამართოთ, როცა რეგისტრი
