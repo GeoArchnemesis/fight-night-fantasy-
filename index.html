@@ -85,10 +85,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      (.land-title), covers the same size as the fantasy cards (.land-card),
      laid out in the same 3-column grid (.land-cards), same breakpoint. */
   #newsStrip h2{font-family:var(--head);font-weight:800;font-size:clamp(1.6rem,5vw,2.6rem);color:var(--text,#fff)}
+  /* Grid placement only -- the card itself is /news/'s own .nw-card
+     article-card--hero, reused unmodified so it never drifts from the
+     news page's real styling. min-width:0 keeps the hero's intrinsic
+     800px image attribute from inflating a bare 1fr track past the
+     viewport -- /news/ itself avoids this with minmax(280px,1fr). */
   #newsStrip .nw-strip-list{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;width:100%;max-width:1040px;margin:0 auto}
-  #newsStrip .article-card--list{flex-direction:column;gap:0;padding:0;margin-bottom:0;border:1px solid var(--line,#26232f);border-radius:16px;overflow:hidden;background:var(--surface,#14121b)}
-  #newsStrip .acl-thumb{width:100%;aspect-ratio:3/2;border-radius:0}
-  #newsStrip .acl-content{padding:10px 14px 14px}
+  #newsStrip .nw-strip-list>.nw-card-wrap{min-width:0}
   @media(max-width:860px){
     .land-cards{grid-template-columns:repeat(2,1fr);gap:11px;max-width:440px}
     .land-title{margin:16px 0 20px}
@@ -122,7 +125,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <section id="newsStrip"><div class="wrap">
 <div class="sec-head"><h2>სიახლეები</h2></div>
 <div class="nw-strip-list">
-<a class="article-card--list" href="/news/merab-dvalishvili-fight-week/"><img class="acl-thumb" src="https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=224&height=168&resize=cover&quality=75" srcset="https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=224&height=168&resize=cover&quality=75 224w, https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=336&height=252&resize=cover&quality=75 336w" sizes="112px" width="112" height="84" alt="მერაბ დვალიშვილი და პიოტრ იანი UFC-ის ოქტაგონზე, მსაჯთან ერთად, ბრძოლის დაწყებამდე." loading="lazy" decoding="async" /><div class="acl-content"><h3 class="acl-title">მერაბ დვალიშვილი - საბრძოლო კვირა</h3><div class="acl-meta"><time datetime="2026-10-18T04:00:00+00:00">18 ოქტომბერი, 2026</time></div></div></a>
+<div class="nw-card-wrap">
+<a class="nw-card article-card--hero" href="/news/merab-dvalishvili-fight-week/">
+<img class="nw-card-img" src="https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=400&height=225&resize=cover&quality=75" srcset="https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=400&height=225&resize=cover&quality=75 400w, https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=800&height=450&resize=cover&quality=75 800w, https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=1200&height=675&resize=cover&quality=75 1200w" sizes="(min-width: 480px) 343px, 100vw" width="800" height="450" alt="მერაბ დვალიშვილი და პიოტრ იანი UFC-ის ოქტაგონზე, მსაჯთან ერთად, ბრძოლის დაწყებამდე." loading="lazy" decoding="async" />
+<div class="nw-card-body">
+<h3 class="nw-card-title">მერაბ დვალიშვილი - საბრძოლო კვირა</h3>
+<p class="nw-card-dek">მერაბ დვალიშვილისა და პიოტრ იანის დაპირისპირებამდე ცოტა დრო რჩება.</p>
+<div class="nw-card-meta"><time datetime="2026-10-18T04:00:00+00:00">18 ოქტომბერი, 2026</time></div>
+</div>
+</a>
+</div>
 </div>
 </div></section>
 <!-- NEWS-HOME:END -->
