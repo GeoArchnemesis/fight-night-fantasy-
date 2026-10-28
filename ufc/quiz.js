@@ -1167,6 +1167,77 @@ function tickQuestionTimer(){
   S.timerRaf = requestAnimationFrame(tickQuestionTimer);
 }
 
+/* ---------- backgrounding — rAF stops entirely while the tab is hidden,
+   and mobile browsers aggressively throttle background timers, so this
+   can't rely on anything having "run" while away. S.timerDeadline is a
+   performance.now()-based absolute instant, which keeps advancing while
+   hidden regardless — that's what both branches below reconcile against.
+
+   OFFLINE (vs AI): pause — stash the remaining time on hide, rebuild the
+   deadline from it on return. No question lost, nothing auto-answered.
+
+   ONLINE (PvP): the deadline is left untouched while hidden (time keeps
+   "running" exactly as if watching). On return, any question whose
+   deadline has already passed is submitted as a timeout — exactly the
+   same submit_quiz_answer call the live countdown's own timeout path
+   uses, just without the visual feedback nobody was there to see — once
+   per question, fast-forwarded silently, until landing on the first
+   question whose fresh deadline is still ahead. PvP has no shared
+   "current question" pointer (quiz_room_answers is per-player), so this
+   is catching up the player's own timeline, which is the only thing
+   there is to catch up to. ---------- */
+let _timerSuspendedForHidden = false;
+
+function onQuizPageHidden(){
+  if(!S.timerRaf) return;
+  cancelAnimationFrame(S.timerRaf);
+  S.timerRaf = null;
+  _timerSuspendedForHidden = true;
+  if(!PVP) S.timerHiddenRemaining = Math.max(0, S.timerDeadline - performance.now());
+}
+
+function onQuizPageVisible(){
+  if(!_timerSuspendedForHidden) return;
+  _timerSuspendedForHidden = false;
+  if(PVP) catchUpPvpTimer();
+  else {
+    S.timerDeadline = performance.now() + (S.timerHiddenRemaining || 0);
+    S.timerRaf = requestAnimationFrame(tickQuestionTimer);
+  }
+}
+
+document.addEventListener("visibilitychange", ()=>{
+  if(document.hidden) onQuizPageHidden(); else onQuizPageVisible();
+});
+
+// Silently submits the same timeout a live countdown would (pick=-1 for
+// quiz, pick="" for guess-who — identical to answer(-1,null)'s and a
+// forced submitGuess()'s own submission), without any of the visual
+// feedback those paths show for a question the player actually watched.
+function submitPvpTimeoutSilently(){
+  const pick = S.gameType === "guess" ? "" : -1;
+  S.playerPicks[S.qi] = pick;
+  S.playerPoints[S.qi] = 0;
+  submitPvpAnswer(S.qi, pick);
+}
+
+function catchUpPvpTimer(){
+  const overrun = performance.now() - S.timerDeadline;
+  if(overrun <= 0){
+    S.timerRaf = requestAnimationFrame(tickQuestionTimer);
+    return;
+  }
+  const totalMs = PVP_TIME_PER_Q * 1000;
+  const questionsToSkip = Math.floor(overrun / totalMs) + 1;
+  for(let i = 0; i < questionsToSkip && S.qi < S.questions.length; i++){
+    submitPvpTimeoutSilently();
+    S.qi++;
+  }
+  advanceOrFinish(); // finishes if S.qi ran out, otherwise renders the
+                      // landing question with a full fresh timer — same
+                      // dispatch the normal in-game flow already uses.
+}
+
 function startTimer(){
   const totalMs = (PVP ? PVP_TIME_PER_Q : TIME_PER_Q) * 1000;
   startQuestionTimer($("#q-timer"), $("#q-timer-num"), totalMs, ()=> answer(-1, null));
@@ -1303,6 +1374,27 @@ $("#gq-next-clue").addEventListener("click", ()=>{
 });
 $("#gq-submit").addEventListener("click", ()=> submitGuess());
 $("#gq-input").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); submitGuess(); }});
+
+// R7: mobile keyboard was covering #gq-input and #gq-submit — uses
+// visualViewport (not a fixed pixel guess, so it adapts to whatever height
+// the on-screen keyboard actually takes) and only reacts to an actual
+// viewport-size change (keyboard open/close/orientation), never to typing
+// itself, so it can't fight the user's own scrolling or jump around as
+// they type.
+if(window.visualViewport){
+  window.visualViewport.addEventListener("resize", ()=>{
+    const inp = document.getElementById("gq-input");
+    if(document.activeElement !== inp) return;
+    const area = document.getElementById("gq-answer-area");
+    if(!area) return;
+    const vv = window.visualViewport;
+    const visibleBottom = vv.offsetTop + vv.height;
+    const rect = area.getBoundingClientRect();
+    if(rect.bottom > visibleBottom){
+      window.scrollBy({ top: rect.bottom - visibleBottom + 12, behavior: "smooth" });
+    }
+  });
+}
 
 function answer(chosen, btn){
   stopQuestionTimer();
