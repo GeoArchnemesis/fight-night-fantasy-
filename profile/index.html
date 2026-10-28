@@ -74,11 +74,26 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .pf-crop-actions .btn{flex:1;justify-content:center}
 .pf-crop-err{color:var(--red);font-size:.82rem;margin-top:10px;text-align:center}
 
-/* ---------- Phase Q3: bio ---------- */
-#profBio{width:100%;font-family:inherit;font-size:.92rem;color:var(--text);background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:12px 14px;resize:vertical;min-height:72px}
-#profBio:focus{outline:none;border-color:var(--gold)}
+/* ---------- Phase Q3: bio — p3 (LittleMoreUpdates.pdf): fixed size (no
+   resize handle, no auto-grow), nicer focus ring matching the input
+   restyle below ---------- */
+#profBio{width:100%;height:96px;font-family:inherit;font-size:.92rem;color:var(--text);background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:13px 15px;resize:none;transition:border-color .18s ease,box-shadow .18s ease}
+#profBio:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,196,81,.15)}
 .pf-bio-count{text-align:right;font-family:var(--mono);font-size:.7rem;color:var(--muted);margin-top:4px}
-.pf-bio-readonly{color:var(--text-2);font-size:.92rem;line-height:1.5;white-space:pre-wrap}
+/* p3: already-saved bio shows as plain white text (not the dimmer
+   --text-2 used elsewhere), with a pencil icon at its start that
+   switches to the editable textarea above. */
+.pf-bio-display{display:flex;align-items:flex-start;gap:8px}
+.pf-bio-edit-btn{flex-shrink:0;margin-top:2px;background:none;border:none;color:var(--muted);cursor:pointer;padding:2px;transition:color .15s}
+.pf-bio-edit-btn:hover{color:var(--gold)}
+.pf-bio-readonly{flex:1;min-width:0;color:var(--text);font-size:.92rem;line-height:1.5;white-space:pre-wrap}
+
+/* ---------- p3: nicer text inputs, scoped to this page's own form
+   (.field input is shared site-wide — the login/signup modal on every
+   other page uses it too, which wasn't asked to change) ---------- */
+.pf-left .field input,.pf-right .field input{border-radius:10px;padding:13px 15px;transition:border-color .18s ease,box-shadow .18s ease,background .18s ease}
+.pf-left .field input:hover,.pf-right .field input:hover{border-color:var(--muted)}
+.pf-left .field input:focus,.pf-right .field input:focus{border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,196,81,.15)}
 
 /* ---------- R5: email-already-registered inline field error ---------- */
 #profEmail.err{border-color:var(--red)}
@@ -231,14 +246,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <p class="pf-sub" id="pfSubHeading">შეცვალე შენი ანგარიშის პარამეტრები</p>
 
           <div class="profile-section" style="width:100%">
-            <div id="bioEditWrap">
+            <div id="bioEditWrap" style="display:none">
               <div class="field">
-                <label for="profBio">ბიო</label>
+                <label for="profBio">ჩემს შესახებ</label>
                 <textarea id="profBio" maxlength="300" rows="3" placeholder="მოკლედ მოგვიყევი შენს შესახებ..."></textarea>
               </div>
               <div class="pf-bio-count" id="profBioCount">0 / 300</div>
+              <button type="button" class="btn btn-primary" id="pfBioSaveBtn" style="width:100%;margin-top:10px">შენახვა</button>
             </div>
-            <p class="pf-bio-readonly" id="pfBioReadonly" style="display:none"></p>
+            <div class="pf-bio-display" id="pfBioDisplay">
+              <button type="button" class="pf-bio-edit-btn" id="pfBioEditBtn" aria-label="ჩემს შესახებ-ის რედაქტირება">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+              </button>
+              <p class="pf-bio-readonly" id="pfBioReadonly"></p>
+            </div>
           </div>
         </aside>
 
@@ -247,7 +268,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div id="pfPrivateSection">
             <div class="profile-section" id="nickEditSection">
               <div class="field">
-                <label for="profNick">სახელი (ნიქნეიმი)</label>
+                <label for="profNick">ნიქნეიმი</label>
                 <input type="text" id="profNick" placeholder="მაგ. UFC.King" maxlength="20" />
               </div>
             </div>
@@ -276,11 +297,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="field-label" style="margin-bottom:12px">პასვორდის შეცვლა</div>
               <div class="field">
                 <label for="profOldPass">ძველი პასვორდი</label>
-                <input type="password" id="profOldPass" placeholder="შეიყვანე ძველი პასვორდი" />
+                <div style="position:relative">
+                  <input type="password" id="profOldPass" placeholder="შეიყვანე ძველი პასვორდი" autocomplete="current-password" />
+                  <button type="button" class="eye-toggle" onclick="toggleEye('profOldPass')" aria-label="პაროლის ჩვენება"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                </div>
               </div>
               <div class="field">
                 <label for="profNewPass">ახალი პასვორდი</label>
-                <input type="password" id="profNewPass" placeholder="მინ. 6 სიმბოლო" />
+                <div style="position:relative">
+                  <input type="password" id="profNewPass" placeholder="მინ. 6 სიმბოლო" autocomplete="new-password" />
+                  <button type="button" class="eye-toggle" onclick="toggleEye('profNewPass')" aria-label="პაროლის ჩვენება"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                </div>
+                <div class="pass-check" id="pfPassHint">
+                  <div class="pc-item" id="pfPcLen"><span class="pc-tick">✓</span> მინ. 6 სიმბოლო</div>
+                  <div class="pc-item" id="pfPcUpper"><span class="pc-tick">✓</span> 1 დიდი ასო (A-Z)</div>
+                  <div class="pc-item" id="pfPcLower"><span class="pc-tick">✓</span> 1 პატარა ასო (a-z)</div>
+                  <div class="pc-item" id="pfPcDigit"><span class="pc-tick">✓</span> 1 ციფრი (0-9)</div>
+                </div>
+              </div>
+              <div class="field">
+                <label for="profNewPassConfirm">გაიმეორე პასვორდი</label>
+                <div style="position:relative">
+                  <input type="password" id="profNewPassConfirm" placeholder="პასვორდი ხელახლა" autocomplete="new-password" />
+                  <button type="button" class="eye-toggle" onclick="toggleEye('profNewPassConfirm')" aria-label="პაროლის ჩვენება"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                </div>
               </div>
             </div>
 
@@ -312,7 +352,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </label>
             </div>
             <div class="pf-articles-row" id="pfArticlesRow"></div>
-            <p class="tinyinfo" id="pfArticlesEmpty" style="display:none">ჯერ არცერთი სტატია არ წაგიკითხავს.</p>
+            <p class="tinyinfo" id="pfArticlesEmpty" style="display:none">სტატიები ცარიელია</p>
           </div>
         </div>
       </div>
@@ -656,6 +696,29 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     if(!/[0-9]/.test(pass)) return 'პაროლში მინ. 1 ციფრი (0-9)';
     return null;
   }
+  // p5 (LittleMoreUpdates.pdf) — same eye/eye-off pattern already used for
+  // login/signup (app.js toggleEye), ported here since this page doesn't
+  // load app.js.
+  function toggleEye(inputId){
+    const inp = document.getElementById(inputId); if(!inp) return;
+    const isPass = inp.type === 'password'; inp.type = isPass ? 'text' : 'password';
+    const btn = inp.parentElement.querySelector('.eye-toggle');
+    if(btn) btn.innerHTML = isPass
+      ? '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>'
+      : '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+  }
+  window.toggleEye = toggleEye;
+  // p5: live checklist under the new-password field (same pattern/strings
+  // as app.js's registration checklist).
+  function updateProfPassChecklist(){
+    const p = (document.getElementById('profNewPass') && document.getElementById('profNewPass').value) || '';
+    const set = (id, cond) => { const el = document.getElementById(id); if(el) el.classList.toggle('ok', cond); };
+    set('pfPcLen', p.length >= 6);
+    set('pfPcUpper', /[A-Z]/.test(p));
+    set('pfPcLower', /[a-z]/.test(p));
+    set('pfPcDigit', /[0-9]/.test(p));
+  }
+  document.getElementById('profNewPass').addEventListener('input', updateProfPassChecklist);
   function profileMsg(msg, color){
     const el = document.getElementById('profileMsg');
     if(msg){ el.textContent = msg; el.style.color = color || 'var(--green)'; el.style.display = 'block'; }
@@ -678,6 +741,8 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     document.getElementById('profBioCount').textContent = (currentUser.bio || '').length + ' / 300';
     document.getElementById('profOldPass').value = '';
     document.getElementById('profNewPass').value = '';
+    document.getElementById('profNewPassConfirm').value = '';
+    updateProfPassChecklist();
     const bal = document.getElementById('balNav'); if(bal) bal.textContent = fmt(currentUser.balance);
     const pill = document.querySelector('.balance-pill'); if(pill) pill.classList.add('visible');
     const picker = document.getElementById('iconPicker');
@@ -688,6 +753,30 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       pendingAvatarType = 'emoji';
       renderAvatarDisplay();
     });
+  }
+
+  // p3 (LittleMoreUpdates.pdf): dedicated save for the bio-only edit flow
+  // (pencil icon → textarea → this button), separate from the big form's
+  // saveProfile() so editing just the bio doesn't also touch email/phone/
+  // password fields.
+  async function saveBioOnly(){
+    if(!currentUser) return;
+    const bio = (document.getElementById('profBio').value||'').trim().slice(0,300);
+    const btn = document.getElementById('pfBioSaveBtn');
+    btn.disabled = true;
+    try{
+      const { data, error } = await sb.from('users').update({ bio: bio || null }).eq('id', currentUser.id).select('bio');
+      if(error) throw error;
+      if(!data || !data.length) throw new Error('row not updated (RLS?)');
+      currentUser.bio = bio || null;
+      document.getElementById('pfBioReadonly').textContent = currentUser.bio || 'ჩემს შესახებ არ არის დამატებული.';
+      editingBio = false;
+      renderBioMode();
+    }catch(e){
+      console.warn('[profile] bio save failed:', e);
+    }finally{
+      btn.disabled = false;
+    }
   }
 
   async function saveProfile(){
@@ -768,9 +857,11 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       }
       if(newPass){
         const pErr = passwordError(newPass); if(pErr){ profileMsg('ახალი '+pErr,'var(--red)'); return; }
+        const newPassConfirm = document.getElementById('profNewPassConfirm').value||'';
+        if(newPass !== newPassConfirm){ profileMsg('პაროლები არ ემთხვევა','var(--red)'); return; }
         if(!oldPass){ profileMsg('შეიყვანე ძველი პაროლი','var(--red)'); return; }
         const { error: signErr } = await sb.auth.signInWithPassword({ email: currentUser.email, password: oldPass });
-        if(signErr){ profileMsg('ძველი პაროლი არასწორია','var(--red)'); document.getElementById('profOldPass').value=''; document.getElementById('profNewPass').value=''; return; }
+        if(signErr){ profileMsg('ძველი პაროლი არასწორია','var(--red)'); document.getElementById('profOldPass').value=''; document.getElementById('profNewPass').value=''; document.getElementById('profNewPassConfirm').value=''; return; }
         const { error: upErr } = await sb.auth.updateUser({ password: newPass });
         if(upErr){ profileMsg('პაროლის შეცვლა ვერ მოხერხდა','var(--red)'); return; }
       }
@@ -836,11 +927,27 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
 
   async function doLogout(){ await sb.auth.signOut(); location.href = '/'; }
 
+  let editingBio = false;
   function applyModeVisibility(){
     document.getElementById('pfAvatarControls').style.display = isOwnProfile ? '' : 'none';
     document.getElementById('pfPrivateSection').style.display = isOwnProfile ? '' : 'none';
-    document.getElementById('bioEditWrap').style.display = isOwnProfile ? '' : 'none';
-    document.getElementById('pfBioReadonly').style.display = isOwnProfile ? 'none' : '';
+    document.getElementById('pfBioEditBtn').style.display = isOwnProfile ? '' : 'none';
+    // p4 (LittleMoreUpdates.pdf): own profile never needs a "პროფილი" /
+    // "შეცვალე შენი ანგარიშის პარამეტრები" heading telling you you're on
+    // your own profile — hidden here. Visiting mode is untouched: it still
+    // shows the visited user's nickname in this same heading.
+    document.getElementById('pfTitleHeading').style.display = isOwnProfile ? 'none' : '';
+    document.getElementById('pfSubHeading').style.display = isOwnProfile ? 'none' : '';
+    renderBioMode();
+  }
+  // p3: own profile shows the saved bio as plain readonly text with a
+  // pencil icon by default; clicking the pencil (pfBioEditBtn, wired in
+  // init()) switches to the editable textarea + its own save button.
+  // Visiting mode never edits — always the readonly display, no pencil.
+  function renderBioMode(){
+    const editing = isOwnProfile && editingBio;
+    document.getElementById('bioEditWrap').style.display = editing ? '' : 'none';
+    document.getElementById('pfBioDisplay').style.display = editing ? 'none' : '';
   }
 
   /* ---------- R4: წაკითხული სტატიების საჯაროდ/დამალვის toggle ---------- */
@@ -853,8 +960,12 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     cb.onchange = async () => {
       const val = cb.checked;
       try {
-        const { error } = await sb.from('users').update({ articles_public: val }).eq('id', currentUser.id);
+        // p4 (LittleMoreUpdates.pdf): .select() added so a 0-row RLS no-op
+        // (silent under plain .update(), no error — just nothing changed)
+        // is caught and reverted instead of being treated as success.
+        const { data, error } = await sb.from('users').update({ articles_public: val }).eq('id', currentUser.id).select('articles_public');
         if (error) throw error;
+        if (!data || !data.length) throw new Error('row not updated (RLS?)');
         currentUser.articles_public = val;
       } catch (e) {
         console.warn('[profile] articles_public update failed:', e);
@@ -923,13 +1034,22 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     if (isOwnProfile) {
       fillForm();
       initAvatarUpload();
+      document.getElementById('pfBioReadonly').textContent = currentUser.bio || 'ჩემს შესახებ არ არის დამატებული.';
       document.getElementById('profBio').addEventListener('input', e => {
         document.getElementById('profBioCount').textContent = e.target.value.length + ' / 300';
       });
+      document.getElementById('pfBioEditBtn').addEventListener('click', () => {
+        editingBio = true;
+        document.getElementById('profBio').value = currentUser.bio || '';
+        document.getElementById('profBioCount').textContent = (currentUser.bio || '').length + ' / 300';
+        renderBioMode();
+        document.getElementById('profBio').focus();
+      });
+      document.getElementById('pfBioSaveBtn').addEventListener('click', saveBioOnly);
       document.getElementById('profileSave').addEventListener('click', saveProfile);
       document.getElementById('profileLogout').addEventListener('click', doLogout);
     } else {
-      document.getElementById('pfBioReadonly').textContent = viewTarget.bio || 'ბიო არ არის დამატებული.';
+      document.getElementById('pfBioReadonly').textContent = viewTarget.bio || 'ჩემს შესახებ არ არის დამატებული.';
     }
     applyArticlesToggleUI();
 
