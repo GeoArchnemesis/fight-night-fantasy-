@@ -12,13 +12,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
 <title>სიახლეები — Fight Night Fantasy</title>
-<meta name="description" content="Fight Night Fantasy — სიახლეები და განახლებები UFC, Formula 1, NBA და ფეხბურთის ფენტეზის შესახებ." />
+<meta name="description" content="სპორტული ფენტეზი, სიახლეები და ანალიზი — UFC, Formula 1, NBA და ფეხბურთი." />
 <link rel="canonical" href="https://fnf.ge/news/" />
+<!-- HREFLANG:START --><link rel="alternate" hreflang="ka" href="https://fnf.ge/news/" />
+<link rel="alternate" hreflang="en" href="https://fnf.ge/en/news/" />
+<link rel="alternate" hreflang="x-default" href="https://fnf.ge/news/" /><!-- HREFLANG:END -->
 <meta property="og:type" content="website" />
+<meta property="og:site_name" content="Fight Night Fantasy" />
+<meta property="og:locale" id="nwOgLocale" content="ka_GE" />
+<!-- OGLOCALEALT:START --><meta property="og:locale:alternate" content="en_US" /><!-- OGLOCALEALT:END -->
 <meta property="og:url" content="https://fnf.ge/news/" />
 <meta property="og:title" content="სიახლეები — Fight Night Fantasy" />
 <meta property="og:description" content="Fight Night Fantasy — სიახლეები და განახლებები." />
 <meta property="og:image" content="https://fnf.ge/og-image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary" />
 <meta name="twitter:title" content="სიახლეები — Fight Night Fantasy" />
 <meta name="twitter:description" content="Fight Night Fantasy — სიახლეები და განახლებები." />
@@ -97,8 +105,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 .nw-head{display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;margin-bottom:28px}
 .nw-title{font-family:var(--display);font-weight:700;font-size:clamp(2rem,6vw,2.8rem);line-height:1.05}
 .nw-lang{display:flex;gap:6px;border:1px solid var(--line);border-radius:8px;padding:4px}
-.nw-lang button{background:none;border:none;color:var(--muted);font-family:inherit;font-weight:700;font-size:var(--fs-meta);padding:6px 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:6px;cursor:pointer}
-.nw-lang button.on{background:var(--surface);color:var(--text)}
+.nw-lang a,.nw-lang span{background:none;border:none;color:var(--muted);font-family:inherit;font-weight:700;font-size:var(--fs-meta);padding:6px 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:6px;text-decoration:none}
+.nw-lang a[aria-current="page"],.nw-lang span[aria-current="page"]{background:var(--surface);color:var(--text)}
 .nw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px}
 .nw-card-wrap{position:relative}
 .nw-card{display:block;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden;text-decoration:none;color:inherit;transition:transform .15s,border-color .15s}
@@ -168,18 +176,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <main class="nw-main">
 <div class="nw-head">
   <h1 class="nw-title">სიახლეები</h1>
-  <div class="nw-lang" id="nwLang">
-    <button type="button" data-lang="ka">ქართ</button>
-    <button type="button" data-lang="en">Eng</button>
-  </div>
+  <!-- LANGTOGGLE:START --><div class="nw-lang" id="nwLang"><a href="/news/" aria-current="page">ქართ</a><a href="/en/news/">Eng</a></div><!-- LANGTOGGLE:END -->
 </div>
 
-<!-- Populated by nwRenderChips() -- "ყველა" + one chip per category
-     actually present among the loaded articles (news_categories has 4
-     rows total, but only ones with a published article get a chip).
-     Baked into the prerendered copy too so the filter UI itself (not
-     just the grid) is in the raw HTML. -->
-<div class="chip-row" id="nwChipRow" hidden></div>
 
 <!-- Grid content between the markers below is baked in by
      scripts/prerender-news.js so a crawler sees real <a href="/news/<slug>/">
@@ -192,14 +191,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="nw-card-wrap">
       <a class="nw-card article-card--hero" href="/news/merab-dvalishvili-fight-week/">
         <img class="nw-card-img" src="https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=400&height=225&resize=cover&quality=75" srcset="https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=400&height=225&resize=cover&quality=75 400w, https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=800&height=450&resize=cover&quality=75 800w, https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=1200&height=675&resize=cover&quality=75 1200w" sizes="(min-width: 480px) 343px, 100vw" width="800" height="450" alt="მერაბ დვალიშვილი და პიოტრ იანი UFC-ის ოქტაგონზე, მსაჯთან ერთად, ბრძოლის დაწყებამდე." loading="lazy" decoding="async" />
-        
         <div class="nw-card-body">
           <h2 class="nw-card-title">მერაბ დვალიშვილი - საბრძოლო კვირა</h2>
-          <p class="nw-card-dek">წაიკითხეთ სიახლეები მერაბ დვალიშვილი vs პიოტრ იანის ტრილოგიის შესახებ. დეტალები მათი წინა ბრძოლების, მერაბის ახალი ტაქტიკისა და მოსამზადებელი პერიოდის შესახებ.</p>
-          <div class="nw-card-meta"><time datetime="1998-10-18T03:00:00+00:00">18 ოქტომბერი, 1998</time> · 1 წთ კითხვა</div>
+          <p class="nw-card-dek">მერაბ დვალიშვილისა და პიოტრ იანის დაპირისპირებამდე ცოტა დრო რჩება.</p>
+          <div class="nw-card-meta"><time datetime="2026-10-18T04:00:00+00:00">18 ოქტომბერი, 2026</time></div>
         </div>
       </a>
     </div><!-- NEWS-GRID:END --></div>
+<div id="nwSkeletons" hidden></div>
+<!-- 600px-before-the-end trigger for the next auto-batch (PRD 10.2 step 4) -->
+<div id="nwSentinel" style="height:1px"></div>
+<button type="button" class="btn btn--lg" id="nwLoadMoreBtn" style="display:none;margin:20px auto 0" onclick="nwLoadMore()">მეტის ჩვენება</button>
+<div id="nwLiveRegion" class="sr-only" aria-live="polite"></div>
 </main>
 
 <div class="nw-share-pop-bg" id="nwSharePopBg" onclick="if(event.target===this) nwCloseSharePopover()">
@@ -422,14 +425,11 @@ const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
 // იგივე საჯარო anon key, რასაც app.js/admin.html იყენებს.
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
 
-// Simple, news-section-only KA/EN toggle. Not related to any
-// site-wide i18n mechanism -- Phase C5 (site-wide translation +
-// language switcher) hasn't started yet, so there's nothing to reuse.
-// Persisted via localStorage so it carries from here into the article
-// detail page, but touches nothing outside /news/.
-const NW_LANG_KEY = 'fnf_news_lang';
-function nwGetLang() { try { return localStorage.getItem(NW_LANG_KEY) || 'ka'; } catch (e) { return 'ka'; } }
-function nwSetLang(l) { try { localStorage.setItem(NW_LANG_KEY, l); } catch (e) {} }
+// This page's own fixed language -- /en/news/ is English, /news/ is
+// Georgian. Each language has its own dedicated URL (task 2), so there
+// is no stored-preference toggle anymore: the KA/EN buttons are real
+// links to the other listing page, not a client-side switch.
+const PAGE_LANG = document.documentElement.lang === 'en' ? 'en' : 'ka';
 
 // ka-GE month names, hardcoded -- Intl/toLocaleDateString('ka-GE', ...)
 // silently falls back to English month abbreviations on some browsers
@@ -460,22 +460,8 @@ function nwCoverAltFor(a, lang) {
 function nwLikeCount(a) { return (a.news_reactions && a.news_reactions[0] && a.news_reactions[0].count) || 0; }
 function nwCommentCount(a) { return (a.news_comments && a.news_comments[0] && a.news_comments[0].count) || 0; }
 
-// Math.ceil(wordCount / 160) per the PRD -- strips the rich-text body's
-// tags first so markup doesn't inflate the word count.
-function nwReadingTime(a, lang) {
-  const body = (lang === 'en' && a.body_en) ? a.body_en : a.body_ka;
-  const text = (body || '').replace(/<[^>]+>/g, ' ').trim();
-  const words = text ? text.split(/\s+/).length : 0;
-  return Math.max(1, Math.ceil(words / 160));
-}
-function nwCatsFor(a) {
-  return (a.news_article_categories || []).map(x => x.news_categories).filter(Boolean);
-}
-function nwCatPillHtml(a, lang) {
-  const cats = nwCatsFor(a);
-  if (!cats.length) return '';
-  const name = (lang === 'en' && cats[0].name_en) ? cats[0].name_en : cats[0].name_ka;
-  return `<span class="nw-cat-pill">${name.replace(/</g, '&lt;')}</span>`;
+function nwArticleUrl(a, lang) {
+  return lang === 'en' ? `/en/news/${encodeURIComponent(a.slug)}/` : `/news/${encodeURIComponent(a.slug)}/`;
 }
 
 // Inline SVGs (stroke="currentColor") so icons pick up each context's
@@ -487,39 +473,6 @@ const NW_ICON_COMMENT = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" st
 const NW_ICON_SHARE = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.3"/><circle cx="6" cy="12" r="2.3"/><circle cx="18" cy="19" r="2.3"/><line x1="8" y1="10.8" x2="16" y2="6.3"/><line x1="8" y1="13.2" x2="16" y2="17.7"/></svg>';
 
 let nwArticles = [];
-// Category pages are real routes (/news/category/<slug>/, a separate
-// prerendered copy of this same file -- scripts/prerender-news.js),
-// not a query string, so the active filter comes from the path itself.
-// Chips are real <a href> links (not buttons with a client-side filter
-// + re-render): that makes every category reachable via a crawlable
-// link in the raw HTML, and sidesteps a hydration mismatch -- a client
-// re-render that reset the filter on every page load would otherwise
-// undo the whole point of a dedicated category route.
-const NW_CAT_MATCH = location.pathname.match(/^\/news\/category\/([a-z0-9-]+)\/?$/);
-let nwActiveCat = NW_CAT_MATCH ? NW_CAT_MATCH[1] : null;
-
-// Distinct categories actually present across the loaded articles, in
-// first-seen order -- not every row in news_categories necessarily has
-// a published article yet, so the chip row only offers ones that do.
-function nwDistinctCats() {
-  const seen = new Map();
-  nwArticles.forEach(a => nwCatsFor(a).forEach(c => { if (!seen.has(c.slug)) seen.set(c.slug, c); }));
-  return [...seen.values()];
-}
-function nwRenderChips() {
-  const row = document.getElementById('nwChipRow');
-  if (!row) return;
-  const lang = nwGetLang();
-  const cats = nwDistinctCats();
-  if (!cats.length) { row.innerHTML = ''; row.hidden = true; return; }
-  row.hidden = false;
-  const allChip = `<a class="chip" href="/news/"${nwActiveCat === null ? ' aria-current="page"' : ''}>ყველა</a>`;
-  const catChips = cats.map(c => {
-    const name = (lang === 'en' && c.name_en) ? c.name_en : c.name_ka;
-    return `<a class="chip" href="/news/category/${c.slug}/"${nwActiveCat === c.slug ? ' aria-current="page"' : ''}>${name.replace(/</g, '&lt;')}</a>`;
-  }).join('');
-  row.innerHTML = allChip + catChips;
-}
 
 // Supabase Storage image transforms (confirmed enabled on this project):
 // the object endpoint (/storage/v1/object/public/...) ignores query
@@ -555,13 +508,12 @@ function nwHeroCardHtml(a, lang) {
     : '';
   return `
     <div class="nw-card-wrap">
-      <a class="nw-card article-card--hero" href="/news/${encodeURIComponent(a.slug)}/">
+      <a class="nw-card article-card--hero" href="${nwArticleUrl(a, lang)}">
         ${img}
-        ${nwCatPillHtml(a, lang)}
         <div class="nw-card-body">
           <h2 class="nw-card-title">${nwTitleFor(a, lang)}</h2>
           ${dek ? `<p class="nw-card-dek">${dek.replace(/</g, '&lt;')}</p>` : ''}
-          <div class="nw-card-meta"><time datetime="${a.published_at || ''}">${dateStr}</time> · ${nwReadingTime(a, lang)} წთ კითხვა</div>
+          <div class="nw-card-meta"><time datetime="${a.published_at || ''}">${dateStr}</time></div>
           <div class="nw-card-stats">
             <span class="nw-card-stat">${NW_ICON_LIKE} <span>${nwLikeCount(a)}</span></span>
             <span class="nw-card-stat">${NW_ICON_COMMENT} <span>${nwCommentCount(a)}</span></span>
@@ -580,12 +532,11 @@ function nwListCardHtml(a, lang) {
     : '';
   return `
     <div class="nw-card-wrap">
-      <a class="nw-card article-card--list" href="/news/${encodeURIComponent(a.slug)}/">
+      <a class="nw-card article-card--list" href="${nwArticleUrl(a, lang)}">
         ${img}
         <div class="acl-content">
-          ${nwCatPillHtml(a, lang)}
           <h2 class="acl-title">${nwTitleFor(a, lang)}</h2>
-          <div class="acl-meta"><time datetime="${a.published_at || ''}">${dateStr}</time> · ${nwReadingTime(a, lang)} წთ კითხვა</div>
+          <div class="acl-meta"><time datetime="${a.published_at || ''}">${dateStr}</time></div>
         </div>
       </a>
       <button type="button" class="nw-card-share" data-share-slug="${a.slug}" title="გაზიარება" aria-label="გაზიარება">${NW_ICON_SHARE}</button>
@@ -593,34 +544,107 @@ function nwListCardHtml(a, lang) {
 }
 
 function nwRender() {
-  const lang = nwGetLang();
-  document.querySelectorAll('#nwLang button').forEach(b => b.classList.toggle('on', b.dataset.lang === lang));
-  nwRenderChips();
-
   const grid = document.getElementById('nwGrid');
-  const filtered = nwActiveCat
-    ? nwArticles.filter(a => nwCatsFor(a).some(c => c.slug === nwActiveCat))
-    : nwArticles;
+  // The EN listing only ever shows EN-eligible articles (same skip rule
+  // as individual EN article pages, task 2a) -- nwArticles is already
+  // pre-filtered by nwLoad()/nwLoadMore() when PAGE_LANG is 'en'.
+  if (!nwArticles.length) { grid.innerHTML = `<div class="nw-empty">${PAGE_LANG === 'en' ? 'No articles yet' : 'სტატია ჯერ არ არის'}</div>`; return; }
 
-  if (!filtered.length) { grid.innerHTML = '<div class="nw-empty">სტატია ჯერ არ არის</div>'; return; }
-
-  const [hero, ...rest] = filtered;
-  grid.innerHTML = nwHeroCardHtml(hero, lang) + rest.map(a => nwListCardHtml(a, lang)).join('');
+  const [hero, ...rest] = nwArticles;
+  grid.innerHTML = nwHeroCardHtml(hero, PAGE_LANG) + rest.map(a => nwListCardHtml(a, PAGE_LANG)).join('');
 }
 
-document.getElementById('nwLang').addEventListener('click', (e) => {
-  const btn = e.target.closest('button[data-lang]');
-  if (!btn) return;
-  nwSetLang(btn.dataset.lang);
-  nwRender();
-});
+// ─────────────────────────────────────────────────────────────
+//  PHASE 5 -- infinite scroll (PRD 10.2 step 4-6).
+// ─────────────────────────────────────────────────────────────
+const NW_BATCH_SIZE = 12;
+const NW_MAX_AUTO_BATCHES = 3;
+let nwBatchesLoaded = 0;
+// Raw Supabase row offset -- kept separate from nwArticles.length since
+// the EN listing filters out non-EN-eligible rows after fetching, so the
+// two can diverge (task 2a's skip rule applies here too).
+let nwFetchOffset = 0;
+let nwLoadingMore = false;
+let nwHasMore = true;
+let nwSentinelObserver = null;
+
+function nwSkeletonBatchHtml(n) {
+  return Array.from({ length: n }).map(() => `
+    <div class="nw-card-wrap" aria-hidden="true">
+      <div class="article-card--list">
+        <div class="skeleton skeleton--thumb"></div>
+        <div class="acl-content">
+          <div class="skeleton skeleton--line w-60" style="margin-bottom:10px"></div>
+          <div class="skeleton skeleton--line w-80"></div>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function nwSetupSentinel() {
+  const sentinel = document.getElementById('nwSentinel');
+  if (!sentinel || nwSentinelObserver) return;
+  // rootMargin's bottom value extends the trigger zone 600px past the
+  // viewport's actual bottom edge, so the fetch starts while the
+  // sentinel is still that far below the fold (PRD: "600px before the
+  // end of the feed"), not only once it's actually scrolled into view.
+  nwSentinelObserver = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) nwLoadMore();
+  }, { rootMargin: '0px 0px 600px 0px' });
+  nwSentinelObserver.observe(sentinel);
+}
+
+// In-flight flag + unobserve (not just the flag alone) -- fast scrolling
+// can otherwise re-trigger the observer callback again before the first
+// fetch's await has even returned, since unobserve() is itself async
+// relative to a rapid scroll.
+async function nwLoadMore() {
+  if (nwLoadingMore || !nwHasMore) return;
+  nwLoadingMore = true;
+  const sentinel = document.getElementById('nwSentinel');
+  if (nwSentinelObserver && sentinel) nwSentinelObserver.unobserve(sentinel);
+  document.getElementById('nwLoadMoreBtn').style.display = 'none';
+
+  const skelBox = document.getElementById('nwSkeletons');
+  skelBox.innerHTML = nwSkeletonBatchHtml(3);
+  skelBox.hidden = false;
+
+  const { data, error } = await nwFetchArticlesPage(nwFetchOffset, NW_BATCH_SIZE);
+
+  skelBox.hidden = true;
+  skelBox.innerHTML = '';
+
+  if (error || !data) { nwLoadingMore = false; return; }
+
+  nwFetchOffset += data.length;
+  const eligible = PAGE_LANG === 'en' ? data.filter(a => a.title_en && a.body_en) : data;
+  document.getElementById('nwGrid').insertAdjacentHTML('beforeend', eligible.map((a) => nwListCardHtml(a, PAGE_LANG)).join(''));
+  nwArticles = nwArticles.concat(eligible);
+  nwHasMore = data.length === NW_BATCH_SIZE;
+  nwBatchesLoaded++;
+
+  const live = document.getElementById('nwLiveRegion');
+  if (live) live.textContent = `დაემატა ${data.length} სტატია`;
+
+  nwLoadingMore = false;
+
+  if (nwHasMore) {
+    if (nwBatchesLoaded < NW_MAX_AUTO_BATCHES) {
+      if (nwSentinelObserver && sentinel) nwSentinelObserver.observe(sentinel);
+    } else {
+      document.getElementById('nwLoadMoreBtn').style.display = '';
+    }
+  }
+}
 
 // ─────────────────────────────────────────────────────────────
-//  SHARE — delegated at the grid level (same pattern as the #nwLang
-//  listener above) rather than one inline onclick per card: slugs are
-//  DB-constrained to [a-z0-9-] (news_table.sql's slug format check),
-//  so a data-attribute lookup is both safe and simpler than escaping
-//  arbitrary article titles into an inline onclick string.
+//  SHARE — delegated at the grid level rather than one inline onclick
+//  per card: slugs are DB-constrained to [a-z0-9-] (news_table.sql's
+//  slug format check), so a data-attribute lookup is both safe and
+//  simpler than escaping arbitrary article titles into an inline
+//  onclick string. The #nwLang KA/EN toggle needs no listener anymore
+//  -- it's a real <a href> to the other listing page (task 2g), not a
+//  client-side switch.
 // ─────────────────────────────────────────────────────────────
 document.getElementById('nwGrid').addEventListener('click', (e) => {
   const btn = e.target.closest('.nw-card-share');
@@ -629,8 +653,8 @@ document.getElementById('nwGrid').addEventListener('click', (e) => {
   e.stopPropagation();
   const art = nwArticles.find(a => a.slug === btn.dataset.shareSlug);
   if (!art) return;
-  const url = `${location.origin}/news/${encodeURIComponent(art.slug)}/`;
-  nwShare(url, nwTitleFor(art, nwGetLang()));
+  const url = `${location.origin}${nwArticleUrl(art, PAGE_LANG)}`;
+  nwShare(url, nwTitleFor(art, PAGE_LANG));
 });
 
 // Web Share API first (native share sheet -- Messenger/Instagram/
@@ -675,32 +699,43 @@ async function nwCopyShareLink() {
   }
 }
 
-async function nwLoad() {
+// RLS (news_select_published policy, supabase/news_table.sql) already
+// restricts anon reads to is_published=true -- the explicit filter here
+// is just defense-in-depth / clarity, not the real gate.
+// news_reactions!left(count) / news_comments!left(count) are PostgREST
+// embedded aggregate counts, not per-article round-trips -- !left keeps
+// articles with zero likes/comments in the result (a filtered embed
+// defaults to an inner join, which would otherwise drop them).
+// news_comments RLS (news_comments_select_public) already restricts
+// anon reads to is_deleted=false, so counting it needs no extra filter;
+// news_reactions has no such restriction, hence the explicit
+// reaction=eq.like filter to count likes only (not dislikes).
+// body_ka/body_en are fetched only to compute reading time client-side
+// (Math.ceil(wordCount/160)) -- there's no separate excerpt column, and
+// meta_description_* doubles as the hero card's dek.
+// offset/limit null -> no .range(), i.e. fetch everything; otherwise a
+// single page for the main listing's infinite scroll.
+async function nwFetchArticlesPage(offset, limit) {
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  // RLS (news_select_published policy, supabase/news_table.sql) already
-  // restricts anon reads to is_published=true -- the explicit filter
-  // here is just defense-in-depth / clarity, not the real gate.
-  // news_reactions!left(count) / news_comments!left(count) are
-  // PostgREST embedded aggregate counts, not per-article round-trips --
-  // !left keeps articles with zero likes/comments in the result (a
-  // filtered embed defaults to an inner join, which would otherwise
-  // drop them). news_comments RLS (news_comments_select_public) already
-  // restricts anon reads to is_deleted=false, so counting it needs no
-  // extra filter; news_reactions has no such restriction, hence the
-  // explicit reaction=eq.like filter below to count likes only (not
-  // dislikes). body_ka/body_en are fetched only to compute reading time
-  // client-side (Math.ceil(wordCount/160)) -- there's no separate excerpt
-  // column, and meta_description_* doubles as the hero card's dek.
-  const { data, error } = await sb
+  let q = sb
     .from('news')
-    .select('id,title_ka,title_en,slug,body_ka,body_en,cover_image_url,cover_image_alt_ka,cover_image_alt_en,meta_description_ka,meta_description_en,published_at,news_article_categories(category_id,news_categories(id,name_ka,name_en,slug)),news_reactions!left(count),news_comments!left(count)')
+    .select('id,title_ka,title_en,slug,body_ka,body_en,cover_image_url,cover_image_alt_ka,cover_image_alt_en,meta_description_ka,meta_description_en,published_at,news_reactions!left(count),news_comments!left(count)')
     .eq('is_published', true)
     .eq('news_reactions.reaction', 'like')
     .order('published_at', { ascending: false });
+  if (limit != null) q = q.range(offset, offset + limit - 1);
+  return q;
+}
 
+async function nwLoad() {
+  const { data, error } = await nwFetchArticlesPage(0, NW_BATCH_SIZE);
   if (error) { document.getElementById('nwGrid').innerHTML = `<div class="nw-empty">შეცდომა: ${error.message}</div>`; return; }
-  nwArticles = data || [];
+  nwFetchOffset = (data || []).length;
+  nwHasMore = (data || []).length === NW_BATCH_SIZE;
+  // EN listing only shows EN-eligible articles (task 2a's skip rule).
+  nwArticles = PAGE_LANG === 'en' ? (data || []).filter(a => a.title_en && a.body_en) : (data || []);
   nwRender();
+  if (nwHasMore) nwSetupSentinel();
 }
 
 document.addEventListener('DOMContentLoaded', nwLoad);

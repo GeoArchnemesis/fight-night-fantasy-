@@ -22,8 +22,12 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
 </script>
 <meta name="description" id="nwDescTag" content="Fight Night Fantasy — სიახლეები." />
 <link rel="canonical" id="nwCanonical" href="https://fnf.ge/news/" />
+<!-- HREFLANG:START --><!-- HREFLANG:END -->
 <meta property="og:url" id="nwOgUrl" content="https://fnf.ge/news/" />
 <meta property="og:type" content="article" />
+<meta property="og:site_name" content="Fight Night Fantasy" />
+<meta property="og:locale" id="nwOgLocale" content="ka_GE" />
+<!-- OGLOCALEALT:START --><!-- OGLOCALEALT:END -->
 <meta property="og:title" id="nwOgTitle" content="Fight Night Fantasy — სიახლეები" />
 <meta property="og:description" id="nwOgDesc" content="Fight Night Fantasy — სიახლეები." />
 <meta property="og:image" id="nwOgImage" content="https://fnf.ge/logo.png" />
@@ -127,6 +131,11 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
    (this stays the two-column 1100px layout; .nw-comments matches the
    article column alone at 760px, not the full width+sidebar). */
 .nw-layout{flex:1;width:min(1100px,calc(100% - 2*var(--gutter)));margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:40px;align-items:start}
+/* Continuous-reading articles (PRD 10.4) have content only, no sidebar
+   -- single column at every width, not just the mobile breakpoint
+   below, or a 300px empty grid track would show up next to them on
+   desktop. */
+.nw-layout--continuous{grid-template-columns:1fr;border-top:1px solid var(--line);padding-top:clamp(24px,5vw,48px);margin-top:clamp(24px,5vw,48px)}
 .nw-art{min-width:0;padding:clamp(24px,5vw,48px) 0 60px}
 .nw-sidebar{padding:clamp(24px,5vw,48px) 0 60px}
 .nw-sidebar-inner{position:sticky;top:20px}
@@ -150,8 +159,8 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
 .nw-back::after{content:"";position:absolute;top:50%;left:0;transform:translateY(-50%);width:100%;min-width:44px;height:44px}
 .nw-back:hover{color:var(--text)}
 .nw-lang{display:inline-flex;gap:6px;border:1px solid var(--line);border-radius:8px;padding:4px;margin-bottom:18px}
-.nw-lang button{background:none;border:none;color:var(--muted);font-family:inherit;font-weight:700;font-size:var(--fs-meta);padding:6px 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:6px;cursor:pointer}
-.nw-lang button.on{background:var(--surface);color:var(--text)}
+.nw-lang a,.nw-lang span{background:none;border:none;color:var(--muted);font-family:inherit;font-weight:700;font-size:var(--fs-meta);padding:6px 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:6px;text-decoration:none}
+.nw-lang a[aria-current="page"],.nw-lang span[aria-current="page"]{background:var(--surface);color:var(--text)}
 /* line-height is unitless (a ratio), not a fixed px, because font-size
    is itself fluid (clamp 32-46.4px) -- 1.1875 is exactly 38px/32px, so
    it hits the PRD's target line-height at the clamp's floor and scales
@@ -186,11 +195,24 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
    narrow widths and a short, too-wide one at wide widths, never 16:9. */
 .nw-art-cover{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;border-radius:12px;margin-bottom:24px;display:block}
 .nw-art-fallback-note{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:10px 14px;font-size:var(--fs-meta);color:var(--muted);margin-bottom:18px}
+/* Optional "მოუსმინე" player (PRD Phase 6 item 5) -- only ever rendered
+   if nwSetupAudioPlayer() finds both speechSynthesis and a Georgian
+   voice; #nwAudioPlayerSlot stays empty otherwise. */
+.nw-audio{display:flex;align-items:center;gap:12px;padding:12px 16px;margin-bottom:20px}
+.nw-audio-playpause{width:44px;height:44px;border-radius:50%;background:var(--gold);color:var(--ink);flex-shrink:0;display:grid;place-items:center}
+.nw-audio-skip{color:var(--text)}
+.nw-audio-mid{flex:1;min-width:0}
+.nw-audio-label{font-size:var(--fs-meta);color:var(--muted);margin-bottom:4px}
+.nw-audio-bar{height:4px;border-radius:var(--r-pill);background:var(--surface-3);overflow:hidden}
+.nw-audio-bar>i{display:block;height:100%;width:0;background:var(--gold)}
+.nw-audio-rate{font-family:var(--mono);font-size:var(--fs-meta);font-weight:700;color:var(--text);border:1px solid var(--line);border-radius:var(--r-pill);padding:6px 12px;min-height:44px;flex-shrink:0}
 .nw-art-body{color:var(--text);font-size:1rem;line-height:1.8}
 .nw-art-body h2{font-family:var(--display);font-weight:700;color:var(--gold);font-size:1.3rem;margin:24px 0 10px}
 .nw-art-body p{margin-bottom:14px}
 .nw-art-body ul,.nw-art-body ol{padding-left:22px;margin-bottom:14px}
 .nw-art-body a{color:var(--blue-soft)}
+.nw-sport-cta{margin-top:18px;color:var(--muted);font-size:.9rem}
+.nw-sport-cta a{color:var(--blue-soft);text-decoration:underline}
 .nw-loading,.nw-notfound{color:var(--muted);font-size:.9rem;padding:40px 0;text-align:center}
 
 .nw-comments{width:min(760px,calc(100% - 2*var(--gutter)));margin:0 auto;padding:0 0 60px;border-top:1px solid var(--line);padding-top:36px}
@@ -260,7 +282,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
      appends a second article. -->
 <div class="read-progress" id="nwReadProgress"><i></i></div>
 
-<div class="nw-layout">
+<div class="nw-layout" id="nwFirstArticle">
 <main class="nw-art" id="nwArt">
 <a class="nw-back" href="/news/">← სიახლეები</a>
 <div class="nw-loading">იტვირთება...</div>
@@ -283,6 +305,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div id="nwCommentAuthArea"></div>
   <div id="nwCommentsList"></div>
 </section>
+
+<!-- PRD 10.4 -- continuous reading. Each appended article is its own
+     <article class="nw-layout" data-slug data-url data-title
+     data-canonical>, content only (no sidebar/reactions/comments of its
+     own -- those stay bound to #nwFirstArticle only, out of this
+     phase's explicit scope). #nwContinuousSentinel sits 1200px below
+     whichever article is currently last; nwRepositionSentinel() moves
+     it after every append. -->
+<div id="nwContinuousFeed"></div>
+<div id="nwContinuousSentinel" style="height:1px"></div>
 
 <div class="nw-share-pop-bg" id="nwSharePopBg" onclick="if(event.target===this) nwCloseSharePopover()">
   <div class="nw-share-pop">
@@ -503,9 +535,45 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
 const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
 
-const NW_LANG_KEY = 'fnf_news_lang';
-function nwGetLang() { try { return localStorage.getItem(NW_LANG_KEY) || 'ka'; } catch (e) { return 'ka'; } }
-function nwSetLang(l) { try { localStorage.setItem(NW_LANG_KEY, l); } catch (e) {} }
+// Approved author bios (2026-10-22), for the Person schema and the
+// author-line tooltip. Keyed by the exact `author` string in Supabase.
+const NW_AUTHOR_BIOS = {
+  GeoArchnemesis: 'GeoArchnemesis — FNF.GE-ის ჟურნალისტი და დამფუძნებელი.',
+};
+function nwAuthorHtml(author, lang) {
+  // Bio is Georgian only -- not shown as a tooltip on the English page
+  // (would read oddly mid-English, see scripts/prerender-news.js).
+  const bio = lang === 'ka' && author && NW_AUTHOR_BIOS[author];
+  return bio ? `<span title="${nwEscapeHtml(bio)}">${author}</span>` : (author || '');
+}
+
+// Mirrors sportCtaHtml() in scripts/prerender-news.js -- keep in sync.
+// Without categories there's no reliable "this article is about sport X"
+// signal, so this points at the homepage rather than guessing one.
+function nwSportCtaHtml(lang) {
+  return lang === 'en'
+    ? `<p class="nw-sport-cta">Play fantasy sports at <a href="/">Fight Night Fantasy</a>.</p>`
+    : `<p class="nw-sport-cta">ითამაშე <a href="/">ფენტეზი</a> Fight Night Fantasy-ზე.</p>`;
+}
+
+// Mirrors breadcrumbJsonLd() in scripts/prerender-news.js -- keep in sync.
+function nwBreadcrumbJsonLd(items) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: items.map((it, i) => ({ '@type': 'ListItem', position: i + 1, name: it.name, item: it.url })),
+  };
+}
+function nwInjectBreadcrumbLd(ld) {
+  let script = document.getElementById('nwBreadcrumbLd');
+  if (!script) {
+    script = document.createElement('script');
+    script.id = 'nwBreadcrumbLd';
+    script.type = 'application/ld+json';
+    document.head.appendChild(script);
+  }
+  script.textContent = JSON.stringify(ld);
+}
 
 // ka-GE month names, hardcoded -- Intl/toLocaleDateString('ka-GE', ...)
 // silently falls back to English month abbreviations on some browsers
@@ -583,18 +651,13 @@ function nwExcerpt(html, maxLen) {
   return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trim() + '…';
 }
 
-// Math.ceil(wordCount / 160), mirrors news/index.html's nwReadingTime().
-function nwReadingTime(body) {
-  const text = (body || '').replace(/<[^>]+>/g, ' ').trim();
-  const words = text ? text.split(/\s+/).length : 0;
-  return Math.max(1, Math.ceil(words / 160));
-}
-
 function nwRenderArticle() {
   const a = nwArticle;
-  const lang = nwGetLang();
-  const hasEn = !!(a.title_en && a.body_en);
-  const effectiveLang = (lang === 'en' && hasEn) ? 'en' : 'ka';
+  // The page's own fixed language (from its URL), not a stored
+  // preference -- /news/<slug>/ and /en/news/<slug>/ are separate pages
+  // now (task 2), so there is no more in-place toggle to resolve here.
+  const effectiveLang = nwPageLang();
+  const enExists = !!(a.title_en && a.body_en);
 
   const title = effectiveLang === 'en' ? a.title_en : a.title_ka;
   const body  = effectiveLang === 'en' ? a.body_en  : a.body_ka;
@@ -608,9 +671,9 @@ function nwRenderArticle() {
   const metaDesc = (effectiveLang === 'en' ? a.meta_description_en : a.meta_description_ka) || nwExcerpt(body, 155);
   nwCurrentTitle = title;
 
-  // Clean /news/<slug>/ form -- real pages now, since Phase 0b bakes a
-  // copy of this template at that path (scripts/prerender-news.js).
-  const cleanUrl = `https://fnf.ge/news/${a.slug}/`;
+  const kaUrl = `https://fnf.ge/news/${a.slug}/`;
+  const enUrl = `https://fnf.ge/en/news/${a.slug}/`;
+  const cleanUrl = effectiveLang === 'en' ? enUrl : kaUrl;
   nwCurrentUrl = cleanUrl;
 
   document.getElementById('nwTitleTag').textContent = metaTitle;
@@ -629,66 +692,81 @@ function nwRenderArticle() {
   }
 
   const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), effectiveLang, 'long') : '';
-
-  const fallbackNote = (lang === 'en' && !hasEn)
-    ? `<div class="nw-art-fallback-note">ეს სტატია ჯერ არ არის თარგმნილი ინგლისურად — ნაჩვენებია ქართული ვერსია. / This article isn't translated to English yet — showing the Georgian version.</div>`
-    : '';
-
-  const cats = (a.news_article_categories || []).map(x => x.news_categories).filter(Boolean);
-  const chipsHtml = cats.length
-    ? `<div class="nw-chips">${cats.map(c => `<span class="nw-cat-pill">${((effectiveLang === 'en' && c.name_en) ? c.name_en : c.name_ka).replace(/</g, '&lt;')}</span>`).join('')}</div>`
-    : '';
-  const readMins = nwReadingTime(body);
+  const backLabel = effectiveLang === 'en' ? '← News' : '← სიახლეები';
+  const backHref = effectiveLang === 'en' ? '/en/news/' : '/news/';
+  const kaHref = `/news/${a.slug}/`;
+  const enHref = `/en/news/${a.slug}/`;
+  const langToggleHtml = (effectiveLang === 'ka' && !enExists)
+    ? `<span aria-current="page">ქართ</span>`
+    : `<a href="${kaHref}"${effectiveLang === 'ka' ? ' aria-current="page"' : ''}>ქართ</a><a href="${enHref}"${effectiveLang === 'en' ? ' aria-current="page"' : ''}>Eng</a>`;
 
   document.getElementById('nwArt').innerHTML = `
-    <a class="nw-back" href="/news/">← სიახლეები</a>
-    <div class="nw-lang" id="nwLang">
-      <button type="button" data-lang="ka">ქართ</button>
-      <button type="button" data-lang="en">Eng</button>
-    </div>
-    ${fallbackNote}
-    ${chipsHtml}
+    <a class="nw-back" href="${backHref}">${backLabel}</a>
+    <div class="nw-lang" id="nwLang">${langToggleHtml}</div>
     <h1 class="nw-art-title">${title}</h1>
-    <div class="nw-art-meta">${[a.author, dateStr ? `<time datetime="${a.published_at || ''}">${dateStr}</time>` : ''].filter(Boolean).join(' · ')}${dateStr ? ` · ${readMins} წთ კითხვა` : ''}</div>
+    <div class="nw-art-meta">${[nwAuthorHtml(a.author, effectiveLang), dateStr ? `<time datetime="${a.published_at || ''}">${dateStr}</time>` : ''].filter(Boolean).join(' · ')}</div>
+    <div id="nwAudioPlayerSlot"></div>
     ${a.cover_image_url ? `<img class="nw-art-cover" src="${nwTransformUrl(a.cover_image_url, 800, 75, 450)}" srcset="${nwSrcset(a.cover_image_url, [[400, 225], [800, 450], [1200, 675], [1600, 900]], 75)}" sizes="(min-width: 1100px) 760px, (min-width: 768px) 700px, 100vw" width="800" height="450" alt="${alt.replace(/"/g, '&quot;')}" loading="eager" fetchpriority="high" decoding="async" />` : ''}
     <div class="nw-art-body">${body}</div>
+    ${nwSportCtaHtml(effectiveLang)}
   `;
-  document.querySelectorAll('#nwLang button').forEach(b => {
-    b.classList.toggle('on', b.dataset.lang === lang);
-    b.onclick = () => { nwSetLang(b.dataset.lang); nwRenderArticle(); };
-  });
+  // Optional (PRD Phase 6 item 5) -- feature-detects speechSynthesis AND
+  // an actual Georgian voice before rendering anything; async because
+  // getVoices() can return empty until the browser's 'voiceschanged'
+  // event fires, so this can't just be a synchronous check inline above.
+  nwSetupAudioPlayer(body);
 
-  nwInjectJsonLd(a);
-  // #nwReactions is rebuilt by this innerHTML write (e.g. on every ka/
-  // en toggle), so its content has to be redrawn every time too --
-  // nwRenderReactions() is a no-op-safe read of already-loaded state,
-  // not a refetch.
+  nwInjectJsonLd(a, effectiveLang, title);
+  const homeLabel = effectiveLang === 'en' ? 'Home' : 'მთავარი';
+  const newsLabel = effectiveLang === 'en' ? 'News' : 'სიახლეები';
+  const newsUrl = effectiveLang === 'en' ? 'https://fnf.ge/en/news/' : 'https://fnf.ge/news/';
+  nwInjectBreadcrumbLd(nwBreadcrumbJsonLd([
+    { name: homeLabel, url: 'https://fnf.ge/' },
+    { name: newsLabel, url: newsUrl },
+    { name: title, url: cleanUrl },
+  ]));
+  // #nwReactions is rebuilt by this innerHTML write, so its content has
+  // to be redrawn every time too -- nwRenderReactions() is a
+  // no-op-safe read of already-loaded state, not a refetch.
   nwRenderReactions();
   // #nwSidebarList lives outside #nwArt (survives this innerHTML
-  // write) but its titles/dates are language-dependent, so re-render
-  // it on every ka/en toggle too -- also a read of already-loaded
-  // state, safe to call before nwLoadSidebarArticles() resolves.
+  // write) -- a read of already-loaded state, safe to call before
+  // nwLoadSidebarArticles() resolves.
   nwRenderSidebarList();
+
+  // PRD 10.4 -- the dominant-article observer (set up once nwLoad()
+  // resolves, see below) reads these off every [data-slug] element,
+  // #nwFirstArticle included, to know which article is on screen.
+  const first = document.getElementById('nwFirstArticle');
+  if (first) {
+    first.dataset.slug = a.slug;
+    first.dataset.url = cleanUrl;
+    first.dataset.title = metaTitle;
+    first.dataset.canonical = cleanUrl;
+    first.dataset.publishedAt = a.published_at || '';
+  }
 }
 
-// Article JSON-LD always describes the Georgian (primary, guaranteed-
-// present) version regardless of the client-side language toggle.
-// On a prerendered /news/<slug>/ page (scripts/prerender-news.js) this
-// script tag already exists, baked with the same shape under id
-// nwJsonLd -- this upserts by id instead of always appending, so a
-// crawler that never runs JS still sees it, and one that does doesn't
-// get two. There is no `updated_at` column in `news` (no schema
-// changes in this pass), so dateModified falls back to datePublished.
-function nwInjectJsonLd(a) {
+// Article JSON-LD describes THIS page's own language (ka or en -- see
+// nwPageLang()), matching whichever URL the reader is actually on.
+// On a prerendered /news/<slug>/ or /en/news/<slug>/ page
+// (scripts/prerender-news.js) this script tag already exists, baked
+// with the same shape under id nwJsonLd -- this upserts by id instead
+// of always appending, so a crawler that never runs JS still sees it,
+// and one that does doesn't get two. There is no `updated_at` column in
+// `news` (no schema changes in this pass), so dateModified falls back
+// to datePublished.
+function nwInjectJsonLd(a, lang, title) {
   const ld = {
     "@context": "https://schema.org",
     "@type": "Article",
-    "headline": a.title_ka,
+    "headline": title,
+    "inLanguage": lang,
     "datePublished": a.published_at || undefined,
     "dateModified": a.published_at || undefined,
     "image": a.cover_image_url || undefined,
   };
-  if (a.author) ld.author = { "@type": "Person", "name": a.author };
+  if (a.author) ld.author = { "@type": "Person", "name": a.author, "description": (lang === 'ka' && NW_AUTHOR_BIOS[a.author]) || undefined };
   let script = document.getElementById('nwJsonLd');
   if (!script) {
     script = document.createElement('script');
@@ -717,7 +795,7 @@ async function nwInitEngagement() {
   await nwLoadReactionCounts();
 }
 
-// Mirrors the is_admin lookup admin/news.html already does at login
+// Mirrors the is_admin lookup EPJQI8FX/news.html already does at login
 // (sb.from('users').select('is_admin').eq('id', <own id>)) -- a user
 // reading their own row is an already-working, established pattern
 // in this project; reading another user's row is not (see
@@ -1047,70 +1125,74 @@ async function nwCopyShareLink() {
 // ─────────────────────────────────────────────────────────────
 let nwSidebarArticles = [];
 
-// categoryIds=[] (article has no categories) intentionally yields an
-// empty related list rather than falling back to "any recent article"
-// -- the PRD's own wording is "sharing a category", not "recent".
-async function nwLoadSidebarArticles(excludeSlug, categoryIds) {
-  if (!categoryIds || !categoryIds.length) { nwSidebarArticles = []; nwRenderSidebarList(); return; }
-  // !inner forces the join to actually filter (a left/default embed
-  // would otherwise ignore the .in() below); articles with more than
-  // one matching category can come back more than once, deduped by
-  // slug client-side -- hence fetching more than 3 before slicing.
+// 3 most recent OTHER published articles, no longer category-based
+// (categories removed 2026-10-22). On the EN page this only offers
+// other EN-eligible articles, so every sidebar link stays in the page's
+// own language.
+async function nwLoadSidebarArticles(excludeSlug) {
   const { data, error } = await nwGetClient()
     .from('news')
-    .select('title_ka,title_en,slug,body_ka,body_en,cover_image_url,cover_image_alt_ka,cover_image_alt_en,published_at,news_article_categories!inner(category_id,news_categories(id,name_ka,name_en,slug))')
+    .select('title_ka,title_en,slug,body_ka,body_en,cover_image_url,cover_image_alt_ka,cover_image_alt_en,published_at')
     .eq('is_published', true)
     .neq('slug', excludeSlug)
-    .in('news_article_categories.category_id', categoryIds)
     .order('published_at', { ascending: false })
     .limit(9);
   if (error) { nwSidebarArticles = []; nwRenderSidebarList(); return; }
-  const seen = new Set();
-  nwSidebarArticles = (data || []).filter(a => (seen.has(a.slug) ? false : (seen.add(a.slug), true))).slice(0, 3);
+  const lang = nwPageLang();
+  nwSidebarArticles = (data || []).filter((a) => lang !== 'en' || (a.title_en && a.body_en)).slice(0, 3);
   nwRenderSidebarList();
 }
 
 function nwRenderSidebarList() {
   const box = document.getElementById('nwSidebarList');
   if (!box) return;
-  if (!nwSidebarArticles.length) { box.innerHTML = '<div class="nw-comment-empty">სხვა სტატია ჯერ არ არის</div>'; return; }
+  const lang = nwPageLang();
+  if (!nwSidebarArticles.length) {
+    box.innerHTML = `<div class="nw-comment-empty">${lang === 'en' ? 'No other articles yet' : 'სხვა სტატია ჯერ არ არის'}</div>`;
+    return;
+  }
 
-  const lang = nwGetLang();
   box.innerHTML = nwSidebarArticles.map(a => {
-    const title = (lang === 'en' && a.title_en) ? a.title_en : a.title_ka;
-    const alt = ((lang === 'en' && a.cover_image_alt_en) ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
+    const title = lang === 'en' ? a.title_en : a.title_ka;
+    const alt = (lang === 'en' ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
     const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), lang, 'short') : '';
     const thumb = a.cover_image_url
       ? `<img class="acl-thumb" src="${nwTransformUrl(a.cover_image_url, 224, 75, 168)}" srcset="${nwSrcset(a.cover_image_url, [[224, 168], [336, 252]], 75)}" sizes="112px" width="112" height="84" alt="${nwEscapeHtml(alt)}" loading="lazy" decoding="async" />`
       : '';
-    const readMins = nwReadingTime((lang === 'en' && a.body_en) ? a.body_en : a.body_ka);
+    const href = lang === 'en' ? `/en/news/${encodeURIComponent(a.slug)}/` : `/news/${encodeURIComponent(a.slug)}/`;
     return `
-    <a class="article-card--list" href="/news/${encodeURIComponent(a.slug)}/">
+    <a class="article-card--list" href="${href}">
       ${thumb}
       <div class="acl-content">
         <h3 class="acl-title">${nwEscapeHtml(title)}</h3>
-        <div class="acl-meta"><time datetime="${a.published_at || ''}">${dateStr}</time> · ${readMins} წთ კითხვა</div>
+        <div class="acl-meta"><time datetime="${a.published_at || ''}">${dateStr}</time></div>
       </div>
     </a>`;
   }).join('');
 }
 
+// This URL's own fixed language -- /en/news/<slug>/ is English,
+// everything else (/news/<slug>/, the legacy ?slug= fallback) is
+// Georgian. Each language now has its own dedicated URL (task 2), so
+// this replaces the old stored-preference toggle entirely: re-rendering
+// the same URL in a different language no longer happens.
+function nwPageLang() {
+  return location.pathname.startsWith('/en/') ? 'en' : 'ka';
+}
+
 async function nwLoad() {
-  // Real route is /news/<slug>/ (a prerendered copy of this template,
-  // see scripts/prerender-news.js); ?slug= is the legacy form, which
-  // the redirect shim in <head> normally already sends on to the path
-  // form before this ever runs -- read both so this still works if JS
-  // reaches here first for any reason.
-  const pathMatch = location.pathname.match(/^\/news\/([a-z0-9-]+)\/?$/);
+  // Real routes are /news/<slug>/ and /en/news/<slug>/ (prerendered
+  // copies of this template, see scripts/prerender-news.js); ?slug= is
+  // the legacy form, which the redirect shim in <head> normally already
+  // sends on to the path form before this ever runs -- read both so
+  // this still works if JS reaches here first for any reason.
+  const pathMatch = location.pathname.match(/^\/(?:en\/)?news\/([a-z0-9-]+)\/?$/);
   const slug = pathMatch ? pathMatch[1] : new URLSearchParams(location.search).get('slug');
   if (!slug) { nwShowNotFound(); return; }
 
-  // news_article_categories(category_id,news_categories(...)) embeds
-  // the article's categories in the same request -- see
-  // supabase/news_categories.sql for the two new FKs this relies on.
   const { data, error } = await nwGetClient()
     .from('news')
-    .select('*,news_article_categories(category_id,news_categories(id,name_ka,name_en,slug))')
+    .select('*')
     .eq('slug', slug)
     .eq('is_published', true)
     .single();
@@ -1118,11 +1200,14 @@ async function nwLoad() {
   if (error || !data) { nwShowNotFound(); return; }
   nwArticle = data;
   nwRenderArticle();
-  // Needs this article's own category ids first (to match "shares a
-  // category"), so this can no longer fire concurrently with the fetch
-  // above the way it used to when it just showed any recent article.
-  const categoryIds = (data.news_article_categories || []).map(x => x.category_id).filter(Boolean);
-  nwLoadSidebarArticles(slug, categoryIds);
+  nwLoadSidebarArticles(slug);
+
+  nwSetupDominantObserver();
+  // Continuous (infinite-scroll) reading always appends the next
+  // article's Georgian content (nwContinuousArticleHtml) -- not wired
+  // for English yet, so it's switched off on /en/ pages rather than
+  // silently mixing languages.
+  if (nwPageLang() === 'ka') nwSetupContinuousSentinel();
 
   document.getElementById('nwCommentsWrap').style.display = 'block';
   await nwInitEngagement();
@@ -1134,14 +1219,16 @@ function nwShowNotFound() {
     <div class="nw-notfound">სტატია ვერ მოიძებნა.</div>`;
 }
 
-// PRD 8.9 -- progress through #nwArt's own box (top of its content to
-// the bottom of its content, relative to the viewport), not the whole
-// document, so this stays meaningful once Phase 5's continuous reading
-// appends a second <article> below. rAF-throttled per the PRD's own
-// INP guidance (8.9, 11) rather than running on every scroll event.
+// PRD 8.9 -- progress through the DOMINANT article's own box (top of
+// its content to the bottom, relative to the viewport), not the whole
+// document -- nwDominantEl is kept current by the observer below, and
+// defaults to #nwFirstArticle before continuous reading has appended
+// anything. rAF-throttled per the PRD's own INP guidance (8.9, 11)
+// rather than running on every scroll event.
 let nwProgressRaf = null;
+let nwDominantEl = null;
 function nwUpdateReadProgress() {
-  const art = document.getElementById('nwArt');
+  const art = nwDominantEl || document.getElementById('nwFirstArticle');
   const bar = document.getElementById('nwReadProgress');
   if (!art || !bar) return;
   const r = art.getBoundingClientRect();
@@ -1154,6 +1241,314 @@ window.addEventListener('scroll', () => {
   nwProgressRaf = requestAnimationFrame(() => { nwUpdateReadProgress(); nwProgressRaf = null; });
 }, { passive: true });
 window.addEventListener('resize', nwUpdateReadProgress);
+
+// ─────────────────────────────────────────────────────────────
+//  PHASE 5 -- continuous reading (PRD 10.4). This site has no gtag.js
+//  (only the GTM container snippet, which works off window.dataLayer
+//  directly) -- this is the standard gtag.js bootstrap shim, so the
+//  gtag('event', ...) calls PRD 10.4 specifies still work by pushing
+//  into the same dataLayer GTM already reads, without loading the
+//  actual gtag.js library.
+// ─────────────────────────────────────────────────────────────
+function gtag() { (window.dataLayer = window.dataLayer || []).push(arguments); }
+
+// ─────────────────────────────────────────────────────────────
+//  OPTIONAL "მოუსმინე" PLAYER (PRD Phase 6 item 5) -- Web Speech API,
+//  lang ka-GE. Renders nothing at all unless BOTH speechSynthesis
+//  exists AND an actual Georgian voice is present; most desktop
+//  browsers ship no Georgian voice, so this is expected to usually be
+//  absent -- that's correct behavior, not a bug.
+//
+//  The API has no native seek/duration -- "-15s/+15s" and the
+//  elapsed/total readout are approximated from an assumed ~15
+//  characters/second speaking rate at 1x, independent of the (now
+//  removed) displayed reading-time estimate, and implemented by
+//  re-starting a NEW utterance from a recomputed
+//  text offset -- SpeechSynthesisUtterance has no mid-utterance seek,
+//  only pause()/resume() for simple play/pause (which IS native and
+//  used as-is).
+// ─────────────────────────────────────────────────────────────
+const NW_SPEECH_CHARS_PER_SEC = 15;
+const NW_ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>';
+const NW_ICON_PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
+
+let nwSpeech = null; // { text, offset, rate, voice, playing, timer, elapsedAtOffset }
+
+function nwFormatMMSS(sec) {
+  sec = Math.max(0, Math.round(sec));
+  const m = Math.floor(sec / 60), s = sec % 60;
+  return m + ':' + String(s).padStart(2, '0');
+}
+
+async function nwFindGeorgianVoice() {
+  if (!('speechSynthesis' in window)) return null;
+  let voices = speechSynthesis.getVoices();
+  if (!voices.length) {
+    // Chrome in particular populates the voice list asynchronously --
+    // wait once for 'voiceschanged', with a timeout so a browser that
+    // never fires it (none found, ever) doesn't hang this forever.
+    voices = await new Promise((resolve) => {
+      const t = setTimeout(() => resolve(speechSynthesis.getVoices()), 1000);
+      speechSynthesis.addEventListener('voiceschanged', () => {
+        clearTimeout(t);
+        resolve(speechSynthesis.getVoices());
+      }, { once: true });
+    });
+  }
+  return voices.find((v) => v.lang && v.lang.toLowerCase().startsWith('ka')) || null;
+}
+
+function nwSpeechTotalSeconds() {
+  return nwSpeech.text.length / (NW_SPEECH_CHARS_PER_SEC * nwSpeech.rate);
+}
+function nwSpeechElapsedSeconds() {
+  return nwSpeech.offset / (NW_SPEECH_CHARS_PER_SEC * nwSpeech.rate);
+}
+
+function nwRenderAudioUI() {
+  const slot = document.getElementById('nwAudioPlayerSlot');
+  if (!slot || !nwSpeech) return;
+  slot.innerHTML = `
+    <div class="nw-audio card">
+      <button type="button" class="nw-audio-playpause" id="nwAudioPlayPause" aria-label="${nwSpeech.playing ? 'პაუზა' : 'დაკვრა'}">${nwSpeech.playing ? NW_ICON_PAUSE : NW_ICON_PLAY}</button>
+      <button type="button" class="btn--icon nw-audio-skip" id="nwAudioBack15" aria-label="15 წამით უკან">-15</button>
+      <div class="nw-audio-mid">
+        <div class="nw-audio-label">მოუსმინე — ${nwFormatMMSS(nwSpeechElapsedSeconds())} / ${nwFormatMMSS(nwSpeechTotalSeconds())}</div>
+        <div class="nw-audio-bar"><i style="width:${Math.min(100, (nwSpeech.offset / nwSpeech.text.length) * 100)}%"></i></div>
+      </div>
+      <button type="button" class="btn--icon nw-audio-skip" id="nwAudioFwd15" aria-label="15 წამით წინ">+15</button>
+      <button type="button" class="nw-audio-rate" id="nwAudioRate" aria-label="დაკვრის სიჩქარე">${nwSpeech.rate}x</button>
+    </div>`;
+  document.getElementById('nwAudioPlayPause').onclick = nwAudioTogglePlay;
+  document.getElementById('nwAudioBack15').onclick = () => nwAudioSeek(-15);
+  document.getElementById('nwAudioFwd15').onclick = () => nwAudioSeek(15);
+  document.getElementById('nwAudioRate').onclick = nwAudioCycleRate;
+}
+
+function nwAudioTick() {
+  if (!nwSpeech || !nwSpeech.playing) return;
+  nwRenderAudioUI();
+}
+
+function nwAudioStartFrom(offset) {
+  speechSynthesis.cancel();
+  nwSpeech.offset = Math.max(0, Math.min(nwSpeech.text.length, offset));
+  const utter = new SpeechSynthesisUtterance(nwSpeech.text.slice(nwSpeech.offset));
+  utter.lang = 'ka-GE';
+  utter.rate = nwSpeech.rate;
+  if (nwSpeech.voice) utter.voice = nwSpeech.voice;
+  utter.onend = () => {
+    if (nwSpeech.offset + 1 >= nwSpeech.text.length) {
+      nwSpeech.playing = false;
+      nwSpeech.offset = nwSpeech.text.length;
+      clearInterval(nwSpeech.timer);
+      nwRenderAudioUI();
+    }
+  };
+  // onboundary fires per word/sentence depending on the engine -- used
+  // as a best-effort nudge to keep the offset roughly honest during
+  // playback between the 1s tick below, not relied on alone.
+  utter.onboundary = (e) => { if (nwSpeech.playing) nwSpeech.offset = offset + e.charIndex; };
+  speechSynthesis.speak(utter);
+  nwSpeech.playing = true;
+  clearInterval(nwSpeech.timer);
+  const startOffset = nwSpeech.offset;
+  const startTime = Date.now();
+  nwSpeech.timer = setInterval(() => {
+    if (!nwSpeech.playing) return;
+    const elapsed = (Date.now() - startTime) / 1000;
+    nwSpeech.offset = Math.min(nwSpeech.text.length, startOffset + Math.round(elapsed * NW_SPEECH_CHARS_PER_SEC * nwSpeech.rate));
+    nwAudioTick();
+  }, 1000);
+  nwRenderAudioUI();
+}
+
+function nwAudioTogglePlay() {
+  if (!nwSpeech.playing) {
+    if (speechSynthesis.paused && nwSpeech.offset > 0) {
+      speechSynthesis.resume();
+      nwSpeech.playing = true;
+      nwRenderAudioUI();
+    } else {
+      nwAudioStartFrom(nwSpeech.offset);
+    }
+  } else {
+    speechSynthesis.pause();
+    nwSpeech.playing = false;
+    clearInterval(nwSpeech.timer);
+    nwRenderAudioUI();
+  }
+}
+
+function nwAudioSeek(deltaSeconds) {
+  const newOffset = nwSpeech.offset + deltaSeconds * NW_SPEECH_CHARS_PER_SEC * nwSpeech.rate;
+  const wasPlaying = nwSpeech.playing;
+  if (wasPlaying) {
+    nwAudioStartFrom(newOffset);
+  } else {
+    nwSpeech.offset = Math.max(0, Math.min(nwSpeech.text.length, newOffset));
+    nwRenderAudioUI();
+  }
+}
+
+function nwAudioCycleRate() {
+  const rates = [1, 1.5, 2];
+  const i = rates.indexOf(nwSpeech.rate);
+  nwSpeech.rate = rates[(i + 1) % rates.length];
+  if (nwSpeech.playing) nwAudioStartFrom(nwSpeech.offset);
+  else nwRenderAudioUI();
+}
+
+async function nwSetupAudioPlayer(bodyHtml) {
+  const slot = document.getElementById('nwAudioPlayerSlot');
+  if (!slot) return;
+  const voice = await nwFindGeorgianVoice();
+  if (!voice) { slot.innerHTML = ''; return; } // missing either API or voice -> render nothing
+  const text = (bodyHtml || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!text) return;
+  if (nwSpeech) { speechSynthesis.cancel(); clearInterval(nwSpeech.timer); }
+  nwSpeech = { text, offset: 0, rate: 1, voice, playing: false, timer: null };
+  nwRenderAudioUI();
+}
+
+let nwAppendedCount = 0;
+let nwContinuousLoading = false;
+let nwContinuousObserver = null;
+let nwDominantObserver = null;
+const NW_MAX_APPENDED = 5;
+
+function nwContinuousArticleHtml(a) {
+  const title = a.title_ka;
+  const alt = a.cover_image_alt_ka || title;
+  const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), 'ka', 'long') : '';
+  const cleanUrl = `https://fnf.ge/news/${a.slug}/`;
+  const coverHtml = a.cover_image_url
+    ? `<img class="nw-art-cover" src="${nwTransformUrl(a.cover_image_url, 800, 75, 450)}" srcset="${nwSrcset(a.cover_image_url, [[400, 225], [800, 450], [1200, 675], [1600, 900]], 75)}" sizes="(min-width: 1100px) 760px, (min-width: 768px) 700px, 100vw" width="800" height="450" alt="${nwEscapeHtml(alt)}" loading="lazy" decoding="async" />`
+    : '';
+  return `<article class="nw-layout nw-layout--continuous" data-slug="${a.slug}" data-url="${cleanUrl}" data-title="${nwEscapeHtml(title)}" data-canonical="${cleanUrl}">
+    <main class="nw-art">
+      <h1 class="nw-art-title">${nwEscapeHtml(title)}</h1>
+      <div class="nw-art-meta">${[nwAuthorHtml(a.author, 'ka'), dateStr ? `<time datetime="${a.published_at || ''}">${dateStr}</time>` : ''].filter(Boolean).join(' · ')}</div>
+      ${coverHtml}
+      <div class="nw-art-body">${a.body_ka}</div>
+    </main>
+  </article>`;
+}
+
+// Next OLDER published article the reader hasn't already seen in this
+// session, by published_at -- there is no "series"/category context
+// for "next" here, just the same reverse-chronological order the
+// listing itself uses.
+async function nwFetchNextArticle(beforePublishedAt, excludeSlugs) {
+  let q = nwGetClient()
+    .from('news')
+    .select('*')
+    .eq('is_published', true)
+    .order('published_at', { ascending: false })
+    .limit(1);
+  if (beforePublishedAt) q = q.lt('published_at', beforePublishedAt);
+  const { data, error } = await q;
+  if (error || !data || !data.length) return null;
+  const next = data.find((a) => !excludeSlugs.includes(a.slug));
+  return next || null;
+}
+
+function nwShownSlugs() {
+  return [...document.querySelectorAll('[data-slug]')].map((el) => el.dataset.slug);
+}
+
+function nwLastArticlePublishedAt() {
+  const nodes = [...document.querySelectorAll('[data-slug]')];
+  const last = nodes[nodes.length - 1];
+  return last ? last.dataset.publishedAt || null : null;
+}
+
+function nwRenderContinuousCta() {
+  const feed = document.getElementById('nwContinuousFeed');
+  if (!feed) return;
+  feed.insertAdjacentHTML('beforeend', `
+    <div class="nw-layout nw-layout--continuous" style="text-align:center">
+      <a class="btn btn--lg btn-primary" href="/news/">ყველა სტატია</a>
+    </div>`);
+}
+
+async function nwAppendNextArticle() {
+  if (nwContinuousLoading || nwAppendedCount >= NW_MAX_APPENDED) return;
+  nwContinuousLoading = true;
+  if (nwContinuousObserver) nwContinuousObserver.disconnect();
+
+  const lastSlugEl = [...document.querySelectorAll('[data-slug]')].pop();
+  const beforeDate = lastSlugEl ? lastSlugEl.dataset.publishedAt : (nwArticle ? nwArticle.published_at : null);
+  const next = await nwFetchNextArticle(beforeDate, nwShownSlugs());
+
+  nwContinuousLoading = false;
+  if (!next) return; // no more articles -- nothing to append, not an error
+
+  const feed = document.getElementById('nwContinuousFeed');
+  feed.insertAdjacentHTML('beforeend', nwContinuousArticleHtml(next));
+  const appended = feed.lastElementChild;
+  appended.dataset.publishedAt = next.published_at || '';
+  nwAppendedCount++;
+
+  if (nwDominantObserver) nwDominantObserver.observe(appended);
+
+  if (nwAppendedCount >= NW_MAX_APPENDED) {
+    nwRenderContinuousCta();
+  } else {
+    nwRepositionContinuousSentinel();
+  }
+}
+
+// Keeps #nwContinuousSentinel as the last element in the flow, so
+// "1200px below the end of the current article" tracks whichever
+// article was most recently appended, not a fixed position.
+function nwRepositionContinuousSentinel() {
+  const sentinel = document.getElementById('nwContinuousSentinel');
+  const feed = document.getElementById('nwContinuousFeed');
+  if (!sentinel || !feed) return;
+  feed.parentNode.insertBefore(sentinel, feed.nextSibling);
+  if (nwContinuousObserver) nwContinuousObserver.observe(sentinel);
+}
+
+function nwSetupContinuousSentinel() {
+  const sentinel = document.getElementById('nwContinuousSentinel');
+  if (!sentinel) return;
+  nwContinuousObserver = new IntersectionObserver((entries) => {
+    if (entries[0].isIntersecting) nwAppendNextArticle();
+  }, { rootMargin: '0px 0px 1200px 0px' });
+  nwContinuousObserver.observe(sentinel);
+}
+
+// Determines which article is "dominant" -- the one occupying the
+// viewport's center band. rootMargin's -45%/-45% shrinks the
+// observation root to the middle 10% of the viewport, so only the
+// article actually centered on screen intersects at all. threshold must
+// stay 0 (not 0.5): intersectionRatio is intersecting-area / the
+// TARGET's own full height, and real articles are almost always taller
+// than that 10%-tall band, so the ratio can never reach 0.5 no matter
+// where the article sits on screen -- verified via a direct
+// IntersectionObserver probe during Phase 5 testing (a 240px-tall test
+// article centered in an 800px viewport maxed out at ratio 0.33). 0
+// correctly fires on any overlap with the center band, which is exactly
+// "this article currently occupies the screen's center."
+function nwSetupDominantObserver() {
+  const first = document.getElementById('nwFirstArticle');
+  nwDominantEl = first;
+  nwDominantObserver = new IntersectionObserver((entries) => {
+    const hit = entries.find((e) => e.isIntersecting);
+    if (!hit || hit.target === nwDominantEl) return;
+    nwDominantEl = hit.target;
+    const d = nwDominantEl.dataset;
+    if (!d.slug) return;
+    history.replaceState({ slug: d.slug }, '', d.url);
+    document.title = d.title;
+    const canonical = document.querySelector('link[rel=canonical]');
+    if (canonical) canonical.href = d.canonical;
+    gtag('event', 'page_view', { page_path: d.url, page_title: d.title });
+    nwUpdateReadProgress();
+  }, { threshold: 0, rootMargin: '-45% 0px -45% 0px' });
+  if (first) nwDominantObserver.observe(first);
+}
 
 document.addEventListener('DOMContentLoaded', nwLoad);
 </script>
