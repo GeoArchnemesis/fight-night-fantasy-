@@ -534,7 +534,7 @@ function buildListingPage(listingTemplate, articles, lang) {
 
     const kaUrl = 'https://fnf.ge/news/';
     const enUrl = 'https://fnf.ge/en/news/';
-    replace('<title>სიახლეები — Fight Night Fantasy</title>', '<title>News — Fight Night Fantasy</title>', 'title');
+    replace('<title>FNF - სიახლეები</title>', '<title>FNF News</title>', 'title');
     replace(
       '<meta name="description" content="სპორტული ფენტეზი, სიახლეები და ანალიზი — UFC, Formula 1, NBA და ფეხბურთი." />',
       '<meta name="description" content="Sports fantasy news and analysis — UFC, Formula 1, NBA and football." />',
