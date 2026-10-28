@@ -10,7 +10,7 @@
 <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <style>
-  /* ── same design system as admin/admin.html — copied, not reinvented ── */
+  /* ── same design system as EPJQI8FX/admin.html — copied, not reinvented ── */
   :root {
     --ink:#0B0A0F; --canvas:#0E0D14; --surface:#16141E; --surface-2:#1F1C2B;
     --line:#2A2738; --red:#F31D25; --gold:#F5C451; --green:#3ad17e;
@@ -83,34 +83,35 @@
 </head>
 <body>
 
-<!-- ── KEY SCREEN (identical pattern to admin/admin.html) ── -->
-<div id="keyScreen" style="display:none;position:fixed;inset:0;background:var(--canvas);z-index:9999;align-items:center;justify-content:center;padding:24px">
-  <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:32px;max-width:420px;width:100%">
-    <h2 style="color:var(--gold);margin-bottom:6px;font-size:1.2rem">🔑 Admin Login</h2>
-    <p style="color:var(--muted);font-size:.85rem;margin-bottom:20px;line-height:1.6">
-      შედი იმავე email/password-ით, რომლითაც საიტზე ხარ რეგისტრირებული
+<!-- ── CHECKING SCREEN — the only thing rendered before the is_admin
+     check resolves. No form, no table, no data. ── -->
+<div id="checkingScreen" style="position:fixed;inset:0;background:var(--canvas);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px">
+  <p style="color:var(--muted);font-size:.9rem">იტვირთება…</p>
+</div>
+
+<!-- ── DENIED SCREEN — shown instead of any admin UI when there is no
+     session, or the session's account is not an admin. No login form:
+     the Supabase session is shared site-wide via localStorage, so an
+     admin who signs in on any sport page already has one here. ── -->
+<div id="deniedScreen" style="display:none;position:fixed;inset:0;background:var(--canvas);z-index:9999;align-items:center;justify-content:center;padding:24px">
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:32px;max-width:420px;width:100%;text-align:center">
+    <h2 style="color:var(--red);margin-bottom:10px;font-size:1.1rem">⛔ წვდომა შეზღუდულია</h2>
+    <p id="deniedMsg" style="color:var(--muted);font-size:.85rem;margin-bottom:20px;line-height:1.6">
+      ეს გვერდი მხოლოდ ადმინისთვისაა. შედი საიტზე (მაგ. /ufc/) შენი ადმინის ანგარიშით და ხელახლა ჩატვირთე ეს გვერდი.
     </p>
-    <form id="adminLoginForm" method="post" action="#" onsubmit="event.preventDefault();submitLogin()">
-    <label for="adminEmail">Email</label>
-    <input type="email" id="adminEmail" name="email" placeholder="admin@example.com" autocomplete="email"
-      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;margin-bottom:8px" />
-    <label for="adminPassword">Password</label>
-    <input type="password" id="adminPassword" name="password" placeholder="••••••••" autocomplete="current-password"
-      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;margin-bottom:8px" />
-    <div id="keyError" style="color:#ff7070;font-size:.8rem;min-height:18px;margin-bottom:12px"></div>
-    <button type="submit" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:4px;padding:12px;font-weight:700;font-size:.95rem;cursor:pointer">შესვლა →</button>
-    </form>
+    <a href="/ufc/" class="btn btn-ghost" style="text-decoration:none;display:inline-block">მთავარ საიტზე შესვლა →</a>
   </div>
 </div>
 
-<!-- ── ADMIN CONTENT ── -->
+<!-- ── ADMIN CONTENT — hidden until initAdminSession() confirms a
+     logged-in admin; never rendered visible before that. ── -->
 <div id="adminContent" style="display:none">
 
 <h1 style="display:flex;align-items:center;gap:10px"><img src="/favicon-32x32.png" alt="FNF" width="28" height="28" style="border-radius:6px" onerror="this.style.display='none'"> Fight Night Fantasy — Admin · სიახლეები</h1>
 <div class="warn" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
   <span>⚠️ ეს გვერდი მხოლოდ ადმინისთვისაა.</span>
   <div class="flex-gap">
-    <a href="/admin/admin.html" class="btn btn-ghost" style="text-decoration:none;display:inline-block">🥊 UFC Events</a>
+    <a href="/EPJQI8FX/admin.html" class="btn btn-ghost" style="text-decoration:none;display:inline-block">🥊 UFC Events</a>
     <button onclick="adminLogout()" style="background:rgba(243,29,37,.15);color:var(--red);border:1px solid var(--red);border-radius:4px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:.78rem">🚪 გამოსვლა</button>
   </div>
 </div>
@@ -303,7 +304,7 @@
 
 <script>
 const SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
-// იგივე საჯარო anon key, რასაც admin/admin.html იყენებს — წვდომას არეგულირებს
+// იგივე საჯარო anon key, რასაც EPJQI8FX/admin.html იყენებს — წვდომას არეგულირებს
 // RLS + users.is_admin, არა ეს key.
 const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -311,60 +312,38 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 });
 
 // ─────────────────────────────────────────────────────────────
-//  AUTH (identical pattern to admin/admin.html)
+//  AUTH (identical pattern to EPJQI8FX/admin.html)
 // ─────────────────────────────────────────────────────────────
-function showLoginScreen(errMsg) {
+function showDenied(msg) {
+  document.getElementById('checkingScreen').style.display = 'none';
   document.getElementById('adminContent').style.display = 'none';
-  document.getElementById('keyScreen').style.display = 'flex';
-  if (errMsg) document.getElementById('keyError').textContent = errMsg;
-}
-
-async function submitLogin() {
-  const email = document.getElementById('adminEmail').value.trim();
-  const password = document.getElementById('adminPassword').value;
-  document.getElementById('keyError').textContent = '';
-
-  if (!email || !password) {
-    document.getElementById('keyError').textContent = 'შეიყვანე email და password';
-    return;
-  }
-
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if (error || !data?.user) {
-    document.getElementById('keyError').textContent = 'არასწორი email ან password';
-    return;
-  }
-
-  const { data: profile, error: profErr } = await sb.from('users').select('is_admin').eq('id', data.user.id).single();
-  if (profErr || !profile?.is_admin) {
-    await sb.auth.signOut();
-    document.getElementById('keyError').textContent = 'ეს ანგარიში ადმინი არ არის';
-    return;
-  }
-
-  document.getElementById('keyScreen').style.display = 'none';
-  document.getElementById('adminContent').style.display = 'block';
-  showList();
+  if (msg) document.getElementById('deniedMsg').textContent = msg;
+  document.getElementById('deniedScreen').style.display = 'flex';
 }
 
 async function adminLogout() {
   if (!confirm('გსურს გამოსვლა?')) return;
   await sb.auth.signOut();
-  showLoginScreen();
+  showDenied();
 }
 
+// ── Gate: nothing above this point (checkingScreen only) is shown
+// until this resolves. No form, no table, no data fetch happens before
+// both checks below pass -- a missing session or a non-admin account
+// goes straight to showDenied(), never touching #adminContent or
+// calling showList().
 async function initAdminSession() {
   const { data: { session } } = await sb.auth.getSession();
-  if (!session) { showLoginScreen(); return; }
+  if (!session) { showDenied(); return; }
 
   const { data: profile, error: profErr } = await sb.from('users').select('is_admin').eq('id', session.user.id).single();
   if (profErr || !profile?.is_admin) {
     await sb.auth.signOut();
-    showLoginScreen('ეს ანგარიში ადმინი არ არის');
+    showDenied('ეს ანგარიში ადმინი არ არის.');
     return;
   }
 
-  document.getElementById('keyScreen').style.display = 'none';
+  document.getElementById('checkingScreen').style.display = 'none';
   document.getElementById('adminContent').style.display = 'block';
   showList();
 }
@@ -833,7 +812,7 @@ async function nwInsertImageFileChosen(e) {
 }
 
 // ─────────────────────────────────────────────────────────────
-//  COVER IMAGE UPLOAD (same storage pattern as admin/admin.html's
+//  COVER IMAGE UPLOAD (same storage pattern as EPJQI8FX/admin.html's
 //  uploadLandingBg -- bucket name here is "news-images" and needs to
 //  exist in Supabase Storage before this works; the plain URL field
 //  above works regardless of whether that bucket has been created)

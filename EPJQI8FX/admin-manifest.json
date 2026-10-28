@@ -2,7 +2,7 @@
   "name": "Fight Night Fantasy — Admin",
   "short_name": "FNF Admin",
   "description": "Fight Night Fantasy — Admin Panel",
-  "start_url": "/admin/admin.html",
+  "start_url": "/EPJQI8FX/admin.html",
   "display": "standalone",
   "background_color": "#0B0A0F",
   "theme_color": "#F31D25",
@@ -19,5 +19,5 @@
       "type": "image/svg+xml"
     }
   ],
-  "scope": "/admin/"
+  "scope": "/EPJQI8FX/"
 }

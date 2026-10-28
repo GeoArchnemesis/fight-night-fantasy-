@@ -104,35 +104,35 @@
 </head>
 <body>
 
-<!-- ── KEY SCREEN ── -->
-<div id="keyScreen" style="display:none;position:fixed;inset:0;background:var(--canvas);z-index:9999;align-items:center;justify-content:center;padding:24px">
-  <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:32px;max-width:420px;width:100%">
-    <h2 style="color:var(--gold);margin-bottom:6px;font-size:1.2rem">🔑 Admin Login</h2>
-    <p style="color:var(--muted);font-size:.85rem;margin-bottom:20px;line-height:1.6">
-      შედი იმავე email/password-ით, რომლითაც საიტზე ხარ რეგისტრირებული
+<!-- ── CHECKING SCREEN — the only thing rendered before the is_admin
+     check resolves. No form, no table, no data. ── -->
+<div id="checkingScreen" style="position:fixed;inset:0;background:var(--canvas);z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px">
+  <p style="color:var(--muted);font-size:.9rem">იტვირთება…</p>
+</div>
+
+<!-- ── DENIED SCREEN — shown instead of any admin UI when there is no
+     session, or the session's account is not an admin. No login form:
+     the Supabase session is shared site-wide via localStorage, so an
+     admin who signs in on any sport page already has one here. ── -->
+<div id="deniedScreen" style="display:none;position:fixed;inset:0;background:var(--canvas);z-index:9999;align-items:center;justify-content:center;padding:24px">
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:32px;max-width:420px;width:100%;text-align:center">
+    <h2 style="color:var(--red);margin-bottom:10px;font-size:1.1rem">⛔ წვდომა შეზღუდულია</h2>
+    <p id="deniedMsg" style="color:var(--muted);font-size:.85rem;margin-bottom:20px;line-height:1.6">
+      ეს გვერდი მხოლოდ ადმინისთვისაა. შედი საიტზე (მაგ. /ufc/) შენი ადმინის ანგარიშით და ხელახლა ჩატვირთე ეს გვერდი.
     </p>
-    <form id="adminLoginForm" method="post" action="#" onsubmit="event.preventDefault();submitLogin()">
-    <label for="adminEmail">Email</label>
-    <input type="email" id="adminEmail" name="email" placeholder="admin@example.com" autocomplete="email"
-      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;margin-bottom:8px" />
-    <label for="adminPassword">Password</label>
-    <input type="password" id="adminPassword" name="password" placeholder="••••••••" autocomplete="current-password"
-      style="width:100%;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text);font-size:.9rem;margin-bottom:8px" />
-    <div id="keyError" style="color:#ff7070;font-size:.8rem;min-height:18px;margin-bottom:12px"></div>
-    <button type="submit" style="width:100%;background:var(--gold);color:#000;border:none;border-radius:4px;padding:12px;font-weight:700;font-size:.95rem;cursor:pointer">შესვლა →</button>
-    </form>
-    
+    <a href="/ufc/" class="btn btn-ghost" style="text-decoration:none;display:inline-block">მთავარ საიტზე შესვლა →</a>
   </div>
 </div>
 
-<!-- ── ADMIN CONTENT ── -->
-<div id="adminContent">
+<!-- ── ADMIN CONTENT — hidden until initAdminSession() confirms a
+     logged-in admin; never rendered visible before that. ── -->
+<div id="adminContent" style="display:none">
 
 <h1 style="display:flex;align-items:center;gap:10px"><img src="/favicon-32x32.png" alt="FNF" width="28" height="28" style="border-radius:6px" onerror="this.style.display='none'"> Fight Night Fantasy — Admin</h1>
 <div class="warn" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
   <span>⚠️ ეს გვერდი მხოლოდ ადმინისთვისაა.</span>
   <div class="flex-gap">
-    <a href="/admin/news.html" class="btn btn-ghost" style="text-decoration:none;display:inline-block">📰 სიახლეები</a>
+    <a href="/EPJQI8FX/news.html" class="btn btn-ghost" style="text-decoration:none;display:inline-block">📰 სიახლეები</a>
     <button onclick="adminLogout()" style="background:rgba(243,29,37,.15);color:var(--red);border:1px solid var(--red);border-radius:4px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:.78rem">🚪 გამოსვლა</button>
   </div>
 </div>
@@ -234,6 +234,39 @@
   </div>
 </div>
 
+<div class="card" id="badgesCard">
+  <h2>🏅 ბეიჯები</h2>
+  <div style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">
+    თვის გამარჯვებულის ბეიჯი. დასრულებულ თვეზე დაუყოვნებლივ გაიცემა გამოვლენილ გამარჯვებულ(ებ)ზე; მიმდინარე ან მომავალ თვეზე ბეიჯის სურათი შეგიძლია ატვირთო წინასწარ, მოლოდინის სტატუსით — გამარჯვებელი ჯერ უცნობია. ქულები score_history-დან იანგარიშება, იგივე წყარო რასაც ლიდერბორდი იყენებს.
+  </div>
+  <div class="grid-2">
+    <div>
+      <label>სპორტი</label>
+      <select id="badgeSport"><option value="ufc">UFC</option></select>
+    </div>
+    <div></div>
+    <div>
+      <label>წელი</label>
+      <select id="badgeYear"></select>
+    </div>
+    <div>
+      <label>თვე</label>
+      <select id="badgeMonth"></select>
+    </div>
+  </div>
+  <div id="badgeTop3" style="margin-bottom:14px"></div>
+  <div class="flex-gap" style="margin-bottom:10px">
+    <input type="file" id="badgeImageFile" accept="image/*" style="margin-bottom:0;flex:1;min-width:200px" />
+    <button class="btn btn-settle" id="badgeAwardBtn" onclick="awardBadge()" disabled>ბეიჯის გაცემა</button>
+  </div>
+  <div id="badgeStatus" style="font-size:.8rem;margin-bottom:16px"></div>
+  <div style="margin-bottom:16px">
+    <button class="btn" id="badgeResolveBtn" onclick="resolveMonthlyBadges()">მოლოდინში მყოფი ბეიჯების დამუშავება ახლავე</button>
+  </div>
+  <h3 style="margin-bottom:10px;font-size:.95rem;color:var(--text)">ატვირთული ბეიჯები</h3>
+  <div id="badgeAwardedList"></div>
+</div>
+
 <div class="card" id="eventSection" style="display:none">
   <h2>🏟️ ნაბიჯი 2 — ივენთის დეტალები</h2>
   <div id="eventInfo" class="event-info"></div>
@@ -321,7 +354,263 @@ async function uploadLandingBg(sport) {
   if (img) img.src = landingBgUrl(sport);
   input.value = '';
 }
-window.addEventListener('load', () => { try { loadLandingBgPreviews(); } catch (e) {} });
+// Not called on page load anymore -- only from initAdminSession() once
+// an admin is actually confirmed (see below).
+</script>
+
+<script>
+// ── MONTHLY WINNER BADGES (Supabase Storage bucket: badges, tables:
+// monthly_badge_images + monthly_badge_awards — split per
+// supabase/monthly_badges_pending_awards.sql) ──
+// Deliberately uses its own badgeStatus() line instead of the shared log() —
+// log() writes into #log, which lives inside #saveSection and stays
+// display:none until a UFC event has been loaded through steps 1-4, so
+// messages from this independent card would otherwise be invisible.
+const BADGE_MONTHS_KA = ['იანვარი','თებერვალი','მარტი','აპრილი','მაისი','ივნისი','ივლისი','აგვისტო','სექტემბერი','ოქტომბერი','ნოემბერი','დეკემბერი'];
+let _badgeWinners = [];
+let _badgePeriodStatus = 'completed'; // 'completed' | 'pending' — which upload path awardBadge() takes
+
+function tbilisiNow() { return new Date(Date.now() + 4 * 3600 * 1000); } // UTC+4, no DST (CLAUDE.md) — same helper as scripts/nba-auto.js
+
+function tbilisiMonthRange(year, month) {
+  const pad = n => String(n).padStart(2, '0');
+  const start = `${year}-${pad(month)}-01T00:00:00+04:00`;
+  const ny = month === 12 ? year + 1 : year;
+  const nm = month === 12 ? 1 : month + 1;
+  const end = `${ny}-${pad(nm)}-01T00:00:00+04:00`;
+  return { start, end };
+}
+
+// A period is 'completed' once its month has fully elapsed in Tbilisi time —
+// the current month itself still counts as 'pending' (no winner yet).
+function badgePeriodStatus(year, month) {
+  const now = tbilisiNow();
+  const curY = now.getUTCFullYear(), curM = now.getUTCMonth() + 1;
+  return (year < curY || (year === curY && month < curM)) ? 'completed' : 'pending';
+}
+
+function badgeStatus(msg, type) {
+  const el = document.getElementById('badgeStatus');
+  el.style.color = type === 'err' ? 'var(--red)' : type === 'ok' ? 'var(--green)' : 'var(--muted)';
+  el.textContent = msg;
+}
+
+function populateBadgeSelectors() {
+  const now = tbilisiNow();
+  const curY = now.getUTCFullYear();
+  const yearSel = document.getElementById('badgeYear');
+  const years = [];
+  for (let y = curY + 1; y >= curY - 3; y--) years.push(y);
+  yearSel.innerHTML = years.map(y => `<option value="${y}">${y}</option>`).join('');
+
+  function refreshMonthOptions() {
+    const monthSel = document.getElementById('badgeMonth');
+    monthSel.innerHTML = BADGE_MONTHS_KA.map((name, i) => `<option value="${i + 1}">${name}</option>`).join('');
+  }
+
+  yearSel.value = String(curY);
+  refreshMonthOptions();
+
+  yearSel.addEventListener('change', () => { refreshMonthOptions(); onBadgeMonthChange(); });
+  document.getElementById('badgeMonth').addEventListener('change', onBadgeMonthChange);
+  onBadgeMonthChange();
+}
+
+async function computeMonthTop3(year, month) {
+  const { start, end } = tbilisiMonthRange(year, month);
+  const { data: hist, error } = await sb.from('score_history').select('user_id, amount, created_at').gte('created_at', start).lt('created_at', end);
+  if (error) throw error;
+  const { data: usersData } = await sb.from('leaderboard_view').select('*');
+  const nickMap = {};
+  (usersData || []).forEach(u => { nickMap[u.id] = u.nick || '—'; });
+  const totals = {};
+  (hist || []).forEach(h => { totals[h.user_id] = (totals[h.user_id] || 0) + (Number(h.amount) || 0); });
+  const rows = Object.entries(totals)
+    .map(([user_id, pts]) => ({ user_id, nick: nickMap[user_id] || '—', pts }))
+    .filter(r => r.pts > 0)
+    .sort((a, b) => b.pts - a.pts);
+  if (!rows.length) return { display: [], winners: [] };
+  const maxPts = rows[0].pts;
+  const winners = rows.filter(r => r.pts === maxPts);
+  const displayCount = Math.max(3, winners.length);
+  return { display: rows.slice(0, displayCount), winners };
+}
+
+function renderBadgeTop3(display, winners) {
+  const box = document.getElementById('badgeTop3');
+  if (!display.length) {
+    box.innerHTML = '<div style="color:var(--muted);font-size:.85rem">ამ თვეში score_history-ში აქტივობა არ არის — ბეიჯის გაცემა შეუძლებელია.</div>';
+    return;
+  }
+  const winnerIds = new Set(winners.map(w => w.user_id));
+  box.innerHTML = display.map((r, i) => {
+    const isWinner = winnerIds.has(r.user_id);
+    const style = isWinner
+      ? 'background:rgba(245,196,81,.12);border:1px solid var(--gold)'
+      : 'border:1px solid var(--line)';
+    return `<div style="display:flex;justify-content:space-between;padding:8px 12px;border-radius:6px;margin-bottom:6px;${style}">
+      <span>${isWinner ? '🏆 ' : ''}#${i + 1} ${r.nick}</span>
+      <span style="font-family:monospace">${r.pts}</span>
+    </div>`;
+  }).join('');
+}
+
+function renderBadgePending() {
+  document.getElementById('badgeTop3').innerHTML = '<div style="color:var(--muted);font-size:.85rem">ეს თვე ჯერ არ დასრულებულა — გამარჯვებული ამ ეტაპზე უცნობია. ბეიჯის სურათის ატვირთვა შესაძლებელია წინასწარ, მოლოდინის სტატუსით.</div>';
+}
+
+async function onBadgeMonthChange() {
+  const year = parseInt(document.getElementById('badgeYear').value, 10);
+  const month = parseInt(document.getElementById('badgeMonth').value, 10);
+  const awardBtn = document.getElementById('badgeAwardBtn');
+  awardBtn.disabled = true;
+  _badgeWinners = [];
+  if (!year || !month) return;
+
+  _badgePeriodStatus = badgePeriodStatus(year, month);
+
+  if (_badgePeriodStatus === 'pending') {
+    renderBadgePending();
+    awardBtn.disabled = false;
+    awardBtn.textContent = 'ბეიჯის ატვირთვა (მოლოდინში)';
+    return;
+  }
+
+  awardBtn.textContent = 'ბეიჯის გაცემა';
+  document.getElementById('badgeTop3').innerHTML = '<div style="color:var(--muted);font-size:.85rem">იტვირთება...</div>';
+  try {
+    const { display, winners } = await computeMonthTop3(year, month);
+    renderBadgeTop3(display, winners);
+    _badgeWinners = winners;
+    awardBtn.disabled = !winners.length;
+  } catch (e) {
+    document.getElementById('badgeTop3').innerHTML = `<div style="color:var(--red)">შეცდომა: ${e.message || e}</div>`;
+  }
+}
+
+async function awardBadge() {
+  const sport = document.getElementById('badgeSport').value;
+  const year = parseInt(document.getElementById('badgeYear').value, 10);
+  const month = parseInt(document.getElementById('badgeMonth').value, 10);
+  const fileInput = document.getElementById('badgeImageFile');
+  const file = fileInput.files && fileInput.files[0];
+  if (!file) { badgeStatus('❌ ჯერ აირჩიე ბეიჯის ფოტო', 'err'); return; }
+  if (_badgePeriodStatus === 'completed' && !_badgeWinners.length) { badgeStatus('❌ ამ თვეს გამარჯვებული არ ჰყავს', 'err'); return; }
+
+  const btn = document.getElementById('badgeAwardBtn');
+  const btnTextBefore = btn.textContent;
+  btn.disabled = true; btn.textContent = 'იტვირთება…';
+  try {
+    const path = `${sport}/${year}-${String(month).padStart(2, '0')}`;
+    const { error: upErr } = await sb.storage.from('badges').upload(path, file, { upsert: true, cacheControl: '60', contentType: file.type });
+    if (upErr) { badgeStatus('❌ ატვირთვა ვერ მოხერხდა: ' + upErr.message, 'err'); return; }
+    const { data: pub } = sb.storage.from('badges').getPublicUrl(path);
+
+    if (_badgePeriodStatus === 'completed') {
+      const { data: imgRow, error: imgErr } = await sb.from('monthly_badge_images')
+        .upsert(
+          { sport, period_year: year, period_month: month, image_url: pub.publicUrl, resolved_at: new Date().toISOString() },
+          { onConflict: 'sport,period_year,period_month' }
+        )
+        .select('id').single();
+      if (imgErr) { badgeStatus('❌ ბეიჯის დამატება ვერ მოხერხდა: ' + imgErr.message, 'err'); return; }
+
+      const awardRows = _badgeWinners.map(w => ({ badge_image_id: imgRow.id, user_id: w.user_id }));
+      const { error: awErr } = await sb.from('monthly_badge_awards').upsert(awardRows, { onConflict: 'badge_image_id,user_id' });
+      if (awErr) { badgeStatus('❌ ბეიჯის გაცემა ვერ მოხერხდა: ' + awErr.message, 'err'); return; }
+
+      badgeStatus(`✅ ბეიჯი გაიცა: ${_badgeWinners.map(w => w.nick).join(', ')} (${year}-${String(month).padStart(2, '0')})`, 'ok');
+    } else {
+      const { error: imgErr } = await sb.from('monthly_badge_images')
+        .upsert(
+          { sport, period_year: year, period_month: month, image_url: pub.publicUrl, resolved_at: null },
+          { onConflict: 'sport,period_year,period_month' }
+        );
+      if (imgErr) { badgeStatus('❌ ბეიჯის დამატება ვერ მოხერხდა: ' + imgErr.message, 'err'); return; }
+
+      badgeStatus(`✅ ბეიჯი ატვირთულია (მოლოდინში): ${year}-${String(month).padStart(2, '0')}`, 'ok');
+    }
+
+    fileInput.value = '';
+    loadAwardedBadges();
+  } finally {
+    btn.disabled = false; btn.textContent = btnTextBefore;
+  }
+}
+
+async function loadAwardedBadges() {
+  const box = document.getElementById('badgeAwardedList');
+  box.innerHTML = '<div style="color:var(--muted);font-size:.85rem">იტვირთება...</div>';
+
+  const { data: rows, error } = await sb.from('monthly_badge_images')
+    .select('id, sport, period_year, period_month, image_url, resolved_at, monthly_badge_awards(user_id)')
+    .order('period_year', { ascending: false })
+    .order('period_month', { ascending: false });
+
+  if (error) { box.innerHTML = `<div style="color:var(--red)">შეცდომა: ${error.message}</div>`; return; }
+  if (!rows || !rows.length) { box.innerHTML = '<div style="color:var(--muted);font-size:.85rem">ჯერ არცერთი ბეიჯი არ აიტვირთა</div>'; return; }
+
+  const { data: usersData } = await sb.from('leaderboard_view').select('*');
+  const nickMap = {};
+  (usersData || []).forEach(u => { nickMap[u.id] = u.nick || '—'; });
+
+  box.innerHTML = '';
+  rows.forEach(r => {
+    const winners = r.monthly_badge_awards || [];
+    const isPending = !r.resolved_at;
+    const statusText = isPending
+      ? '🕓 მოლოდინში'
+      : winners.length
+        ? `🏆 ${winners.map(w => nickMap[w.user_id] || '—').join(', ')}`
+        : '— გამარჯვებული არ ჰყავს';
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:6px;margin-bottom:6px';
+    row.innerHTML = `
+      <img src="${r.image_url}" style="width:36px;height:36px;border-radius:50%;object-fit:cover;background:var(--surface-2)" />
+      <span style="flex:1;font-size:.85rem">${r.sport.toUpperCase()} · ${r.period_year}-${String(r.period_month).padStart(2, '0')} · ${statusText}</span>
+      <button class="btn btn-danger" style="padding:6px 12px;font-size:.78rem">წაშლა</button>`;
+    row.querySelector('button').onclick = () => deleteBadge(r.id);
+    box.appendChild(row);
+  });
+}
+
+async function deleteBadge(id) {
+  if (!confirm('წავშალო ეს ბეიჯი? ყველა მასთან დაკავშირებული გაცემაც წაიშლება.')) return;
+  const { error } = await sb.from('monthly_badge_images').delete().eq('id', id);
+  if (error) { badgeStatus('❌ წაშლა ვერ მოხერხდა: ' + error.message, 'err'); return; }
+  badgeStatus('🗑️ ბეიჯი წაიშალა', 'ok');
+  loadAwardedBadges();
+}
+
+// resolve_monthly_badges() — SECURITY DEFINER RPC (supabase/monthly_badges_resolver.sql),
+// self-checks is_admin server-side. Called passively once per admin
+// session (see initAdminSession()) and from the explicit button above;
+// safe to call repeatedly, it only ever touches periods that have
+// actually elapsed and have not yet been resolved.
+async function resolveMonthlyBadges({ silent } = {}) {
+  const btn = document.getElementById('badgeResolveBtn');
+  if (btn && !silent) { btn.disabled = true; btn.textContent = 'მუშავდება…'; }
+  try {
+    const { data, error } = await sb.rpc('resolve_monthly_badges');
+    if (error) {
+      if (!silent) badgeStatus('❌ დამუშავება ვერ მოხერხდა: ' + error.message, 'err');
+      return;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    const resolvedCount = row?.resolved_count ?? 0;
+    const awardedCount = row?.awarded_count ?? 0;
+    if (!silent || resolvedCount > 0) {
+      badgeStatus(resolvedCount > 0
+        ? `✅ დამუშავდა ${resolvedCount} თვე, გაიცა ${awardedCount} ბეიჯი`
+        : 'მოლოდინში მყოფი თვეები არ არის', 'ok');
+    }
+    if (resolvedCount > 0) { loadAwardedBadges(); onBadgeMonthChange(); }
+  } catch (e) {
+    if (!silent) badgeStatus('❌ დამუშავება ვერ მოხერხდა: ' + (e.message || e), 'err');
+  } finally {
+    if (btn && !silent) { btn.disabled = false; btn.textContent = 'მოლოდინში მყოფი ბეიჯების დამუშავება ახლავე'; }
+  }
+}
 </script>
 
 <script>
@@ -351,68 +640,43 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
 });
 
-function showLoginScreen(errMsg) {
+function showDenied(msg) {
+  document.getElementById('checkingScreen').style.display = 'none';
   document.getElementById('adminContent').style.display = 'none';
-  document.getElementById('keyScreen').style.display = 'flex';
-  if (errMsg) document.getElementById('keyError').textContent = errMsg;
-}
-
-async function submitLogin() {
-  const email = document.getElementById('adminEmail').value.trim();
-  const password = document.getElementById('adminPassword').value;
-  document.getElementById('keyError').textContent = '';
-
-  if (!email || !password) {
-    document.getElementById('keyError').textContent = 'შეიყვანე email და password';
-    return;
-  }
-
-  const { data, error } = await sb.auth.signInWithPassword({ email, password });
-  if (error || !data?.user) {
-    document.getElementById('keyError').textContent = 'არასწორი email ან password';
-    return;
-  }
-
-  // ── is_admin შემოწმება ──
-  const { data: profile, error: profErr } = await sb.from('users').select('is_admin').eq('id', data.user.id).single();
-  if (profErr || !profile?.is_admin) {
-    await sb.auth.signOut();
-    document.getElementById('keyError').textContent = 'ეს ანგარიში ადმინი არ არის';
-    return;
-  }
-
-  document.getElementById('keyScreen').style.display = 'none';
-  document.getElementById('adminContent').style.display = 'block';
-  initNotifySecretField();
-  loadFromLocal();
-  startAutoOdds();
-  log('✅ ადმინად შესვლა წარმატებულია', 'ok');
+  if (msg) document.getElementById('deniedMsg').textContent = msg;
+  document.getElementById('deniedScreen').style.display = 'flex';
 }
 
 async function adminLogout() {
   if (!confirm('გსურს გამოსვლა?')) return;
   await sb.auth.signOut();
-  showLoginScreen();
+  showDenied();
 }
 
-
-// ── init: სესია უკვე არსებობს? ──
+// ── Gate: nothing above this point (checkingScreen only) is shown
+// until this resolves. No form, no table, no data fetch happens before
+// both checks below pass -- a missing session or a non-admin account
+// goes straight to showDenied(), never touching #adminContent.
 async function initAdminSession() {
   const { data: { session } } = await sb.auth.getSession();
-  if (!session) { showLoginScreen(); return; }
+  if (!session) { showDenied(); return; }
 
   const { data: profile, error: profErr } = await sb.from('users').select('is_admin').eq('id', session.user.id).single();
   if (profErr || !profile?.is_admin) {
     await sb.auth.signOut();
-    showLoginScreen('ეს ანგარიში ადმინი არ არის');
+    showDenied('ეს ანგარიში ადმინი არ არის.');
     return;
   }
 
-  document.getElementById('keyScreen').style.display = 'none';
+  document.getElementById('checkingScreen').style.display = 'none';
   document.getElementById('adminContent').style.display = 'block';
   initNotifySecretField();
   loadFromLocal();
   startAutoOdds();
+  loadLandingBgPreviews();
+  populateBadgeSelectors();
+  loadAwardedBadges();
+  resolveMonthlyBadges({ silent: true }); // passive — fires on every admin session, see supabase/monthly_badges_resolver.sql
 }
 
 document.addEventListener('DOMContentLoaded', initAdminSession);
