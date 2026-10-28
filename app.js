@@ -260,7 +260,16 @@ function renderMarkets() {
       `<button class="mkt-chip ${fcls} ${p && p.round === r ? 'on' : ''}" data-round="${i}" data-val="${r}" ${!canBet ? 'disabled' : ''}><span class="ml">${r}</span><span class="mo">${roundOdds(i, r).toFixed(2)}</span></button>`).join('');
     const methodChips = METHODS.map(m =>
       `<button class="mkt-chip ${fcls} ${p && p.method === m ? 'on' : ''}" data-method="${i}" data-val="${m}" ${!canBet ? 'disabled' : ''}><span class="ml">${m}</span><span class="mo">${methodOdds(i, m).toFixed(2)}</span></button>`).join('');
-    const taleRow = (lab, a, b) => `<div class="tale-row"><span class="tv l">${a}</span><span class="tl">${lab}</span><span class="tv r">${b}</span></div>`;
+    // R7: value strings carry their unit baked in ("180 სმ", "71 კგ") except
+    // age, which has none ("32") — split on the last space so the unit can
+    // be styled smaller/tighter independently, without touching how these
+    // strings are built (fighters table query above, line ~182).
+    const taleVal = (v) => {
+      const s = String(v);
+      const i = s.lastIndexOf(' ');
+      return i === -1 ? s : `${s.slice(0, i)}<span class="tv-unit">${s.slice(i + 1)}</span>`;
+    };
+    const taleRow = (lab, a, b) => `<div class="tale-row"><span class="tv l">${taleVal(a)}</span><span class="tl">${lab}</span><span class="tv r">${taleVal(b)}</span></div>`;
 
     const pickBtn = (side, d) => {
       const has = d.odds != null && d.odds > 0;
