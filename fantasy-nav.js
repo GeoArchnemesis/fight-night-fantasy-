@@ -130,3 +130,40 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', build);
   else build();
 })();
+
+// ============================================================
+//  hide-on-scroll header (FNF-UI-UX-PRD.md Phase 6, item 1) --
+//  sitewide, since <nav> and its sticky/transform CSS (style.css) are
+//  the same on every page this script already loads on. rAF-throttled,
+//  one scroll listener for the whole site rather than one per page.
+//  prefers-reduced-motion is handled in CSS (the transition itself is
+//  disabled there), not by skipping the class toggle here -- the
+//  reduced-motion user still gets the show/hide *state* change, just
+//  without the animated slide.
+// ============================================================
+(function () {
+  if (window.__FNF_HIDE_NAV__) return;
+  window.__FNF_HIDE_NAV__ = true;
+
+  var nav = document.querySelector('nav');
+  if (!nav) return;
+
+  var lastY = window.scrollY;
+  var raf = null;
+
+  function tick() {
+    raf = null;
+    var y = window.scrollY;
+    if (y > lastY && y > 120) {
+      nav.classList.add('is-hidden');
+    } else if (y < lastY) {
+      nav.classList.remove('is-hidden');
+    }
+    lastY = y;
+  }
+
+  window.addEventListener('scroll', function () {
+    if (raf) return;
+    raf = requestAnimationFrame(tick);
+  }, { passive: true });
+})();
