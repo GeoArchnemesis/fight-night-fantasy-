@@ -29,3 +29,9 @@ UI Update.md
 QUIZ-TEXT-STRINGS.txt
 Claude outputs/
 supabase/.temp/
+
+# Superseded by monthly_badges_pending_awards.sql + monthly_badges_resolver.sql
+# (the single-table schema this file creates was renamed to
+# monthly_badges_deprecated). Kept locally for reference only -- must never be
+# run against Supabase.
+supabase/monthly_badges.sql
