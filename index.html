@@ -78,9 +78,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .land-card[class*="fb-"]:hover{border-color:#4da3ff}
   .fb-cap{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-weight:800;font-size:clamp(var(--fs-meta),1.7vw,.95rem);text-align:center;font-family:var(--head)}
   .land-foot{margin-top:30px;color:var(--muted,#9a97a8);font-size:var(--fs-meta);text-align:center}
+  #newsStrip{width:100%;margin-top:34px}
+  #newsStrip .sec-head{justify-content:center;margin-bottom:14px}
+  /* p6 (LittleMoreUpdates.pdf): match this page's own structure instead of
+     inventing a new one — same heading size as "აირჩიე ფენტეზის ტიპი"
+     (.land-title), covers the same size as the fantasy cards (.land-card),
+     laid out in the same 3-column grid (.land-cards), same breakpoint. */
+  #newsStrip h2{font-family:var(--head);font-weight:800;font-size:clamp(1.6rem,5vw,2.6rem);color:var(--text,#fff)}
+  #newsStrip .nw-strip-list{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;width:100%;max-width:1040px;margin:0 auto}
+  #newsStrip .article-card--list{flex-direction:column;gap:0;padding:0;margin-bottom:0;border:1px solid var(--line,#26232f);border-radius:16px;overflow:hidden;background:var(--surface,#14121b)}
+  #newsStrip .acl-thumb{width:100%;aspect-ratio:3/2;border-radius:0}
+  #newsStrip .acl-content{padding:10px 14px 14px}
   @media(max-width:860px){
     .land-cards{grid-template-columns:repeat(2,1fr);gap:11px;max-width:440px}
     .land-title{margin:16px 0 20px}
+    #newsStrip .nw-strip-list{grid-template-columns:repeat(2,1fr);gap:11px;max-width:440px}
   }
 </style>
 </head>
@@ -105,6 +117,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <a href="/football/ligue1/" class="land-card fb-ligue1" aria-label="ლიგა 1"><span class="fb-cap">ლიგა 1</span></a>
   <a href="/football/ucl/" class="land-card fb-ucl" aria-label="ჩემპიონთა ლიგა"><span class="fb-cap">ჩემპიონთა ლიგა</span></a>
 </div>
+
+<!-- NEWS-HOME:START -->
+<section id="newsStrip"><div class="wrap">
+<div class="sec-head"><h2>სიახლეები</h2></div>
+<div class="nw-strip-list">
+<a class="article-card--list" href="/news/merab-dvalishvili-fight-week/"><img class="acl-thumb" src="https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=224&height=168&resize=cover&quality=75" srcset="https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=224&height=168&resize=cover&quality=75 224w, https://qxfcwsiysnjxhxljqigl.supabase.co/storage/v1/render/image/public/news-images/1792351283095-gettyimages-2250452193.jpg?width=336&height=252&resize=cover&quality=75 336w" sizes="112px" width="112" height="84" alt="მერაბ დვალიშვილი და პიოტრ იანი UFC-ის ოქტაგონზე, მსაჯთან ერთად, ბრძოლის დაწყებამდე." loading="lazy" decoding="async" /><div class="acl-content"><h3 class="acl-title">მერაბ დვალიშვილი - საბრძოლო კვირა</h3><div class="acl-meta"><time datetime="2026-10-18T04:00:00+00:00">18 ოქტომბერი, 2026</time></div></div></a>
+</div>
+</div></section>
+<!-- NEWS-HOME:END -->
 
 <div class="land-foot" style="margin-top:30px;display:flex;flex-wrap:wrap;justify-content:center;gap:16px">
   <a href="/news/" style="color:inherit;text-decoration:underline">სიახლეები</a>
