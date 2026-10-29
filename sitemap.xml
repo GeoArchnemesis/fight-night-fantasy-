@@ -70,9 +70,16 @@
   <!-- /ufc/quiz/ intentionally NOT listed yet: feature is still being stabilized
        on this branch (temporary noindex meta is on the page itself). Add this
        entry once the feature is merged and stable; see SEOAUDITFNF.md. -->
-  <!-- /terms/ and /privacy/ intentionally NOT listed: draft-only legal pages,
-       marked noindex until reviewed by an actual lawyer — see those files'
-       <head> and SEOAUDITFNF.md. -->
+  <url>
+    <loc>https://fnf.ge/terms/</loc>
+    <lastmod>2026-10-29</lastmod>
+    <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://fnf.ge/privacy/</loc>
+    <lastmod>2026-10-29</lastmod>
+    <priority>0.6</priority>
+  </url>
   <!-- Individual articles are NOT added here by hand — there can be many and
        they come and go as the admin publishes/unpublishes. The block below is
        maintained by scripts/sync-news-sitemap.js (run manually; see that file's
