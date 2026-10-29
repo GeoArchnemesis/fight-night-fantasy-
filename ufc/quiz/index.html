@@ -151,7 +151,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 @media (prefers-reduced-motion:reduce){#quizRoot *{animation-duration:.01ms !important;transition-duration:.01ms !important}}
 
 #quizRoot .back-row{display:flex;justify-content:flex-start;margin-bottom:12px}
-#quizRoot .back-btn{font-family:var(--head);font-weight:700;font-size:.78rem;color:var(--text);background:none;border:1px solid var(--line);border-radius:999px;padding:7px 14px;cursor:pointer}
+#quizRoot .back-btn{font-family:var(--head);font-weight:700;font-size:.78rem;color:var(--text);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 14px;cursor:pointer}
 #quizRoot .back-btn:hover{color:var(--text);border-color:var(--muted)}
 
 #quizRoot .modes{display:grid;grid-template-columns:1fr;gap:12px}
@@ -196,6 +196,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .btn-gold:hover{filter:brightness(1.05)}
 #quizRoot .btn-green{background:var(--green);color:#06240f}
 #quizRoot .btn-green:hover{filter:brightness(1.05)}
+/* style.css's global .btn-ghost has no background (fine elsewhere, over a
+   solid page), and .btn-primary:disabled only dims via opacity -- both let
+   the quiz-area artwork show through. Scoped opaque overrides, same pattern
+   as .btn-gold/.btn-green above; the global rules are untouched. */
+#quizRoot .btn-ghost{background:var(--surface)}
+#quizRoot .btn.btn-primary:disabled{opacity:1;background:var(--line);color:var(--muted)}
 
 #quizRoot .difficulty{width:100%;display:flex;flex-direction:column;gap:10px}
 #quizRoot .diff-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
@@ -206,7 +212,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    align via justify-content, not text-align. Fixed at the source: */
 #quizRoot .chip{font-family:var(--head);font-weight:700;font-size:.82rem;padding:12px 6px;border-radius:8px;cursor:pointer;color:var(--text);border:1px solid var(--line);background:var(--ink);transition:.15s;line-height:1.3;text-align:center;justify-content:center}
 #quizRoot .chip:hover{border-color:var(--muted)}
-#quizRoot .chip.sel{border-color:var(--green);background:rgba(58,209,126,.14);color:var(--green)}
+#quizRoot .chip.sel{border-color:var(--green);background:var(--surface);color:var(--green)}
 #quizRoot .chip:disabled{opacity:.4;cursor:not-allowed;color:var(--muted)}
 /* R2: vs-AI picker now matches PvP room-create — SELECTED chip is green
    (reusing --green) in both; no gold selected-chip state remains. */
@@ -317,7 +323,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .pvp-player .ava img{width:100%;height:100%;object-fit:cover;border-radius:50%}
 #quizRoot .pvp-player .nm{flex:1;font-family:var(--head);font-weight:700;font-size:.9rem}
 #quizRoot .pvp-player .tag{font-family:var(--mono);font-size:.62rem;color:var(--gold);text-transform:uppercase;letter-spacing:.05em}
-#quizRoot .pvp-player-empty{display:flex;align-items:center;gap:10px;border:1px dashed var(--line);border-radius:8px;padding:10px 14px;opacity:.6}
+#quizRoot .pvp-player-empty{display:flex;align-items:center;gap:10px;background:var(--ink);border:1px dashed var(--line);border-radius:8px;padding:10px 14px}
 #quizRoot .pvp-player-empty .ava{width:30px;height:30px;border-radius:50%;border:1px dashed var(--line);display:grid;place-items:center;font-size:14px;flex-shrink:0;color:var(--text)}
 #quizRoot .pvp-player-empty .nm{font-family:var(--head);font-weight:700;font-size:.86rem;color:var(--text)}
 #quizRoot .pvp-count{font-family:var(--mono);font-size:.78rem;color:var(--text)}
