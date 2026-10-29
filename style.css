@@ -454,6 +454,16 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .how-card{padding:22px}
 .how-num{font-family:var(--display);font-weight:700;font-size:1.5rem;color:var(--red);line-height:1}
 .how-t{font-weight:700;margin-top:10px}.how-d{font-size:.86rem;color:var(--muted);margin-top:6px}
+.land-about{width:100%;margin-top:34px}
+/* body.landing is a centered flex column (align-items:center), so a
+   block-level child shrinks to its own content width by default --
+   #newsStrip/.land-about already counter this with width:100%; footer
+   needs the same so its border-top and 3-column grid span full width
+   instead of hugging the links' own width. */
+.land-about .wrap{max-width:1040px}
+.land-about h2{font-family:var(--display);font-weight:700;font-size:1.4rem;margin:32px 0 12px;color:var(--text,#fff)}
+.land-about h2:first-child{margin-top:0}
+.land-about p{color:var(--muted,#9a97a8);font-size:.95rem;line-height:1.7;margin-bottom:16px}
 footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .foot-in{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:flex-start}
 .foot-brand{display:flex;align-items:center;gap:12px;margin-bottom:14px}
