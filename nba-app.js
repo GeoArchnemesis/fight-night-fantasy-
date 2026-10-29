@@ -611,7 +611,7 @@ function renderLeaderboard() {
     const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
     return `<a class="lb-row ${you ? 'you' : ''}${r.verified ? ' verified-row' : ''}" href="/profile/?u=${encodeURIComponent(nm)}" style="text-decoration:none;color:inherit">
       <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
-      <span class="lb-user"><span class="lb-ava-glove">${navAvaHtml(r)}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name" style="font-size:${nmSize}">${nm}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
+      <span class="lb-user"><span class="lb-ava-glove">${navAvaHtml(r)}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name" style="font-size:${nmSize}">${escapeHtml(nm)}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
       <span class="lb-roi"></span><span class="lb-pts" style="font-size:${ptsSize}">${ptsStr}</span></a>`;
   }).join('');
   renderLbFullButton(fullSorted);
@@ -633,7 +633,7 @@ function openLbPopup(fullSorted) {
     const nm = r.name || '—';
     return `<a class="lb-row ${you ? 'you' : ''}${r.verified ? ' verified-row' : ''}" href="/profile/?u=${encodeURIComponent(nm)}" style="text-decoration:none;color:inherit">
       <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
-      <span class="lb-user"><span class="lb-ava-glove">${navAvaHtml(r)}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name">${nm}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
+      <span class="lb-user"><span class="lb-ava-glove">${navAvaHtml(r)}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name">${escapeHtml(nm)}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
       <span class="lb-pts">${sign + fmt(r.pts)}</span></a>`;
   }).join('');
   overlay.innerHTML = `<div class="lb-popup"><div class="lb-popup-head"><h3>სრული ლიდერბორდი</h3><button class="x" id="lbPopupClose">&times;</button></div><div class="lb-popup-body">${rowsHtml}</div></div>`;
@@ -765,9 +765,20 @@ function openModal(mode) {
 }
 function closeModal() { if (modal) modal.classList.remove('show'); authError(''); }
 // Phase Q3: ნავში ავატარი ფოტოს პრეფერირებს, თუ users.avatar_type==='photo'.
+// XSS hardening (Phase 8): nick/avatar_url are user-editable (the
+// 3-20-char nick format rule is enforced client-side only -- the DB CHECK
+// constraint in supabase/users_nick_constraint.sql is not applied yet) and
+// get interpolated into innerHTML below. escapeHtml() is also safe for the
+// <img src="..."> attribute context specifically because it escapes the
+// quote characters, which is what actually matters there -- it doesn't
+// need URL-scheme validation, since <img src> (unlike <a href>) can't
+// execute a javascript: URI.
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 function navAvaHtml(user) {
   return (user.avatar_type === 'photo' && user.avatar_url)
-    ? `<img src="${user.avatar_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+    ? `<img src="${escapeHtml(user.avatar_url)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
     : (user.icon || '🥊');
 }
 function updateNavForUser(user) {
@@ -779,7 +790,7 @@ function updateNavForUser(user) {
     if (signinBtn) signinBtn.style.display = 'none';
     if (!navUser) {
       navUser = document.createElement('div'); navUser.id = 'navUser'; navUser.className = 'nav-user';
-      navUser.innerHTML = `<span class="nav-ava">${navAvaHtml(user)}</span><span class="nav-nick">${user.nick}</span>
+      navUser.innerHTML = `<span class="nav-ava">${navAvaHtml(user)}</span><span class="nav-nick">${escapeHtml(user.nick)}</span>
         <div class="nav-dropdown" id="navDropdown"><button class="nav-dd-item" id="ddProfile">პროფილი</button><button class="nav-dd-item danger" id="ddLogout">გამოსვლა</button></div>`;
       if (joinBtn && joinBtn.parentNode) joinBtn.parentNode.insertBefore(navUser, joinBtn);
       navUser.onclick = (e) => { if (e.target.closest('.nav-dropdown')) return; $('navDropdown').classList.toggle('show'); };

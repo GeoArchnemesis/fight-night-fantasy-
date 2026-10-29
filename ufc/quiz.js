@@ -72,10 +72,22 @@ const fmt = n => Number.isFinite(+n) ? Math.round(+n).toLocaleString('en-US') : 
    არანაირი ბილეთი/ფსონი/სეტლმენტი — ეს ყველაფერი ამ გვერდზე არც კი
    არსებობს (არც markup, არც RPC-ები). "პროფილი" ბმული გადის /profile/-ზე,
    რადგან პროფილის რედაქტირების მოდალი აქ არ იტვირთება. ------------- */
+// XSS hardening (Phase 8): nick/avatar_url/player_name are user-editable
+// (the 3-20-char nick format rule is enforced client-side only -- the DB
+// CHECK constraint in supabase/users_nick_constraint.sql is not applied
+// yet) and get interpolated into innerHTML below and further down (PvP
+// lobby/podium/results). escapeHtml() is also safe for the
+// <img src="..."> attribute context specifically because it escapes the
+// quote characters, which is what actually matters there -- it doesn't
+// need URL-scheme validation, since <img src> (unlike <a href>) can't
+// execute a javascript: URI.
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
 // Phase Q3: ნავში ავატარი ფოტოს პრეფერირებს, თუ users.avatar_type==='photo'.
 function navAvaHtml(user){
   return (user.avatar_type === 'photo' && user.avatar_url)
-    ? `<img src="${user.avatar_url}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
+    ? `<img src="${escapeHtml(user.avatar_url)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
     : (user.icon || '🥊');
 }
 function updateAuthNav(user){
@@ -89,7 +101,7 @@ function updateAuthNav(user){
     if(signinBtn) signinBtn.style.display = 'none';
     if(!navUser){
       navUser = document.createElement('div'); navUser.id = 'navUser'; navUser.className = 'nav-user';
-      navUser.innerHTML = `<span class="nav-ava">${navAvaHtml(user)}</span><span class="nav-nick">${user.nick}</span>
+      navUser.innerHTML = `<span class="nav-ava">${navAvaHtml(user)}</span><span class="nav-nick">${escapeHtml(user.nick)}</span>
         <div class="nav-dropdown" id="navDropdown"><a class="nav-dd-item" href="/profile/">პროფილი</a><button class="nav-dd-item danger" id="ddLogout">გამოსვლა</button></div>`;
       if(joinBtn && joinBtn.parentNode) joinBtn.parentNode.insertBefore(navUser, joinBtn);
       navUser.addEventListener('click', e=>{ if(e.target.closest('.nav-dropdown')) return; document.getElementById('navDropdown').classList.toggle('show'); });
@@ -840,7 +852,7 @@ async function fetchPvpAvatars(){
 
 function pvpAvatarHtml(playerId){
   const a = PVP && PVP.avatarsById && PVP.avatarsById[playerId];
-  if(a && a.avatar_type === "photo" && a.avatar_url) return `<img src="${a.avatar_url}" alt="" />`;
+  if(a && a.avatar_type === "photo" && a.avatar_url) return `<img src="${escapeHtml(a.avatar_url)}" alt="" />`;
   return (a && a.icon) || "🥊";
 }
 
@@ -868,7 +880,7 @@ function renderPvpLobbyList(){
     row.className = "pvp-player";
     const isMe = p.player_id === PVP.myId;
     row.innerHTML = `<span class="ava">${pvpAvatarHtml(p.player_id)}</span>`+
-      `<span class="nm">${p.player_name}${isMe ? " (შენ)" : ""}</span>`+
+      `<span class="nm">${escapeHtml(p.player_name)}${isMe ? " (შენ)" : ""}</span>`+
       (p.is_host ? `<span class="tag">ჰოსტი</span>` : "");
     list.appendChild(row);
   });
@@ -964,9 +976,9 @@ function renderPvpResults(result){
     const isMe = PVP && p.player_id === PVP.myId;
     // PDF p1: პოდიუმში ემოჯის ნაცვლად მოთამაშის რეალური სურათი/აიქონი —
     // ფერადი რგოლი (ოქრო/ვერცხლი/ბრინჯაო) კი .podium-slot.pN-ზეა, უცვლელი.
-    const avaHtml = (p.avatar_type === "photo" && p.avatar_url) ? `<img src="${p.avatar_url}" alt="" />` : (p.icon || "🥊");
+    const avaHtml = (p.avatar_type === "photo" && p.avatar_url) ? `<img src="${escapeHtml(p.avatar_url)}" alt="" />` : (p.icon || "🥊");
     slot.innerHTML = `<div class="podium-ring">${avaHtml}</div>`+
-      `<div class="podium-nm">${p.player_name}${isMe ? " (შენ)" : ""}</div>`+
+      `<div class="podium-nm">${escapeHtml(p.player_name)}${isMe ? " (შენ)" : ""}</div>`+
       `<div class="podium-pts">${p.total_score} ქულა</div>`+
       `<div class="podium-base"></div>`;
     podiumEl.appendChild(slot);
@@ -977,7 +989,7 @@ function renderPvpResults(result){
     const row = document.createElement("div");
     row.className = "pvp-rest-row";
     row.innerHTML = `<span class="rank">${i+4}</span>`+
-      `<span class="nm">${p.player_name}${isMe ? " (შენ)" : ""}</span>`+
+      `<span class="nm">${escapeHtml(p.player_name)}${isMe ? " (შენ)" : ""}</span>`+
       `<span class="pts">${p.total_score}</span>`;
     restEl.appendChild(row);
   });
