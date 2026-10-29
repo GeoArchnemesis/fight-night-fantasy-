@@ -30,6 +30,14 @@ QUIZ-TEXT-STRINGS.txt
 Claude outputs/
 supabase/.temp/
 
+# Previously committed, untracked here -- same reason as the rest of this
+# block: the repo root is served publicly at fnf.ge, and these were found
+# live-servable during a pre-push audit. Not deleted from disk, just untracked.
+SEOAUDITFNF.md
+EPICQUIZ.PRD
+CLOUDFLARE-PREVIEW-TESTS.md
+functions/
+
 # Superseded by monthly_badges_pending_awards.sql + monthly_badges_resolver.sql
 # (the single-table schema this file creates was renamed to
 # monthly_badges_deprecated). Kept locally for reference only -- must never be
