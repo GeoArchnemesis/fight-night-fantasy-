@@ -167,6 +167,7 @@
 <button class="admin-tab-btn" data-tab="events">ივენთები</button>
 <button class="admin-tab-btn" data-tab="backgrounds">ბექგრაუნდები</button>
 <button class="admin-tab-btn" data-tab="badges">ბეიჯები</button>
+<button class="admin-tab-btn" data-tab="pages">გვერდები</button>
 <a class="admin-tab-link" href="/EPJQI8FX/news.html">სიახლეები</a>
 </div>
 
@@ -351,6 +352,28 @@
 
 </div><!-- /admin-panel badges -->
 
+<div class="admin-panel" data-panel="pages">
+
+<div class="card">
+  <h2>📄 გვერდები</h2>
+  <div class="flex-gap" style="margin-bottom:14px">
+    <button type="button" class="toggle-btn toggle-active" data-pages-slug="about" onclick="selectPagesSlug('about')">ჩვენს შესახებ</button>
+    <button type="button" class="toggle-btn toggle-inactive" data-pages-slug="terms" onclick="selectPagesSlug('terms')">წესები და პირობები</button>
+    <button type="button" class="toggle-btn toggle-inactive" data-pages-slug="privacy" onclick="selectPagesSlug('privacy')">კონფიდენციალურობის პოლიტიკა</button>
+  </div>
+  <label for="pagesTitleInput">სათაური</label>
+  <input type="text" id="pagesTitleInput" />
+  <label for="pagesBodyInput">შინაარსი (HTML)</label>
+  <textarea id="pagesBodyInput" rows="20" style="width:100%;font-family:monospace;font-size:.82rem;line-height:1.5;resize:vertical;min-height:420px;background:var(--canvas);border:1px solid var(--line);border-radius:4px;padding:10px 12px;color:var(--text)"></textarea>
+  <div class="flex-gap" style="margin-top:12px">
+    <button class="btn btn-primary" id="pagesSaveBtn" onclick="savePage()">შენახვა</button>
+    <span id="pagesStatus" style="font-size:.8rem"></span>
+  </div>
+  <div style="font-size:.78rem;color:var(--muted);margin-top:10px">ცვლილება საიტზე გამოჩნდება მას შემდეგ, რაც GitHub-ზე გაუშვებ "Prerender News"-ს.</div>
+</div>
+
+</div><!-- /admin-panel pages -->
+
 <script>
 // ── ADMIN TABS — refactor-only chrome; no existing function/id touched.
 // Panels/buttons use data-tab/data-panel + classes only (no new ids), and
@@ -359,7 +382,7 @@
 // remembers the last open tab across a reload; wrapped in try/catch
 // (private-browsing safe).
 (function () {
-  var TABS = ['events', 'backgrounds', 'badges'];
+  var TABS = ['events', 'backgrounds', 'badges', 'pages'];
   var activate = function (tab) {
     document.querySelectorAll('.admin-tab-btn').forEach(function (btn) {
       btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
@@ -1795,6 +1818,86 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+<script>
+// ── ADMIN PAGES EDITOR (public.site_pages: about/terms/privacy) ──
+// Independent of the tab-switching script below -- only adds a click
+// listener on the "გვერდები" tab button to load all three rows once,
+// on first open (or immediately, if "pages" is already the active tab
+// on load via the remembered sessionStorage tab -- see the IIFE at the
+// bottom of this block). Switching between about/terms/privacy inside
+// this panel never re-fetches; it only swaps what's shown from the
+// in-memory copy. Reuses .toggle-btn/.toggle-active/.toggle-inactive
+// (already defined for fight active/inactive) for the three page
+// picker buttons, and badgeStatus()'s exact status-span pattern (new
+// function, same technique, different element) for save feedback --
+// no new UI pattern invented.
+var _pagesData = {};
+var _pagesLoaded = false;
+var _pagesCurrentSlug = null;
+
+function pagesStatus(msg, type) {
+  var el = document.getElementById('pagesStatus');
+  if (!el) return;
+  el.style.color = type === 'err' ? 'var(--red)' : type === 'ok' ? 'var(--green)' : 'var(--muted)';
+  el.textContent = msg;
+}
+
+async function loadPagesData() {
+  if (_pagesLoaded) return;
+  pagesStatus('იტვირთება…', 'info');
+  const { data, error } = await sb.from('site_pages').select('slug, title, body_html');
+  if (error) { pagesStatus('❌ ჩატვირთვა ვერ მოხერხდა: ' + error.message, 'err'); return; }
+  (data || []).forEach(function (row) { _pagesData[row.slug] = { title: row.title, body_html: row.body_html }; });
+  _pagesLoaded = true;
+  pagesStatus('', 'info');
+  selectPagesSlug('about');
+}
+
+function selectPagesSlug(slug) {
+  if (_pagesCurrentSlug && slug !== _pagesCurrentSlug) {
+    var titleEl = document.getElementById('pagesTitleInput');
+    var bodyEl = document.getElementById('pagesBodyInput');
+    var loaded = _pagesData[_pagesCurrentSlug] || { title: '', body_html: '' };
+    var dirty = titleEl.value !== loaded.title || bodyEl.value !== loaded.body_html;
+    if (dirty && !confirm('შენახული არ არის ცვლილებები. გსურს გვერდის შეცვლა შენახვის გარეშე?')) return;
+  }
+  _pagesCurrentSlug = slug;
+  var row = _pagesData[slug] || { title: '', body_html: '' };
+  document.getElementById('pagesTitleInput').value = row.title;
+  document.getElementById('pagesBodyInput').value = row.body_html;
+  document.querySelectorAll('[data-pages-slug]').forEach(function (btn) {
+    var on = btn.getAttribute('data-pages-slug') === slug;
+    btn.classList.toggle('toggle-active', on);
+    btn.classList.toggle('toggle-inactive', !on);
+  });
+  pagesStatus('', 'info');
+}
+
+async function savePage() {
+  if (!_pagesCurrentSlug) return;
+  var btn = document.getElementById('pagesSaveBtn');
+  var btnTextBefore = btn.textContent;
+  btn.disabled = true; btn.textContent = 'ინახება…';
+  try {
+    var title = document.getElementById('pagesTitleInput').value;
+    var bodyHtml = document.getElementById('pagesBodyInput').value;
+    const { error } = await sb.from('site_pages').update({ title: title, body_html: bodyHtml }).eq('slug', _pagesCurrentSlug);
+    if (error) { pagesStatus('❌ შენახვა ვერ მოხერხდა: ' + error.message, 'err'); return; }
+    _pagesData[_pagesCurrentSlug] = { title: title, body_html: bodyHtml };
+    pagesStatus('✓ შენახულია', 'ok');
+  } finally {
+    btn.disabled = false; btn.textContent = btnTextBefore;
+  }
+}
+
+(function () {
+  var pagesTabBtn = document.querySelector('.admin-tab-btn[data-tab="pages"]');
+  if (pagesTabBtn) pagesTabBtn.addEventListener('click', loadPagesData);
+  var pagesPanel = document.querySelector('.admin-panel[data-panel="pages"]');
+  if (pagesPanel && pagesPanel.classList.contains('active')) loadPagesData();
+})();
+</script>
+
 </div><!-- /adminContent -->
 </body>
 </html>
