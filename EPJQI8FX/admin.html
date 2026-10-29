@@ -100,6 +100,15 @@
   .result-input { width:100% !important; margin:0; padding:6px 8px; font-size:.8rem; }
   .settle-section { margin-top:14px; padding-top:14px; border-top:2px solid var(--green); }
   .settle-section h3 { color:var(--green); font-size:.95rem; margin-bottom:10px; }
+  .admin-tabs{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+  .admin-tab-btn{font-family:inherit;font-weight:700;font-size:.85rem;min-height:44px;padding:10px 18px;border-radius:4px;cursor:pointer;border:1px solid var(--line);background:var(--surface-2);color:var(--text);transition:.15s}
+  .admin-tab-btn:hover{border-color:var(--muted)}
+  .admin-tab-btn.active{background:var(--red);color:#fff;border-color:var(--red)}
+  .admin-tab-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .admin-tab-link{font-family:inherit;font-weight:700;font-size:.85rem;min-height:44px;padding:10px 18px;border-radius:4px;border:1px solid var(--line);background:var(--surface-2);color:var(--text);text-decoration:none;display:inline-flex;align-items:center}
+  .admin-tab-link:hover{border-color:var(--muted)}
+  .admin-panel{display:none}
+  .admin-panel.active{display:block}
 </style>
 </head>
 <body>
@@ -132,7 +141,6 @@
 <div class="warn" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
   <span>⚠️ ეს გვერდი მხოლოდ ადმინისთვისაა.</span>
   <div class="flex-gap">
-    <a href="/EPJQI8FX/news.html" class="btn btn-ghost" style="text-decoration:none;display:inline-block">📰 სიახლეები</a>
     <button onclick="adminLogout()" style="background:rgba(243,29,37,.15);color:var(--red);border:1px solid var(--red);border-radius:4px;padding:4px 12px;cursor:pointer;font-family:inherit;font-size:.78rem">🚪 გამოსვლა</button>
   </div>
 </div>
@@ -155,6 +163,15 @@
   <div class="status-item"><span class="status-label">Odds API credits</span><span class="status-value credits-badge" id="creditsLeft">?</span></div>
 </div>
 
+<div class="admin-tabs">
+<button class="admin-tab-btn" data-tab="events">ივენთები</button>
+<button class="admin-tab-btn" data-tab="backgrounds">ბექგრაუნდები</button>
+<button class="admin-tab-btn" data-tab="badges">ბეიჯები</button>
+<a class="admin-tab-link" href="/EPJQI8FX/news.html">სიახლეები</a>
+</div>
+
+<div class="admin-panel" data-panel="events">
+
 <div class="card">
   <h2>📡 ნაბიჯი 1 — ივენთი</h2>
   <div class="grid-2">
@@ -170,6 +187,67 @@
     <button class="btn btn-danger" onclick="clearLocal()" style="font-size:.75rem;padding:5px 12px;">🗑 სესიის გასუფთავება</button>
   </div>
 </div>
+
+<div class="card" id="eventSection" style="display:none">
+  <h2>🏟️ ნაბიჯი 2 — ივენთის დეტალები</h2>
+  <div id="eventInfo" class="event-info"></div>
+  <div class="grid-2">
+    <div><label>ივენთის სახელი</label><input type="text" id="eventName" oninput="saveToLocal()" /></div>
+    <div><label>ლოკაცია</label><input type="text" id="eventLocation" oninput="saveToLocal()" /></div>
+  </div>
+  <div><label>თარიღი</label><input type="datetime-local" id="eventDate" oninput="saveToLocal();updateCountdown()" /></div>
+</div>
+
+<div class="card" id="fightsSection" style="display:none">
+  <h2>🥊 ნაბიჯი 3 — ბრძოლები</h2>
+  <div style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">
+    ✅ <b style="color:var(--green)">ჩართული</b> = საიტზე ჩანს &nbsp;|&nbsp;
+    ⚫ გამორთული = არ ჩანს &nbsp;|&nbsp;
+    🟡 <b style="color:var(--gold)">მეტი დეტალი</b> = რაუნდები/მეთოდი &nbsp;|&nbsp;
+    🏆 შედეგი = ბრძოლის შემდეგ
+  </div>
+  <div id="fightsList"></div>
+</div>
+
+<div class="card" id="saveSection" style="display:none">
+  <h2>💾 ნაბიჯი 4 — Supabase-ში შენახვა</h2>
+  <div class="flex-gap" style="margin-bottom:14px;">
+    <button class="btn btn-primary" onclick="saveToSupabase()">🚀 ბაზაში შენახვა</button>
+    <button class="btn btn-settle" onclick="syncOddsToDB()" style="margin-left:8px">📊 ოდსების სინქრონიზაცია DB-ში</button>
+    <button class="btn btn-ghost" onclick="checkResults()">🏆 შედეგების შემოწმება (ESPN)</button>
+    <button class="btn btn-ghost" onclick="clearLog()">🗑️ ლოგის გასუფთავება</button>
+  </div>
+
+  <!-- SETTLEMENT SECTION -->
+  <div class="settle-section">
+    <h3>⚡ Settlement — ბილეთების დამუშავება</h3>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">
+      ჯერ შეიყვანე შედეგები (ESPN ან ხელით), შეინახე ბაზაში, შემდეგ გაუშვი settlement.
+    </div>
+    <div class="flex-gap">
+      <button class="btn btn-settle" onclick="fetchAndSettle()">⚡ ESPN შედეგები + Settlement</button>
+      <button class="btn btn-settle" onclick="settleAllTickets()">🏆 მხოლოდ Settlement (შედეგები DB-შია)</button>
+    </div>
+  </div>
+
+  <!-- VERIFICATION SECTION -->
+  <div class="settle-section">
+    <h3>🪪 ვერიფიკაციები — მომლოდინე მოთხოვნები</h3>
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">
+      მომხმარებლის ფოტო ჩანს მხოლოდ შენთვის (admin), დახურული storage-დან, დროებითი ბმულით.
+    </div>
+    <div class="flex-gap">
+      <button class="btn btn-ghost" onclick="loadPendingVerifications()">🔄 სიის განახლება</button>
+    </div>
+    <div id="verifQueue" style="margin-top:14px;display:flex;flex-direction:column;gap:14px;"></div>
+  </div>
+
+  <div class="log" id="log" style="margin-top:14px;"></div>
+</div>
+
+</div><!-- /admin-panel events -->
+
+<div class="admin-panel" data-panel="backgrounds">
 
 <div class="card">
   <h2>🖼️ სადესანტო ბექგრაუნდები (fnf.ge)</h2>
@@ -234,6 +312,10 @@
   </div>
 </div>
 
+</div><!-- /admin-panel backgrounds -->
+
+<div class="admin-panel" data-panel="badges">
+
 <div class="card" id="badgesCard">
   <h2>🏅 ბეიჯები</h2>
   <div style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">
@@ -267,62 +349,34 @@
   <div id="badgeAwardedList"></div>
 </div>
 
-<div class="card" id="eventSection" style="display:none">
-  <h2>🏟️ ნაბიჯი 2 — ივენთის დეტალები</h2>
-  <div id="eventInfo" class="event-info"></div>
-  <div class="grid-2">
-    <div><label>ივენთის სახელი</label><input type="text" id="eventName" oninput="saveToLocal()" /></div>
-    <div><label>ლოკაცია</label><input type="text" id="eventLocation" oninput="saveToLocal()" /></div>
-  </div>
-  <div><label>თარიღი</label><input type="datetime-local" id="eventDate" oninput="saveToLocal();updateCountdown()" /></div>
-</div>
+</div><!-- /admin-panel badges -->
 
-<div class="card" id="fightsSection" style="display:none">
-  <h2>🥊 ნაბიჯი 3 — ბრძოლები</h2>
-  <div style="font-size:.82rem;color:var(--muted);margin-bottom:14px;">
-    ✅ <b style="color:var(--green)">ჩართული</b> = საიტზე ჩანს &nbsp;|&nbsp;
-    ⚫ გამორთული = არ ჩანს &nbsp;|&nbsp;
-    🟡 <b style="color:var(--gold)">მეტი დეტალი</b> = რაუნდები/მეთოდი &nbsp;|&nbsp;
-    🏆 შედეგი = ბრძოლის შემდეგ
-  </div>
-  <div id="fightsList"></div>
-</div>
-
-<div class="card" id="saveSection" style="display:none">
-  <h2>💾 ნაბიჯი 4 — Supabase-ში შენახვა</h2>
-  <div class="flex-gap" style="margin-bottom:14px;">
-    <button class="btn btn-primary" onclick="saveToSupabase()">🚀 ბაზაში შენახვა</button>
-    <button class="btn btn-settle" onclick="syncOddsToDB()" style="margin-left:8px">📊 ოდსების სინქრონიზაცია DB-ში</button>
-    <button class="btn btn-ghost" onclick="checkResults()">🏆 შედეგების შემოწმება (ESPN)</button>
-    <button class="btn btn-ghost" onclick="clearLog()">🗑️ ლოგის გასუფთავება</button>
-  </div>
-
-  <!-- SETTLEMENT SECTION -->
-  <div class="settle-section">
-    <h3>⚡ Settlement — ბილეთების დამუშავება</h3>
-    <div style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">
-      ჯერ შეიყვანე შედეგები (ESPN ან ხელით), შეინახე ბაზაში, შემდეგ გაუშვი settlement.
-    </div>
-    <div class="flex-gap">
-      <button class="btn btn-settle" onclick="fetchAndSettle()">⚡ ESPN შედეგები + Settlement</button>
-      <button class="btn btn-settle" onclick="settleAllTickets()">🏆 მხოლოდ Settlement (შედეგები DB-შია)</button>
-    </div>
-  </div>
-
-  <!-- VERIFICATION SECTION -->
-  <div class="settle-section">
-    <h3>🪪 ვერიფიკაციები — მომლოდინე მოთხოვნები</h3>
-    <div style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">
-      მომხმარებლის ფოტო ჩანს მხოლოდ შენთვის (admin), დახურული storage-დან, დროებითი ბმულით.
-    </div>
-    <div class="flex-gap">
-      <button class="btn btn-ghost" onclick="loadPendingVerifications()">🔄 სიის განახლება</button>
-    </div>
-    <div id="verifQueue" style="margin-top:14px;display:flex;flex-direction:column;gap:14px;"></div>
-  </div>
-
-  <div class="log" id="log" style="margin-top:14px;"></div>
-</div>
+<script>
+// ── ADMIN TABS — refactor-only chrome; no existing function/id touched.
+// Panels/buttons use data-tab/data-panel + classes only (no new ids), and
+// this uses anonymous functions assigned to a var, not named declarations,
+// so the file's existing top-level function list is untouched. sessionStorage
+// remembers the last open tab across a reload; wrapped in try/catch
+// (private-browsing safe).
+(function () {
+  var TABS = ['events', 'backgrounds', 'badges'];
+  var activate = function (tab) {
+    document.querySelectorAll('.admin-tab-btn').forEach(function (btn) {
+      btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+    });
+    document.querySelectorAll('.admin-panel').forEach(function (panel) {
+      panel.classList.toggle('active', panel.getAttribute('data-panel') === tab);
+    });
+    try { sessionStorage.setItem('fnf_admin_tab', tab); } catch (e) {}
+  };
+  document.querySelectorAll('.admin-tab-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () { activate(btn.getAttribute('data-tab')); });
+  });
+  var saved = null;
+  try { saved = sessionStorage.getItem('fnf_admin_tab'); } catch (e) {}
+  activate(TABS.indexOf(saved) !== -1 ? saved : TABS[0]);
+})();
+</script>
 
 <script>
 // ── LANDING BACKGROUNDS (Supabase Storage bucket: site) ──
