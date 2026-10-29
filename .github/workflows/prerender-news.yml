@@ -11,8 +11,10 @@ name: Prerender News
 # this session. See IMPLEMENTATION-SUMMARY.md "MANUAL STEPS".
 
 on:
-  schedule:
-    - cron: '*/30 * * * *'
+  # schedule disabled -- this workflow has never run in production and
+  # must not start writing to the live site unsupervised. Restore with:
+  #   schedule:
+  #     - cron: '*/30 * * * *'
   workflow_dispatch:
 
 concurrency:
@@ -40,6 +42,12 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
+      - name: Prerender static pages (about/terms/privacy)
+        run: node scripts/prerender-pages.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+
       - name: Sync news sitemap block
         run: node scripts/sync-news-sitemap.js
         env:
@@ -50,7 +58,29 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add news/ sitemap.xml
+          # Explicit path list covering everything scripts/prerender-news.js
+          # and scripts/prerender-pages.js write -- NOT `git add -A`/`.`.
+          # news/ and en/news/ are directories because the per-article
+          # news/<slug>/ and en/news/<slug>/ subdirectories are created
+          # dynamically (one per published article); every other path
+          # here is a single fixed file.
+          git add \
+            news/ \
+            en/news/ \
+            sitemap.xml \
+            index.html \
+            ufc/index.html \
+            f1/index.html \
+            nba/index.html \
+            football/epl/index.html \
+            football/laliga/index.html \
+            football/seriea/index.html \
+            football/bundesliga/index.html \
+            football/ligue1/index.html \
+            football/ucl/index.html \
+            about/index.html \
+            terms/index.html \
+            privacy/index.html
           git diff --cached --quiet && echo "No changes" && exit 0
           git commit -m "Prerender news articles [automated]"
           git push
