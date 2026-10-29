@@ -553,6 +553,7 @@ $$("#screen-gametype .mode").forEach(card=>{
 
 function chooseGameType(type){
   S.gameType = type; // "quiz" | "guess"
+  $("#screen-mode-heading").textContent = type === "guess" ? "გამოიცანი ვინ ვარ მე" : "ქვიზი";
   show("screen-mode");
 }
 
@@ -578,7 +579,7 @@ $$("#screen-mode .mode").forEach(card=>{
 function startLobby(mode){
   if(mode === "pvp"){ startPvpSetup(); return; }
   if(mode !== "ai") return; // დაცვა — დანარჩენი არაცნობილი რეჟიმებისთვის
-  $("#lobby-belt").textContent = "აირჩიე სირთულე";
+  $("#lobby-belt").textContent = "აირჩიე სირთულის დონე";
 
   const action = $("#lobby-action");
   action.innerHTML = "";
