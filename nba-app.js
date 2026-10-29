@@ -360,13 +360,14 @@ function fbTrackTicket() {
   try {
     var fbpCookie = (document.cookie.match(/(?:^|; )_fbp=([^;]*)/) || [])[1] || '';
     var fbcCookie = (document.cookie.match(/(?:^|; )_fbc=([^;]*)/) || [])[1] || '';
+    if (!fbcCookie) { try { fbcCookie = localStorage.getItem('fnf_fbc') || ''; } catch (e) {} }
     fetch(SUPABASE_URL + '/functions/v1/meta-capi', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         event_name: 'ticketPlaced', event_id: fbEventId,
         email: (currentUser && currentUser.email) || '', phone: (currentUser && currentUser.phone) || '',
         fbp: fbpCookie, fbc: fbcCookie, url: location.href,
-        external_id: (currentUser && currentUser.id) || ''
+        external_id: (currentUser && currentUser.id) || '', gender: (currentUser && currentUser.gender) || ''
       })
     }).catch(function () {});
   } catch (e) {}
@@ -882,10 +883,11 @@ async function doRegister() {
   try {
     var fbpCookie = (document.cookie.match(/(?:^|; )_fbp=([^;]*)/) || [])[1] || '';
     var fbcCookie = (document.cookie.match(/(?:^|; )_fbc=([^;]*)/) || [])[1] || '';
+    if (!fbcCookie) { try { fbcCookie = localStorage.getItem('fnf_fbc') || ''; } catch (e) {} }
     fetch(SUPABASE_URL + '/functions/v1/meta-capi', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_id: fbEventId, email: email, phone: phone, fbp: fbpCookie, fbc: fbcCookie, url: location.href, external_id: (currentUser && currentUser.id) || '' })
+      body: JSON.stringify({ event_id: fbEventId, email: email, phone: phone, fbp: fbpCookie, fbc: fbcCookie, url: location.href, external_id: (currentUser && currentUser.id) || '', gender: (currentUser && currentUser.gender) || '' })
     }).catch(function () {});
   } catch (e) {}
   closeModal(); updateNavForUser(currentUser); await hydrateUserData();
