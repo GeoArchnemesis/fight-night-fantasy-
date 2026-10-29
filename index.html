@@ -35,7 +35,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
-<link rel="stylesheet" href="/style.css?v=210" />
+<link rel="stylesheet" href="/style.css?v=211" />
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -85,8 +85,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .land-card.nba:hover{border-color:#ff8c42}
   .land-card[class*="fb-"]:hover{border-color:#4da3ff}
   .fb-cap{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-weight:800;font-size:clamp(var(--fs-meta),1.7vw,.95rem);text-align:center;font-family:var(--head)}
-  .land-foot{margin-top:30px;color:var(--muted,#9a97a8);font-size:var(--fs-meta);text-align:center}
   .land-about{width:100%;margin-top:34px}
+  /* body.landing is a centered flex column (align-items:center), so a
+     block-level child shrinks to its own content width by default --
+     #newsStrip/.land-about already counter this with width:100%; footer
+     needs the same so its border-top and 3-column grid span full width
+     instead of hugging the links' own width. */
+  footer{width:100%;margin-top:34px}
   .land-about .wrap{max-width:1040px}
   .land-about h2{font-family:var(--display);font-weight:700;font-size:1.4rem;margin:32px 0 12px;color:var(--text,#fff)}
   .land-about h2:first-child{margin-top:0}
@@ -156,14 +161,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div></section>
 <!-- NEWS-HOME:END -->
 
-<div class="land-foot" style="margin-top:30px;display:flex;flex-wrap:wrap;justify-content:center;gap:16px">
-  <a href="/news/" style="color:inherit;text-decoration:underline">სიახლეები</a>
-  <a href="/about/" style="color:inherit;text-decoration:underline">ჩვენს შესახებ</a>
-  <a href="/rules/" style="color:inherit;text-decoration:underline">წესები</a>
-  <a href="/terms/" style="color:inherit;text-decoration:underline">წესები და პირობები</a>
-  <a href="/privacy/" style="color:inherit;text-decoration:underline">კონფიდენციალურობა</a>
+<footer><div class="wrap foot-in">
+<div>
+<span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
+<p class="foot-note">საქართველოს სპორტული ფენტეზი — UFC, F1, NBA და ფეხბურთი ერთ საიტზე.</p>
 </div>
-
+<div class="foot-links">
+  <div class="foot-col foot-col-2">
+    <a href="/rules/">წესები</a>
+    <a href="/terms/">წესები და პირობები</a>
+    <a href="/privacy/">კონფიდენციალურობა</a>
+  </div>
+  <div class="foot-col foot-col-3">
+    <a href="/about/">ჩვენს შესახებ</a>
+  </div>
+</div>
+</div></footer>
 
 </body>
 </html>
