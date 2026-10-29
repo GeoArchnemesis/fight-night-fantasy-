@@ -1218,8 +1218,11 @@ async function nwLoad() {
 }
 
 function nwShowNotFound() {
+  const effectiveLang = nwPageLang();
+  const backLabel = effectiveLang === 'en' ? '← News' : '← სიახლეები';
+  const backHref = effectiveLang === 'en' ? '/en/news/' : '/news/';
   document.getElementById('nwArt').innerHTML = `
-    <a class="nw-back" href="/news/">← სიახლეები</a>
+    <a class="nw-back" href="${backHref}">${backLabel}</a>
     <div class="nw-notfound">სტატია ვერ მოიძებნა.</div>`;
 }
 
