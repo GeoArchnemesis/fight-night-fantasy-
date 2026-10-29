@@ -1008,26 +1008,80 @@ $("#pvp-start-btn").addEventListener("click", async ()=>{
   }
 });
 
-$("#pvp-copy-link").addEventListener("click", ()=>{
+// R8: prompt()-ის ნაცვლად — style.css-ის არსებული .toast/.toast.show
+// (ბარგამოყენებელი სხვაგან აქამდე) პატერნი: fade+slide, 1.5წმ, თვითონ შლის თავს.
+function showQuizToast(msg){
+  const el = document.createElement("div");
+  el.className = "toast";
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(()=> el.classList.add("show"));
+  setTimeout(()=>{
+    el.classList.remove("show");
+    setTimeout(()=> el.remove(), 350);
+  }, 1500);
+}
+
+// Clipboard API-ის fallback — ფარული textarea + document.execCommand('copy'),
+// ყოველთვის შლის textarea-ს. readonly ხელს უშლის მობილურზე კლავიატურის
+// გამოჩენას select()-ზე.
+function legacyCopy(text){
+  try{
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.left = "-9999px";
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    const ok = document.execCommand("copy");
+    ta.remove();
+    return ok;
+  }catch(e){ return false; }
+}
+
+async function copyToClipboard(text){
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  }catch(e){}
+  try{ return legacyCopy(text); }catch(e){ return false; }
+}
+
+$("#pvp-copy-link").addEventListener("click", async ()=>{
   if(!PVP) return;
   const url = location.origin + "/ufc/quiz/?room=" + PVP.code;
   const btn = $("#pvp-copy-link");
-  const done = ()=>{ btn.textContent = "დაკოპირდა ✓"; setTimeout(()=> btn.textContent = "ოთახის ლინკის კოპირება", 1500); };
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(url).then(done).catch(()=> prompt("დააკოპირე ბმული:", url));
-  } else {
-    prompt("დააკოპირე ბმული:", url);
+  try{
+    const ok = await copyToClipboard(url);
+    if(ok){
+      btn.textContent = "დაკოპირდა ✓";
+      setTimeout(()=> btn.textContent = "ოთახის ლინკის კოპირება", 1500);
+      showQuizToast("ლინკი დაკოპირებულია");
+    } else {
+      showQuizToast("კოპირება ვერ მოხერხდა");
+    }
+  }catch(e){
+    showQuizToast("კოპირება ვერ მოხერხდა");
   }
 });
 
-$("#pvp-copy-code").addEventListener("click", ()=>{
+$("#pvp-copy-code").addEventListener("click", async ()=>{
   if(!PVP) return;
   const btn = $("#pvp-copy-code");
-  const done = ()=>{ btn.textContent = "დაკოპირდა ✓"; setTimeout(()=> btn.textContent = "კოდის კოპირება", 1500); };
-  if(navigator.clipboard && navigator.clipboard.writeText){
-    navigator.clipboard.writeText(PVP.code).then(done).catch(()=> prompt("დააკოპირე კოდი:", PVP.code));
-  } else {
-    prompt("დააკოპირე კოდი:", PVP.code);
+  try{
+    const ok = await copyToClipboard(PVP.code);
+    if(ok){
+      btn.textContent = "დაკოპირდა ✓";
+      setTimeout(()=> btn.textContent = "კოდის კოპირება", 1500);
+      showQuizToast("კოდი დაკოპირებულია");
+    } else {
+      showQuizToast("კოპირება ვერ მოხერხდა");
+    }
+  }catch(e){
+    showQuizToast("კოპირება ვერ მოხერხდა");
   }
 });
 
