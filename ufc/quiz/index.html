@@ -110,6 +110,36 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    var(--display), ყველა ცოცხალი რიცხვი/მთვლელი/ლეიბლი (მსგავსად საიტის
    .cd-num/.bb-n/.lb-pts/.market-label-ის) — var(--mono).
    ============================================================ */
+
+/* Quiz-area background artwork — decorative only, scoped to #quizApp (the
+   header-to-footer quiz region), never body/nav/footer. The image lives on
+   #quizApp::before, not on #quizApp itself, so mask-image only fades the
+   background -- the real quiz content (stacked above it via z-index:-1 on
+   the pseudo-element) is never masked or dimmed itself. min-height is tuned
+   against every screen's measured natural height (game-type, mode, both AI
+   difficulty pickers, pvp-setup, pvp-lobby, pvp-wait, cards) so the artwork
+   reads properly on the shortest screens without adding visible empty space
+   under any other screen's own content. */
+#quizApp{position:relative;min-height:400px}
+#quizApp::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
+  -webkit-mask-image:linear-gradient(to bottom,transparent,#000 12%,#000 88%,transparent);
+  mask-image:linear-gradient(to bottom,transparent,#000 12%,#000 88%,transparent);
+}
+@media(max-width:920px){
+  #quizApp::before{background-image:linear-gradient(rgba(11,10,18,.5),rgba(11,10,18,.5)),url(quiz-bg-mobile.webp)}
+}
+@media(min-width:921px){
+  #quizApp{min-height:480px}
+  #quizApp::before{background-image:linear-gradient(rgba(11,10,18,.5),rgba(11,10,18,.5)),url(quiz-bg-desktop.webp)}
+}
+
 .qz-hero{padding:clamp(20px,5vw,34px) 0 clamp(10px,2vw,16px)}
 .qz-title{display:flex;align-items:center;justify-content:center;gap:10px;font-family:var(--display);font-weight:700;font-size:clamp(1.5rem,5vw,2rem);line-height:1.1}
 .qz-title-ico{font-size:.85em}
