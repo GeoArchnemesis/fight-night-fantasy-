@@ -171,9 +171,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    original: rgba(0,255,255,X) -> rgba(243,29,37,X) (var(--red));
    #00ffff -> var(--red); #ff00ff -> var(--red-soft). Every alpha, blur
    radius, px offset, duration and easing is unchanged from the original,
-   including the continuous (non-hover-gated) animation and backdrop-filter --
-   80-90% of this site's traffic is mobile, where :hover doesn't apply. */
-#quizRoot .mode[data-mode="ai"]{border:2px solid rgba(243,29,37,.5);background:rgba(243,29,37,.1);box-shadow:0 0 15px rgba(243,29,37,.3);backdrop-filter:blur(5px)}
+   including the continuous (non-hover-gated) animation -- 80-90% of this
+   site's traffic is mobile, where :hover doesn't apply. background and
+   backdrop-filter are departures from the original (opaque var(--surface),
+   no blur) now that the page has background artwork behind the card: the
+   translucent fill let the artwork show through and made the heading hard
+   to read, and the blur was pointless cost once the fill is opaque. */
+#quizRoot .mode[data-mode="ai"]{border:2px solid rgba(243,29,37,.5);background:var(--surface);box-shadow:0 0 15px rgba(243,29,37,.3)}
 #quizRoot .mode[data-mode="ai"] .qai-glitch{position:relative;display:inline-block;text-shadow:0 0 8px rgba(243,29,37,.5)}
 #quizRoot .mode[data-mode="ai"] .qai-glitch::before,#quizRoot .mode[data-mode="ai"] .qai-glitch::after{content:attr(data-text);position:absolute;left:0;opacity:0;filter:blur(1px);transition:all .3s ease}
 #quizRoot .mode[data-mode="ai"] .qai-glitch::before{top:-2px;color:var(--red-soft);transform:translateX(0);animation:qaiGlitch 2s infinite}
