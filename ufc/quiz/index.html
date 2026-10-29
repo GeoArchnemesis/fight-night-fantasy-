@@ -136,6 +136,26 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .mode.locked{cursor:not-allowed;opacity:.55}
 #quizRoot .mode.locked:hover{transform:none;border-color:var(--line)}
 #quizRoot .mode-soon{position:absolute;top:10px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 10px;z-index:1;white-space:nowrap}
+
+/* vs-AI hologram card -- red-palette adaptation of a CodePen hologram-card
+   effect, scoped to [data-mode="ai"] only. .mode already has overflow:hidden
+   (above) which correctly clips the scan line, so no redundant overflow
+   rule is added here. Four deliberate departures from the original: no
+   backdrop-filter (costly on mobile, pointless over a flat background);
+   the scan line only sweeps on :hover/:focus-visible, never continuously;
+   every animation here is disabled under prefers-reduced-motion, matching
+   nav.is-hidden's pattern in style.css; and since the heading is two lines
+   ("AI-ის<br>წინააღმდეგ"), the glitch-text effect is replaced with a
+   subtle pulse on the 🤖 glyph instead. */
+#quizRoot .mode[data-mode="ai"]{border-color:rgba(243,29,37,.4);box-shadow:inset 0 0 16px rgba(243,29,37,.15),0 0 16px rgba(255,82,71,.2);transition:border-color .15s,transform .15s,box-shadow .25s}
+#quizRoot .mode[data-mode="ai"]:hover,#quizRoot .mode[data-mode="ai"]:focus-visible{border-color:var(--red-soft);box-shadow:inset 0 0 20px rgba(243,29,37,.25),0 0 26px rgba(255,82,71,.4)}
+#quizRoot .mode[data-mode="ai"]::after{content:"";position:absolute;left:0;right:0;top:-5%;height:3px;background:linear-gradient(90deg,transparent,var(--red-soft),transparent);opacity:0;z-index:2;pointer-events:none;transition:opacity .2s}
+#quizRoot .mode[data-mode="ai"]:hover::after,#quizRoot .mode[data-mode="ai"]:focus-visible::after{opacity:1;animation:qzAiScan 1.6s linear infinite}
+@keyframes qzAiScan{from{top:-5%}to{top:105%}}
+#quizRoot .mode[data-mode="ai"]:hover .glyph{animation:qzAiPulse 1.1s ease-in-out infinite}
+@keyframes qzAiPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+@media(prefers-reduced-motion:reduce){#quizRoot .mode[data-mode="ai"]::after{animation:none}#quizRoot .mode[data-mode="ai"]:hover .glyph{animation:none}}
+
 #quizRoot .tinyinfo{margin-top:12px;text-align:center;color:var(--text);font-size:12px;line-height:1.5}
 
 #quizRoot .arena{display:flex;flex-direction:column;align-items:center;gap:20px;padding:6px 0}
