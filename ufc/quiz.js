@@ -555,6 +555,67 @@ function isGuessCorrect(guess, answer){
 }
 
 /* ============================================================
+   Phase 9: URL + analytics map for the seven tracked quiz screens --
+   single source of truth for pushState's path, the dataLayer page_title,
+   and the ?s= direct-link shim's reverse (rest -> screen) lookup. 404.html
+   has the matching forward (path -> ?s=) direction; keep the "rest"
+   strings byte-identical between the two, including capitalisation
+   (quizAI/whoAI, not quizai/whoai -- 404.html's own matching is
+   case-insensitive, but the canonical ?s= value it redirects to, and
+   everything here, is not).
+   ============================================================ */
+const QUIZ_STEPS = [
+  { rest: "",                      gameType: null,    mode: null,  title: "Quiz — Start" },
+  { rest: "questionquiz",          gameType: "quiz",  mode: null,  title: "Quiz — Choose Mode" },
+  { rest: "wheamI",                gameType: "guess", mode: null,  title: "Guess Who — Choose Mode" },
+  { rest: "questionquiz/quizAI",   gameType: "quiz",  mode: "ai",  title: "Quiz — vs AI" },
+  { rest: "questionquiz/quizcoop", gameType: "quiz",  mode: "pvp", title: "Quiz — vs Friends" },
+  { rest: "wheamI/whoAI",          gameType: "guess", mode: "ai",  title: "Guess Who — vs AI" },
+  { rest: "wheamI/whocoop",        gameType: "guess", mode: "pvp", title: "Guess Who — vs Friends" },
+];
+function quizStepFor(gameType, mode){
+  return QUIZ_STEPS.find(s => s.gameType === (gameType || null) && s.mode === (mode || null));
+}
+// pushState + dataLayer for one of the seven forward transitions above.
+// Never called for a backward (popstate) move or on page load -- only
+// from the four places below that build a screen's UI for the first time
+// in a given visit (chooseGameType, startLobby's ai branch, startPvpSetup,
+// and the two "play again"/"done" resets back to the gametype screen).
+function pushQuizStep(gameType, mode){
+  const step = quizStepFor(gameType, mode);
+  if(!step) return;
+  const path = "/ufc/quiz/" + step.rest;
+  // ?room=<code> (the PvP share link) has to survive every pushState
+  // between here and screen-pvp-setup actually reading it, or a plain
+  // pushState(..., path) would silently drop it from the address bar.
+  const roomParam = new URLSearchParams(location.search).get("room");
+  const addressBarUrl = path + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
+  history.pushState({ quizGameType: step.gameType, quizMode: step.mode }, "", addressBarUrl);
+  window.dataLayer = window.dataLayer || [];
+  const payload = { event: "quiz_step", page_path: path, page_title: step.title, external_id: (currentAuthUser && currentAuthUser.id) || "" };
+  if(step.gameType) payload.quiz_game_type = step.gameType;
+  if(step.mode) payload.quiz_mode = step.mode;
+  window.dataLayer.push(payload);
+}
+// Rebuilds a screen's UI for a given (gameType, mode) pair without
+// touching history -- shared by popstate and the ?s= direct-link shim.
+// Reuses chooseGameType/startLobby themselves (push:false) rather than
+// duplicating their UI-building logic.
+function quizRestoreStep(gameType, mode){
+  if(!gameType){
+    S.gameType = null;
+    show("screen-gametype");
+    return;
+  }
+  if(!mode){
+    chooseGameType(gameType, { push:false });
+    return;
+  }
+  S.gameType = gameType;
+  startLobby(mode, { push:false });
+}
+
+/* ============================================================
    0) თამაშის ტიპის არჩევა (ქვიზი / ვინ ვარ?)
    ============================================================ */
 $$("#screen-gametype .mode").forEach(card=>{
@@ -563,14 +624,16 @@ $$("#screen-gametype .mode").forEach(card=>{
   card.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); }});
 });
 
-function chooseGameType(type){
+function chooseGameType(type, opts){
+  opts = opts || {};
   S.gameType = type; // "quiz" | "guess"
   $("#screen-mode-heading").textContent = type === "guess" ? "გამოიცანი ვინ ვარ მე" : "ქვიზი";
   show("screen-mode");
+  if(opts.push !== false) pushQuizStep(type, null);
 }
 
 const backBtn = $("#back-to-gametype");
-if(backBtn) backBtn.addEventListener("click", ()=> show("screen-gametype"));
+if(backBtn) backBtn.addEventListener("click", ()=> history.back());
 
 /* ============================================================
    1) რეჟიმის არჩევა — "AI-ის წინააღმდეგ" (startLobby) ან "ადამიანის
@@ -588,8 +651,9 @@ $$("#screen-mode .mode").forEach(card=>{
 /* ============================================================
    2) ლობი — სირთულის არჩევა, შემდეგ "დაწყება"
    ============================================================ */
-function startLobby(mode){
-  if(mode === "pvp"){ startPvpSetup(); return; }
+function startLobby(mode, opts){
+  opts = opts || {};
+  if(mode === "pvp"){ startPvpSetup(opts); return; }
   if(mode !== "ai") return; // დაცვა — დანარჩენი არაცნობილი რეჟიმებისთვის
   $("#lobby-belt").textContent = "აირჩიე სირთულის დონე";
 
@@ -597,6 +661,7 @@ function startLobby(mode){
   action.innerHTML = "";
   if(S.gameType === "guess") showGuessAIStart(action); else showAIStart(action);
   show("screen-lobby");
+  if(opts.push !== false) pushQuizStep(S.gameType, "ai");
 }
 
 function buildDifficultyPicker(action, { onReady, startLabel, onStart }){
@@ -698,7 +763,8 @@ function resetPvp(){
   PVP = null;
 }
 
-function startPvpSetup(){
+function startPvpSetup(opts){
+  opts = opts || {};
   resetPvp();
   const diffWrap = $("#pvp-create-diff");
   diffWrap.innerHTML = "";
@@ -741,6 +807,7 @@ function startPvpSetup(){
   $("#pvp-join-btn").onclick = ()=> requireAuth(()=> joinPvpRoom(codeInput.value));
 
   show("screen-pvp-setup");
+  if(opts.push !== false) pushQuizStep(S.gameType, "pvp");
 }
 
 function pvpErrorMessage(err){
@@ -995,12 +1062,12 @@ function renderPvpResults(result){
   });
 }
 
-$("#back-to-mode-from-pvp").addEventListener("click", ()=>{ resetPvp(); show("screen-mode"); });
+$("#back-to-mode-from-pvp").addEventListener("click", ()=>{ resetPvp(); history.back(); });
 
 $("#pvp-leave-btn").addEventListener("click", async ()=>{
   if(PVP){ try{ await sb.rpc('leave_quiz_room', { p_room_id: PVP.roomId }); }catch(e){} }
   resetPvp();
-  show("screen-mode");
+  history.back();
 });
 
 $("#pvp-start-btn").addEventListener("click", async ()=>{
@@ -1102,6 +1169,7 @@ $("#pvp-results-done").addEventListener("click", ()=>{
   resetPvp();
   S.gameType = null;
   show("screen-gametype");
+  pushQuizStep(null, null);
 });
 
 /* ============================================================
@@ -1719,4 +1787,31 @@ function resetToMode(){
   stopQuestionTimer(); clearTimeout(S.cbTimer); clearTimeout(S.cbReveal);
   S.gameType = null;
   show("screen-gametype");
+  pushQuizStep(null, null);
 }
+
+/* ============================================================
+   Phase 9: quiz URL history -- popstate moves back one screen inside the
+   quiz (instead of leaving the page), and a direct link / refresh on one
+   of the seven paths (served by 404.html's shim as /ufc/quiz/?s=<rest>,
+   since these paths aren't real files) opens the matching screen and
+   then straightens the address bar back out to the canonical path.
+   ============================================================ */
+window.addEventListener("popstate", e=>{
+  const st = e.state || {};
+  quizRestoreStep(st.quizGameType || null, st.quizMode || null);
+});
+
+(function initQuizDeepLink(){
+  const params = new URLSearchParams(location.search);
+  const sParam = params.get("s");
+  if(!sParam) return;
+  const step = QUIZ_STEPS.find(s => s.rest === sParam);
+  if(!step || !step.rest) return; // unrecognised -- leave the gametype screen showing, untouched
+  quizRestoreStep(step.gameType, step.mode);
+  // ?room=<code> (the PvP share link, independent of this shim) stays
+  // live if it rode along with the ?s= redirect.
+  const roomParam = params.get("room");
+  const canonicalPath = "/ufc/quiz/" + step.rest + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
+  history.replaceState({ quizGameType: step.gameType, quizMode: step.mode }, "", canonicalPath);
+})();

@@ -42,6 +42,25 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     // აქ არაფერი ხდება — თორემ '/ufc' → '/ufc/' → 404 → უსასრულო loop-ი გამოვიდოდა.
     else if (raw !== p && /^\/(ufc|f1|nba|profile)$/.test(p)) target = p + '/';
     else if (raw !== p && /^\/football\/(laliga|epl|seriea|bundesliga|ligue1|ucl)$/.test(p)) target = p + '/';
+    // Phase 9: ufc/quiz.js-ის URL/history ფუნქციონალის 7 ეკრანიდან 6-ს
+    // (საბაზისო /ufc/quiz/ თავად რეალური ფაილია, შიმი არ სჭირდება) არ
+    // გააჩნია შესაბამისი ფაილი — პირდაპირი ბმული ან refresh ამ მისამართებზე
+    // 404-ზე მოხვდებოდა. canon-ის მნიშვნელობები ზუსტად ემთხვევა
+    // ufc/quiz.js-ის QUIZ_STEPS-ის rest ველებს (ჩათვლით რეგისტრის –
+    // quizAI/whoAI, არა quizai/whoai) -- ქვემოთ შედარება პატარა ასოებზეა,
+    // რადგან p უკვე დაპატარავებულია ზემოთ, მაგრამ redirect-ში ყოველთვის
+    // კანონიკური (სწორი რეგისტრის) მნიშვნელობა მიდის.
+    else if (/^\/ufc\/quiz\/(questionquiz|wheami|questionquiz\/quizai|questionquiz\/quizcoop|wheami\/whoai|wheami\/whocoop)$/.test(p)) {
+      var QUIZ_REST_CANON = {
+        'questionquiz': 'questionquiz',
+        'wheami': 'wheamI',
+        'questionquiz/quizai': 'questionquiz/quizAI',
+        'questionquiz/quizcoop': 'questionquiz/quizcoop',
+        'wheami/whoai': 'wheamI/whoAI',
+        'wheami/whocoop': 'wheamI/whocoop'
+      };
+      target = '/ufc/quiz/?s=' + QUIZ_REST_CANON[p.slice('/ufc/quiz/'.length)];
+    }
     // guard: სამიზნე ყოველთვის რეალური მისამართია და raw-ს არ უდრის → loop შეუძლებელია
     if (target && raw !== target) location.replace(target);
   })();
