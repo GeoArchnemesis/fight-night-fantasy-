@@ -124,7 +124,7 @@ async function doCashout(idx) {
   // სერვერის რეალური თანხა/პროცენტი (#11)
   if (res.refund != null) {
     const pct = Math.round((res.pct != null ? res.pct : (res.refund / (t.stake || 1))) * 100);
-    await showCashoutMsg('ქეშაუთი შესრულდა — დაგიბრუნდა ' + fmt(res.refund) + ' ქულა (' + pct + '%)', false);
+    await showCashoutMsg('ქეშაუთი შესრულდა - დაგიბრუნდა ' + fmt(res.refund) + ' ქულა (' + pct + '%)', false);
   }
 }
 
@@ -273,7 +273,7 @@ function renderMarkets() {
 
     const pickBtn = (side, d) => {
       const has = d.odds != null && d.odds > 0;
-      const flag = `<span class="p-flag">${d.flag}</span>`, name = `<span class="p-name">${d.name}</span>`, od = `<span class="p-od">${has ? d.odds.toFixed(2) : '—'}</span>`;
+      const flag = `<span class="p-flag">${d.flag}</span>`, name = `<span class="p-name">${d.name}</span>`, od = `<span class="p-od">${has ? d.odds.toFixed(2) : '-'}</span>`;
       const inner = side === 'red' ? flag + name + od : od + name + flag;
       const winnerCls = isCompleted && winner === side ? ' winner' : '';
       const onCls = betting && mainOn && fr === side ? ' on' : '';
@@ -282,7 +282,7 @@ function renderMarkets() {
     };
 
     let hint;
-    if (betting && !hasOdds) hint = '<div class="picks-hint" style="color:var(--gold)">კოეფიციენტები ჯერ არ არის — მალე დაემატება</div>';
+    if (betting && !hasOdds) hint = '<div class="picks-hint" style="color:var(--gold)">კოეფიციენტები ჯერ არ არის - მალე დაემატება</div>';
     else if (betting) hint = '<div class="picks-hint">აირჩიე ფავორიტი მებრძოლი</div>';
     else if (isCompleted) hint = '<div class="picks-hint" style="color:var(--green)">დასრულდა</div>';
     else hint = '<div class="picks-hint">ფსონები დაკეტილია</div>';
@@ -418,7 +418,7 @@ async function placeBets() {
   if (!currentUser) { closeSlip(); openModal('join'); return; }
   if (isBettingClosed()) { closeSlip(); alert('ფსონების მიღება დასრულებულია'); return; }
   const arr = picksArr(); if (arr.length === 0) return;
-  if (arr.some(s => !(Number.isFinite(s.odds) && s.odds > 0))) { alert('ერთ-ერთ ბრძოლას კოეფიციენტი ჯერ არ აქვს — წაშალე იგი ბილეთიდან'); return; }
+  if (arr.some(s => !(Number.isFinite(s.odds) && s.odds > 0))) { alert('ერთ-ერთ ბრძოლას კოეფიციენტი ჯერ არ აქვს - წაშალე იგი ბილეთიდან'); return; }
   const eventId = window.__currentEventId || null;
   if (!eventId) { closeSlip(); alert('ივენთი ვერ მოიძებნა'); return; }
 
@@ -467,7 +467,7 @@ async function placeBets() {
   } catch (e) {
     console.warn('placeBets failed:', e);
     await refreshBalance(); updateTotals();
-    alert('ფსონი ვერ დაიდო — სცადე თავიდან');
+    alert('ფსონი ვერ დაიდო - სცადე თავიდან');
   } finally {
     const pb2 = document.getElementById('placeBtn'); if (pb2) pb2.disabled = false;
     updateTotals();
@@ -517,7 +517,7 @@ function renderTickets() {
       </div>
       ${isCollapsed ? collapsedView : `
       <div class="tk-sels">
-        ${visSels.length === 0 ? '<div class="tk-empty" style="padding:10px">ყველა პოზიცია გაუქმდა — ფსონი დაბრუნებულია</div>' : visSels.map(s => {
+        ${visSels.length === 0 ? '<div class="tk-empty" style="padding:10px">ყველა პოზიცია გაუქმდა - ფსონი დაბრუნებულია</div>' : visSels.map(s => {
           const parts = s.name.split(' · '); const fighterName = (parts[0] || '').replace(' მოგება', ''); const extras = parts.slice(1).join(' · ');
           const isRed = s.fighter === 'red';
           const f = (s.i >= 0 && s.i < FIGHTS.length) ? FIGHTS[s.i] : null;
@@ -526,7 +526,7 @@ function renderTickets() {
           const res = selResult(s); const resCls = res === 'ok' ? 'ok' : res === 'no' ? 'no' : ''; const resTxt = res === 'ok' ? '✓' : res === 'no' ? '✗' : '';
           return `<div class="tk-sel"><div class="tk-sel-main">
               <div class="tk-sel-fighters"><span class="tk-sel-dot red"></span><span class="tk-sel-red">${redName || 'Red'}</span><span class="tk-sel-vs">vs</span><span class="tk-sel-blue">${blueName || 'Blue'}</span><span class="tk-sel-dot blue"></span></div>
-              <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}">${fighterName} — ${pickLabel}</div></div>
+              <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}">${fighterName} - ${pickLabel}</div></div>
             <div class="tk-sel-right">${resTxt ? `<span class="tk-sel-result ${resCls}">${resTxt}</span>` : ''}<span class="tk-sel-odds">${Number(s.odds || 0).toFixed(2)}</span></div></div>`;
         }).join('')}
       </div>
@@ -649,7 +649,7 @@ async function saveContactInfo() {
 
   try {
     const { data, error } = await sb.from('users').update(updates).eq('id', currentUser.id).select('id,phone,telegram,birth_year,gender');
-    if (error) { showErr((error.message && error.message.toLowerCase().includes('column')) ? 'სვეტები DB-ში ჯერ არ არსებობს — გაუშვი migration' : ('შენახვა ვერ მოხერხდა: ' + error.message)); return; }
+    if (error) { showErr((error.message && error.message.toLowerCase().includes('column')) ? 'სვეტები DB-ში ჯერ არ არსებობს - გაუშვი migration' : ('შენახვა ვერ მოხერხდა: ' + error.message)); return; }
     if (!data || data.length === 0) { showErr('შენახვა დაბლოკილია (RLS).'); return; }
     currentUser.phone = data[0].phone || null;
     currentUser.telegram = data[0].telegram || null;
@@ -676,7 +676,7 @@ function renderLeaderboard() {
     const sign = r.pts > 0 ? '+' : '';
     const verified = (r.verified !== undefined) ? !!r.verified : !!(r.phone || r.telegram);
     const badge = verified ? '<span class="lb-verified-badge" title="ვერიფიცირებული">' + checkSvg + '</span>' : '';
-    const nm = r.name || '—';
+    const nm = r.name || '-';
     const nmSize = nm.length > 16 ? 'var(--fs-meta)' : nm.length > 12 ? '.88rem' : '1rem';
     const ptsStr = sign + fmt(r.pts);
     const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
@@ -704,7 +704,7 @@ function openLbPopup(fullSorted) {
     const you = currentUser && r.id === currentUser.id; const sign = r.pts > 0 ? '+' : '';
     const verified = (r.verified !== undefined) ? !!r.verified : !!(r.phone || r.telegram);
     const badge = verified ? '<span class="lb-verified-badge" title="ვერიფიცირებული">' + checkSvg + '</span>' : '';
-    const nm = r.name || '—';
+    const nm = r.name || '-';
     const nmSize = nm.length > 16 ? 'var(--fs-meta)' : nm.length > 12 ? '.88rem' : '1rem';
     const ptsStr = sign + fmt(r.pts);
     const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
@@ -738,7 +738,7 @@ async function loadLeaderboard(period) {
     if (_currentLbPeriod === 'goat') {
       const { data, error } = await sb.from('leaderboard_view').select('*').order('score', { ascending: false });
       if (error || !data) return;
-      rows = data.map(u => ({ id: u.id, name: u.nick || '—', pts: Number(u.score) || 0, icon: u.icon || '🥊', avatar_type: u.avatar_type, avatar_url: u.avatar_url, verified: (u.verified !== undefined) ? !!u.verified : !!(u.phone || u.telegram) }));
+      rows = data.map(u => ({ id: u.id, name: u.nick || '-', pts: Number(u.score) || 0, icon: u.icon || '🥊', avatar_type: u.avatar_type, avatar_url: u.avatar_url, verified: (u.verified !== undefined) ? !!u.verified : !!(u.phone || u.telegram) }));
     } else {
       const since = periodStartDate(_currentLbPeriod).toISOString();
       let { data: hist, error: hErr } = await sb.from('score_history').select('user_id, amount, created_at').gte('created_at', since);
@@ -746,9 +746,9 @@ async function loadLeaderboard(period) {
       if (hErr || !hist) { LEADERBOARD.length = 0; renderLeaderboard(); renderLbTabs(); return; }
       const { data: usersData } = await sb.from('leaderboard_view').select('*');
       const userMap = {};
-      (usersData || []).forEach(u => { userMap[u.id] = { nick: u.nick || '—', icon: u.icon || '🥊', avatar_type: u.avatar_type, avatar_url: u.avatar_url, verified: (u.verified !== undefined) ? !!u.verified : !!(u.phone || u.telegram) }; });
+      (usersData || []).forEach(u => { userMap[u.id] = { nick: u.nick || '-', icon: u.icon || '🥊', avatar_type: u.avatar_type, avatar_url: u.avatar_url, verified: (u.verified !== undefined) ? !!u.verified : !!(u.phone || u.telegram) }; });
       const map = {};
-      hist.forEach(h => { const uid = h.user_id; if (!map[uid]) map[uid] = { id: uid, name: userMap[uid]?.nick || '—', icon: userMap[uid]?.icon || '🥊', avatar_type: userMap[uid]?.avatar_type, avatar_url: userMap[uid]?.avatar_url, pts: 0, verified: userMap[uid]?.verified || false }; map[uid].pts += Number(h.amount) || 0; });
+      hist.forEach(h => { const uid = h.user_id; if (!map[uid]) map[uid] = { id: uid, name: userMap[uid]?.nick || '-', icon: userMap[uid]?.icon || '🥊', avatar_type: userMap[uid]?.avatar_type, avatar_url: userMap[uid]?.avatar_url, pts: 0, verified: userMap[uid]?.verified || false }; map[uid].pts += Number(h.amount) || 0; });
       rows = Object.values(map).filter(r => r.pts > 0).sort((a, b) => b.pts - a.pts);
     }
     LEADERBOARD.length = 0; rows.forEach(r => LEADERBOARD.push(r));
@@ -812,7 +812,7 @@ function rebuildSelNameDB(fighterName, s) {
   const a = [];
   if (fighterName) a.push(fighterName + ' მოგება'); else if (s.picked_fighter) a.push((s.picked_fighter === 'red' ? 'Red' : 'Blue') + ' მოგება');
   if (s.picked_round) a.push(s.picked_round + '-ე რაუნდი'); if (s.picked_method) a.push(s.picked_method);
-  return a.join(' · ') || '—';
+  return a.join(' · ') || '-';
 }
 
 // ── SLIP OPEN/CLOSE ──
@@ -977,7 +977,7 @@ async function doRegister() {
   const gender = genderEl ? genderEl.value : '';
   if (!nick || !/^[a-zA-Z0-9._]{3,20}$/.test(nick)) { authError('სახელი: 3-20 სიმბოლო (ასოები, ციფრები, . _)'); return; }
   // ნიქის უნიკალურობა — is_nick_taken RPC (RLS-safe, anon-ისთვისაც მუშაობს)
-  try { const { data: taken } = await sb.rpc('is_nick_taken', { p_nick: nick, p_exclude_user_id: null }); if (taken) { authError('ეს სახელი უკვე დაკავებულია — სცადე სხვა'); return; } } catch (e) {}
+  try { const { data: taken } = await sb.rpc('is_nick_taken', { p_nick: nick, p_exclude_user_id: null }); if (taken) { authError('ეს სახელი უკვე დაკავებულია - სცადე სხვა'); return; } } catch (e) {}
   if (!email) { authError('შეიყვანე ელ. ფოსტა'); return; }
   const pErr = passwordError(pass); if (pErr) { authError(pErr); return; }
   if (pass !== passConfirm) { authError('პაროლები არ ემთხვევა'); return; }
@@ -991,17 +991,17 @@ async function doRegister() {
   btn.disabled = false; btn.textContent = 'რეგისტრაცია';
   if (error) {
     const msg = error.message || '';
-    if (msg.includes('already registered') || msg.includes('already been registered')) authError('ეს ელ. ფოსტა უკვე რეგისტრირებულია — სცადე შესვლა');
+    if (msg.includes('already registered') || msg.includes('already been registered')) authError('ეს ელ. ფოსტა უკვე რეგისტრირებულია - სცადე შესვლა');
     // R5: "Database error" ადრე ყოველთვის ნიკის დუბლირებად ითვლებოდა — ახლა
     // ნომერსაც აქვს unique index, ამიტომ წინასწარ ვამოწმებთ phone-ს თავად
     // შეტყობინებაში (defense-in-depth რასის პირობებისთვის — ზუსტი ტექსტი,
     // რასაც Postgres/Supabase ამ ტრიგერის გზით აბრუნებს, არ არის
     // დადასტურებული ცოცხალ გარემოში, საჭიროა რეალური ტესტი დეპლოიმენტის შემდეგ).
-    else if (msg.includes('Database error')) authError(msg.toLowerCase().includes('phone') ? 'ეს ნომერი უკვე რეგისტრირებულია' : 'ეს სახელი უკვე დაკავებულია — სცადე სხვა');
+    else if (msg.includes('Database error')) authError(msg.toLowerCase().includes('phone') ? 'ეს ნომერი უკვე რეგისტრირებულია' : 'ეს სახელი უკვე დაკავებულია - სცადე სხვა');
     else authError(msg);
     return;
   }
-  if (!data.session) { const el = document.getElementById('authError'); el.style.color = 'var(--green)'; el.textContent = 'რეგისტრაცია წარმატებულია! ანგარიშის გასააქტიურებლად დაადასტურე ელ.ფოსტა — შეამოწმე საფოსტო ყუთი (ასევე spam/junk).'; el.style.display = 'block'; return; }
+  if (!data.session) { const el = document.getElementById('authError'); el.style.color = 'var(--green)'; el.textContent = 'რეგისტრაცია წარმატებულია! ანგარიშის გასააქტიურებლად დაადასტურე ელ.ფოსტა - შეამოწმე საფოსტო ყუთი (ასევე spam/junk).'; el.style.display = 'block'; return; }
   await new Promise(r => setTimeout(r, 1000));
   let ud = null;
   try { const res = await sb.from('users').select('*').eq('id', data.user.id).maybeSingle(); ud = res.data; } catch (e) {}
@@ -1125,9 +1125,9 @@ async function loadVerificationStatus() {
   if (error) { const ps = document.querySelector('#verifStatus')?.closest('.profile-section'); if (ps) ps.style.display = 'none'; return; }
   const last = rows && rows[0];
   if (!last) { statusEl.textContent = ''; wrap.style.display = 'block'; return; }
-  if (last.status === 'pending') { statusEl.textContent = '⏳ შენი ვერიფიკაცია განხილვის პროცესშია — ჩვეულებრივ 24 საათში მოგივა პასუხი.'; statusEl.style.color = 'var(--gold)'; wrap.style.display = 'none'; }
-  else if (last.status === 'approved') { statusEl.textContent = '✅ ვერიფიცირებული ხარ — პრიზის მიღება შესაძლებელია.'; statusEl.style.color = 'var(--green)'; wrap.style.display = 'none'; }
-  else if (last.status === 'rejected') { statusEl.textContent = '❌ წინა მცდელობა უარყოფილია' + (last.admin_note ? (': ' + last.admin_note) : '') + ' — სცადე ხელახლა, უფრო გარკვევით ფოტოთი.'; statusEl.style.color = 'var(--red)'; wrap.style.display = 'block'; }
+  if (last.status === 'pending') { statusEl.textContent = '⏳ შენი ვერიფიკაცია განხილვის პროცესშია - ჩვეულებრივ 24 საათში მოგივა პასუხი.'; statusEl.style.color = 'var(--gold)'; wrap.style.display = 'none'; }
+  else if (last.status === 'approved') { statusEl.textContent = '✅ ვერიფიცირებული ხარ - პრიზის მიღება შესაძლებელია.'; statusEl.style.color = 'var(--green)'; wrap.style.display = 'none'; }
+  else if (last.status === 'rejected') { statusEl.textContent = '❌ წინა მცდელობა უარყოფილია' + (last.admin_note ? (': ' + last.admin_note) : '') + ' - სცადე ხელახლა, უფრო გარკვევით ფოტოთი.'; statusEl.style.color = 'var(--red)'; wrap.style.display = 'block'; }
 }
 function pickVerificationPhoto() { const el = document.getElementById('verifPhotoInput'); if (el) el.click(); }
 function onVerificationFileSelected() {

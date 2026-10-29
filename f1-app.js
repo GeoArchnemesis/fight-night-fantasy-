@@ -128,7 +128,7 @@ function confirmCashoutPopup(refundText) {
 async function doCashout(idx) {
   const t = state.tickets[idx];
   if (!t || t.status !== 'open') return;
-  if (!ticketCanCashout(t)) { showCashoutPopup('ქეშაუთი დახურულია — შენი ბილეთის სესია დაიწყო', false); return; }
+  if (!ticketCanCashout(t)) { showCashoutPopup('ქეშაუთი დახურულია - შენი ბილეთის სესია დაიწყო', false); return; }
   // დადასტურების popup — შემთხვევითი დაჭერისგან დაცვა (რეალურ თანხას სერვერი წყვეტს)
   // მიახლოებითი დაბრუნება: <1სთ 100%, მერე 80% (რეალურს სერვერი წყვეტს)
   const ageMs = serverNow() - (t.placedAt || serverNow());
@@ -144,7 +144,7 @@ async function doCashout(idx) {
     renderTickets();
     const pct = Math.round((res.pct || 0) * 100);
     showCashoutPopup('ქეშაუთი შესრულდა!<br>დაგიბრუნდა <b>' + fmt(res.refund) + '</b> ქულა (' + pct + '%)', true);
-  } catch (e) { showCashoutPopup('შეცდომა — სცადე თავიდან', false); }
+  } catch (e) { showCashoutPopup('შეცდომა - სცადე თავიდან', false); }
 }
 
 // ── LOAD RACE + MARKETS ──
@@ -191,7 +191,7 @@ async function loadRaceFromDB() {
       .filter(e => e.driver)
       .map(e => ({
         driverId: e.driver_id,
-        name: e.driver.name || '—',
+        name: e.driver.name || '-',
         team: e.driver.team || '',
         colour: e.driver.team_colour ? ('#' + e.driver.team_colour) : 'var(--red)',
         img: e.driver.image_url || null,
@@ -288,7 +288,7 @@ function renderMarkets() {
         <span class="drv-badge" style="background:${e.colour}"></span>
         <img class="drv-img" src="${e.img || noImg}" alt="${e.name}" loading="lazy" width="44" height="44">
         <span class="drv-info"><span class="drv-name">${e.name}</span><span class="drv-team">${e.team}</span></span>
-        <span class="drv-od">${has ? e.odds.toFixed(2) : '—'}</span>
+        <span class="drv-od">${has ? e.odds.toFixed(2) : '-'}</span>
       </button>`;
     }).join('');
 
@@ -332,7 +332,7 @@ function renderSlip() {
   if (arr.length === 0) { body.innerHTML = '<div class="slip-empty">ბილეთი ცარიელია.<br>აირჩიე მრბოლელი.</div>'; foot.innerHTML = ''; return; }
   body.innerHTML = arr.map(s => `
     <div class="sel">
-      <div class="sel-top"><div><div class="sel-name">${s.name} — მოგება</div><div class="sel-mk">${KIND_SHORT[s.kind]} · კოეფ. ${Number(s.odds).toFixed(2)}</div></div>
+      <div class="sel-top"><div><div class="sel-name">${s.name} - მოგება</div><div class="sel-mk">${KIND_SHORT[s.kind]} · კოეფ. ${Number(s.odds).toFixed(2)}</div></div>
         <button class="sel-rm" data-rm="${s.marketId}" aria-label="წაშლა">&times;</button></div>
       ${state.mode === 'single' ? `<div class="stake-row"><input class="stake-in" type="text" inputmode="numeric" placeholder="ფსონი (ქულა)" value="${s.stake || ''}" data-stake="${s.marketId}"><span class="sel-ret">მოგება: <b data-ret="${s.marketId}">${s.stake ? fmt(s.stake * s.odds) : '0'}</b></span></div>` : ''}
     </div>`).join('');
@@ -425,7 +425,7 @@ async function placeBets() {
   const pb = $('placeBtn');
   if (!currentUser) { closeSlip(); openModal('join'); return; }
   const arr = picksArr(); if (arr.length === 0) return;
-  if (arr.some(s => !(Number.isFinite(s.odds) && s.odds > 0))) { alert('ერთ-ერთ არჩევანს კოეფიციენტი არ აქვს — წაშალე ბილეთიდან'); return; }
+  if (arr.some(s => !(Number.isFinite(s.odds) && s.odds > 0))) { alert('ერთ-ერთ არჩევანს კოეფიციენტი არ აქვს - წაშალე ბილეთიდან'); return; }
   const raceId = state.raceId; if (!raceId) { closeSlip(); alert('რბოლა ვერ მოიძებნა'); return; }
 
   if (pb) pb.disabled = true;
@@ -469,7 +469,7 @@ async function placeBets() {
   } catch (e) {
     console.warn('placeBets failed:', e);
     await refreshBalance(); updateTotals();
-    alert('ფსონი ვერ დაიდო — სცადე თავიდან');
+    alert('ფსონი ვერ დაიდო - სცადე თავიდან');
   } finally {
     const pb2 = $('placeBtn'); if (pb2) pb2.disabled = false;
     updateTotals();
@@ -494,7 +494,7 @@ async function loadUserTickets() {
         const mk = s.market || {};
         // #15: მხოლოდ settlement-ის მიერ ჩაწერილი საბოლოო შედეგი — კლიენტი აღარ ითვლის
         const res = s.result || null;
-        return { kind: mk.kind || 'race', driverName: (s.driver && s.driver.name) || '—', odds: Number(s.odds), res,
+        return { kind: mk.kind || 'race', driverName: (s.driver && s.driver.name) || '-', odds: Number(s.odds), res,
                  marketStart: mk.start_time ? new Date(mk.start_time).getTime() : null };
       }),
       stake: Number(tk.stake), odds: Number(tk.total_odds), status: statusMap[tk.status] || tk.status,
@@ -541,12 +541,12 @@ function renderTickets() {
       </div>
       ${isCollapsed ? collapsed : `
       <div class="tk-sels">
-        ${visSels.length === 0 ? '<div class="tk-empty" style="padding:10px">ყველა პოზიცია გაუქმდა — ფსონი დაბრუნებულია</div>' : visSels.map(s => {
+        ${visSels.length === 0 ? '<div class="tk-empty" style="padding:10px">ყველა პოზიცია გაუქმდა - ფსონი დაბრუნებულია</div>' : visSels.map(s => {
           const resCls = s.res === 'ok' ? 'ok' : s.res === 'no' ? 'no' : '';
           const resTxt = s.res === 'ok' ? '✓' : s.res === 'no' ? '✗' : '';
           return `<div class="tk-sel"><div class="tk-sel-main">
               <div class="tk-sel-fighters"><span class="tk-sel-red">${KIND_SHORT[s.kind] || s.kind}</span></div>
-              <div class="tk-sel-pick pick-red">${s.driverName} — მოგება</div></div>
+              <div class="tk-sel-pick pick-red">${s.driverName} - მოგება</div></div>
             <div class="tk-sel-right">${resTxt ? `<span class="tk-sel-result ${resCls}">${resTxt}</span>` : ''}<span class="tk-sel-odds">${Number(s.odds || 0).toFixed(2)}</span></div></div>`;
         }).join('')}
       </div>
@@ -648,7 +648,7 @@ function renderLeaderboard() {
     const you = currentUser && r.id === currentUser.id;
     const sign = r.pts > 0 ? '+' : '';
     const badge = r.verified ? '<span class="lb-verified-badge" title="ვერიფიცირებული">' + checkSvg + '</span>' : '';
-    const nm = r.name || '—';
+    const nm = r.name || '-';
     const nmSize = nm.length > 16 ? 'var(--fs-meta)' : nm.length > 12 ? '.88rem' : '1rem';
     const ptsStr = sign + fmt(r.pts);
     const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
@@ -673,7 +673,7 @@ function openLbPopup(fullSorted) {
   const rowsHtml = fullSorted.map(r => {
     const you = currentUser && r.id === currentUser.id; const sign = r.pts > 0 ? '+' : '';
     const badge = r.verified ? '<span class="lb-verified-badge">' + checkSvg + '</span>' : '';
-    const nm = r.name || '—';
+    const nm = r.name || '-';
     return `<a class="lb-row ${you ? 'you' : ''}${r.verified ? ' verified-row' : ''}" href="/profile/?u=${encodeURIComponent(nm)}" style="text-decoration:none;color:inherit">
       <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
       <span class="lb-user"><span class="lb-ava-glove">${navAvaHtml(r)}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name">${escapeHtml(nm)}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
@@ -701,7 +701,7 @@ async function loadLeaderboard(period) {
     if (_currentLbPeriod === 'goat') {
       const { data, error } = await sb.from('f1_leaderboard_view').select('*').order('score', { ascending: false });
       if (error || !data) return;
-      rows = data.map(u => ({ id: u.id, name: u.nick || '—', pts: Number(u.score) || 0, icon: u.icon || '🥊', avatar_type: u.avatar_type, avatar_url: u.avatar_url, verified: !!u.verified }));
+      rows = data.map(u => ({ id: u.id, name: u.nick || '-', pts: Number(u.score) || 0, icon: u.icon || '🥊', avatar_type: u.avatar_type, avatar_url: u.avatar_url, verified: !!u.verified }));
     } else {
       const since = periodStartDate(_currentLbPeriod).toISOString();
       let { data: hist, error: hErr } = await sb.from('f1_score_history').select('user_id, amount, created_at').gte('created_at', since);
@@ -709,9 +709,9 @@ async function loadLeaderboard(period) {
       if (hErr || !hist) { LEADERBOARD.length = 0; renderLeaderboard(); renderLbTabs(); return; }
       const { data: usersData } = await sb.from('f1_leaderboard_view').select('*');
       const userMap = {};
-      (usersData || []).forEach(u => { userMap[u.id] = { nick: u.nick || '—', icon: u.icon || '🥊', avatar_type: u.avatar_type, avatar_url: u.avatar_url, verified: !!u.verified }; });
+      (usersData || []).forEach(u => { userMap[u.id] = { nick: u.nick || '-', icon: u.icon || '🥊', avatar_type: u.avatar_type, avatar_url: u.avatar_url, verified: !!u.verified }; });
       const map = {};
-      hist.forEach(h => { const uid = h.user_id; if (!map[uid]) map[uid] = { id: uid, name: userMap[uid]?.nick || '—', icon: userMap[uid]?.icon || '🥊', avatar_type: userMap[uid]?.avatar_type, avatar_url: userMap[uid]?.avatar_url, pts: 0, verified: userMap[uid]?.verified || false }; map[uid].pts += Number(h.amount) || 0; });
+      hist.forEach(h => { const uid = h.user_id; if (!map[uid]) map[uid] = { id: uid, name: userMap[uid]?.nick || '-', icon: userMap[uid]?.icon || '🥊', avatar_type: userMap[uid]?.avatar_type, avatar_url: userMap[uid]?.avatar_url, pts: 0, verified: userMap[uid]?.verified || false }; map[uid].pts += Number(h.amount) || 0; });
       rows = Object.values(map).filter(r => r.pts > 0).sort((a, b) => b.pts - a.pts);
     }
     LEADERBOARD.length = 0; rows.forEach(r => LEADERBOARD.push(r));

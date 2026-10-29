@@ -223,7 +223,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- ── TEST MODE BANNER ── -->
 <div id="testBanner" style="background:#F31D25;color:#fff;text-align:center;font-size:var(--fs-meta);line-height:1.4;padding:5px 12px;letter-spacing:.02em;position:relative;z-index:60">
-  საიტი მუშაობს სატესტო რეჟიმში. ხარვეზის შემთხვევაში გთხოვთ გვაცნობოთ — <a href="#" onclick="document.getElementById('reportPopup').style.display='flex';return false" style="color:#fff;font-weight:700;text-decoration:underline">კონტაქტი</a>
+  საიტი მუშაობს სატესტო რეჟიმში. ხარვეზის შემთხვევაში გთხოვთ გვაცნობოთ - <a href="#" onclick="document.getElementById('reportPopup').style.display='flex';return false" style="color:#fff;font-weight:700;text-decoration:underline">კონტაქტი</a>
 </div>
 
 <div class="pf-page">
@@ -421,7 +421,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <footer><div class="wrap foot-in">
 <div>
 <span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
-  <p class="foot-note">საქართველოს სპორტული ფენტეზი — UFC, F1, NBA და ფეხბურთი ერთ საიტზე.</p>
+  <p class="foot-note">საქართველოს სპორტული ფენტეზი - UFC, F1, NBA და ფეხბურთი ერთ საიტზე.</p>
   <div class="foot-socials">
    <a href="https://www.facebook.com/GeorgCuck00/" id="socialFb" class="foot-social" aria-label="Facebook" target="_blank" rel="noopener">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
@@ -548,7 +548,7 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     const a = [];
     if(fighterName) a.push(fighterName + ' მოგება'); else if(s.picked_fighter) a.push((s.picked_fighter === 'red' ? 'Red' : 'Blue') + ' მოგება');
     if(s.picked_round) a.push(s.picked_round + '-ე რაუნდი'); if(s.picked_method) a.push(s.picked_method);
-    return a.join(' · ') || '—';
+    return a.join(' · ') || '-';
   }
   function resParts(res){
     const cls = res === 'ok' ? 'ok' : res === 'no' ? 'no' : '';
@@ -572,14 +572,14 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
   function normalizeF1Ticket(tk){
     const sels = (tk.f1_selections || []).map(s => {
       const mk = s.market || {}; const r = resParts(s.result ? (RES_MAP[s.result] || null) : null);
-      return { kind:'simple', left: KIND_SHORT[mk.kind] || mk.kind || '', pickLabel: (s.driver && s.driver.name) || '—', odds: Number(s.odds || 0), resCls: r.cls, resTxt: r.txt };
+      return { kind:'simple', left: KIND_SHORT[mk.kind] || mk.kind || '', pickLabel: (s.driver && s.driver.name) || '-', odds: Number(s.odds || 0), resCls: r.cls, resTxt: r.txt };
     });
     return { id: tk.id, type: tk.type, stake: Number(tk.stake), odds: Number(tk.total_odds), status: STATUS_MAP[tk.status] || tk.status, sels };
   }
   function normalizeNbaTicket(tk){
     const sels = (tk.nba_selections || []).map(s => {
       const g = s.game || {};
-      const pickName = s.picked_side === 'home' ? (g.home_team || '—') : (g.away_team || '—');
+      const pickName = s.picked_side === 'home' ? (g.home_team || '-') : (g.away_team || '-');
       const matchup = `${g.away_abbr || g.away_team || '?'} @ ${g.home_abbr || g.home_team || '?'}`;
       const r = resParts(s.result ? (RES_MAP[s.result] || null) : null);
       return { kind:'simple', left: matchup, pickLabel: pickName, odds: Number(s.odds || 0), resCls: r.cls, resTxt: r.txt };

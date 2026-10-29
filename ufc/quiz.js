@@ -252,11 +252,11 @@ async function doQuizAuthSubmit(){
       // თორემ "is not a function" გაიჭრება. აქ უბრალოდ ვუცდით {data,error}-ს.
       const { data: taken, error: nickCheckErr } = await sb.rpc('is_nick_taken', { p_nick: nick, p_exclude_user_id: null });
       if(nickCheckErr) console.warn('[quiz] is_nick_taken failed:', nickCheckErr);
-      if(taken){ showAuthError('ეს სახელი უკვე დაკავებულია — სცადე სხვა'); if(btn) btn.disabled = false; return; }
+      if(taken){ showAuthError('ეს სახელი უკვე დაკავებულია - სცადე სხვა'); if(btn) btn.disabled = false; return; }
 
       const { data, error } = await sb.auth.signUp({ email, password: pass, options:{ data:{ nick } } });
       if(error){
-        showAuthError(/already registered|already been registered/.test(error.message||'') ? 'ეს ელ. ფოსტა უკვე რეგისტრირებულია — სცადე შესვლა' : error.message);
+        showAuthError(/already registered|already been registered/.test(error.message||'') ? 'ეს ელ. ფოსტა უკვე რეგისტრირებულია - სცადე შესვლა' : error.message);
         if(btn) btn.disabled = false; return;
       }
       if(!data.session){
@@ -293,7 +293,7 @@ async function doQuizAuthSubmit(){
       }
     }
   }catch(e){
-    showAuthError('დაფიქსირდა შეცდომა — სცადე თავიდან.');
+    showAuthError('დაფიქსირდა შეცდომა - სცადე თავიდან.');
     if(btn) btn.disabled = false;
   }
 }
@@ -701,7 +701,7 @@ function buildDifficultyPicker(action, { onReady, startLabel, onStart }){
     c.className = "chip"; c.textContent = d.label + (d.enabled ? "" : " 🔒");
     if(!d.enabled){
       c.disabled = true;
-      c.title = "მალე დაემატება — ჯერ არ არის კითხვები ამ დონეზე სერვერზე.";
+      c.title = "მალე დაემატება - ჯერ არ არის კითხვები ამ დონეზე სერვერზე.";
     } else {
       c.onclick = ()=>{
         S.aiAcc = d.acc;
@@ -780,7 +780,7 @@ function startPvpSetup(opts){
     c.className = "chip"; c.textContent = d.label + (d.enabled ? "" : " 🔒");
     if(!d.enabled){
       c.disabled = true;
-      c.title = "მალე დაემატება — ჯერ არ არის კითხვები ამ დონეზე სერვერზე.";
+      c.title = "მალე დაემატება - ჯერ არ არის კითხვები ამ დონეზე სერვერზე.";
     } else {
       c.onclick = ()=>{
         chosenLevel = d.dbLevel;
@@ -817,7 +817,7 @@ function pvpErrorMessage(err){
   if(msg.includes("already full or finished")) return "ოთახი უკვე დაწყებულია ან დასრულდა.";
   if(msg.includes("room is full")) return "ოთახი სავსეა.";
   if(msg.includes("own room")) return "საკუთარ ოთახში ვერ შეხვალ.";
-  return msg || "დაფიქსირდა შეცდომა — სცადე თავიდან.";
+  return msg || "დაფიქსირდა შეცდომა - სცადე თავიდან.";
 }
 
 async function createPvpRoom(level){
@@ -835,7 +835,7 @@ async function createPvpRoom(level){
     S.gameType = S.gameType || 'quiz';
     enterPvpLobby({ roomId: row.room_id, code: row.code, isHost: true, questions: row.questions });
   }catch(e){
-    alert("დაფიქსირდა შეცდომა — სცადე თავიდან.");
+    alert("დაფიქსირდა შეცდომა - სცადე თავიდან.");
     btn.disabled = false; btn.textContent = "ოთახის შექმნა";
   }
 }
@@ -860,7 +860,7 @@ async function joinPvpRoom(codeRaw){
     S.gameType = row.game_type;
     enterPvpLobby({ roomId: row.room_id, code, isHost: false, questions: row.questions });
   }catch(e){
-    err.textContent = "დაფიქსირდა შეცდომა — სცადე თავიდან.";
+    err.textContent = "დაფიქსირდა შეცდომა - სცადე თავიდან.";
     err.style.display = "block";
     btn.disabled = false; btn.textContent = "ოთახში შესვლა";
   }
@@ -1595,7 +1595,7 @@ function startCardBattle(){
   document.querySelector(".cb-side.you").classList.remove("win");
   document.querySelector(".cb-side.opp").classList.remove("win");
   $("#cb-round").className = "cb-round";
-  $("#cb-log").textContent = "კითხვები ბრუნდება — ვნახოთ ვინ იყო უფრო ზუსტი!";
+  $("#cb-log").textContent = "კითხვები ბრუნდება - ვნახოთ ვინ იყო უფრო ზუსტი!";
   $("#qb-card").classList.remove("show");
   $("#cb-final").classList.remove("show");
   document.querySelector(".qbattle").style.display = "";
@@ -1610,7 +1610,7 @@ function fillCard(idx){
   $("#qb-num").textContent = `კითხვა ${idx+1}`;
   $("#qb-q").textContent = item.q;
   $("#qb-you-pick").textContent = (pPick>=0 && pPick!=null) ? item.o[pPick] : "პასუხი არ გაეცა";
-  $("#qb-opp-pick").textContent = (oPick>=0 && oPick!=null) ? item.o[oPick] : "—";
+  $("#qb-opp-pick").textContent = (oPick>=0 && oPick!=null) ? item.o[oPick] : "-";
   $("#qb-you-badge").textContent = "";
   $("#qb-opp-badge").textContent = "";
   $("#qb-you-correct").textContent = "";
@@ -1622,7 +1622,7 @@ function fillGuessCard(idx){
   $("#qb-num").textContent = `კითხვა ${idx+1}`;
   $("#qb-q").textContent = item.clues && item.clues[0] ? item.clues[0] : "პასუხი შეიყვანე #ქართულად";
   $("#qb-you-pick").textContent = (pPick && String(pPick).trim()) ? pPick : "პასუხი არ გაეცა";
-  $("#qb-opp-pick").textContent = (oPick && String(oPick).trim()) ? oPick : "—";
+  $("#qb-opp-pick").textContent = (oPick && String(oPick).trim()) ? oPick : "-";
   $("#qb-you-badge").textContent = "";
   $("#qb-opp-badge").textContent = "";
   $("#qb-you-correct").textContent = "";
@@ -1708,7 +1708,7 @@ function endBattle(){
   $("#cb-round").textContent = "დასრულდა";
 
   const emoji = $("#cbf-emoji"), title = $("#cbf-title"), score = $("#cbf-score");
-  score.textContent = `${you} – ${opp}`;
+  score.textContent = `${you} - ${opp}`;
   if(you>opp){
     sideYou.classList.add("win");
     emoji.textContent = "🏆"; title.textContent = "თქვენ გაიმარჯვეთ"; title.className = "cbf-title win";
@@ -1739,13 +1739,13 @@ function renderReview(){
     if(S.gameType === "guess"){
       correctText = item.answer;
       pText = (S.playerPicks[i] && String(S.playerPicks[i]).trim()) ? S.playerPicks[i] : "პასუხი არ გაეცა";
-      oText = (S.oppPicks[i] && String(S.oppPicks[i]).trim()) ? S.oppPicks[i] : "—";
+      oText = (S.oppPicks[i] && String(S.oppPicks[i]).trim()) ? S.oppPicks[i] : "-";
       pOk = (S.playerPoints[i] || 0) > 0;
       oOk = (S.oppPoints[i] || 0) > 0;
     } else {
       correctText = item.o[item.a];
       pText = (S.playerPicks[i] >= 0 && item.o[S.playerPicks[i]] != null) ? item.o[S.playerPicks[i]] : "პასუხი არ გაეცა";
-      oText = (S.oppPicks[i] >= 0 && item.o[S.oppPicks[i]] != null) ? item.o[S.oppPicks[i]] : "—";
+      oText = (S.oppPicks[i] >= 0 && item.o[S.oppPicks[i]] != null) ? item.o[S.oppPicks[i]] : "-";
       pOk = S.playerPicks[i] === item.a; oOk = S.oppPicks[i] === item.a;
     }
     const qText = item.q || (item.clues && item.clues[0]) || "";

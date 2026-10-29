@@ -35,7 +35,7 @@ const EN_MONTHS = ['January','February','March','April','May','June','July','Aug
 const $ = id => document.getElementById(id);
 function $on(id, ev, fn) { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); }
 // დროის ფორმატები — ყველა საქართველოს დროით
-function tbTime(d)  { return d ? new Date(d).toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false, hourCycle: 'h23' }) : '—'; }
+function tbTime(d)  { return d ? new Date(d).toLocaleTimeString('en-GB', { timeZone: TZ, hour: '2-digit', minute: '2-digit', hour12: false, hourCycle: 'h23' }) : '-'; }
 function tbDayKey(d){ return new Date(d).toLocaleDateString('en-CA', { timeZone: TZ }); }   // YYYY-MM-DD Tbilisi
 // ქართული თვე/დღე ხელით — ბრაუზერის locale-ს არ ვენდობით (ka-GE ყველგან არ არსებობს სრულად)
 const KA_WEEKDAYS = { Sunday: 'კვირა', Monday: 'ორშაბათი', Tuesday: 'სამშაბათი', Wednesday: 'ოთხშაბათი', Thursday: 'ხუთშაბათი', Friday: 'პარასკევი', Saturday: 'შაბათი' };
@@ -135,7 +135,7 @@ function confirmCashoutPopup(refundText) {
 async function doCashout(idx) {
   const t = state.tickets[idx];
   if (!t || t.status !== 'open') return;
-  if (!ticketCanCashout(t)) { showCashoutPopup('ქეშაუთი დახურულია — შენი ბილეთის თამაში დაიწყო', false); return; }
+  if (!ticketCanCashout(t)) { showCashoutPopup('ქეშაუთი დახურულია - შენი ბილეთის თამაში დაიწყო', false); return; }
   // მიახლოებითი დაბრუნება: <1სთ 100%, მერე 80% (რეალურს სერვერი წყვეტს)
   const ageMs = serverNow() - (t.placedAt || serverNow());
   const est = Math.round((t.stake || 0) * (ageMs <= 3600000 ? 1 : 0.8));
@@ -146,7 +146,7 @@ async function doCashout(idx) {
     const { data: res, error } = await sb.rpc('cashout_ticket_soccer', { p_ticket_id: t._dbId });
     if (error || !res || !res.ok) {
       const e = (res && res.error) || '';
-      showCashoutPopup(e === 'cashout closed' ? 'ქეშაუთი დახურულია — შენი ბილეთის თამაში დაიწყო' : 'ქეშაუთი ვერ შესრულდა', false);
+      showCashoutPopup(e === 'cashout closed' ? 'ქეშაუთი დახურულია - შენი ბილეთის თამაში დაიწყო' : 'ქეშაუთი ვერ შესრულდა', false);
       return;
     }
     updateBalance(res.balance);
@@ -154,7 +154,7 @@ async function doCashout(idx) {
     renderTickets();
     const pct = Math.round((res.pct || 0) * 100);
     showCashoutPopup('ქეშაუთი შესრულდა!<br>დაგიბრუნდა <b>' + fmt(res.refund) + '</b> ქულა (' + pct + '%)', true);
-  } catch (e) { showCashoutPopup('შეცდომა — სცადე თავიდან', false); }
+  } catch (e) { showCashoutPopup('შეცდომა - სცადე თავიდან', false); }
 }
 
 // ── LOAD GAMES ──
@@ -207,7 +207,7 @@ async function loadGamesFromDB() {
   const next = upcoming.filter(g => g.start.getTime() > serverNow()).sort((a, b) => a.start - b.start)[0] || null;
   window.__nbaNext = next ? next.start.getTime() : null;
   window.__nbaLive = upcoming.some(g => g.start.getTime() <= serverNow());
-  window.__nbaNextLabel = next ? `${next.home} — ${next.away}` : '';
+  window.__nbaNextLabel = next ? `${next.home} - ${next.away}` : '';
 
   const cdEl = $('countdown'), endedEl = $('eventEndedMsg');
   const empty = GAMES.length === 0;
@@ -252,11 +252,11 @@ function teamColor(hex) {
 function outBtn(matchId, marketId, outcome, odds, picked, winner, canPick, tint) {
   const cls = 'fb-out' + (picked ? ' on' : '') + (winner ? ' winner' : '');
   const style = tint ? ` style="border-bottom:3px solid ${tint}"` : '';
-  return `<button class="${cls}"${style} ${canPick ? `data-match="${matchId}" data-market="${marketId}" data-outcome="${outcome}"` : 'disabled'}>${odds != null ? Number(odds).toFixed(2) : '—'}</button>`;
+  return `<button class="${cls}"${style} ${canPick ? `data-match="${matchId}" data-market="${marketId}" data-outcome="${outcome}"` : 'disabled'}>${odds != null ? Number(odds).toFixed(2) : '-'}</button>`;
 }
 function renderGames() {
   const wrap = document.getElementById('markets');
-  if (!GAMES.length) { wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">ამ ეტაპზე მატჩები ხელმისაწვდომი არ არის — მალე დაემატება.</div>'; return; }
+  if (!GAMES.length) { wrap.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">ამ ეტაპზე მატჩები ხელმისაწვდომი არ არის - მალე დაემატება.</div>'; return; }
 
   const crest = (logo, alt) => logo ? `<img class="fb-crest" src="${logo}" alt="${alt || ''}" loading="lazy" onerror="this.style.display='none'">` : '';
   const matches = GAMES.slice().sort((a, b) => (a.start ? a.start.getTime() : 0) - (b.start ? b.start.getTime() : 0));
@@ -269,7 +269,7 @@ function renderGames() {
 
     const compLabel = g.competition
       ? `<span class="fb-comp">${g.competition}${g.stage ? ' · ' + g.stage : ''}</span>`
-      : '<span class="fb-vs">—</span>';
+      : '<span class="fb-vs">-</span>';
     const mid = completed ? `<span class="fb-score">${g.homeScore ?? ''} : ${g.awayScore ?? ''}</span>`
       : started ? '<span class="fb-live">🔴 ცოცხლად</span>' : compLabel;
 
@@ -314,7 +314,7 @@ function renderGames() {
         odds = outcome === 'over' ? g.ou.over : g.ou.under;
         name = (outcome === 'over' ? 'მეტი ' : 'ნაკლები ') + g.ou.line;
       }
-      setPick(marketId, outcome, { odds, name, matchup: `${g.home} — ${g.away}`, start: g.start ? g.start.getTime() : null });
+      setPick(marketId, outcome, { odds, name, matchup: `${g.home} - ${g.away}`, start: g.start ? g.start.getTime() : null });
     };
   });
 }
@@ -395,7 +395,7 @@ function betError(res, error) {
   const map = {
     'insufficient balance': 'არასაკმარისი ქულები ბალანსზე',
     'market closed': 'ეს ბაზარი დახურულია',
-    'betting closed': 'მატჩი მალე იწყება — ფსონი დაკეტილია',
+    'betting closed': 'მატჩი მალე იწყება - ფსონი დაკეტილია',
     'selection unavailable': 'ამ არჩევანს კოეფიციენტი ჯერ არ აქვს',
     'market not in round': 'ეს მატჩი მიმდინარე ტურში არ არის',
     'not authenticated': 'გთხოვ, გაიარე ავტორიზაცია',
@@ -431,7 +431,7 @@ async function placeBets() {
   if (!currentUser) { closeSlip(); openModal('join'); return; }
   if (!ROUND) { alert('ამ ლიგაზე ამჟამად აქტიური ტური არ არის'); return; }
   const arr = picksArr(); if (arr.length === 0) return;
-  if (arr.some(s => !(Number.isFinite(s.odds) && s.odds > 0))) { alert('ერთ-ერთ არჩევანს კოეფიციენტი არ აქვს — წაშალე ბილეთიდან'); return; }
+  if (arr.some(s => !(Number.isFinite(s.odds) && s.odds > 0))) { alert('ერთ-ერთ არჩევანს კოეფიციენტი არ აქვს - წაშალე ბილეთიდან'); return; }
 
   if (pb) pb.disabled = true;
   await refreshBalance();
@@ -439,7 +439,7 @@ async function placeBets() {
     if (state.mode === 'express') {
       // #3: ექსპრესს 2-10 პოზიცია სჭირდება — 1 პოზიციით სინგლზე გადავყავთ,
       // რომ იუზერმა სერვერის ინგლისური შეცდომა არ დაინახოს
-      if (arr.length === 1) { setMode('single'); alert('ერთი არჩევანით სინგლი იდება — გადაგიყვანე სინგლის რეჟიმზე'); return; }
+      if (arr.length === 1) { setMode('single'); alert('ერთი არჩევანით სინგლი იდება - გადაგიყვანე სინგლის რეჟიმზე'); return; }
       if (arr.length > 10) { alert('ექსპრესში მაქსიმუმ 10 თამაშია'); return; }
       const st = state.expressStake;
       if (st <= 0) return;
@@ -478,7 +478,7 @@ async function placeBets() {
   } catch (e) {
     console.warn('placeBets failed:', e);
     await refreshBalance(); updateTotals();
-    alert('ფსონი ვერ დაიდო — სცადე თავიდან');
+    alert('ფსონი ვერ დაიდო - სცადე თავიდან');
   } finally {
     const pb2 = $('placeBtn'); if (pb2) pb2.disabled = false;
     updateTotals();
@@ -511,7 +511,7 @@ async function loadUserTickets() {
         const mk = s.market || {}; const m = mk.match || {};
         return {
           pickName: pickLabel(mk.kind, s.outcome, m, mk.line),
-          matchup: `${m.home_team || m.home_abbr || '?'} — ${m.away_team || m.away_abbr || '?'}`,
+          matchup: `${m.home_team || m.home_abbr || '?'} - ${m.away_team || m.away_abbr || '?'}`,
           odds: Number(s.odds), res: s.result ? (resMap[s.result] || null) : null,
           voided: m.is_voided === true,   // ქეშაუთის guard-ისთვის
           gameStart: m.kickoff ? new Date(m.kickoff).getTime() : null
@@ -559,7 +559,7 @@ function renderTickets() {
       </div>
       ${isCollapsed ? collapsed : `
       <div class="tk-sels">
-        ${visSels.length === 0 ? '<div class="tk-empty" style="padding:10px">ყველა პოზიცია გაუქმდა — ფსონი დაბრუნებულია</div>' : visSels.map(s => {
+        ${visSels.length === 0 ? '<div class="tk-empty" style="padding:10px">ყველა პოზიცია გაუქმდა - ფსონი დაბრუნებულია</div>' : visSels.map(s => {
           const resCls = s.res === 'ok' ? 'ok' : s.res === 'no' ? 'no' : '';
           const resTxt = s.res === 'ok' ? '✓' : s.res === 'no' ? '✗' : '';
           return `<div class="tk-sel"><div class="tk-sel-main">
@@ -666,7 +666,7 @@ function renderLeaderboard() {
     const you = currentUser && r.id === currentUser.id;
     const sign = r.pts > 0 ? '+' : '';
     const badge = r.verified ? '<span class="lb-verified-badge" title="ვერიფიცირებული">' + checkSvg + '</span>' : '';
-    const nm = r.name || '—';
+    const nm = r.name || '-';
     const nmSize = nm.length > 16 ? 'var(--fs-meta)' : nm.length > 12 ? '.88rem' : '1rem';
     const ptsStr = sign + fmt(r.pts);
     const ptsSize = ptsStr.length > 8 ? '.78rem' : ptsStr.length > 6 ? '.9rem' : '1.05rem';
@@ -691,7 +691,7 @@ function openLbPopup(fullSorted) {
   const rowsHtml = fullSorted.map(r => {
     const you = currentUser && r.id === currentUser.id; const sign = r.pts > 0 ? '+' : '';
     const badge = r.verified ? '<span class="lb-verified-badge">' + checkSvg + '</span>' : '';
-    const nm = r.name || '—';
+    const nm = r.name || '-';
     return `<a class="lb-row ${you ? 'you' : ''}${r.verified ? ' verified-row' : ''}" href="/profile/?u=${encodeURIComponent(nm)}" style="text-decoration:none;color:inherit">
       <span class="lb-rank ${r.rank <= 3 ? 'top' : ''}">${r.rank}</span>
       <span class="lb-user"><span class="lb-ava-glove">${navAvaHtml(r)}</span><span class="lb-userinfo"><span class="lb-verified"><span class="lb-name">${escapeHtml(nm)}</span>${badge}</span>${you ? '<span class="lb-tag">შენ</span>' : ''}</span></span>
@@ -718,16 +718,16 @@ async function loadLeaderboard(period) {
     if (_currentLbPeriod === 'goat') {
       const { data, error } = await sb.rpc('get_football_leaderboard', { p_league: LEAGUE });
       if (error || !data) return;
-      rows = data.map(u => ({ id: u.user_id, name: u.nick || '—', pts: Number(u.score) || 0, icon: u.icon || '🥊', avatar_type: u.avatar_type, avatar_url: u.avatar_url, verified: !!u.verified }));
+      rows = data.map(u => ({ id: u.user_id, name: u.nick || '-', pts: Number(u.score) || 0, icon: u.icon || '🥊', avatar_type: u.avatar_type, avatar_url: u.avatar_url, verified: !!u.verified }));
     } else {
       const since = periodStartDate(_currentLbPeriod).toISOString();
       const { data: hist, error: hErr } = await sb.from('soccer_score_history').select('user_id, amount, created_at').eq('league', LEAGUE).gte('created_at', since);
       if (hErr || !hist) { LEADERBOARD.length = 0; renderLeaderboard(); renderLbTabs(); return; }
       const { data: usersData } = await sb.rpc('get_football_leaderboard', { p_league: LEAGUE });
       const userMap = {};
-      (usersData || []).forEach(u => { userMap[u.user_id] = { nick: u.nick || '—', icon: u.icon || '🥊', avatar_type: u.avatar_type, avatar_url: u.avatar_url, verified: !!u.verified }; });
+      (usersData || []).forEach(u => { userMap[u.user_id] = { nick: u.nick || '-', icon: u.icon || '🥊', avatar_type: u.avatar_type, avatar_url: u.avatar_url, verified: !!u.verified }; });
       const map = {};
-      hist.forEach(h => { const uid = h.user_id; if (!map[uid]) map[uid] = { id: uid, name: userMap[uid]?.nick || '—', icon: userMap[uid]?.icon || '🥊', avatar_type: userMap[uid]?.avatar_type, avatar_url: userMap[uid]?.avatar_url, pts: 0, verified: userMap[uid]?.verified || false }; map[uid].pts += Number(h.amount) || 0; });
+      hist.forEach(h => { const uid = h.user_id; if (!map[uid]) map[uid] = { id: uid, name: userMap[uid]?.nick || '-', icon: userMap[uid]?.icon || '🥊', avatar_type: userMap[uid]?.avatar_type, avatar_url: userMap[uid]?.avatar_url, pts: 0, verified: userMap[uid]?.verified || false }; map[uid].pts += Number(h.amount) || 0; });
       rows = Object.values(map).filter(r => r.pts > 0).sort((a, b) => b.pts - a.pts);
     }
     LEADERBOARD.length = 0; rows.forEach(r => LEADERBOARD.push(r));
