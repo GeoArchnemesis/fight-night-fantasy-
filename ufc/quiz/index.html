@@ -221,6 +221,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 @keyframes qaiGlitch{0%,100%{transform:translateX(0);opacity:.3}20%{transform:translateX(-5px);opacity:.5}40%{transform:translateX(5px);opacity:.7}60%{transform:translateX(-3px);opacity:.5}80%{transform:translateX(3px);opacity:.3}}
 @keyframes qaiScan{0%{top:-10%}100%{top:110%}}
 
+/* vs-human "Matrix rain" counterpart to the vs-AI hologram above, scoped to
+   [data-mode="pvp"] only; .mode already has position:relative/overflow:hidden,
+   relied on here. Three required departures from the ported CodePen snippet:
+   1) the rain runs continuously, not on :hover (mobile has no hover);
+   2) the card stays var(--surface), not #000, so it reads as opaque over the
+      page's background artwork, like the AI card;
+   3) pure #0f0 is too harsh on this palette -- reused var(--green) (#3ad17e),
+      the site's existing accent green, instead of introducing a new colour. */
+#quizRoot .mode[data-mode="pvp"]{border:2px solid rgba(58,209,126,.5);background:var(--surface);box-shadow:0 0 15px rgba(58,209,126,.3)}
+#quizRoot .mode[data-mode="pvp"] .qpvp-rain{position:absolute;inset:0;background:linear-gradient(180deg,rgba(58,209,126,0) 0%,rgba(58,209,126,.2) 50%,rgba(58,209,126,0) 100%);animation:qpvpRain 1s linear infinite}
+@keyframes qpvpRain{0%{transform:translateY(-100%)}100%{transform:translateY(100%)}}
+
 #quizRoot .tinyinfo{margin-top:12px;text-align:center;color:var(--text);font-size:12px;line-height:1.5}
 
 #quizRoot .arena{display:flex;flex-direction:column;align-items:center;gap:20px;padding:6px 0}
@@ -459,6 +471,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
       <div class="mode" tabindex="0" role="button" aria-label="ადამიანის წინააღმდეგ — მეგობრის მოწვევა" data-mode="pvp">
         <h2>ადამიანის წინააღმდეგ</h2>
+        <div class="qpvp-rain"></div>
         <p>მოიწვიე 8-მდე მეგობარი</p>
       </div>
     </div>
