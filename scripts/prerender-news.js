@@ -181,22 +181,6 @@ function sidebarCardHtml(a, lang) {
   return `<a class="article-card--list" href="${relUrlFor(a.slug, lang)}">${thumb}<div class="acl-content"><h3 class="acl-title">${escapeHtml(title)}</h3><div class="acl-meta"><time datetime="${a.published_at || ''}">${escapeHtml(dateStr)}</time></div></div></a>`;
 }
 
-// Shared by the homepage strip and each sport page's bottom block --
-// same compact card markup as the article sidebar (.article-card--list),
-// already styled sitewide, so neither new page needs new CSS. Always KA
-// (these are the Georgian-primary site's own pages, not /en/ pages).
-function newsStripHtml(articles, heading) {
-  if (!articles.length) return '';
-  return [
-    '<section id="newsStrip"><div class="wrap">',
-    `<div class="sec-head"><h2>${escapeHtml(heading)}</h2></div>`,
-    '<div class="nw-strip-list">',
-    articles.map((a) => sidebarCardHtml(a, 'ka')).join(''),
-    '</div>',
-    '</div></section>',
-  ].join('\n');
-}
-
 // Same markup/CSS as /news/'s own hero card (heroCardHtml, defined
 // below) -- duplicated rather than called directly because the
 // homepage's section heading is already an <h2> ("სიახლეები"), so the
@@ -223,12 +207,10 @@ function homeHeroCardHtml(a) {
     </div>`;
 }
 
-// Homepage-only strip: uses homeHeroCardHtml() above instead of the
-// compact list card below, since the homepage's 3-column grid needs the
-// hero's fluid-width cover image -- the list card's fixed 112px thumb
-// doesn't scale down to the mobile 2-column breakpoint. Sport pages keep
-// newsStripHtml()/the list card below, unchanged -- homepage-only by
-// design.
+// Shared by the homepage strip and each sport page's bottom block: both
+// use the same hero card (homeHeroCardHtml() above) in the same 3-column
+// grid, so the two surfaces read as one component (task 6). Always KA
+// (these are the Georgian-primary site's own pages, not /en/ pages).
 function homeNewsStripHtml(articles, heading) {
   if (!articles.length) return '';
   return [
@@ -730,7 +712,7 @@ async function main() {
     'football/bundesliga/index.html', 'football/ligue1/index.html', 'football/ucl/index.html',
   ];
   const sportArticles = articles.slice(0, 3);
-  const sportBlock = newsStripHtml(sportArticles, 'სიახლეები');
+  const sportBlock = homeNewsStripHtml(sportArticles, 'სიახლეები');
   for (const file of SPORT_NEWS_FILES) {
     const spPath = path.join(REPO_ROOT, file);
     let spHtml;

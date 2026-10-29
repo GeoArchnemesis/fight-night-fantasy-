@@ -662,20 +662,23 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .tk-status.void::before{background:var(--muted)}
 .tk-status.void{color:var(--muted)}
 
-/* ── NEWS-SPORT strip shared layout (f1/nba/ufc/football×6 index.html) ──
-   Used by the NEWS-SPORT:START/END block scripts/prerender-news.js injects
-   near each sport page's footer. Rules taken verbatim from index.html's
-   pre-hero-card version (git show 152592a^:index.html) -- index.html itself
-   now styles its own #newsStrip for hero cards in an inline <style> that
-   loads after this file and wins there, so these rules are inert on the
-   homepage (it no longer uses .article-card--list for this section). */
+/* ── NEWS-HOME/NEWS-SPORT hero strip shared layout (index.html +
+   f1/nba/ufc/football×6 index.html) ── Used by the NEWS-HOME/NEWS-SPORT
+   marker blocks scripts/prerender-news.js injects. Consolidated here
+   (task 6c) from two drifted copies: this file's own pre-hero-card
+   .article-card--list rules (removed -- dead now that every one of these
+   ten pages renders the same hero card, homeHeroCardHtml()/.nw-card
+   article-card--hero) and index.html's own inline <style> duplicate
+   (removed from index.html, same values, now pointless to keep separate
+   since the sport pages need the identical rule). min-width:0 on
+   .nw-card-wrap keeps the hero's intrinsic 800px image attribute from
+   inflating a bare 1fr track past the viewport -- /news/ itself avoids
+   this with minmax(280px,1fr). */
 #newsStrip{width:100%;margin-top:34px}
 #newsStrip .sec-head{justify-content:center;margin-bottom:14px}
 #newsStrip h2{font-family:var(--head);font-weight:800;font-size:clamp(1.6rem,5vw,2.6rem);color:var(--text,#fff)}
 #newsStrip .nw-strip-list{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;width:100%;max-width:1040px;margin:0 auto}
-#newsStrip .article-card--list{flex-direction:column;gap:0;padding:0;margin-bottom:0;border:1px solid var(--line,#26232f);border-radius:16px;overflow:hidden;background:var(--surface,#14121b)}
-#newsStrip .acl-thumb{width:100%;aspect-ratio:3/2;border-radius:0}
-#newsStrip .acl-content{padding:10px 14px 14px}
+#newsStrip .nw-strip-list>.nw-card-wrap{min-width:0}
 @media(max-width:860px){
 #newsStrip .nw-strip-list{grid-template-columns:repeat(2,1fr);gap:11px;max-width:440px}
 }
