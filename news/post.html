@@ -66,7 +66,7 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
-<link rel="stylesheet" href="/style.css?v=208" />
+<link rel="stylesheet" href="/style.css?v=209" />
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <style>
 /* ── MOBILE BOTTOM NAV (mnav) — მხოლოდ მობილურზე ── (ufc/index.html-იდან, nav-ის სრულად აღსადგენად) */
@@ -332,10 +332,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <p class="foot-note"> პირველი ქართული UFC Fantasy. გამოცადე შენი MMA ინტუიცია უფასოდ. დადე მომგებიანი ბილეთები, გალიდერდი ლიდერბორდზე და მოიგე ფულადი პრიზები.</p>
 </div>
 <div class="foot-links">
-<a href="/about/">ჩვენს შესახებ</a>
-<a href="/rules/">წესები</a>
-<a href="/terms/">წესები და პირობები</a>
-<a href="/privacy/">კონფიდენციალურობა</a>
+  <div class="foot-col" style="grid-column:2">
+    <a href="/rules/">წესები</a>
+    <a href="/terms/">წესები და პირობები</a>
+    <a href="/privacy/">კონფიდენციალურობა</a>
+  </div>
+  <div class="foot-col" style="grid-column:3">
+    <a href="/about/">ჩვენს შესახებ</a>
+  </div>
 </div>
 </div></footer>
 
