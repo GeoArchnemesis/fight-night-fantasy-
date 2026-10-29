@@ -401,6 +401,33 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .nw-card-dek{font-size:var(--fs-sm);line-height:var(--lh-sm);color:var(--text-2);margin:4px 0 2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .nw-card-wrap .nw-cat-pill{position:absolute;top:12px;left:12px;z-index:1}
 
+/* Shared news-card base (.nw-card/.nw-card-wrap/.nw-card-img/.nw-card-body/
+   .nw-card-title/.nw-card-meta/.nw-card-stats/.nw-card-stat/.nw-card-share),
+   copied verbatim from news/index.html's inline <style>. Previously only
+   defined there, so the homepage NEWS-HOME strip's hero-card markup (built
+   by scripts/prerender-news.js's homeHeroCardHtml()) had no styling at all.
+   news/index.html keeps its own inline copy (deliberately not deduplicated
+   here, so it keeps winning the cascade there and renders unchanged). */
+.nw-card-wrap{position:relative}
+.nw-card{display:block;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden;text-decoration:none;color:inherit;transition:transform .15s,border-color .15s}
+.nw-card:hover{transform:translateY(-3px);border-color:var(--gold)}
+/* height:auto is load-bearing once the <img> carries height="..." --
+   that HTML attribute becomes a presentational height:<attr>px hint,
+   which (being non-auto) stops aspect-ratio from resolving the box's
+   height at all, overriding it with a fixed pixel value regardless of
+   the rendered width. See news/post.html's .nw-art-cover for the same
+   bug, measured and fixed at the same time. */
+.nw-card-img{width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;background:var(--surface-2,#1a1826);display:block}
+.nw-card-body{padding:16px}
+.nw-card-title{font-family:var(--display);font-weight:700;font-size:20px;line-height:26px;margin-bottom:8px;color:var(--text)}
+.nw-card-meta{color:var(--muted);font-size:var(--fs-meta);text-transform:uppercase;letter-spacing:.04em}
+.nw-card-stats{display:flex;align-items:center;gap:14px;margin-top:8px;color:var(--muted);font-size:var(--fs-meta)}
+.nw-card-stat{display:inline-flex;align-items:center;gap:5px}
+.nw-card-share{position:absolute;top:10px;right:10px;z-index:2;background:rgba(14,13,20,.72);backdrop-filter:blur(2px);border:1px solid var(--line);border-radius:50%;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:.95rem;cursor:pointer}
+.nw-card-share .nw-icon{width:16px;height:16px}
+.nw-card-share:hover{border-color:var(--gold)}
+@media(max-width:520px){.nw-card-meta{font-size:.85rem;color:var(--text)}.nw-card-stats{font-size:.85rem;color:var(--text)}}
+
 /* List card (PRD 8.3) -- the workhorse for every other card */
 .article-card--list{display:flex;gap:var(--sp-3);padding:12px;margin-bottom:var(--card-gap)}
 .article-card--list .acl-thumb{width:112px;aspect-ratio:4/3;border-radius:var(--r-sm);object-fit:cover;flex-shrink:0;display:block}
