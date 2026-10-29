@@ -570,7 +570,7 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 // Approved author bios (2026-10-22), for the Person schema and the
 // author-line tooltip. Keyed by the exact `author` string in Supabase.
 const NW_AUTHOR_BIOS = {
-  GeoArchnemesis: 'GeoArchnemesis — FNF.GE-ის ჟურნალისტი და დამფუძნებელი.',
+  GeoArchnemesis: 'GeoArchnemesis - FNF.GE-ის ჟურნალისტი და დამფუძნებელი.',
 };
 function nwAuthorHtml(author, lang) {
   // Bio is Georgian only -- not shown as a tooltip on the English page
@@ -1348,7 +1348,7 @@ function nwRenderAudioUI() {
       <button type="button" class="nw-audio-playpause" id="nwAudioPlayPause" aria-label="${nwSpeech.playing ? 'პაუზა' : 'დაკვრა'}">${nwSpeech.playing ? NW_ICON_PAUSE : NW_ICON_PLAY}</button>
       <button type="button" class="btn--icon nw-audio-skip" id="nwAudioBack15" aria-label="15 წამით უკან">-15</button>
       <div class="nw-audio-mid">
-        <div class="nw-audio-label">მოუსმინე — ${nwFormatMMSS(nwSpeechElapsedSeconds())} / ${nwFormatMMSS(nwSpeechTotalSeconds())}</div>
+        <div class="nw-audio-label">მოუსმინე - ${nwFormatMMSS(nwSpeechElapsedSeconds())} / ${nwFormatMMSS(nwSpeechTotalSeconds())}</div>
         <div class="nw-audio-bar"><i style="width:${Math.min(100, (nwSpeech.offset / nwSpeech.text.length) * 100)}%"></i></div>
       </div>
       <button type="button" class="btn--icon nw-audio-skip" id="nwAudioFwd15" aria-label="15 წამით წინ">+15</button>

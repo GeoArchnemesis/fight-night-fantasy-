@@ -594,7 +594,7 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       else if (s.outcome === '1') pickName = m.home_team || 'მასპინძელი';
       else if (s.outcome === 'x') pickName = 'ფრე';
       else pickName = m.away_team || 'სტუმარი';
-      const matchup = `${m.home_team || m.home_abbr || '?'} — ${m.away_team || m.away_abbr || '?'}`;
+      const matchup = `${m.home_team || m.home_abbr || '?'} - ${m.away_team || m.away_abbr || '?'}`;
       const r = resParts(s.result ? (RES_MAP[s.result] || null) : null);
       return { kind:'simple', left: matchup, pickLabel: pickName, odds: Number(s.odds || 0), resCls: r.cls, resTxt: r.txt };
     });
@@ -648,7 +648,7 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       const left = s.kind === 'fighters'
         ? `<span class="tk-sel-dot red"></span><span class="tk-sel-red">${s.redName}</span><span class="tk-sel-vs">vs</span><span class="tk-sel-blue">${s.blueName}</span><span class="tk-sel-dot blue"></span>`
         : `<span class="tk-sel-red">${s.left}</span>`;
-      const pickText = s.kind === 'fighters' ? `${s.fighterName} — ${s.pickLabel}` : s.pickLabel;
+      const pickText = s.kind === 'fighters' ? `${s.fighterName} - ${s.pickLabel}` : s.pickLabel;
       return `<div class="tk-sel"><div class="tk-sel-main">
           <div class="tk-sel-fighters">${left}</div>
           <div class="tk-sel-pick ${s.kind === 'fighters' ? 'pick-' + (s.isRed ? 'red' : 'blue') : 'pick-red'}">${pickText}</div></div>
