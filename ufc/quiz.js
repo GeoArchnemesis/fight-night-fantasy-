@@ -1598,6 +1598,7 @@ function startCardBattle(){
   $("#cb-log").textContent = "კითხვები ბრუნდება - ვნახოთ ვინ იყო უფრო ზუსტი!";
   $("#qb-card").classList.remove("show");
   $("#cb-final").classList.remove("show");
+  $("#cbBanner").className = "cb-banner";
   document.querySelector(".qbattle").style.display = "";
   show("screen-cards");
   clearTimeout(S.cbTimer); clearTimeout(S.cbReveal);
@@ -1712,11 +1713,14 @@ function endBattle(){
   if(you>opp){
     sideYou.classList.add("win");
     emoji.textContent = "🏆"; title.textContent = "თქვენ გაიმარჯვეთ"; title.className = "cbf-title win";
+    $("#cbBanner").className = "cb-banner win show";
   } else if(you<opp){
     sideOpp.classList.add("win");
     emoji.textContent = "💀"; title.textContent = "თქვენ დამარცხდით"; title.className = "cbf-title lose";
+    $("#cbBanner").className = "cb-banner lose show";
   } else {
     emoji.textContent = "⚖️"; title.textContent = "ქვიზი ფრედ დასრულდა"; title.className = "cbf-title draw";
+    $("#cbBanner").className = "cb-banner";
   }
   $("#cb-final").classList.add("show");
   renderReview();
