@@ -494,6 +494,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- LOBBY -->
   <section id="screen-lobby" class="screen">
+    <div class="back-row"><button class="qback" id="back-from-lobby"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button></div>
     <div class="arena">
       <div style="text-align:center;font-family:var(--display);font-weight:700;font-size:13px;color:var(--text);letter-spacing:1px" id="lobby-belt">აირჩიე სირთულის დონე</div>
       <div id="lobby-action" class="btn-row" style="width:100%;max-width:340px"></div>
@@ -542,6 +543,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- PvP — WAITING FOR OTHERS -->
   <section id="screen-pvp-wait" class="screen">
+    <div class="back-row"><button class="qback" id="back-from-pvp-wait"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">ოთახის დატოვება</span></button></div>
     <div class="pvp-wait">
       <div class="pvp-wait-spinner">⏳</div>
       <h2>ველოდებით ოპონენტებს</h2>
@@ -551,6 +553,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- PvP — RESULTS (podium) -->
   <section id="screen-pvp-results" class="screen">
+    <div class="back-row"><button class="qback" id="back-from-pvp-results"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button></div>
     <h2 style="text-align:center;font-family:var(--display);margin-bottom:18px">შედეგები</h2>
     <div class="podium" id="pvp-podium"></div>
     <div class="pvp-rest" id="pvp-rest-list"></div>
@@ -817,7 +820,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=30"></script>
+<script src="/ufc/quiz.js?v=31"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){

@@ -645,6 +645,8 @@ function chooseGameType(type, opts){
 const backBtn = $("#back-to-gametype");
 if(backBtn) backBtn.addEventListener("click", ()=> history.back());
 
+$("#back-from-lobby").addEventListener("click", ()=>{ stopQuestionTimer(); history.back(); });
+
 /* ============================================================
    1) რეჟიმის არჩევა — "AI-ის წინააღმდეგ" (startLobby) ან "ადამიანის
    წინააღმდეგ" (startPvpSetup — PvP ჯგუფური ოთახი, იხ. §2.5 ქვემოთ).
@@ -1074,11 +1076,13 @@ function renderPvpResults(result){
 
 $("#back-to-mode-from-pvp").addEventListener("click", ()=>{ resetPvp(); history.back(); });
 
-$("#pvp-leave-btn").addEventListener("click", async ()=>{
+async function leavePvpRoom(){
   if(PVP){ try{ await sb.rpc('leave_quiz_room', { p_room_id: PVP.roomId }); }catch(e){} }
   resetPvp();
   history.back();
-});
+}
+$("#pvp-leave-btn").addEventListener("click", leavePvpRoom);
+$("#back-from-pvp-wait").addEventListener("click", leavePvpRoom);
 
 $("#pvp-start-btn").addEventListener("click", async ()=>{
   if(!PVP || !PVP.isHost) return;
@@ -1175,12 +1179,14 @@ $("#pvp-copy-code").addEventListener("click", async ()=>{
   }
 });
 
-$("#pvp-results-done").addEventListener("click", ()=>{
+function finishPvpResults(){
   resetPvp();
   S.gameType = null;
   show("screen-gametype");
   pushQuizStep(null, null);
-});
+}
+$("#pvp-results-done").addEventListener("click", finishPvpResults);
+$("#back-from-pvp-results").addEventListener("click", finishPvpResults);
 
 /* ============================================================
    3) ქვიზი
