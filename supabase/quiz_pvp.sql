@@ -236,10 +236,16 @@ end;
 $$;
 
 -- Short, unambiguous room codes — excludes 0/O/1/I so they're easy to read
--- aloud/type on a phone.
+-- aloud/type on a phone. The alphabet is 31 characters, so floor() is
+-- required here, not a plain ::int cast: ::int on a numeric/float value
+-- rounds to the nearest integer rather than truncating, so random() * 31
+-- (which ranges over [0, 31)) can round up to 31, making the index 32 and
+-- substr() return an empty string for that position, silently dropping a
+-- character from the code. floor(random() * 31)::int truncates instead, so
+-- it only ever produces 0 through 30, giving a uniform 1 to 31 index.
 create or replace function public.quiz_gen_code() returns text
 language sql volatile as $$
-  select string_agg(substr('23456789ABCDEFGHJKMNPQRSTUVWXYZ', (random() * 31)::int + 1, 1), '')
+  select string_agg(substr('23456789ABCDEFGHJKMNPQRSTUVWXYZ', floor(random() * 31)::int + 1, 1), '')
   from generate_series(1, 6);
 $$;
 
