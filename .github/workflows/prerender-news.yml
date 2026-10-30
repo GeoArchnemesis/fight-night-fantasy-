@@ -6,15 +6,12 @@ name: Prerender News
 # polls on a schedule (same cadence family as the sport auto-scripts)
 # and can also be run manually right after publishing an article.
 #
-# NOT RUN as part of this PRD pass -- written and reviewed locally
-# only, per the hard constraint against triggering GitHub Actions in
-# this session. See IMPLEMENTATION-SUMMARY.md "MANUAL STEPS".
+# First run manually on main on 2026-10-30; the schedule was enabled
+# afterwards. See IMPLEMENTATION-SUMMARY.md "MANUAL STEPS".
 
 on:
-  # schedule disabled -- this workflow has never run in production and
-  # must not start writing to the live site unsupervised. Restore with:
-  #   schedule:
-  #     - cron: '*/30 * * * *'
+  schedule:
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 concurrency:
