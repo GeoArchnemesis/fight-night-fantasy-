@@ -433,9 +433,10 @@ function show(id){
   requestAnimationFrame(()=>{
     const nav = document.querySelector("nav");
     const navH = nav ? nav.getBoundingClientRect().height : 0;
-    const root = document.getElementById("quizRoot");
-    if(!root) return;
-    const y = root.getBoundingClientRect().top + window.scrollY - navH - 6;
+    const el = document.getElementById(id);
+    if(!el) return;
+    const pt = parseFloat(getComputedStyle(el).paddingTop) || 0;
+    const y = el.getBoundingClientRect().top + window.scrollY + pt - navH - 6;
     window.scrollTo(0, Math.max(0, y));
   });
 }
