@@ -79,7 +79,7 @@ const log = (m) => console.log(`[${new Date().toISOString()}] ${m}`);
 // author-line tooltip. Keyed by the exact `author` string in Supabase.
 // Georgian only -- not shown on EN pages (would read oddly mid-English).
 const AUTHOR_BIOS = {
-  GeoArchnemesis: 'GeoArchnemesis — FNF.GE-ის ჟურნალისტი და დამფუძნებელი.',
+  GeoArchnemesis: 'GeoArchnemesis - FNF.GE-ის ჟურნალისტი და დამფუძნებელი.',
 };
 
 function xmlEscapeAttr(s) {
@@ -357,12 +357,12 @@ function buildArticlePage(template, a, allArticles, lang) {
   }
 
   replace(
-    '<title id="nwTitleTag">სტატია — Fight Night Fantasy</title>',
+    '<title id="nwTitleTag">სტატია - Fight Night Fantasy</title>',
     `<title id="nwTitleTag">${escapeHtml(metaTitle)}</title>`,
     'title'
   );
   replace(
-    '<meta name="description" id="nwDescTag" content="Fight Night Fantasy — სიახლეები." />',
+    '<meta name="description" id="nwDescTag" content="Fight Night Fantasy - სიახლეები." />',
     `<meta name="description" id="nwDescTag" content="${xmlEscapeAttr(metaDesc)}" />`,
     'description'
   );
@@ -392,12 +392,12 @@ function buildArticlePage(template, a, allArticles, lang) {
     'og:locale:alternate markers'
   );
   replace(
-    '<meta property="og:title" id="nwOgTitle" content="Fight Night Fantasy — სიახლეები" />',
+    '<meta property="og:title" id="nwOgTitle" content="Fight Night Fantasy - სიახლეები" />',
     `<meta property="og:title" id="nwOgTitle" content="${xmlEscapeAttr(metaTitle)}" />`,
     'og:title'
   );
   replace(
-    '<meta property="og:description" id="nwOgDesc" content="Fight Night Fantasy — სიახლეები." />',
+    '<meta property="og:description" id="nwOgDesc" content="Fight Night Fantasy - სიახლეები." />',
     `<meta property="og:description" id="nwOgDesc" content="${xmlEscapeAttr(metaDesc)}" />`,
     'og:description'
   );
@@ -412,12 +412,12 @@ function buildArticlePage(template, a, allArticles, lang) {
     'article:published_time'
   );
   replace(
-    '<meta name="twitter:title" id="nwTwTitle" content="Fight Night Fantasy — სიახლეები" />',
+    '<meta name="twitter:title" id="nwTwTitle" content="Fight Night Fantasy - სიახლეები" />',
     `<meta name="twitter:title" id="nwTwTitle" content="${xmlEscapeAttr(metaTitle)}" />`,
     'twitter:title'
   );
   replace(
-    '<meta name="twitter:description" id="nwTwDesc" content="Fight Night Fantasy — სიახლეები." />',
+    '<meta name="twitter:description" id="nwTwDesc" content="Fight Night Fantasy - სიახლეები." />',
     `<meta name="twitter:description" id="nwTwDesc" content="${xmlEscapeAttr(metaDesc)}" />`,
     'twitter:description'
   );
@@ -518,8 +518,8 @@ function buildListingPage(listingTemplate, articles, lang) {
     const enUrl = 'https://fnf.ge/en/news/';
     replace('<title>FNF - სიახლეები</title>', '<title>FNF News</title>', 'title');
     replace(
-      '<meta name="description" content="სპორტული ფენტეზი, სიახლეები და ანალიზი — UFC, Formula 1, NBA და ფეხბურთი." />',
-      '<meta name="description" content="Sports fantasy news and analysis — UFC, Formula 1, NBA and football." />',
+      '<meta name="description" content="სპორტული ფენტეზი, სიახლეები და ანალიზი - UFC, Formula 1, NBA და ფეხბურთი." />',
+      '<meta name="description" content="Sports fantasy news and analysis - UFC, Formula 1, NBA and football." />',
       'description'
     );
     replace('<link rel="canonical" href="https://fnf.ge/news/" />', `<link rel="canonical" href="${enUrl}" />`, 'canonical');
@@ -527,16 +527,16 @@ function buildListingPage(listingTemplate, articles, lang) {
     replace('<meta property="og:url" content="https://fnf.ge/news/" />', `<meta property="og:url" content="${enUrl}" />`, 'og:url');
     replace('<meta property="og:locale" id="nwOgLocale" content="ka_GE" />', '<meta property="og:locale" id="nwOgLocale" content="en_US" />', 'og:locale');
     html = replaceMarkerBlock(html, '<!-- OGLOCALEALT:START -->', '<!-- OGLOCALEALT:END -->', ogLocaleAlt('en', true), 'og:locale:alternate markers');
-    replace('<meta property="og:title" content="სიახლეები — Fight Night Fantasy" />', '<meta property="og:title" content="News — Fight Night Fantasy" />', 'og:title');
+    replace('<meta property="og:title" content="სიახლეები - Fight Night Fantasy" />', '<meta property="og:title" content="News - Fight Night Fantasy" />', 'og:title');
     replace(
-      '<meta property="og:description" content="Fight Night Fantasy — სიახლეები და განახლებები." />',
-      '<meta property="og:description" content="Fight Night Fantasy — news and updates." />',
+      '<meta property="og:description" content="Fight Night Fantasy - სიახლეები და განახლებები." />',
+      '<meta property="og:description" content="Fight Night Fantasy - news and updates." />',
       'og:description'
     );
-    replace('<meta name="twitter:title" content="სიახლეები — Fight Night Fantasy" />', '<meta name="twitter:title" content="News — Fight Night Fantasy" />', 'twitter:title');
+    replace('<meta name="twitter:title" content="სიახლეები - Fight Night Fantasy" />', '<meta name="twitter:title" content="News - Fight Night Fantasy" />', 'twitter:title');
     replace(
-      '<meta name="twitter:description" content="Fight Night Fantasy — სიახლეები და განახლებები." />',
-      '<meta name="twitter:description" content="Fight Night Fantasy — news and updates." />',
+      '<meta name="twitter:description" content="Fight Night Fantasy - სიახლეები და განახლებები." />',
+      '<meta name="twitter:description" content="Fight Night Fantasy - news and updates." />',
       'twitter:description'
     );
     replace(
