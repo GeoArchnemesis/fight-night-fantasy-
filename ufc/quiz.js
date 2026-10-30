@@ -1815,3 +1815,34 @@ window.addEventListener("popstate", e=>{
   const canonicalPath = "/ufc/quiz/" + step.rest + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
   history.replaceState({ quizGameType: step.gameType, quizMode: step.mode }, "", canonicalPath);
 })();
+
+// PvP share link (?room=<code>) must join the room directly, not just
+// prefill the join input on a screen the visitor never reaches.
+(async function initQuizRoomDeepLink(){
+  const params = new URLSearchParams(location.search);
+  const roomCode = (params.get("room") || "").trim().toUpperCase();
+  if(!roomCode || !sb) return;
+  // S.gameType may already be set by the ?s= shim above (e.g. a "guess"
+  // room link), so keep it when present instead of forcing "quiz".
+  quizRestoreStep(S.gameType || "quiz", "pvp");
+  const codeInput = document.getElementById("pvp-join-code");
+  if(codeInput) codeInput.value = roomCode;
+  // A signed-in visitor must not see the auth modal flash while
+  // currentAuthUser is still being filled in asynchronously by
+  // applyAuthSession. A stored Supabase session key means that will
+  // resolve shortly, so wait briefly for it; otherwise do not wait.
+  let hasStoredSession = false;
+  try{
+    for(let i = 0; i < localStorage.length; i++){
+      const key = localStorage.key(i);
+      if(key && key.indexOf("-auth-token") !== -1){ hasStoredSession = true; break; }
+    }
+  }catch(e){}
+  if(hasStoredSession){
+    const deadline = Date.now() + 2500;
+    while(!currentAuthUser && Date.now() < deadline){
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  requireAuth(()=> joinPvpRoom(roomCode));
+})();
