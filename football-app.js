@@ -413,14 +413,18 @@ function fbTrackTicket() {
     var fbpCookie = (document.cookie.match(/(?:^|; )_fbp=([^;]*)/) || [])[1] || '';
     var fbcCookie = (document.cookie.match(/(?:^|; )_fbc=([^;]*)/) || [])[1] || '';
     if (!fbcCookie) { try { fbcCookie = localStorage.getItem('fnf_fbc') || ''; } catch (e) {} }
-    fetch(SUPABASE_URL + '/functions/v1/meta-capi', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event_name: 'ticketPlaced', event_id: fbEventId,
-        email: (currentUser && currentUser.email) || '', phone: (currentUser && currentUser.phone) || '',
-        fbp: fbpCookie, fbc: fbcCookie, url: location.href,
-        external_id: (currentUser && currentUser.id) || '', gender: (currentUser && currentUser.gender) || ''
-      })
+    var body = JSON.stringify({
+      event_name: 'ticketPlaced', event_id: fbEventId,
+      email: (currentUser && currentUser.email) || '', phone: (currentUser && currentUser.phone) || '',
+      fbp: fbpCookie, fbc: fbcCookie, url: location.href,
+      external_id: (currentUser && currentUser.id) || '', gender: (currentUser && currentUser.gender) || ''
+    });
+    sb.auth.getSession().then(function (r) {
+      var tok = (r && r.data && r.data.session && r.data.session.access_token) || '';
+      var headers = { 'Content-Type': 'application/json' };
+      if (tok) headers['Authorization'] = 'Bearer ' + tok;
+      fetch(SUPABASE_URL + '/functions/v1/meta-capi', { method: 'POST', headers: headers, body: body })
+        .catch(function () {});
     }).catch(function () {});
   } catch (e) {}
   return fbEventId;
@@ -957,9 +961,11 @@ async function doRegister() {
     var fbpCookie = (document.cookie.match(/(?:^|; )_fbp=([^;]*)/) || [])[1] || '';
     var fbcCookie = (document.cookie.match(/(?:^|; )_fbc=([^;]*)/) || [])[1] || '';
     if (!fbcCookie) { try { fbcCookie = localStorage.getItem('fnf_fbc') || ''; } catch (e) {} }
+    var regHeaders = { 'Content-Type': 'application/json' };
+    if (data.session.access_token) regHeaders['Authorization'] = 'Bearer ' + data.session.access_token;
     fetch(SUPABASE_URL + '/functions/v1/meta-capi', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: regHeaders,
       body: JSON.stringify({ event_id: fbEventId, email: email, phone: phone, fbp: fbpCookie, fbc: fbcCookie, url: location.href, external_id: (currentUser && currentUser.id) || '', gender: (currentUser && currentUser.gender) || '' })
     }).catch(function () {});
   } catch (e) {}
