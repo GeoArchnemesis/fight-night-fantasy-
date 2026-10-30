@@ -1147,6 +1147,20 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     }catch(e){ profileMsg('შეცდომა: '+e.message,'var(--red)'); }
   }
 
+  // ბრაუზერის ბლოკავი დიალოგის ნაცვლად -- style.css-ის არსებული .toast/.toast.show პატერნი
+  // (იგივე, რაც ufc/quiz.js-ის showQuizToast()), fade+slide, თვითონ შლის თავს.
+  function showToast(msg, duration = 1500) {
+    const el = document.createElement('div');
+    el.className = 'toast';
+    el.textContent = msg;
+    document.body.appendChild(el);
+    requestAnimationFrame(() => el.classList.add('show'));
+    setTimeout(() => {
+      el.classList.remove('show');
+      setTimeout(() => el.remove(), 350);
+    }, duration);
+  }
+
   /* ============================================================
      Phase Q3 §3.1 — ფოტოს ატვირთვა + Cropper.js მრგვალი crop.
      ინახება კვადრატული სურათი (ევას/ბექენდში მომრგვალება არ ხდება) —
@@ -1160,7 +1174,7 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       const file = e.target.files && e.target.files[0];
       fileInput.value = '';
       if(!file) return;
-      if(!file.type.startsWith('image/')){ alert('მხოლოდ სურათის ატვირთვაა შესაძლებელი.'); return; }
+      if(!file.type.startsWith('image/')){ showToast('მხოლოდ სურათის ატვირთვაა შესაძლებელი.', 3500); return; }
       const img = document.getElementById('pfCropImg');
       img.src = URL.createObjectURL(file);
       document.getElementById('pfCropErr').style.display = 'none';

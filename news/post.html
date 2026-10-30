@@ -997,10 +997,24 @@ async function nwSubmitComment() {
   nwRenderComments();
 }
 
+// ბრაუზერის ბლოკავი დიალოგის ნაცვლად -- style.css-ის არსებული .toast/.toast.show პატერნი
+// (იგივე, რაც ufc/quiz.js-ის showQuizToast()), fade+slide, თვითონ შლის თავს.
+function showToast(msg, duration = 1500) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 350);
+  }, duration);
+}
+
 async function nwDeleteComment(id) {
   if (!confirm('წაიშალოს კომენტარი?')) return;
   const { error } = await nwGetClient().from('news_comments').update({ is_deleted: true }).eq('id', id);
-  if (error) { alert('წაშლა ვერ მოხერხდა: ' + error.message); return; }
+  if (error) { showToast('წაშლა ვერ მოხერხდა: ' + error.message, 3500); return; }
   nwComments = nwComments.filter(c => c.id !== id);
   nwRenderComments();
 }
