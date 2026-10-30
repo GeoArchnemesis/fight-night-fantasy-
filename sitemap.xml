@@ -95,15 +95,15 @@
     <priority>0.5</priority>
   </url>
 <!-- NEWS:END -->
-  <!-- English article/listing pages (/en/news/, /en/news/&lt;slug&gt;/ for
-       every article with a real EN translation), maintained by
-       scripts/prerender-news.js, same convention as the NEWS block above. -->
-  <!-- NEWS-EN:START -->
   <url>
     <loc>https://fnf.ge/en/news/</loc>
     <lastmod>2026-10-27</lastmod>
     <priority>0.6</priority>
   </url>
+  <!-- English article/listing pages (/en/news/, /en/news/&lt;slug&gt;/ for
+       every article with a real EN translation), maintained by
+       scripts/prerender-news.js, same convention as the NEWS block above. -->
+  <!-- NEWS-EN:START -->
   <url>
     <loc>https://fnf.ge/en/news/merab-dvalishvili-fight-week/</loc>
     <lastmod>2026-10-27</lastmod>
