@@ -428,7 +428,16 @@ function show(id){
   // კითხვა/ტაიმერი ჩანდეს თავში.
   const hero = document.getElementById('quizHero');
   if(hero) hero.style.display = (id === "screen-gametype") ? "" : "none";
-  window.scrollTo(0,0);
+  const inGame = ["screen-quiz","screen-guess","screen-cards","screen-pvp-lobby","screen-pvp-wait","screen-pvp-results"].indexOf(id) > -1;
+  if(!inGame){ window.scrollTo(0,0); return; }
+  requestAnimationFrame(()=>{
+    const nav = document.querySelector("nav");
+    const navH = nav ? nav.getBoundingClientRect().height : 0;
+    const root = document.getElementById("quizRoot");
+    if(!root) return;
+    const y = root.getBoundingClientRect().top + window.scrollY - navH - 6;
+    window.scrollTo(0, Math.max(0, y));
+  });
 }
 function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
 
