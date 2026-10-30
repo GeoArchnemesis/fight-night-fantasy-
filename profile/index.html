@@ -470,6 +470,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- ლოგო/ღილაკები იმ ფენტეზზე გადავიდეს, სადაც ბოლოს იყავი -->
 <script>
 (function(){
+function run(){
   var s = 'ufc';
   try { s = localStorage.getItem('fnf_sport') || 'ufc'; } catch(e){}
   // ფეხბურთი: fnf_league კოდი → /football/<league>/ (default: esp1 → laliga)
@@ -477,7 +478,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   var lg = 'esp1';
   try { lg = localStorage.getItem('fnf_league') || 'esp1'; } catch(e){}
   if (!FB_PATHS[lg]) lg = 'esp1';
-  var url = (s === 'f1') ? '/f1' : (s === 'nba') ? '/nba' : (s === 'football') ? '/football/' + FB_PATHS[lg] + '/' : '/ufc';
+  var url = (s === 'f1') ? '/f1/' : (s === 'nba') ? '/nba/' : (s === 'football') ? '/football/' + FB_PATHS[lg] + '/' : '/ufc/';
   var b = document.getElementById('brandLink');  if (b) b.href = url;
   var k = document.getElementById('backLink');   if (k) k.href = url;
   var g = document.getElementById('guestLink');  if (g) g.href = url;
@@ -494,6 +495,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   if (pop) { var cur = pop.querySelector('a[href="'+url+'"]'); if (cur) { var d=document.createElement('div'); d.className='mnav-pop-opt on'; d.innerHTML = cur.innerHTML; cur.replaceWith(d); } }
   var dpop = document.getElementById('navFxPop');
   if (dpop) { var dcur = dpop.querySelector('a[href="'+url+'"]'); if (dcur) dcur.classList.add('on'); }
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
+else run();
 })();
 </script>
 <script>
