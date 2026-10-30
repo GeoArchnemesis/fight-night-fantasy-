@@ -270,6 +270,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .qtext{font-size:1.05rem;font-weight:700;line-height:1.45;margin:10px 0 18px}
 #quizRoot .opts{display:flex;flex-direction:column;gap:10px}
 #quizRoot .opt{text-align:left;border:1px solid var(--line);background:var(--ink);color:var(--text);border-radius:8px;padding:13px 14px;font-size:.95rem;line-height:1.4;cursor:pointer;display:flex;align-items:center;gap:12px;transition:.15s;font-family:var(--head)}
+/* question screens must fit between the site nav and the mobile bottom
+   nav without scrolling on a phone -- tightened spacing/sizing only,
+   same colours/borders/radii, same HTML structure. */
+@media(max-width:480px){
+  #quizRoot .quiz-head{margin-bottom:6px}
+  #quizRoot .timer-wrap{margin-bottom:8px}
+  #quizRoot .qcard{padding:12px 12px}
+  #quizRoot .qtext{font-size:.88rem;margin:5px 0 8px}
+  #quizRoot .opts{gap:6px}
+  #quizRoot .opt{padding:9px 11px;font-size:.82rem}
+}
 #quizRoot .opt .key{width:27px;height:27px;flex:0 0 27px;border-radius:7px;display:grid;place-items:center;background:var(--surface-2);font-family:var(--mono);font-weight:700;font-size:.78rem;color:var(--text)}
 #quizRoot .opt:hover:not(:disabled){border-color:var(--muted)}
 #quizRoot .opt:disabled{cursor:default}
