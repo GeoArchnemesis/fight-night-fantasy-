@@ -378,7 +378,7 @@ async function placeBets() {
   const pb = $('placeBtn');
   if (!currentUser) { closeSlip(); openModal('join'); return; }
   const arr = picksArr(); if (arr.length === 0) return;
-  if (arr.some(s => !(Number.isFinite(s.odds) && s.odds > 0))) { alert('ერთ-ერთ არჩევანს კოეფიციენტი არ აქვს - წაშალე ბილეთიდან'); return; }
+  if (arr.some(s => !(Number.isFinite(s.odds) && s.odds > 0))) { showToast('ერთ-ერთ არჩევანს კოეფიციენტი არ აქვს - წაშალე ბილეთიდან', 3500); return; }
 
   if (pb) pb.disabled = true;
   await refreshBalance();
@@ -386,14 +386,14 @@ async function placeBets() {
     if (state.mode === 'express') {
       // #3: ექსპრესს 2-10 პოზიცია სჭირდება — 1 პოზიციით სინგლზე გადავყავთ,
       // რომ იუზერმა სერვერის ინგლისური შეცდომა არ დაინახოს
-      if (arr.length === 1) { setMode('single'); alert('ერთი არჩევანით სინგლი იდება - გადაგიყვანე სინგლის რეჟიმზე'); return; }
-      if (arr.length > 10) { alert('ექსპრესში მაქსიმუმ 10 თამაშია'); return; }
+      if (arr.length === 1) { setMode('single'); showToast('ერთი არჩევანით სინგლი იდება - გადაგიყვანე სინგლის რეჟიმზე', 3500); return; }
+      if (arr.length > 10) { showToast('ექსპრესში მაქსიმუმ 10 თამაშია', 3500); return; }
       const st = state.expressStake;
       if (st <= 0) return;
-      if (st > state.balance) { updateTotals(); alert('არასაკმარისი ქულები (გაქვს ' + fmt(state.balance) + ')'); return; }
+      if (st > state.balance) { updateTotals(); showToast('არასაკმარისი ქულები (გაქვს ' + fmt(state.balance) + ')', 3500); return; }
       const selections = arr.map(s => ({ game_id: s.gameId, side: s.side }));
       const { data: res, error } = await sb.rpc('place_bet_nba', { p_type: 'express', p_stake: st, p_selections: selections });
-      if (error || !res || !res.ok) { await refreshBalance(); updateTotals(); alert(betError(res, error)); return; }
+      if (error || !res || !res.ok) { await refreshBalance(); updateTotals(); showToast(betError(res, error), 3500); return; }
       updateBalance(res.balance);
       const finalOdds = res.total_odds != null ? Number(res.total_odds) : comboOdds();
       state.tickets.unshift({ _dbId: res.ticket_id, type: 'express',
@@ -403,13 +403,13 @@ async function placeBets() {
     } else {
       const ts = totalStakeSingle();
       if (ts <= 0) return;
-      if (ts > state.balance) { updateTotals(); alert('არასაკმარისი ქულები (გაქვს ' + fmt(state.balance) + ')'); return; }
+      if (ts > state.balance) { updateTotals(); showToast('არასაკმარისი ქულები (გაქვს ' + fmt(state.balance) + ')', 3500); return; }
       let placedAny = false;
       for (const s of arr) {
         if (s.stake > 0) {
           const selections = [{ game_id: s.gameId, side: s.side }];
           const { data: res, error } = await sb.rpc('place_bet_nba', { p_type: 'single', p_stake: s.stake, p_selections: selections });
-          if (error || !res || !res.ok) { await refreshBalance(); alert(betError(res, error)); continue; }
+          if (error || !res || !res.ok) { await refreshBalance(); showToast(betError(res, error), 3500); continue; }
           updateBalance(res.balance); placedAny = true;
           const finalOdds = res.total_odds != null ? Number(res.total_odds) : s.odds;
           state.tickets.unshift({ _dbId: res.ticket_id, type: 'single',
@@ -425,7 +425,7 @@ async function placeBets() {
   } catch (e) {
     console.warn('placeBets failed:', e);
     await refreshBalance(); updateTotals();
-    alert('ფსონი ვერ დაიდო - სცადე თავიდან');
+    showToast('ფსონი ვერ დაიდო - სცადე თავიდან', 3500);
   } finally {
     const pb2 = $('placeBtn'); if (pb2) pb2.disabled = false;
     updateTotals();
@@ -776,6 +776,19 @@ function closeModal() { if (modal) modal.classList.remove('show'); authError('')
 // execute a javascript: URI.
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+// ბრაუზერის ბლოკავი დიალოგის ნაცვლად -- style.css-ის არსებული .toast/.toast.show პატერნი
+// (იგივე, რაც ufc/quiz.js-ის showQuizToast()), fade+slide, თვითონ შლის თავს.
+function showToast(msg, duration = 1500) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 350);
+  }, duration);
 }
 function navAvaHtml(user) {
   return (user.avatar_type === 'photo' && user.avatar_url)

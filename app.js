@@ -416,11 +416,11 @@ function fbTrackTicket() {
 async function placeBets() {
   const pb = document.getElementById('placeBtn');
   if (!currentUser) { closeSlip(); openModal('join'); return; }
-  if (isBettingClosed()) { closeSlip(); alert('ფსონების მიღება დასრულებულია'); return; }
+  if (isBettingClosed()) { closeSlip(); showToast('ფსონების მიღება დასრულებულია', 3500); return; }
   const arr = picksArr(); if (arr.length === 0) return;
-  if (arr.some(s => !(Number.isFinite(s.odds) && s.odds > 0))) { alert('ერთ-ერთ ბრძოლას კოეფიციენტი ჯერ არ აქვს - წაშალე იგი ბილეთიდან'); return; }
+  if (arr.some(s => !(Number.isFinite(s.odds) && s.odds > 0))) { showToast('ერთ-ერთ ბრძოლას კოეფიციენტი ჯერ არ აქვს - წაშალე იგი ბილეთიდან', 3500); return; }
   const eventId = window.__currentEventId || null;
-  if (!eventId) { closeSlip(); alert('ივენთი ვერ მოიძებნა'); return; }
+  if (!eventId) { closeSlip(); showToast('ივენთი ვერ მოიძებნა', 3500); return; }
 
   // ორმაგი დაკლიკვის ბლოკი + რეალური ბალანსი DB-დან (თავიდან ავიცილოთ ცრუ 1000)
   if (pb) pb.disabled = true;
@@ -430,12 +430,12 @@ async function placeBets() {
     if (state.mode === 'express') {
       const st = state.expressStake;
       if (st <= 0) { return; }
-      if (st > state.balance) { updateTotals(); alert('არასაკმარისი ქულები ბალანსზე (გაქვს ' + fmt(state.balance) + ')'); return; }
+      if (st > state.balance) { updateTotals(); showToast('არასაკმარისი ქულები ბალანსზე (გაქვს ' + fmt(state.balance) + ')', 3500); return; }
       const odds = comboOdds();
       // #1: p_total_odds/odds მხოლოდ ჩვენებისთვის მიდის — სერვერი (place_bet RPC) თვითონ ითვლის და კლიენტისას იგნორირებს
       const selections = arr.map(s => ({ fight_id: FIGHTS[s.i]?._dbId, picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds }));
       const { data: res, error } = await sb.rpc('place_bet', { p_event_id: eventId, p_type: 'express', p_stake: st, p_total_odds: odds, p_selections: selections });
-      if (error || !res || !res.ok) { await refreshBalance(); updateTotals(); alert(betError(res, error)); return; }
+      if (error || !res || !res.ok) { await refreshBalance(); updateTotals(); showToast(betError(res, error), 3500); return; }
       updateBalance(res.balance);
       const finalOdds = res.total_odds != null ? Number(res.total_odds) : odds;
       state.tickets.unshift({ _dbId: res.ticket_id, type: 'express',
@@ -445,13 +445,13 @@ async function placeBets() {
     } else {
       const ts = totalStakeSingle();
       if (ts <= 0) { return; }
-      if (ts > state.balance) { updateTotals(); alert('არასაკმარისი ქულები ბალანსზე (გაქვს ' + fmt(state.balance) + ')'); return; }
+      if (ts > state.balance) { updateTotals(); showToast('არასაკმარისი ქულები ბალანსზე (გაქვს ' + fmt(state.balance) + ')', 3500); return; }
       let placedAny = false;
       for (const s of arr) {
         if (s.stake > 0) {
           const selections = [{ fight_id: FIGHTS[s.i]?._dbId, picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds }];
           const { data: res, error } = await sb.rpc('place_bet', { p_event_id: eventId, p_type: 'single', p_stake: s.stake, p_total_odds: s.odds, p_selections: selections });
-          if (error || !res || !res.ok) { await refreshBalance(); alert(betError(res, error)); continue; }
+          if (error || !res || !res.ok) { await refreshBalance(); showToast(betError(res, error), 3500); continue; }
           updateBalance(res.balance); placedAny = true;
           const finalOdds = res.total_odds != null ? Number(res.total_odds) : s.odds;
           state.tickets.unshift({ _dbId: res.ticket_id, type: 'single',
@@ -467,7 +467,7 @@ async function placeBets() {
   } catch (e) {
     console.warn('placeBets failed:', e);
     await refreshBalance(); updateTotals();
-    alert('ფსონი ვერ დაიდო - სცადე თავიდან');
+    showToast('ფსონი ვერ დაიდო - სცადე თავიდან', 3500);
   } finally {
     const pb2 = document.getElementById('placeBtn'); if (pb2) pb2.disabled = false;
     updateTotals();
@@ -908,6 +908,19 @@ function updateSecHead() {
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
+// ბრაუზერის ბლოკავი დიალოგის ნაცვლად -- style.css-ის არსებული .toast/.toast.show პატერნი
+// (იგივე, რაც ufc/quiz.js-ის showQuizToast()), fade+slide, თვითონ შლის თავს.
+function showToast(msg, duration = 1500) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 350);
+  }, duration);
+}
 // Phase Q3: ნავში ავატარი ფოტოს პრეფერირებს, თუ users.avatar_type==='photo' —
 // თორემ ემოჯი, ძველებურად.
 function navAvaHtml(user) {
@@ -1132,8 +1145,8 @@ async function loadVerificationStatus() {
 function pickVerificationPhoto() { const el = document.getElementById('verifPhotoInput'); if (el) el.click(); }
 function onVerificationFileSelected() {
   const input = document.getElementById('verifPhotoInput'); const file = input.files && input.files[0]; if (!file) return;
-  if (file.size > 8 * 1024 * 1024) { alert('ფაილი ძალიან დიდია (მაქს. 8MB)'); input.value = ''; return; }
-  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { alert('მხოლოდ JPG/PNG/WEBP ფორმატია დაშვებული'); input.value = ''; return; }
+  if (file.size > 8 * 1024 * 1024) { showToast('ფაილი ძალიან დიდია (მაქს. 8MB)', 3500); input.value = ''; return; }
+  if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { showToast('მხოლოდ JPG/PNG/WEBP ფორმატია დაშვებული', 3500); input.value = ''; return; }
   verifSelectedFile = file;
   const preview = document.getElementById('verifPreview'); preview.src = URL.createObjectURL(file); preview.style.display = 'block';
   document.getElementById('verifSubmitBtn').style.display = 'block';
@@ -1144,10 +1157,10 @@ async function submitVerificationPhoto() {
   const ext = (verifSelectedFile.name.split('.').pop() || 'jpg').toLowerCase();
   const path = `${currentUser.id}/${Date.now()}.${ext}`;
   const { error: upErr } = await sb.storage.from('id-verification').upload(path, verifSelectedFile, { contentType: verifSelectedFile.type, upsert: false });
-  if (upErr) { btn.disabled = false; btn.textContent = 'ვერიფიკაციის გაგზავნა'; alert('ატვირთვა ვერ მოხერხდა: ' + upErr.message); return; }
+  if (upErr) { btn.disabled = false; btn.textContent = 'ვერიფიკაციის გაგზავნა'; showToast('ატვირთვა ვერ მოხერხდა: ' + upErr.message, 3500); return; }
   const { error: insErr } = await sb.from('verifications').insert({ user_id: currentUser.id, photo_path: path, status: 'pending' });
   btn.disabled = false; btn.textContent = 'ვერიფიკაციის გაგზავნა';
-  if (insErr) { alert('ვერიფიკაციის გაგზავნა ვერ მოხერხდა: ' + insErr.message); return; }
+  if (insErr) { showToast('ვერიფიკაციის გაგზავნა ვერ მოხერხდა: ' + insErr.message, 3500); return; }
   await loadVerificationStatus();
 }
 $on('verifPickBtn', 'click', pickVerificationPhoto);

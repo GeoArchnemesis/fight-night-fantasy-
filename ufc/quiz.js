@@ -827,7 +827,7 @@ async function createPvpRoom(level){
   try{
     const { data, error } = await sb.rpc('create_quiz_room', { p_game_type: S.gameType || 'quiz', p_level: level });
     if(error || !data || !data.length){
-      alert("ოთახის შექმნა ვერ მოხერხდა: " + pvpErrorMessage(error));
+      showQuizToast("ოთახის შექმნა ვერ მოხერხდა: " + pvpErrorMessage(error), 3500);
       btn.disabled = false; btn.textContent = "ოთახის შექმნა";
       return;
     }
@@ -835,7 +835,7 @@ async function createPvpRoom(level){
     S.gameType = S.gameType || 'quiz';
     enterPvpLobby({ roomId: row.room_id, code: row.code, isHost: true, questions: row.questions });
   }catch(e){
-    alert("დაფიქსირდა შეცდომა - სცადე თავიდან.");
+    showQuizToast("დაფიქსირდა შეცდომა - სცადე თავიდან.", 3500);
     btn.disabled = false; btn.textContent = "ოთახის შექმნა";
   }
 }
@@ -1012,7 +1012,7 @@ async function onPvpRoomFinished(){
   try{
     const { data, error } = await sb.rpc('get_quiz_results', { p_room_id: PVP.roomId });
     if(error || !data || !data.length){
-      alert("შედეგების ჩატვირთვა ვერ მოხერხდა.");
+      showQuizToast("შედეგების ჩატვირთვა ვერ მოხერხდა.", 3500);
       return;
     }
     renderPvpResults(data[0]);
@@ -1022,7 +1022,7 @@ async function onPvpRoomFinished(){
 
 function onPvpRoomAbandoned(){
   if(!PVP) return;
-  alert("ოთახი დაიხურა.");
+  showQuizToast("ოთახი დაიხურა.", 3500);
   resetPvp();
   S.gameType = null;
   show("screen-mode");
@@ -1077,20 +1077,20 @@ $("#pvp-start-btn").addEventListener("click", async ()=>{
   try{
     const { error } = await sb.rpc('start_quiz_room', { p_room_id: PVP.roomId });
     if(error){
-      alert("დაწყება ვერ მოხერხდა: " + pvpErrorMessage(error));
+      showQuizToast("დაწყება ვერ მოხერხდა: " + pvpErrorMessage(error), 3500);
       btn.disabled = false; btn.textContent = "დაწყება";
     }
     // წარმატების შემთხვევაში quiz_rooms-ის Realtime UPDATE (status->active)
     // თავად გამოიძახებს onPvpRoomActive()-ს ყველასთვის, ჰოსტის ჩათვლით.
   }catch(e){
-    alert("დაფიქსირდა შეცდომა.");
+    showQuizToast("დაფიქსირდა შეცდომა.", 3500);
     btn.disabled = false; btn.textContent = "დაწყება";
   }
 });
 
 // R8: prompt()-ის ნაცვლად — style.css-ის არსებული .toast/.toast.show
 // (ბარგამოყენებელი სხვაგან აქამდე) პატერნი: fade+slide, 1.5წმ, თვითონ შლის თავს.
-function showQuizToast(msg){
+function showQuizToast(msg, duration=1500){
   const el = document.createElement("div");
   el.className = "toast";
   el.textContent = msg;
@@ -1099,7 +1099,7 @@ function showQuizToast(msg){
   setTimeout(()=>{
     el.classList.remove("show");
     setTimeout(()=> el.remove(), 350);
-  }, 1500);
+  }, duration);
 }
 
 // Clipboard API-ის fallback — ფარული textarea + document.execCommand('copy'),
