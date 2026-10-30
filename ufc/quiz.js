@@ -1782,6 +1782,7 @@ $("#cb-skip").addEventListener("click", ()=>{
 });
 
 $("#cb-restart").addEventListener("click", resetToMode);
+$("#back-from-cards").addEventListener("click", resetToMode);
 
 function resetToMode(){
   stopQuestionTimer(); clearTimeout(S.cbTimer); clearTimeout(S.cbReveal);
