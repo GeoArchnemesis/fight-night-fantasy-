@@ -321,14 +321,17 @@ async function doQuizAuthSubmit(){
 // PDF p5: ამ გვერდის ავტორიზაციის მოდალს (app.js-ის მთავარი auth-მოდალისგან
 // დამოუკიდებელი, იხ. ფაილის თავი) Google-ით შესვლა საერთოდ არ ჰქონდა —
 // app.js-ის handleGoogleAuth()-ის იდენტური ლოგიკა, მხოლოდ redirectTo
-// განსხვავებულია: აქ მთელი მიმდინარე URL (search-ის ჩათვლით) გამოიყენება,
-// რომ ?room=<კოდი> დეპ-ლინკი OAuth-ის შემდეგაც შემორჩეს — წინააღმდეგ
-// შემთხვევაში მოწვეული, რომელსაც Google-ით შესვლა უწევდა, ოთახის კოდს
-// დაკარგავდა გადამისამართების დროს.
+// განსხვავებულია: აქ ყოველთვის რეალური /ufc/quiz/ მისამართი გამოიყენება
+// (ქვესადგურებზე, მაგ. /ufc/quiz/questionquiz, 404.html შიმი Supabase-ის
+// დაბრუნებულ auth fragment/code-ს location.replace-ით შლის, სანამ
+// supabase-js მას წაიკითხავდა). ?room=<კოდი> დეპ-ლინკი (location.search)
+// მაინც შემორჩება, ხოლო რომელ ეკრანზე იყო მოთამაშე, უკვე
+// persistPendingIntent-ით sessionStorage-შია შენახული.
 async function handleQuizGoogleAuth(){
   if(!sb) { showAuthError('სერვერთან კავშირი ვერ დამყარდა.'); return; }
   persistPendingIntent();
-  const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
+  const redirectTo = window.location.origin + '/ufc/quiz/' + window.location.search;
+  const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
   if(error) showAuthError(error.message || 'Google-ით შესვლა ვერ მოხერხდა.');
 }
 

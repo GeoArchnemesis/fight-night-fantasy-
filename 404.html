@@ -24,7 +24,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     // გარანტიას იძლევა, რომ ერთსა და იმავე მისამართზე redirect ვერასდროს მოხდება.
     var raw = location.pathname.replace(/\/+$/, '');
     var p = raw.toLowerCase();
-    var target = null;
+    var target = null; // ყოველთვის სუფთა pathname, query/hash-ის გარეშე -- guard-იც ამას ადარებს
+    var targetQuery = null; // branch-ისთვის უკვე აწყობილი ?query (მაგ. ?s=...), incoming search-ს ემატება &-ით
     // ძველი .html მისამართები ახალ სუფთა URL-ზე გადავამისამართოთ
     if (p === '/f1.html') target = '/f1/';
     else if (p === '/ufc.html') target = '/ufc/';
@@ -59,10 +60,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         'wheami/whoai': 'wheamI/whoAI',
         'wheami/whocoop': 'wheamI/whocoop'
       };
-      target = '/ufc/quiz/?s=' + QUIZ_REST_CANON[p.slice('/ufc/quiz/'.length)];
+      target = '/ufc/quiz/';
+      targetQuery = '?s=' + QUIZ_REST_CANON[p.slice('/ufc/quiz/'.length)];
     }
-    // guard: სამიზნე ყოველთვის რეალური მისამართია და raw-ს არ უდრის → loop შეუძლებელია
-    if (target && raw !== target) location.replace(target);
+    // guard: pathname-ებს ვადარებთ (query/hash-ის გარეშე) → loop შეუძლებელია,
+    // მხოლოდ query ან hash-ით განსხვავებულ გვერდსაც კი არ გადაამისამართებს საკუთარ თავზე.
+    if (target && raw !== target) {
+      var finalUrl = target;
+      if (targetQuery) {
+        // branch-ს უკვე აქვს საკუთარი query (?s=...) -- incoming search-ს ვუმატებთ, არ ვთელავთ
+        finalUrl += targetQuery + (location.search ? '&' + location.search.slice(1) : '');
+      } else if (location.search) {
+        finalUrl += location.search;
+      }
+      finalUrl += location.hash;
+      location.replace(finalUrl);
+    }
   })();
 </script>
 <style>
