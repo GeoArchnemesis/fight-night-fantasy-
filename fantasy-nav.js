@@ -20,20 +20,11 @@
   var active = window.LEAGUE || null;
 
   // მხოლოდ პოზიციონირება/flyout — ფონტსა და padding-ს არსებული .nav-fx-pop a / .mnav-pop-opt აძლევს
+  // (DESKTOP .fx-sub-ის style ახლა style.css-შია, რადგან markup-იც იქ, HTML-ში
+  // დასტატიკურებულია SEO-სთვის -- ქვემოთ მხოლოდ MOBILE .mnav-sub რჩება injected)
   var css = [
     // „აქტიური" ნიშნების დამალვა ყველა გვერდზე (UFC/F1/NBA-საც)
     '.nav-fx-pop .fx-tag,.mnav-pop .mnav-pop-tag{display:none}',
-    // ── DESKTOP: გვერდზე ამომავალი ქვემენიუ ──
-    '.fx-sub{position:relative}',
-    '.fx-sub-lbl{cursor:pointer}',
-    '.fx-sub-right{display:inline-flex;align-items:center;gap:7px}',
-    '.fx-sub-caret{font-size:var(--fs-meta);opacity:.6;transition:transform .2s}',
-    '.fx-sub:hover .fx-sub-caret,.fx-sub.open .fx-sub-caret{transform:rotate(90deg)}',
-    '.fx-sub-pop{position:absolute;left:calc(100% + 8px);top:-7px;display:none;flex-direction:column;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:190px;z-index:70;box-shadow:0 12px 34px rgba(0,0,0,.45)}',
-    // უხილავი „ხიდი" ღრიჭოზე — მაუსი ნელა რომ გადადის, hover არ იკარგება
-    '.fx-sub-pop::before{content:"";position:absolute;left:-12px;top:0;width:14px;height:100%}',
-    '.fx-sub:hover>.fx-sub-pop,.fx-sub.open>.fx-sub-pop,.fx-sub.fx-hover>.fx-sub-pop{display:flex}',
-    '.fx-sub-pop a.on{background:rgba(245,196,81,.1);color:var(--gold)}',
     // ── MOBILE: გვერდზე ამომავალი ქვემენიუ ──
     '.mnav-sub{position:relative}',
     '.mnav-sub-right{display:inline-flex;align-items:center;gap:7px}',
@@ -47,19 +38,30 @@
   function build() {
     // ── DESKTOP: .nav-fx-pop ──
     var d = document.querySelector('.nav-fx-pop');
-    if (d && !d.querySelector('.fx-sub')) {
-      var links = LEAGUES.map(function (l) {
-        return '<a href="/football/' + l.slug + '/"' + (active === l.code ? ' class="on"' : '') + '>' + l.label + '</a>';
-      }).join('');
-      var sub = document.createElement('div');
-      sub.className = 'fx-sub';
-      // label = <a> .nav-fx-pop-ის შიგნით → იგივე ფონტი/padding/სწორება ავტომატურად
-      sub.innerHTML =
-        '<a class="fx-sub-lbl' + (active ? ' on' : '') + '">ფეხბურთი'
-        + '<span class="fx-sub-right"><span class="fx-sub-caret">▸</span></span></a>'
-        + '<div class="fx-sub-pop">' + links + '</div>';
-      d.appendChild(sub);
+    if (d) {
+      var sub = d.querySelector('.fx-sub');
+      if (!sub) {
+        var links = LEAGUES.map(function (l) {
+          return '<a href="/football/' + l.slug + '/">' + l.label + '</a>';
+        }).join('');
+        sub = document.createElement('div');
+        sub.className = 'fx-sub';
+        // label = <a> .nav-fx-pop-ის შიგნით → იგივე ფონტი/padding/სწორება ავტომატურად
+        sub.innerHTML =
+          '<a class="fx-sub-lbl">ფეხბურთი'
+          + '<span class="fx-sub-right"><span class="fx-sub-caret">▸</span></span></a>'
+          + '<div class="fx-sub-pop">' + links + '</div>';
+        d.appendChild(sub);
+      }
+      // "on" კლასი აქტიურ ლიგაზე -- static (HTML-ში უკვე ჩაწერილი) თუ ახლად
+      // აგებული fx-sub, ორივე შემთხვევაში window.LEAGUE მხოლოდ აქ, runtime-ზეა ცნობილი
       var lbl = sub.querySelector('.fx-sub-lbl');
+      if (active) {
+        lbl.classList.add('on');
+        var activeLeague = LEAGUES.filter(function (l) { return l.code === active; })[0];
+        var activeLink = activeLeague && sub.querySelector('a[href="/football/' + activeLeague.slug + '/"]');
+        if (activeLink) activeLink.classList.add('on');
+      }
       lbl.addEventListener('click', function (e) {
         e.preventDefault(); e.stopPropagation();   // არსებულმა navFx handler-მა dropdown არ დახუროს
         sub.classList.toggle('open');
