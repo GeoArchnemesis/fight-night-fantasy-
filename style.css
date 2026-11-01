@@ -51,7 +51,7 @@ input{font-family:inherit}
 ::selection{background:var(--gold);color:var(--ink)}
 :focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:4px}
 .wrap{width:min(1200px,92vw);margin:0 auto}
-nav{position:sticky;top:0;z-index:50;background:rgba(11,10,15,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px);transform:translateY(0);transition:transform var(--dur) var(--ease)}
+nav{z-index:50;background:rgba(11,10,15,.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px);transform:translateY(0);transition:transform var(--dur) var(--ease)}
 /* Phase 6 polish -- hide-on-scroll-down, show-on-scroll-up (toggled by
    fantasy-nav.js, loaded on every page, so this is sitewide chrome
    behavior rather than something News-specific). */
