@@ -90,6 +90,11 @@
        once real /news/&lt;slug&gt;/ paths exist via per-route SSR. -->
   <!-- NEWS:START -->
   <url>
+    <loc>https://fnf.ge/news/amiran-the-sniper-gogoladze-is-the-oktagon-mma-champion/</loc>
+    <lastmod>2026-11-01</lastmod>
+    <priority>0.5</priority>
+  </url>
+  <url>
     <loc>https://fnf.ge/news/merab-dvalishvili-fight-week/</loc>
     <lastmod>2026-10-18</lastmod>
     <priority>0.5</priority>
@@ -103,6 +108,11 @@
     <loc>https://fnf.ge/en/news/</loc>
     <lastmod>2026-11-01</lastmod>
     <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://fnf.ge/en/news/amiran-the-sniper-gogoladze-is-the-oktagon-mma-champion/</loc>
+    <lastmod>2026-11-01</lastmod>
+    <priority>0.5</priority>
   </url>
   <url>
     <loc>https://fnf.ge/en/news/merab-dvalishvili-fight-week/</loc>
