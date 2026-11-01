@@ -1072,10 +1072,11 @@ function renderPvpLobbyList(){
       (p.is_host ? `<span class="tag">ჰოსტი</span>` : "");
     list.appendChild(row);
   });
-  // PDF p9: ბოლო მოთამაშის ქვეშ — ცარიელი ადგილების გრაფა, ვიზუალურად
-  // რომ ჩანდეს თავისუფალი ადგილი და ველოდებით კიდევ ვინმეს.
-  const emptySeats = Math.max(0, PVP.maxPlayers - PVP.players.length);
-  for(let i=0; i<emptySeats; i++){
+  // ბოლო მოთამაშის ქვეშ — მაქსიმუმ ერთი "თავისუფალი ადგილი" მწკრივი,
+  // ვიზუალურად რომ ჩანდეს ველოდებით კიდევ ვინმეს. დარჩენილი ადგილების
+  // საერთო რაოდენობა #pvp-players-count-შია, ამიტომ დანარჩენი ცარიელი
+  // სლოტების რენდერი არ სჭირდება (9 მოთამაშემდე რომ აღარ გაიწელოს სია).
+  if(PVP.players.length < PVP.maxPlayers){
     const row = document.createElement("div");
     row.className = "pvp-player-empty";
     row.innerHTML = `<span class="ava">+</span><span class="nm">თავისუფალი ადგილი</span>`;

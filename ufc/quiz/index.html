@@ -402,6 +402,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .pvp-player-empty .ava{width:30px;height:30px;border-radius:50%;border:1px dashed var(--line);display:grid;place-items:center;font-size:14px;flex-shrink:0;color:var(--text)}
 #quizRoot .pvp-player-empty .nm{font-family:var(--head);font-weight:700;font-size:.86rem;color:var(--text)}
 #quizRoot .pvp-count{font-family:var(--mono);font-size:.78rem;color:var(--text)}
+/* PvP lobby's start button must clear the mobile bottom nav at 360x640
+   with only the host (or a small group) present -- tightened spacing
+   only, same colours/borders/radii/font-sizes, same HTML structure. */
+@media(max-width:480px){
+  #screen-pvp-lobby .back-row{margin-bottom:6px}
+  #screen-pvp-lobby .pvp-lobby{gap:10px}
+  #screen-pvp-lobby .pvp-code-actions{margin-top:6px}
+  #screen-pvp-lobby .pvp-players{gap:6px}
+  #screen-pvp-lobby .pvp-player,#screen-pvp-lobby .pvp-player-empty{padding:8px 14px}
+}
 #quizRoot .pvp-wait{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:60px 0;text-align:center}
 #quizRoot .pvp-wait-spinner{font-size:40px;display:inline-block;animation:qzSpin 1.6s linear infinite}
 @keyframes qzSpin{to{transform:rotate(360deg)}}
@@ -847,7 +857,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=35"></script>
+<script src="/ufc/quiz.js?v=36"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){
