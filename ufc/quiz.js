@@ -201,7 +201,12 @@ function setAuthModalMode(mode){
     if(submitBtn) submitBtn.textContent = 'რეგისტრაცია';
     if(switchWrap) switchWrap.innerHTML = 'უკვე გაქვს ანგარიში? <button type="button" id="quizAuthSwitchBtn">შესვლა</button>';
     if(emailLabel) emailLabel.textContent = 'ელ. ფოსტა';
-    if(emailInput) emailInput.placeholder = 'შეიყვანე შენი მეილი';
+    if(emailInput){
+      emailInput.placeholder = 'შეიყვანე შენი მეილი';
+      // R5-signup მხოლოდ მეილს იღებს -- type="email" უბრუნდება.
+      emailInput.type = 'email';
+      emailInput.autocomplete = 'email';
+    }
   } else {
     if(nickField) nickField.style.display = 'none';
     if(title) title.textContent = 'შესვლა';
@@ -209,7 +214,16 @@ function setAuthModalMode(mode){
     if(submitBtn) submitBtn.textContent = 'შესვლა';
     if(switchWrap) switchWrap.innerHTML = 'არ გაქვს ანგარიში? <button type="button" id="quizAuthSwitchBtn">რეგისტრაცია</button>';
     if(emailLabel) emailLabel.textContent = 'ელ.ფოსტა / ნიქნეიმი / ნომერი';
-    if(emailInput) emailInput.placeholder = 'შეიყვანე ელ.ფოსტა, ნიქნეიმი ან ნომერი';
+    if(emailInput){
+      emailInput.placeholder = 'შეიყვანე ელ.ფოსტა, ნიქნეიმი ან ნომერი';
+      // type="email" (with autocomplete="email") on a field that also takes a
+      // nickname or a phone number brings up the wrong mobile keyboard and
+      // wrong autofill -- type="text" still gets the email keyboard layout
+      // via inputmode, without rejecting a nickname or digits.
+      emailInput.type = 'text';
+      emailInput.inputMode = 'email';
+      emailInput.autocomplete = 'username';
+    }
   }
   const switchBtn = document.getElementById('quizAuthSwitchBtn');
   if(switchBtn) switchBtn.addEventListener('click', ()=> setAuthModalMode(mode === 'signup' ? 'signin' : 'signup'));
@@ -243,21 +257,21 @@ async function doQuizAuthSubmit(){
     if(_authModalMode === 'signup'){
       const nick = (document.getElementById('quizAuthNick').value || '').trim();
       if(!nick || !/^[a-zA-Z0-9._]{3,20}$/.test(nick)){
-        showAuthError('სახელი: 3-20 სიმბოლო (ასოები, ციფრები, . _)'); if(btn) btn.disabled = false; return;
+        showAuthError('სახელი: 3-20 სიმბოლო (ასოები, ციფრები, . _)'); return;
       }
-      if(pass.length < 6){ showAuthError('პასვორდი: მინ. 6 სიმბოლო'); if(btn) btn.disabled = false; return; }
+      if(pass.length < 6){ showAuthError('პასვორდი: მინ. 6 სიმბოლო'); return; }
 
       // შენიშვნა: sb.rpc(...) არ არის სრული Promise — მხოლოდ .then()-ს
       // ახორციელებს, .catch()-ს პირდაპირ (await-ის გარეშე) ვერ მიადევნებ,
       // თორემ "is not a function" გაიჭრება. აქ უბრალოდ ვუცდით {data,error}-ს.
       const { data: taken, error: nickCheckErr } = await sb.rpc('is_nick_taken', { p_nick: nick, p_exclude_user_id: null });
       if(nickCheckErr) console.warn('[quiz] is_nick_taken failed:', nickCheckErr);
-      if(taken){ showAuthError('ეს სახელი უკვე დაკავებულია - სცადე სხვა'); if(btn) btn.disabled = false; return; }
+      if(taken){ showAuthError('ეს სახელი უკვე დაკავებულია - სცადე სხვა'); return; }
 
       const { data, error } = await sb.auth.signUp({ email, password: pass, options:{ data:{ nick } } });
       if(error){
         showAuthError(/already registered|already been registered/.test(error.message||'') ? 'ეს ელ. ფოსტა უკვე რეგისტრირებულია - სცადე შესვლა' : error.message);
-        if(btn) btn.disabled = false; return;
+        return;
       }
       if(!data.session){
         // email-დადასტურება ჩართულია ამ პროექტზე — სესია მხოლოდ დადასტურების
@@ -265,7 +279,6 @@ async function doQuizAuthSubmit(){
         // შემთხვევაში შეუძლებელია საიტის დადასტურების პოლიტიკის გარეშე.
         const sub = document.getElementById('quizAuthSub');
         if(sub) sub.textContent = 'რეგისტრაცია წარმატებულია! ანგარიშის გასააქტიურებლად დაადასტურე ელ.ფოსტა, შემდეგ დაბრუნდი და თავიდან დააჭირე დაწყებას.';
-        if(btn) btn.disabled = false;
         return;
       }
       // data.session არსებობს (email-დადასტურება გამორთულია) — sb.auth.onAuthStateChange
@@ -277,7 +290,7 @@ async function doQuizAuthSubmit(){
       // სერვერის მხარეს, რეალური მეილი ბრაუზერამდე არასდროს აღწევს).
       if(email.includes('@')){
         const { error } = await sb.auth.signInWithPassword({ email, password: pass });
-        if(error){ showAuthError('არასწორი მეილი ან პაროლი'); if(btn) btn.disabled = false; return; }
+        if(error){ showAuthError('არასწორი მეილი ან პაროლი'); return; }
       } else {
         // R6: a phone-shaped identifier (digits/spaces/dashes/+/parens only)
         // is normalized the same way it's stored — a real nickname can
@@ -287,13 +300,18 @@ async function doQuizAuthSubmit(){
         let resp;
         try{ resp = await sb.functions.invoke('login-with-identifier', { body: { identifier, password: pass } }); }
         catch(e){ resp = { data: null, error: e }; }
-        if(resp.error || !resp.data || !resp.data.ok || !resp.data.session){ showAuthError('არასწორი მეილი ან პაროლი'); if(btn) btn.disabled = false; return; }
+        if(resp.error || !resp.data || !resp.data.ok || !resp.data.session){ showAuthError('არასწორი მეილი ან პაროლი'); return; }
         const { error: setErr } = await sb.auth.setSession({ access_token: resp.data.session.access_token, refresh_token: resp.data.session.refresh_token });
-        if(setErr){ showAuthError('არასწორი მეილი ან პაროლი'); if(btn) btn.disabled = false; return; }
+        if(setErr){ showAuthError('არასწორი მეილი ან პაროლი'); return; }
       }
     }
   }catch(e){
     showAuthError('დაფიქსირდა შეცდომა - სცადე თავიდან.');
+  }finally{
+    // every outcome (error, success, or the "confirm your email" pending
+    // state) must leave the button clickable again -- success closes the
+    // modal anyway (applyAuthSession), but a reopened modal must not show
+    // a dead button.
     if(btn) btn.disabled = false;
   }
 }
@@ -322,7 +340,24 @@ async function handleQuizGoogleAuth(){
   if(submit) submit.addEventListener('click', doQuizAuthSubmit);
   const form = document.getElementById('quizAuthForm');
   if(form) form.addEventListener('submit', e=>{ e.preventDefault(); doQuizAuthSubmit(); });
+  // #quizAuthSubmit is outside <form> and the form has no submit button of
+  // its own, so with 2+ text fields in it, Chrome/Firefox never fire a
+  // 'submit' event on Enter (confirmed empirically) -- the line above never
+  // runs on its own. Route Enter through the same click handler instead of
+  // adding a submit button, so that handler stays the single entry point.
+  if(form) form.addEventListener('keydown', e=>{
+    if(e.key !== 'Enter') return;
+    e.preventDefault();
+    const btn = document.getElementById('quizAuthSubmit');
+    if(btn && !btn.disabled) btn.click();
+  });
 })();
+// app.js:1258 closes its auth modal on Escape -- this one has no equivalent yet.
+document.addEventListener('keydown', e=>{
+  if(e.key !== 'Escape') return;
+  const m = document.getElementById('quizAuthModal');
+  if(m && m.classList.contains('show')) cancelAuthModal();
+});
 
 async function fetchAuthUser(session){
   if(!session) return null;
@@ -350,11 +385,14 @@ async function applyAuthSession(session){
     const user = await fetchAuthUser(session);
     currentAuthUser = user;
     updateAuthNav(user);
+    // ნავიდან "შესვლა"/"რეგისტრაცია" ღილაკით გახსნილ მოდალსაც (pending
+    // action გარეშე) უნდა დაიხუროს სესიის მიღებისთანავე -- თორემ ვიზიტორს
+    // მოდალი რჩება გაშლილი შესული გვერდის თავზე.
+    closeAuthModal();
     // თუ ავტორიზაცია სწორედ იმიტომ გამოვითხოვეთ, რომ მოთამაშეს ქვიზის დაწყება
     // სურდა — ახლა გავაგრძელოთ ზუსტად იქედან.
     if(_pendingAuthAction){
       const fn = _pendingAuthAction; _pendingAuthAction = null;
-      closeAuthModal();
       fn();
     }
   }
