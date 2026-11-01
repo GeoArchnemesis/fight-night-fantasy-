@@ -515,6 +515,10 @@ function show(id){
   // კითხვის ეკრანებიდან (quiz/guess) გასვლისას თაიმერის rAF ციკლი ყოველთვის
   // წყდება აქ ერთ ადგილას — არც ერთი stray loop არ რჩება ფონში.
   if(id !== "screen-quiz" && id !== "screen-guess") stopQuestionTimer();
+  // იგივე პატერნი screen-pvp-wait-ის fallback პოლინგისთვის (იხ.
+  // startPvpWaitPolling) -- ამ ეკრანიდან ნებისმიერ სხვაზე გადასვლისას
+  // ყოველთვის წყდება აქ, ერთ ადგილას.
+  if(id !== "screen-pvp-wait") stopPvpWaitPolling();
   $$(".screen").forEach(e=>e.classList.remove("active"));
   $("#"+id).classList.add("active");
   // მინი-ჰერო (სათაური) მხოლოდ პირველ ("აირჩიე თამაში") ეკრანზე ჩანს —
@@ -876,6 +880,7 @@ function clearPvpRoomRecoveryState(){
 }
 
 function resetPvp(){
+  stopPvpWaitPolling();
   if(PVP){
     try{ if(PVP.playersChannel) sb.removeChannel(PVP.playersChannel); }catch(e){}
     try{ if(PVP.roomChannel) sb.removeChannel(PVP.roomChannel); }catch(e){}
@@ -998,6 +1003,7 @@ function enterPvpLobby({ roomId, code, isHost, questions }){
     questions: questions || [],
     started: false,
     resultsShown: false,
+    resultsLoading: false,
   };
   $("#pvp-room-code").textContent = code;
   const startBtn = $("#pvp-start-btn");
@@ -1094,6 +1100,29 @@ function renderPvpWaitCount(){
   if(!PVP) return;
   const finished = PVP.players.filter(p=> p.finished_at).length;
   $("#pvp-wait-count").textContent = `${finished} / ${PVP.players.length} დაასრულა`;
+  // Fallback for a missed quiz_rooms Realtime "finished" event: the player
+  // list (kept current by refreshPvpPlayers, including the interval below)
+  // already says everyone is done, so act on it instead of waiting on an
+  // event that may never arrive. onPvpRoomFinished's own guards make this
+  // safe to call repeatedly and safe to call alongside the Realtime path.
+  if(PVP.players.length && finished >= PVP.players.length) onPvpRoomFinished();
+}
+
+// Safety net for the case where the quiz_room_players Realtime event is
+// also missed (not just quiz_rooms) -- e.g. a phone that drops its
+// websocket silently. Polls the same refreshPvpPlayers() the subscription
+// already calls, which re-renders the count above and re-checks the
+// fallback. 4s keeps screen-pvp-wait responsive (it is normally only on
+// screen for the few seconds until the last player finishes) without
+// adding meaningful load for the free Supabase tier -- one lightweight
+// select on an indexed room_id per still-waiting client.
+let _pvpWaitInterval = null;
+function stopPvpWaitPolling(){
+  if(_pvpWaitInterval){ clearInterval(_pvpWaitInterval); _pvpWaitInterval = null; }
+}
+function startPvpWaitPolling(){
+  stopPvpWaitPolling();
+  _pvpWaitInterval = setInterval(refreshPvpPlayers, 4000);
 }
 
 function onPvpRoomActive(){
@@ -1110,6 +1139,7 @@ function onPvpRoomActive(){
 function finishPvpQuiz(){
   show("screen-pvp-wait");
   renderPvpWaitCount();
+  startPvpWaitPolling();
 }
 
 // roomId defaults to PVP.roomId; an explicit override lets forfeitPvpRoom
@@ -1132,19 +1162,39 @@ async function revealPvpClue(qIndex){
   }catch(e){ console.warn("[quiz] PvP reveal_quiz_clue failed:", e); }
 }
 
+// Two independent signals can call this for the same room (the quiz_rooms
+// Realtime "finished" event, and the renderPvpWaitCount fallback above,
+// itself driven by both the quiz_room_players subscription and the
+// interval poll) -- resultsShown guards against showing the results twice,
+// and resultsLoading guards against two overlapping get_quiz_results calls
+// when both signals fire within the same tick (resultsShown alone would
+// not catch that, since it is only set after a call succeeds, below).
 async function onPvpRoomFinished(){
-  if(!PVP || PVP.resultsShown) return;
-  PVP.resultsShown = true;
-  clearPvpRoomRecoveryState();
+  if(!PVP || PVP.resultsShown || PVP.resultsLoading) return;
+  PVP.resultsLoading = true;
   try{
     const { data, error } = await sb.rpc('get_quiz_results', { p_room_id: PVP.roomId });
-    if(error || !data || !data.length){
+    if(error){
+      // The fallback above can fire a moment before sweep_quiz_room (called
+      // inside get_quiz_results itself) has flipped the room to 'finished'
+      // server-side -- supabase/quiz_presence.sql's get_quiz_results then
+      // raises exactly this message. Leaving resultsShown false lets the
+      // Realtime event or the next poll retry; it must not be silenced here.
+      if(!/room not finished yet/.test(error.message || "")){
+        showQuizToast("შედეგების ჩატვირთვა ვერ მოხერხდა.", 3500);
+      }
+      return;
+    }
+    if(!data || !data.length){
       showQuizToast("შედეგების ჩატვირთვა ვერ მოხერხდა.", 3500);
       return;
     }
+    PVP.resultsShown = true;
+    clearPvpRoomRecoveryState();
     renderPvpResults(data[0]);
     show("screen-pvp-results");
   }catch(e){ console.warn("[quiz] PvP get_quiz_results failed:", e); }
+  finally{ if(PVP) PVP.resultsLoading = false; }
 }
 
 function onPvpRoomAbandoned(){
@@ -2067,7 +2117,12 @@ function resumePvpRoom(roomId, row){
     questions: row.questions || [],
     started: true,
     resultsShown: false,
+    resultsLoading: false,
   };
+  // enterPvpLobby (the "waiting" branch above) sets this itself -- this
+  // branch builds PVP directly, so it must set it too, or the displayed
+  // code can keep showing whatever room this player was in before.
+  $("#pvp-room-code").textContent = row.code;
   subscribePvpRoom();
   S.questions = PVP.questions;
   S.qi = 0;
