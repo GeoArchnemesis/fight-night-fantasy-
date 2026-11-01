@@ -415,11 +415,27 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .pvp-rest-row .rank{font-family:var(--mono);font-weight:700;color:var(--text);width:20px}
 #quizRoot .pvp-rest-row .nm{flex:1;font-family:var(--head);font-weight:700;font-size:.88rem}
 #quizRoot .pvp-rest-row .pts{font-family:var(--mono);font-weight:700;color:var(--text)}
+/* PvP game recovery banner -- fixed above nav (nav is z-index:50), nav's
+   own top offset is pushed down by quiz.js while this is shown so the two
+   never overlap. */
+#pvpRecoveryBanner{display:none;position:fixed;top:0;left:0;right:0;z-index:60;align-items:center;gap:10px;background:var(--gold);color:var(--ink);padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top,0px));font-family:var(--head);cursor:pointer}
+#pvpRecoveryBanner.show{display:flex}
+#pvpRecoveryBanner .pvp-rb-text{flex:1;min-width:0;font-weight:700;font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pvpRecoveryBanner .pvp-rb-code{font-family:var(--mono);letter-spacing:.03em}
+#pvpRecoveryBanner .pvp-rb-timer{flex:none;font-family:var(--mono);font-weight:700;font-size:1.05rem;min-width:22px;text-align:center}
+#pvpRecoveryBanner .pvp-rb-close{flex:none;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--ink);font-size:1.5rem;line-height:1;cursor:pointer}
 </style>
 </head>
 <body>
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TLSVRK7V"
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+<!-- ── PvP game recovery banner (quiz.js initPvpRoomRecovery) ── -->
+<div id="pvpRecoveryBanner" role="button" tabindex="0">
+  <span class="pvp-rb-text">ქვიზში დაბრუნება · ოთახი <span class="pvp-rb-code" id="pvpRecoveryCode"></span></span>
+  <span class="pvp-rb-timer" id="pvpRecoveryTimer">10</span>
+  <button type="button" class="pvp-rb-close" id="pvpRecoveryClose" aria-label="დახურვა">&times;</button>
+</div>
 
 <!-- ── NAV (იდენტურია ufc/index.html-ის — app.js არ იტვირთება ამ გვერდზე) ── -->
 <nav><div class="wrap nav-in">
@@ -820,7 +836,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=32"></script>
+<script src="/ufc/quiz.js?v=33"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){

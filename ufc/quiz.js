@@ -858,6 +858,20 @@ function showGuessAIStart(action){
    ============================================================ */
 let PVP = null; // { roomId, code, isHost, myId, myName, maxPlayers, players, started, resultsShown }
 
+// Game recovery: a player who navigates away from this page during a live
+// PvP game has no way back in otherwise -- the server already supports
+// rejoining (public.rejoin_quiz_room), the client just never remembered
+// which room it was in. See enterPvpLobby below and initPvpRoomRecovery
+// near the bottom of this file.
+const PVP_ROOM_STORAGE_KEY = "fnf_quiz_room";
+const PVP_ROOM_STORAGE_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours
+function savePvpRoomRecoveryState(roomId, code){
+  try{ localStorage.setItem(PVP_ROOM_STORAGE_KEY, JSON.stringify({ roomId, code, savedAt: Date.now() })); }catch(e){}
+}
+function clearPvpRoomRecoveryState(){
+  try{ localStorage.removeItem(PVP_ROOM_STORAGE_KEY); }catch(e){}
+}
+
 function resetPvp(){
   if(PVP){
     try{ if(PVP.playersChannel) sb.removeChannel(PVP.playersChannel); }catch(e){}
@@ -970,6 +984,7 @@ async function joinPvpRoom(codeRaw){
 }
 
 function enterPvpLobby({ roomId, code, isHost, questions }){
+  savePvpRoomRecoveryState(roomId, code);
   PVP = {
     roomId, code, isHost,
     myId: currentAuthUser && currentAuthUser.id,
@@ -1093,10 +1108,14 @@ function finishPvpQuiz(){
   renderPvpWaitCount();
 }
 
-async function submitPvpAnswer(qIndex, pick){
-  if(!PVP || !sb) return;
+// roomId defaults to PVP.roomId; an explicit override lets forfeitPvpRoom
+// submit a room's missing answers before PVP itself has been rebuilt (a
+// forfeit from the recovery banner happens before resumePvpRoom ever runs).
+async function submitPvpAnswer(qIndex, pick, roomId){
+  roomId = roomId || (PVP && PVP.roomId);
+  if(!roomId || !sb) return;
   try{
-    const { error } = await sb.rpc('submit_quiz_answer', { p_room_id: PVP.roomId, p_question_index: qIndex, p_pick: pick });
+    const { error } = await sb.rpc('submit_quiz_answer', { p_room_id: roomId, p_question_index: qIndex, p_pick: pick });
     if(error) console.warn("[quiz] PvP submit_quiz_answer failed:", error.message || error);
   }catch(e){ console.warn("[quiz] PvP submit_quiz_answer failed:", e); }
 }
@@ -1112,6 +1131,7 @@ async function revealPvpClue(qIndex){
 async function onPvpRoomFinished(){
   if(!PVP || PVP.resultsShown) return;
   PVP.resultsShown = true;
+  clearPvpRoomRecoveryState();
   try{
     const { data, error } = await sb.rpc('get_quiz_results', { p_room_id: PVP.roomId });
     if(error || !data || !data.length){
@@ -1125,6 +1145,7 @@ async function onPvpRoomFinished(){
 
 function onPvpRoomAbandoned(){
   if(!PVP) return;
+  clearPvpRoomRecoveryState();
   showQuizToast("ოთახი დაიხურა.", 3500);
   resetPvp();
   S.gameType = null;
@@ -1168,6 +1189,7 @@ function renderPvpResults(result){
 $("#back-to-mode-from-pvp").addEventListener("click", ()=>{ resetPvp(); history.back(); });
 
 async function leavePvpRoom(){
+  clearPvpRoomRecoveryState();
   if(PVP){ try{ await sb.rpc('leave_quiz_room', { p_room_id: PVP.roomId }); }catch(e){} }
   resetPvp();
   history.back();
@@ -1271,6 +1293,7 @@ $("#pvp-copy-code").addEventListener("click", async ()=>{
 });
 
 function finishPvpResults(){
+  clearPvpRoomRecoveryState();
   resetPvp();
   S.gameType = null;
   show("screen-gametype");
@@ -1957,4 +1980,169 @@ window.addEventListener("popstate", e=>{
     }
   }
   requireAuth(()=> joinPvpRoom(roomCode));
+})();
+
+/* ============================================================
+   PvP game recovery -- a player who navigates away from this page during a
+   live PvP game has no way back in otherwise. enterPvpLobby remembers the
+   room in localStorage (PVP_ROOM_STORAGE_KEY); on the next load, if nothing
+   else is going on, this rejoins and offers the player a banner back in.
+   ============================================================ */
+function setNavOffsetForBanner(px){
+  // Pushing body down is enough on its own: nav's natural (unscrolled) flow
+  // position moves down with it, clearing the fixed banner above. (Also
+  // overriding nav's own sticky top:0 here would double-count the offset --
+  // html/body both have overflow-x:hidden, which makes a sticky child's
+  // "top" resolve against body's padding box, so top:bannerHeight on top of
+  // body's own padding-top:bannerHeight stacks to 2x, not bannerHeight.)
+  document.body.style.paddingTop = px ? px + "px" : "";
+}
+
+let _pvpBannerInterval = null;
+function hidePvpRecoveryBanner(){
+  const el = document.getElementById("pvpRecoveryBanner");
+  if(el) el.classList.remove("show");
+  setNavOffsetForBanner(0);
+  if(_pvpBannerInterval){ clearInterval(_pvpBannerInterval); _pvpBannerInterval = null; }
+}
+
+function showPvpRecoveryBanner(code, onReturn, onForfeit){
+  const el = document.getElementById("pvpRecoveryBanner");
+  if(!el) return;
+  const codeEl = document.getElementById("pvpRecoveryCode");
+  const timerEl = document.getElementById("pvpRecoveryTimer");
+  const closeBtn = document.getElementById("pvpRecoveryClose");
+  if(codeEl) codeEl.textContent = code || "";
+  let remaining = 10;
+  if(timerEl) timerEl.textContent = remaining;
+  el.classList.add("show");
+  setNavOffsetForBanner(el.offsetHeight);
+
+  let settled = false;
+  function finish(fn){
+    if(settled) return;
+    settled = true;
+    hidePvpRecoveryBanner();
+    fn();
+  }
+
+  if(_pvpBannerInterval) clearInterval(_pvpBannerInterval);
+  _pvpBannerInterval = setInterval(()=>{
+    remaining--;
+    if(timerEl) timerEl.textContent = Math.max(0, remaining);
+    if(remaining <= 0) finish(onForfeit);
+  }, 1000);
+
+  el.onclick = ()=> finish(onReturn);
+  el.onkeydown = e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); finish(onReturn); } };
+  if(closeBtn) closeBtn.onclick = e => { e.stopPropagation(); finish(onForfeit); };
+}
+
+// Rebuilds PVP/S from a rejoin_quiz_room row and shows the right screen.
+// 'waiting' reuses enterPvpLobby (which re-saves the recovery key with a
+// fresh savedAt -- harmless, and keeps the 6h window alive while active).
+// 'active' has no existing entry point (enterPvpLobby is lobby-only), so
+// PVP is built directly here, landing on the first unanswered question.
+function resumePvpRoom(roomId, row){
+  const myId = currentAuthUser && currentAuthUser.id;
+  const players = row.players || [];
+  const me = players.find(p => p.player_id === myId);
+  const isHost = !!(me && me.is_host);
+  S.gameType = row.game_type;
+
+  if(row.status === "waiting"){
+    enterPvpLobby({ roomId, code: row.code, isHost, questions: row.questions });
+    return;
+  }
+
+  PVP = {
+    roomId, code: row.code, isHost,
+    myId, myName: currentAuthUser && currentAuthUser.nick,
+    players, avatarsById: {},
+    maxPlayers: row.max_players || 9,
+    questions: row.questions || [],
+    started: true,
+    resultsShown: false,
+  };
+  subscribePvpRoom();
+  S.questions = PVP.questions;
+  S.qi = 0;
+  S.playerPicks = []; S.playerPoints = [];
+  if(S.gameType === "guess") S.gCluesShown = 1;
+  const answered = new Set(row.answered_indexes || []);
+  const firstUnanswered = S.questions.findIndex((_, i) => !answered.has(i));
+  if(firstUnanswered === -1){
+    finishPvpQuiz();
+  } else {
+    S.qi = firstUnanswered;
+    show(S.gameType === "guess" ? "screen-guess" : "screen-quiz");
+    renderQuestion();
+  }
+}
+
+// Submits every still-missing index as a timeout (same pick convention as
+// submitPvpTimeoutSilently: -1 for quiz, "" for guess-who), in order,
+// awaiting each call so the server ends up with a complete set for this
+// player. Never calls leave_quiz_room -- that removes the player row and
+// would erase them from the other players' results.
+async function forfeitPvpRoom(roomId, questions, answeredIndexes, gameType){
+  const answered = new Set(answeredIndexes || []);
+  const pick = gameType === "guess" ? "" : -1;
+  const total = (questions || []).length;
+  for(let i = 0; i < total; i++){
+    if(answered.has(i)) continue;
+    await submitPvpAnswer(i, pick, roomId);
+  }
+  clearPvpRoomRecoveryState();
+}
+
+(async function initPvpRoomRecovery(){
+  if(new URLSearchParams(location.search).get("room")) return; // the ?room= deep link above already owns this load
+  let saved = null;
+  try{
+    const raw = localStorage.getItem(PVP_ROOM_STORAGE_KEY);
+    if(raw) saved = JSON.parse(raw);
+  }catch(e){ return; }
+  if(!saved || !saved.roomId || typeof saved.savedAt !== "number"){
+    if(saved) clearPvpRoomRecoveryState();
+    return;
+  }
+  if(Date.now() - saved.savedAt > PVP_ROOM_STORAGE_MAX_AGE_MS){
+    clearPvpRoomRecoveryState();
+    return;
+  }
+  if(!sb) return;
+
+  // Same "wait briefly for an already-known session" pattern as
+  // initQuizRoomDeepLink above.
+  let hasStoredSession = false;
+  try{
+    for(let i = 0; i < localStorage.length; i++){
+      const key = localStorage.key(i);
+      if(key && key.indexOf("-auth-token") !== -1){ hasStoredSession = true; break; }
+    }
+  }catch(e){}
+  if(hasStoredSession){
+    const deadline = Date.now() + 2500;
+    while(!currentAuthUser && Date.now() < deadline){
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+  }
+  if(!currentAuthUser) return;
+
+  let row;
+  try{
+    const { data, error } = await sb.rpc('rejoin_quiz_room', { p_room_id: saved.roomId });
+    if(error || !data || !data.length){ clearPvpRoomRecoveryState(); return; }
+    row = data[0];
+  }catch(e){ clearPvpRoomRecoveryState(); return; }
+
+  if(row.status === "finished" || row.status === "abandoned"){ clearPvpRoomRecoveryState(); return; }
+  if(row.status !== "waiting" && row.status !== "active") return;
+
+  showPvpRecoveryBanner(
+    row.code,
+    ()=> resumePvpRoom(saved.roomId, row),
+    ()=> forfeitPvpRoom(saved.roomId, row.questions, row.answered_indexes, row.game_type)
+  );
 })();
