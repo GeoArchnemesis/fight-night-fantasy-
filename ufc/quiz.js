@@ -155,11 +155,13 @@ document.addEventListener('click', e => { const dd = document.getElementById('na
    შესვლის/რეგისტრაციის დასრულებისთანავე ზუსტად ის ქმედება გრძელდება,
    რისთვისაც მოდალი გაიხსნა. --------------------------------------- */
 let _pendingAuthAction = null;
+let _pendingAuthIntent = null; // serializable description of _pendingAuthAction, for the Google-redirect case (see persistPendingIntent/resumePendingIntent below)
 let _authModalMode = 'signin';
 
-function requireAuth(action){
+function requireAuth(action, intent){
   if(currentAuthUser){ action(); return; }
   _pendingAuthAction = action;
+  _pendingAuthIntent = intent || null;
   openAuthModal();
 }
 
@@ -182,7 +184,7 @@ function closeAuthModal(){
   showAuthError('');
 }
 // თუ მოდალს დახურავ ავტორიზაციის გარეშე — რასაც დაწყება სურდა, აღარ გაგრძელდება
-function cancelAuthModal(){ _pendingAuthAction = null; closeAuthModal(); }
+function cancelAuthModal(){ _pendingAuthAction = null; _pendingAuthIntent = null; closeAuthModal(); }
 
 function setAuthModalMode(mode){
   _authModalMode = mode;
@@ -325,8 +327,54 @@ async function doQuizAuthSubmit(){
 // დაკარგავდა გადამისამართების დროს.
 async function handleQuizGoogleAuth(){
   if(!sb) { showAuthError('სერვერთან კავშირი ვერ დამყარდა.'); return; }
+  persistPendingIntent();
   const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
   if(error) showAuthError(error.message || 'Google-ით შესვლა ვერ მოხერხდა.');
+}
+
+// Google-ით შესვლის OAuth-რედირექტი მთელ გვერდს თავიდან ტვირთავს, ამიტომ
+// მეხსიერებაში მყოფი _pendingAuthAction ("დაწყება"-ზე დაჭერით გამოთხოვილი
+// ავტორიზაციის შემდეგ რისი გაგრძელებაც იყო საჭირო) იკარგება. redirectTo
+// ინარჩუნებს URL-ს (?room= ჩათვლით), მაგრამ ეს არ კმარა "ქვიზის დაწყება"
+// ან ოთახის შექმნის/შესვლის მოქმედებისთვის, რომლებიც URL-ში არ ჩანს -- ამ
+// intent-ს sessionStorage-ში ვტოვებთ და რედირექტის შემდეგ ერთხელ ვკითხულობთ.
+const QUIZ_PENDING_INTENT_KEY = 'fnfQuizPendingIntent';
+const QUIZ_PENDING_INTENT_TTL_MS = 10 * 60 * 1000; // ათი წუთი -- საკმარისია Google-ის round trip-ისთვის, საკმარისად მოკლეა რომ ძველი/დავიწყებული intent არ გაგრძელდეს
+function persistPendingIntent(){
+  if(!_pendingAuthIntent) return;
+  try{
+    sessionStorage.setItem(QUIZ_PENDING_INTENT_KEY, JSON.stringify(Object.assign({}, _pendingAuthIntent, { ts: Date.now() })));
+  }catch(e){ /* სთორეჯი მიუწვდომელია -- Google-ით შესვლის შემდეგ უბრალოდ არაფერი გაგრძელდება ავტომატურად */ }
+}
+function resumePendingIntent(){
+  let raw = null;
+  try{
+    raw = sessionStorage.getItem(QUIZ_PENDING_INTENT_KEY);
+    if(raw) sessionStorage.removeItem(QUIZ_PENDING_INTENT_KEY); // ერთჯერადი მოხმარება -- წარმატებით წაკითხვისთანავე იშლება
+  }catch(e){ return; }
+  if(!raw) return;
+  let intent;
+  try{ intent = JSON.parse(raw); }catch(e){ return; }
+  if(!intent || !intent.type || !intent.gameType || typeof intent.ts !== 'number' || (Date.now() - intent.ts) > QUIZ_PENDING_INTENT_TTL_MS) return;
+
+  // იგივე პატერნი, რასაც quizRestoreStep იყენებს popstate-ზე -- პირდაპირ
+  // S.gameType-ის დაყენება და startLobby(), screen-mode-ის გავლის გარეშე.
+  S.gameType = intent.gameType;
+  if(intent.type === 'ai'){
+    startLobby('ai', { push:false });
+    const startBtn = document.querySelector('#lobby-action .btn-primary');
+    if(startBtn) startBtn.click();
+  } else if(intent.type === 'pvp-create'){
+    startLobby('pvp', { push:false });
+    const createBtn = document.getElementById('pvp-create-btn');
+    if(createBtn) createBtn.click();
+  } else if(intent.type === 'pvp-join'){
+    startLobby('pvp', { push:false });
+    const codeInput = document.getElementById('pvp-join-code');
+    if(codeInput && intent.roomCode) codeInput.value = intent.roomCode;
+    const joinBtn = document.getElementById('pvp-join-btn');
+    if(joinBtn) joinBtn.click();
+  }
 }
 
 (function initAuthModal(){
@@ -392,8 +440,13 @@ async function applyAuthSession(session){
     // თუ ავტორიზაცია სწორედ იმიტომ გამოვითხოვეთ, რომ მოთამაშეს ქვიზის დაწყება
     // სურდა — ახლა გავაგრძელოთ ზუსტად იქედან.
     if(_pendingAuthAction){
-      const fn = _pendingAuthAction; _pendingAuthAction = null;
+      const fn = _pendingAuthAction; _pendingAuthAction = null; _pendingAuthIntent = null;
       fn();
+    } else {
+      // Google-ით შესვლის რედირექტმა შეიძლება page-ის reload გამოიწვია --
+      // _pendingAuthAction მეხსიერებაშია და მას გადარჩენა არ შეეძლო, ამიტომ
+      // sessionStorage-ში დატოვებული intent-ის მეშვეობით ვაგრძელებთ.
+      resumePendingIntent();
     }
   }
   finally { _authApplying = false; }
@@ -731,7 +784,7 @@ function buildDifficultyPicker(action, { onReady, startLabel, onStart }){
   startBtn.disabled = true;
   startBtn.onclick = ()=>{
     if(S.aiAcc == null) return;
-    requireAuth(()=> startDifficulty());
+    requireAuth(()=> startDifficulty(), { type:'ai', gameType:S.gameType });
   };
   async function startDifficulty(){
     startBtn.disabled = true;
@@ -845,7 +898,7 @@ function startPvpSetup(opts){
   const defaultChip = Array.from(chips.children).find((_,i)=> DIFFICULTY[i].enabled);
   if(defaultChip) defaultChip.click();
 
-  createBtn.onclick = ()=> requireAuth(()=> createPvpRoom(chosenLevel));
+  createBtn.onclick = ()=> requireAuth(()=> createPvpRoom(chosenLevel), { type:'pvp-create', gameType:S.gameType });
 
   const codeInput = $("#pvp-join-code");
   const joinErr = $("#pvp-join-error");
@@ -854,7 +907,7 @@ function startPvpSetup(opts){
   const urlCode = new URLSearchParams(location.search).get("room");
   codeInput.value = urlCode ? urlCode.toUpperCase() : "";
 
-  $("#pvp-join-btn").onclick = ()=> requireAuth(()=> joinPvpRoom(codeInput.value));
+  $("#pvp-join-btn").onclick = ()=> requireAuth(()=> joinPvpRoom(codeInput.value), { type:'pvp-join', gameType:S.gameType, roomCode:codeInput.value });
 
   show("screen-pvp-setup");
   if(opts.push !== false) pushQuizStep(S.gameType, "pvp");
