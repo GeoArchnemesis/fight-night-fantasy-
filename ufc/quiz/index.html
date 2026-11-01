@@ -36,7 +36,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-<link rel="stylesheet" href="/style.css?v=215">
+<link rel="stylesheet" href="/style.css?v=216">
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
@@ -148,43 +148,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 @media (prefers-reduced-motion:reduce){#quizRoot *{animation-duration:.01ms !important;transition-duration:.01ms !important}}
 
 #quizRoot .back-row{display:flex;justify-content:flex-start;margin-bottom:12px}
-/* "back" button -- Uiverse "animated chevrons" button (CodePen-style),
-   reskinned to the site's red palette and mirrored to point left (the
-   original points right). Prefixed qback- since .button is too generic
-   for this codebase. The chevron mirroring is done with a single
-   transform:scaleX(-1) on the <svg> -- it flips the rendered shapes AND
-   every translateX() keyframe inside, so the polygon points/animations
-   below are the vendor originals, untouched. Hover-only effects (ripple,
-   colorize, chevron sweep, growing gap) are gated to
-   @media(hover:hover) and (pointer:fine) -- 80-90% of traffic is mobile,
-   where :hover doesn't exist and can stick after a tap; phones get the
-   static button (a single resting chevron, by the vendor's own un-hovered
-   polygon offsets) plus the :active press state. Reduced-motion is
-   already handled by the blanket "#quizRoot *" rule above. */
-#quizRoot .qback{display:inline-flex;align-items:center;justify-content:center;min-height:44px;cursor:pointer;border:none;border-radius:999px;padding:.5em .8em .5em 0;font-family:var(--head);font-weight:700;font-size:.95rem;color:#fff;background:var(--red);box-shadow:0 0 .2em 0 var(--red)}
-#quizRoot .qback:active{transform:scale(.95)}
-#quizRoot .qback-label{margin-left:.3em}
-#quizRoot .qback svg{height:.8em;fill:#fff;margin-left:-.16em;position:relative;transform:scaleX(-1)}
-#quizRoot .qback svg polygon:nth-child(1){transform:translateX(-60%)}
-#quizRoot .qback svg polygon:nth-child(2){transform:translateX(-30%)}
-@media (hover:hover) and (pointer:fine){
-  #quizRoot .qback{transition:1s}
-  #quizRoot .qback:hover{outline:.1em solid transparent;outline-offset:.2em;box-shadow:0 0 1em 0 var(--red);animation:qbackRipple 1s linear infinite,qbackColorize 1s infinite;transition:.5s}
-  #quizRoot .qback-label{transition:.5s}
-  #quizRoot .qback:hover .qback-label{text-shadow:5px 5px 5px rgba(0,0,0,.25)}
-  #quizRoot .qback:active .qback-label{text-shadow:none}
-  #quizRoot .qback svg{transition:.5s}
-  #quizRoot .qback:hover svg{margin-left:.66em;transition:.5s;filter:drop-shadow(5px 5px 2.5px rgba(0,0,0,.25))}
-  #quizRoot .qback:active svg{filter:none}
-  #quizRoot .qback svg polygon:nth-child(1){transition:.4s}
-  #quizRoot .qback svg polygon:nth-child(2){transition:.5s}
-  #quizRoot .qback:hover svg polygon:nth-child(1){transform:translateX(0%);animation:qbackOpacity 1s infinite .6s}
-  #quizRoot .qback:hover svg polygon:nth-child(2){transform:translateX(0%);animation:qbackOpacity 1s infinite .4s}
-  #quizRoot .qback:hover svg polygon:nth-child(3){animation:qbackOpacity 1s infinite .2s}
-}
-@keyframes qbackOpacity{0%{opacity:1}50%{opacity:0}100%{opacity:1}}
-@keyframes qbackColorize{0%{background:var(--red)}50%{background:var(--red-soft)}100%{background:var(--red)}}
-@keyframes qbackRipple{0%{outline:0em solid transparent;outline-offset:-.1em}50%{outline:.2em solid rgba(243,29,37,.25);outline-offset:.2em}100%{outline:.4em solid transparent;outline-offset:.4em}}
+/* .qback/.qback-label (the red chevron "back" pill) moved to style.css,
+   unscoped, so the same shared class can be reused outside the quiz too
+   (news article back link, profile back link). Declarations there are
+   verbatim from this page's own rule, only the #quizRoot prefix dropped --
+   this page's own appearance is unchanged. */
 
 #quizRoot .modes{display:grid;grid-template-columns:1fr;gap:12px}
 #quizRoot .mode{position:relative;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden;cursor:pointer;padding:22px 20px;min-height:116px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;transition:border-color .15s,transform .15s}
@@ -868,7 +836,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=38"></script>
+<script src="/ufc/quiz.js?v=39"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){

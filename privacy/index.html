@@ -18,7 +18,7 @@
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link rel="stylesheet" href="/style.css?v=215" />
+<link rel="stylesheet" href="/style.css?v=216" />
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
 <style>
@@ -28,6 +28,55 @@
 .tp-main h2{font-family:var(--display);font-weight:700;font-size:1.2rem;margin:28px 0 10px;color:var(--text)}
 .tp-main p,.tp-main li{color:var(--muted);font-size:.9rem;line-height:1.7}
 .tp-main ol,.tp-main ul{margin:0 0 12px;padding-left:20px}
+
+/* ── MOBILE BOTTOM NAV (mnav) — მხოლოდ მობილურზე ── (copied verbatim from
+   news/post.html, so this page gets the same full navigation every other
+   page already has) */
+.mnav{position:fixed !important;top:auto !important;bottom:0 !important;left:0 !important;right:0 !important;height:auto !important;z-index:46;background:#000;border-top:1px solid var(--line);border-bottom:none;display:flex;padding:8px 4px calc(8px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 20px rgba(0,0,0,.5)}
+.mnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;cursor:pointer;padding:6px 2px;min-width:0;text-decoration:none;position:relative;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none}
+.mnav-ic{width:24px;height:24px;flex-shrink:0;opacity:.75;transition:opacity .15s,transform .15s}
+.mnav-btn:hover .mnav-ic,.mnav-btn.on .mnav-ic{opacity:1}
+.mnav-btn.on .mnav-ic{transform:translateY(-1px)}
+.mnav-lbl{font-size:clamp(8px,2.5vw,11px);font-weight:600;color:var(--muted);white-space:normal;overflow-wrap:break-word;max-width:100%;letter-spacing:.01em;transition:color .15s;text-align:center;line-height:1.2;min-height:2.4em}
+.mnav-btn.on .mnav-lbl{color:var(--gold)}
+.mnav-btn:hover .mnav-lbl{color:var(--text)}
+.mnav-pop{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:150px;display:flex;flex-direction:column;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,transform .2s ease,visibility .2s;z-index:48}
+.mnav-pop.show{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.mnav-pop::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--line)}
+.mnav-pop-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;min-height:44px;border-radius:7px;font-family:var(--head);font-weight:700;font-size:.9rem;color:var(--text);cursor:pointer;transition:background .15s;white-space:nowrap;text-decoration:none;box-sizing:border-box}
+.mnav-pop-opt.on{background:rgba(245,196,81,.1);color:var(--gold);cursor:default}
+.mnav-pop-opt:not(.on):active{background:rgba(255,255,255,.08)}
+.mnav-pop-tag{font-family:var(--mono);font-size:var(--fs-meta);font-weight:700;letter-spacing:.04em;color:var(--green);text-transform:uppercase}
+.mnav-pop-tag.soon{color:var(--muted)}
+#mnavSport .mnav-pop{left:8px;right:auto;transform:translateY(6px)}
+#mnavSport .mnav-pop.show{transform:translateY(0)}
+#mnavSport .mnav-pop::after{left:38px;transform:translateX(-50%)}
+@media(min-width:921px){.mnav{display:none}.m-only{display:none !important}}
+@media(max-width:920px){
+  .mnav{display:none}
+  body.logged-in .mnav{display:flex}
+  body.logged-in .menu-btn{display:none}
+  body.logged-in{padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+  body.logged-in .betbar{bottom:calc(58px + env(safe-area-inset-bottom,0px))}
+  .d-only{display:none !important}
+  .nav-links.open .m-only{display:block !important}
+}
+/* ── დესკტოპ ზედა nav: ფენტეზის ტიპი (hover dropdown) ── */
+.nav-fx{position:relative}
+.nav-fx-lbl{font-size:var(--fs-meta);letter-spacing:.04em;font-weight:700;color:var(--muted);cursor:pointer;transition:color .2s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.nav-fx:hover .nav-fx-lbl{color:var(--text)}
+.nav-fx-caret{font-size:var(--fs-meta);transition:transform .2s}
+.nav-fx:hover .nav-fx-caret{transform:rotate(180deg)}
+.nav-fx::after{content:"";position:absolute;top:100%;left:0;right:0;height:14px}
+.nav-fx-pop{position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:150px;display:flex;flex-direction:column;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s,transform .2s,visibility .2s;z-index:60}
+.nav-fx:hover .nav-fx-pop{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.nav-fx-pop a{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:7px;font-family:var(--head);font-weight:700;font-size:.9rem;color:var(--text);text-decoration:none;transition:background .15s;white-space:nowrap}
+.nav-fx-pop a:hover{background:rgba(255,255,255,.05)}
+.nav-fx.open .nav-fx-lbl{color:var(--text)}
+.nav-fx.open .nav-fx-caret{transform:rotate(180deg)}
+.nav-fx.open .nav-fx-pop{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.nav-fx-pop a.on{background:rgba(245,196,81,.1);color:var(--gold)}
+.fx-tag{font-family:var(--mono);font-size:var(--fs-meta);font-weight:700;letter-spacing:.04em;color:var(--green);text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -37,8 +86,39 @@
 <img src="/logo.png?v=2" alt="Fight Night Fantasy" />
 <span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
 </a>
+<div class="nav-links" id="navLinks">
+  <div class="nav-fx d-only" id="navFx">
+    <span class="nav-fx-lbl">ფენტეზის ტიპი <span class="nav-fx-caret">▾</span></span>
+    <div class="nav-fx-pop">
+      <a href="/ufc/">UFC <span class="fx-tag">აქტიური</span></a>
+      <a href="/f1/">F1 <span class="fx-tag">აქტიური</span></a>
+      <a href="/nba/">NBA <span class="fx-tag">აქტიური</span></a>
+      <div class="fx-sub">
+        <a class="fx-sub-lbl">ფეხბურთი<span class="fx-sub-right"><span class="fx-sub-caret">▸</span></span></a>
+        <div class="fx-sub-pop">
+          <a href="/football/laliga/">ლა ლიგა</a>
+          <a href="/football/epl/">პრემიერ ლიგა</a>
+          <a href="/football/seriea/">სერია A</a>
+          <a href="/football/bundesliga/">ბუნდესლიგა</a>
+          <a href="/football/ligue1/">ლიგა 1</a>
+          <a href="/football/ucl/">ჩემპიონთა ლიგა</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <a href="/ufc/#leaderboard" class="d-only">ლიდერბორდი</a>
+  <a href="/ufc/#tickets" class="d-only">ბილეთების ისტორია</a>
+  <a href="/news/" class="d-only">სიახლეები</a>
+  <a href="/ufc/#card" class="m-only">ბრძოლები</a>
+  <a href="/ufc/#leaderboard" class="m-only">ლიდერბორდი</a>
+  <a href="/ufc/#how" class="m-only">წესები</a>
+  <a href="/news/" class="m-only">სიახლეები</a>
+</div>
 <div class="nav-cta">
-<a class="btn btn-ghost" href="/">მთავარი</a>
+  <div class="balance-pill"><span class="coin"></span><b id="balNav">1,000</b> ქულა</div>
+  <button class="btn btn-ghost" id="signinBtn">შესვლა</button>
+  <button class="btn btn-ghost" id="joinBtn">რეგისტრაცია</button>
+  <button class="menu-btn" id="menuBtn" aria-label="მენიუ"><span></span></button>
 </div>
 </div></nav>
 
@@ -121,6 +201,67 @@
     <button onclick="document.getElementById('contactPopup').style.display='none'" style="color:var(--muted);font-size:.9rem;font-family:inherit;cursor:pointer;background:none;border:none">დახურვა</button>
   </div>
 </div>
+
+<!-- ── MOBILE BOTTOM NAV (mnav) ── -->
+<nav class="mnav" id="mnav">
+  <div class="mnav-btn" id="mnavSport" role="button" tabindex="0">
+    <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNzIgNzIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMTIiIHk9IjE4IiB3aWR0aD0iNDgiIGhlaWdodD0iNyIgcng9IjEuNSIvPjxyZWN0IHg9IjEyIiB5PSIzMyIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjciIHJ4PSIxLjUiLz48cmVjdCB4PSIxMiIgeT0iNDgiIHdpZHRoPSI0OCIgaGVpZ2h0PSI3IiByeD0iMS41Ii8+PC9zdmc+Cg==" alt="">
+    <span class="mnav-lbl">ფენტეზის ტიპი</span>
+    <div class="mnav-pop">
+      <a class="mnav-pop-opt" href="/ufc/">UFC <span class="mnav-pop-tag">აქტიური</span></a>
+      <a class="mnav-pop-opt" href="/f1/">F1 <span class="mnav-pop-tag">აქტიური</span></a>
+      <a class="mnav-pop-opt" href="/nba/">NBA <span class="mnav-pop-tag">აქტიური</span></a>
+    </div>
+  </div>
+  <a class="mnav-btn" href="/news/">
+    <svg class="mnav-ic" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18h-5"/><path d="M18 14h-8"/><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="10" y="6" rx="1"/></svg>
+    <span class="mnav-lbl">ნიუსები</span>
+  </a>
+    <a class="mnav-btn" href="/ufc/quiz/">
+    <svg class="mnav-ic" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9.2a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4"/><line x1="12" y1="17.5" x2="12.01" y2="17.5"/></svg>
+    <span class="mnav-lbl">ქვიზი</span>
+  </a>
+  <button class="mnav-btn only-auth" onclick="location.href='/ufc/#tickets'">
+    <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMjQgMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTMgOGEyIDIgMCAwIDEgMi0yaDE0YTIgMiAwIDAgMSAyIDJ2MmEyIDIgMCAwIDAgMCA0djJhMiAyIDAgMCAxLTIgMkg1YTIgMiAwIDAgMS0yLTJ2LTJhMiAyIDAgMCAwIDAtNFY4eiIvPjxsaW5lIHgxPSI5IiB5MT0iNiIgeDI9IjkiIHkyPSIxOCIgc3Ryb2tlLWRhc2hhcnJheT0iMiAyIi8+PC9zdmc+Cg==" alt="">
+    <span class="mnav-lbl">ბილეთების ისტორია</span>
+  </button>
+  <a class="mnav-btn" href="/profile/">
+    <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMjQgMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI0Ii8+PHBhdGggZD0iTTQgMjFjMC00LjQgMy42LTcgOC03czggMi42IDggNyIvPjwvc3ZnPgo=" alt="">
+    <span class="mnav-lbl">პროფილი</span>
+  </a>
+</nav>
+<script defer src="/fantasy-nav.js?v=10"></script>
+<!-- Task scope note: only this small, auth-free toggle is copied from
+     app.js (lines 1260-1282, plus the $/$on helpers it needs from lines
+     28-29) -- not app.js itself -- so #menuBtn and #mnavSport actually
+     open on this page. Verbatim, unrenamed. -->
+<script>
+const $ = id => document.getElementById(id);
+function $on(id, ev, fn) { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); }
+const navLinks = $('navLinks');
+$on('menuBtn', 'click', () => { if (navLinks) navLinks.classList.toggle('open'); });
+// მობილური "ფენტეზის ტიპი" dropdown — კლიკით (მობილურზე :hover არ არსებობს)
+(function(){
+  const sp = document.getElementById('mnavSport');
+  if (!sp) return;
+  const pop = sp.querySelector('.mnav-pop');
+  if (!pop) return;
+  sp.addEventListener('click', (e) => {
+    if (e.target.closest('.mnav-pop-opt')) return;   // F1/NBA/UFC ლინკზე კლიკი — გაატარე
+    e.stopPropagation();
+    pop.classList.toggle('show');
+  });
+  sp.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (e.target.closest('.mnav-pop-opt')) return;
+    e.preventDefault();
+    pop.classList.toggle('show');
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#mnavSport')) pop.classList.remove('show');
+  });
+})();
+</script>
 
 </div>
 </body>

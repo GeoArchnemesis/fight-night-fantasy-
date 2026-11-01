@@ -296,7 +296,7 @@ function buildArticlePage(template, a, allArticles, lang) {
   const alt = (lang === 'en' ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
   const dateStr = a.published_at ? formatDate(new Date(a.published_at), lang) : '';
   const ogImage = a.cover_image_url ? transformUrl(a.cover_image_url, 1200, 75, 630) : 'https://fnf.ge/logo.png';
-  const backLabel = lang === 'en' ? '← News' : '← სიახლეები';
+  const backLabel = lang === 'en' ? 'News' : 'სიახლეები';
   const backHref = lang === 'en' ? '/en/news/' : '/news/';
 
   const coverHtml = a.cover_image_url
@@ -309,7 +309,7 @@ function buildArticlePage(template, a, allArticles, lang) {
     .filter(Boolean).join(' · ');
 
   const bakedArt = [
-    `<a class="nw-back" href="${backHref}">${backLabel}</a>`,
+    `<a class="qback" href="${backHref}"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">${backLabel}</span></a>`,
     langToggleHtml(relUrlFor(a.slug, 'ka'), relUrlFor(a.slug, 'en'), lang, enExists),
     `<h1 class="nw-art-title">${escapeHtml(title)}</h1>`,
     `<div class="nw-art-meta">${metaLine}</div>`,
@@ -432,7 +432,7 @@ function buildArticlePage(template, a, allArticles, lang) {
     'json-ld placeholder'
   );
   replace(
-    '<main class="nw-art" id="nwArt">\n<a class="nw-back" href="/news/">← სიახლეები</a>\n<div class="nw-loading">იტვირთება...</div>\n</main>',
+    '<main class="nw-art" id="nwArt">\n<a class="qback" href="/news/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">სიახლეები</span></a>\n<div class="nw-loading">იტვირთება...</div>\n</main>',
     `<main class="nw-art" id="nwArt">\n${bakedArt}\n</main>`,
     'article body'
   );

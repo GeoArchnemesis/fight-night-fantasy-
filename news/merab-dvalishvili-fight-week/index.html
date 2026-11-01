@@ -68,7 +68,7 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
-<link rel="stylesheet" href="/style.css?v=215" />
+<link rel="stylesheet" href="/style.css?v=216" />
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <style>
 /* ── MOBILE BOTTOM NAV (mnav) — მხოლოდ მობილურზე ── (ufc/index.html-იდან, nav-ის სრულად აღსადგენად) */
@@ -157,9 +157,11 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
 /* 96x20 measured -- an invisible ::after hit-area overlay instead of
    padding, so the link doesn't visually grow and push the H1 down
    (same technique as #testBanner's inline link, Phase 2). */
-.nw-back{position:relative;display:inline-block;color:var(--muted);font-size:.85rem;text-decoration:none;margin-bottom:18px}
-.nw-back::after{content:"";position:absolute;top:50%;left:0;transform:translateY(-50%);width:100%;min-width:44px;height:44px}
-.nw-back:hover{color:var(--text)}
+/* .nw-back retired in favor of the shared .qback pill (style.css) -- this
+   page's own back link only still needs its pre-existing bottom margin,
+   since .qback's real 44px box replaces the old invisible ::after hit-area
+   hack above entirely. */
+#nwArt>.qback{margin-bottom:18px}
 .nw-lang{display:inline-flex;gap:6px;border:1px solid var(--line);border-radius:8px;padding:4px;margin-bottom:18px}
 .nw-lang a,.nw-lang span{background:none;border:none;color:var(--muted);font-family:inherit;font-weight:700;font-size:var(--fs-meta);padding:6px 14px;min-height:44px;display:inline-flex;align-items:center;border-radius:6px;text-decoration:none}
 .nw-lang a[aria-current="page"],.nw-lang span[aria-current="page"]{background:var(--surface);color:var(--text)}
@@ -299,7 +301,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div class="nw-layout" id="nwFirstArticle">
 <main class="nw-art" id="nwArt">
-<a class="nw-back" href="/news/">← სიახლეები</a>
+<a class="qback" href="/news/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">სიახლეები</span></a>
 <div class="nw-lang" id="nwLang"><a href="/news/merab-dvalishvili-fight-week/" aria-current="page">ქართ</a><a href="/en/news/merab-dvalishvili-fight-week/">Eng</a></div>
 <h1 class="nw-art-title">მერაბ დვალიშვილი - საბრძოლო კვირა</h1>
 <div class="nw-art-meta"><span title="GeoArchnemesis - FNF.GE-ის ჟურნალისტი და დამფუძნებელი.">GeoArchnemesis</span> · <time datetime="2026-10-18T04:00:00+00:00">18 ოქტომბერი, 2026</time></div>
@@ -735,7 +737,7 @@ function nwRenderArticle() {
   }
 
   const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), effectiveLang, 'long') : '';
-  const backLabel = effectiveLang === 'en' ? '← News' : '← სიახლეები';
+  const backLabel = effectiveLang === 'en' ? 'News' : 'სიახლეები';
   const backHref = effectiveLang === 'en' ? '/en/news/' : '/news/';
   const kaHref = `/news/${a.slug}/`;
   const enHref = `/en/news/${a.slug}/`;
@@ -744,7 +746,7 @@ function nwRenderArticle() {
     : `<a href="${kaHref}"${effectiveLang === 'ka' ? ' aria-current="page"' : ''}>ქართ</a><a href="${enHref}"${effectiveLang === 'en' ? ' aria-current="page"' : ''}>Eng</a>`;
 
   document.getElementById('nwArt').innerHTML = `
-    <a class="nw-back" href="${backHref}">${backLabel}</a>
+    <a class="qback" href="${backHref}"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">${backLabel}</span></a>
     <div class="nw-lang" id="nwLang">${langToggleHtml}</div>
     <h1 class="nw-art-title">${title}</h1>
     <div class="nw-art-meta">${[nwAuthorHtml(a.author, effectiveLang), dateStr ? `<time datetime="${a.published_at || ''}">${dateStr}</time>` : ''].filter(Boolean).join(' · ')}</div>
@@ -1272,10 +1274,10 @@ async function nwLoad() {
 
 function nwShowNotFound() {
   const effectiveLang = nwPageLang();
-  const backLabel = effectiveLang === 'en' ? '← News' : '← სიახლეები';
+  const backLabel = effectiveLang === 'en' ? 'News' : 'სიახლეები';
   const backHref = effectiveLang === 'en' ? '/en/news/' : '/news/';
   document.getElementById('nwArt').innerHTML = `
-    <a class="nw-back" href="${backHref}">${backLabel}</a>
+    <a class="qback" href="${backHref}"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">${backLabel}</span></a>
     <div class="nw-notfound">სტატია ვერ მოიძებნა.</div>`;
 }
 
