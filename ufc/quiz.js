@@ -522,7 +522,7 @@ function show(id){
   // კითხვა/ტაიმერი ჩანდეს თავში.
   const hero = document.getElementById('quizHero');
   if(hero) hero.style.display = (id === "screen-gametype") ? "" : "none";
-  const inGame = ["screen-quiz","screen-guess","screen-cards","screen-pvp-lobby","screen-pvp-wait","screen-pvp-results"].indexOf(id) > -1;
+  const inGame = ["screen-quiz","screen-guess","screen-cards","screen-pvp-setup","screen-pvp-lobby","screen-pvp-wait","screen-pvp-results"].indexOf(id) > -1;
   if(!inGame){ window.scrollTo(0,0); return; }
   requestAnimationFrame(()=>{
     const nav = document.querySelector("nav");

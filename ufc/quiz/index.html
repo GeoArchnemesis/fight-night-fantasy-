@@ -376,6 +376,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .pvp-panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
 #quizRoot .pvp-panel h3{font-family:var(--display);font-weight:700;font-size:1rem;margin-bottom:12px;text-align:center}
 #quizRoot .pvp-divider{text-align:center;color:var(--text);font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase}
+/* PvP room-setup screen must fit between the site nav and the mobile
+   bottom nav without scrolling on a phone -- tightened spacing only,
+   same colours/borders/radii/font-sizes, same HTML structure. */
+@media(max-width:480px){
+  #screen-pvp-setup .back-row{margin-bottom:6px}
+  #screen-pvp-setup .pvp-setup{gap:8px}
+  #screen-pvp-setup .pvp-panel{padding:12px 15px}
+  #screen-pvp-setup .pvp-panel h3{margin-bottom:6px}
+  #screen-pvp-setup #pvp-create-btn,#screen-pvp-setup #pvp-join-btn{margin-top:6px}
+  #screen-pvp-setup .name-entry input{padding:10px 14px}
+}
 #quizRoot .pvp-lobby{display:flex;flex-direction:column;align-items:center;gap:16px;width:100%}
 #quizRoot .pvp-code-box{text-align:center}
 #quizRoot .pvp-code-label{font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
@@ -836,7 +847,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=34"></script>
+<script src="/ufc/quiz.js?v=35"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){
