@@ -1284,6 +1284,37 @@ document.querySelectorAll('a[href^="#"]').forEach(a => a.addEventListener('click
   const id = a.getAttribute('href').slice(1); const t = document.getElementById(id);
   if (t) { e.preventDefault(); t.scrollIntoView({ behavior: 'smooth', block: 'start' }); if (navLinks) navLinks.classList.remove('open'); }
 }));
+(function () {
+  var hash = location.hash.slice(1);
+  if (!hash) return;
+  var target = document.getElementById(hash);
+  if (!target) return;
+
+  var pin = function () {
+    var top = target.getBoundingClientRect().top + window.scrollY - 8;
+    window.scrollTo(0, top);
+  };
+
+  var stop = function () {
+    ro.disconnect();
+    window.removeEventListener('wheel', stop);
+    window.removeEventListener('touchmove', stop);
+    window.removeEventListener('keydown', stop);
+    clearTimeout(timer);
+  };
+
+  var observed = document.getElementById('card') || document.body;
+  var ro = new ResizeObserver(pin);
+  ro.observe(observed);
+
+  window.addEventListener('wheel', stop, { once: true, passive: true });
+  window.addEventListener('touchmove', stop, { once: true, passive: true });
+  window.addEventListener('keydown', stop, { once: true });
+
+  var timer = setTimeout(stop, 8000);
+
+  pin();
+})();
 
 // ── INIT (server-time → getSession → fights → session) ──
 const loadingEl = document.getElementById('markets');
