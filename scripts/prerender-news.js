@@ -312,9 +312,9 @@ function buildArticlePage(template, a, allArticles, lang) {
     `<a class="qback" href="${backHref}"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">${backLabel}</span></a>`,
     langToggleHtml(relUrlFor(a.slug, 'ka'), relUrlFor(a.slug, 'en'), lang, enExists),
     `<h1 class="nw-art-title">${escapeHtml(title)}</h1>`,
-    `<div class="nw-art-meta">${metaLine}</div>`,
     coverHtml,
     `<div class="nw-art-body">${body}</div>`,
+    `<div class="nw-art-meta">${metaLine}</div>`,
     sportCtaHtml(lang),
   ].join('\n');
 

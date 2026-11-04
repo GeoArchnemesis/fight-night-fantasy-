@@ -163,8 +163,8 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
    it hits the PRD's target line-height at the clamp's floor and scales
    proportionally above it, rather than going right back to colliding
    Georgian ascenders/descenders once the viewport grows past the floor. */
-.nw-art-title{font-family:var(--display);font-weight:700;font-size:clamp(2rem,5.5vw,2.9rem);line-height:1.1875;margin-bottom:10px}
-.nw-art-meta{color:var(--muted);font-size:.85rem;margin-bottom:20px}
+.nw-art-title{font-family:var(--display);font-weight:700;font-size:clamp(1.625rem,4.2vw,2.25rem);line-height:1.1875;margin-bottom:10px}
+.nw-art-meta{color:var(--muted);font-size:.85rem;margin-top:20px}
 .nw-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
 .nw-reactions{display:flex;align-items:center;gap:10px;margin-bottom:22px;flex-wrap:wrap}
 .nw-icon{width:18px;height:18px;flex:none;display:block}
@@ -746,10 +746,10 @@ function nwRenderArticle() {
     <a class="qback" href="${backHref}"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">${backLabel}</span></a>
     <div class="nw-lang" id="nwLang">${langToggleHtml}</div>
     <h1 class="nw-art-title">${title}</h1>
-    <div class="nw-art-meta">${[nwAuthorHtml(a.author, effectiveLang), dateStr ? `<time datetime="${a.published_at || ''}">${dateStr}</time>` : ''].filter(Boolean).join(' · ')}</div>
     <div id="nwAudioPlayerSlot"></div>
     ${a.cover_image_url ? `<img class="nw-art-cover" src="${nwTransformUrl(a.cover_image_url, 800, 75, 450)}" srcset="${nwSrcset(a.cover_image_url, [[400, 225], [800, 450], [1200, 675], [1600, 900]], 75)}" sizes="(min-width: 1100px) 760px, (min-width: 768px) 700px, 100vw" width="800" height="450" alt="${alt.replace(/"/g, '&quot;')}" loading="eager" fetchpriority="high" decoding="async" />` : ''}
     <div class="nw-art-body">${body}</div>
+    <div class="nw-art-meta">${[nwAuthorHtml(a.author, effectiveLang), dateStr ? `<time datetime="${a.published_at || ''}">${dateStr}</time>` : ''].filter(Boolean).join(' · ')}</div>
     ${nwSportCtaHtml(effectiveLang)}
   `;
   // Optional (PRD Phase 6 item 5) -- feature-detects speechSynthesis AND
