@@ -801,6 +801,32 @@ async function cmdF1Odds(chatId: number): Promise<string> {
 
 // ხელით შედეგის ჩაწერა: "f1 შედეგი race 1" (kind + მძღოლის ნომერი) — OpenF1-ის ჩამნაცვლებელი
 
+// ESPN-ის competition ამ kind-ისთვის, scripts/f1-auto.js-ის espnComp-ის სარკე (იგივე წესი, იგივე abbreviation-ები)
+// ESPN abbreviation-ები: race="Race", qual="Qualifying", sr="Sprint", ss="Sprint Shootout/Qualifying"
+function espnComp(ev: any, kind: string): any {
+  const comps = ev.competitions || []
+  const abbr = (c: any) => (c.type?.abbreviation || '').toLowerCase()
+  const txt  = (c: any) => (c.type?.text || c.type?.abbreviation || '').toLowerCase()
+
+  if (kind === 'race' || kind === 'fastest_lap') {
+    // fastest lap რბოლის დროზე დგინდება, race competition-ს ვიყენებთ
+    return comps.find((c: any) => abbr(c) === 'race' || (txt(c).includes('race') && !txt(c).includes('sprint')))
+  }
+  if (kind === 'quali') {
+    // ჩვეულებრივი კვალიფიკაცია, არა sprint shootout
+    return comps.find((c: any) => (abbr(c) === 'qual' || txt(c).includes('qualif')) && !txt(c).includes('sprint') && !txt(c).includes('shootout'))
+  }
+  if (kind === 'sprint') {
+    // sprint race (არა shootout/qualifying)
+    return comps.find((c: any) => abbr(c) === 'sr' || (txt(c).includes('sprint') && !txt(c).includes('shootout') && !txt(c).includes('qualif')))
+  }
+  if (kind === 'sprint_quali') {
+    // sprint shootout / sprint qualifying
+    return comps.find((c: any) => abbr(c) === 'ss' || txt(c).includes('shootout') || (txt(c).includes('sprint') && txt(c).includes('qualif')))
+  }
+  return null
+}
+
 // ESPN-იდან F1 შედეგების ავტომატური წამოღება — ხელით მძღოლის ნომრის შეყვანა აღარ სჭირდება.
 // ESPN აბრუნებს race/quali გამარჯვებულს (winner:true), მას სახელით ვამთხვევთ f1_drivers-ს.
 async function cmdF1ResultAuto(chatId: number): Promise<string> {
@@ -836,12 +862,24 @@ async function cmdF1ResultAuto(chatId: number): Promise<string> {
   const { data: drivers } = await sb.from('f1_drivers').select('id,name')
   const dmap: Record<string, any> = {}
   for (const d of drivers || []) dmap[norm(d.name)] = d
+  // deaccent: f1-auto.js-ის იგივენაირი, მაგრამ spaces-ს ინარჩუნებს (norm-ისგან განსხვავებით, რომელიც ჩაკრავს)
+  const deaccent = (s: string) => (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim()
+  // f1-auto.js-ის findDrv-ის სარკე: ზუსტი სრული სახელი, მერე გვარით ზუსტი ტოკენი (არა substring);
+  // ორაზროვანი (2+ დამთხვევა) ან 0 დამთხვევა → null, არაფერს ვანიჭებთ ცვდომით
   const findDrv = (espnName: string) => {
-    const n = norm(espnName)
-    if (dmap[n]) return dmap[n]
-    // გვარით (ბოლო სიტყვა)
-    const last = norm((espnName || '').split(' ').pop() || '')
-    return (drivers || []).find((d: any) => norm(d.name).includes(last) && last.length >= 4) || null
+    if (dmap[norm(espnName)]) return dmap[norm(espnName)]
+    const parts = deaccent(espnName || '').split(/\s+/)
+      .map(w => w.replace(/[^a-z]/g, ''))
+      .filter(w => w && !['jr', 'sr', 'ii', 'iii'].includes(w))
+    const last = parts[parts.length - 1] || ''
+    if (last.length < 4) return null
+    const matches = (drivers || []).filter((d: any) => {
+      const dParts = deaccent(d.name).split(/\s+/)
+        .map((w: string) => w.replace(/[^a-z]/g, ''))
+        .filter((w: string) => w && !['jr', 'sr', 'ii', 'iii'].includes(w))
+      return dParts[dParts.length - 1] === last
+    })
+    return matches.length === 1 ? matches[0] : null
   }
 
   const { data: markets } = await sb.from('f1_markets')
@@ -851,14 +889,10 @@ async function cmdF1ResultAuto(chatId: number): Promise<string> {
   const out: string[] = []
   for (const mkt of markets) {
     if (mkt.result_driver_id) { out.push(`${mkt.kind}: უკვე ჩაწერილია`); continue }
-    // ESPN competition ამ kind-ისთვის
-    const comp = (espnEv.competitions || []).find((c: any) => {
-      const a = (c.type?.abbreviation || c.type?.text || '').toLowerCase()
-      if (mkt.kind === 'race') return a === 'race' || a.includes('race')
-      if (mkt.kind === 'quali') return a.includes('qual')
-      if (mkt.kind === 'sprint') return a.includes('sprint')
-      return false
-    })
+    // fastest_lap: ESPN scoreboard-ის winner flag = რბოლის გამარჯვებული, არა უსწრაფესი წრის ავტორი (f1-auto.js-ის იგივე წესი)
+    if (mkt.kind === 'fastest_lap') { out.push(`${mkt.kind}: ხელით შესაყვანია (ESPN-ს არ აქვს): <b>f1 შედეგი fastest_lap [ნომერი]</b>`); continue }
+    // ESPN competition ამ kind-ისთვის, scripts/f1-auto.js-ის espnComp-ის სარკე
+    const comp = espnComp(espnEv, mkt.kind)
     if (!comp) { out.push(`${mkt.kind}: ESPN-ზე ვერ მოიძებნა`); continue }
     if (comp.status?.type?.state !== 'post') { out.push(`${mkt.kind}: ჯერ არ დასრულებულა`); continue }
     const winner = (comp.competitors || []).find((x: any) => x.winner) || (comp.competitors || [])[0]
@@ -873,8 +907,8 @@ async function cmdF1ResultAuto(chatId: number): Promise<string> {
 
 async function cmdF1Result(chatId: number, text: string): Promise<string> {
   // გრძელი/სპეციფიკური ვარიანტები პირველად — თორემ "sprint_quali 5"-ში "quali" დაემთხვეოდა და quali მარკეტს გადაეწერებოდა
-  const m = text.match(/\b(sprint_quali|sprint|race|quali)\s+(\d{1,2})/)
-  if (!m) return '📝 ფორმატი: <b>f1 შედეგი race 1</b>\n(kind: race / quali / sprint / sprint_quali, მერე გამარჯვებული მძღოლის ნომერი)\n\nმძღოლების ნომრები: <b>f1 მძღოლები</b>'
+  const m = text.match(/\b(sprint_quali|sprint|race|quali|fastest_lap)\s+(\d{1,2})/)
+  if (!m) return '📝 ფორმატი: <b>f1 შედეგი race 1</b>\n(kind: race / quali / sprint / sprint_quali / fastest_lap, მერე გამარჯვებული მძღოლის ნომერი)\n\nმძღოლების ნომრები: <b>f1 მძღოლები</b>'
   const kind = m[1], num = parseInt(m[2])
   const race = await raceDueForSettlement()
   if (!race) return '🏎️ რბოლა ვერ მოიძებნა'
@@ -1499,7 +1533,7 @@ Deno.serve(async (req) => {
         response = await cmdF1Odds(chatId)
       } else if (t.includes('შედეგ') || t.includes('result')) {
         // ნომრით → ხელით; ნომრის გარეშე → ESPN-იდან ავტომატურად
-        if (/\b(sprint_quali|sprint|race|quali)\s+\d/.test(t)) {
+        if (/\b(sprint_quali|sprint|race|quali|fastest_lap)\s+\d/.test(t)) {
           response = await cmdF1Result(chatId, t)
         } else {
           await sendMsg(chatId, '⏳ ESPN-დან F1 შედეგების წამოღება...')
@@ -1557,7 +1591,7 @@ Deno.serve(async (req) => {
       }
     }
     else if (text === '/start' || text === 'help' || text === '/help') {
-      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── გენერალური ბრძანებები ──</b>\n🎫 <b>ბილეთები</b> — აქტიური ბილეთები (სამივე სპორტი ჯვარედინად + ჯამი სპორტების მიხედვით)\n✅ <b>ვერიფიცირებული იუზერები</b> — რამდენ მომხმარებელს აქვს ნომერი/ტელეგრამი\n\n<b>── UFC ──</b>\n📥 <b>ufc ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🔃 <b>ufc ბრძოლები</b> — არსებულ ივენთს ESPN-ს ადარებს, დაკლებულ ბრძოლებს ამატებს\n🖼️ <b>ufc ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>ufc კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>ufc შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>ufc settle</b> — ბილეთების დამუშავება\n🔄 <b>ufc სრულად</b> — ყველაფერი ერთად\n🎫 <b>ufc ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>ufc სტატუსი</b> — მდგომარეობა\n💰 <b>ufc რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)\n\n<b>── ⚽️ ფეხბურთი ──</b>\n<i>ლიგები: laliga · epl · seriea · bundesliga · ligue1 · ucl</i>\n📋 <b>laliga</b> — სტატუსი (ტური/მატჩები/ბილეთები)\n📊 <b>laliga კოეფები</b> — მიმდინარე ტურის კოეფები (1X2 + ტოტალი)\n⚽️ <b>laliga გუნდები</b> — ტურის მატჩები\n📥 <b>laliga ივენთი</b> — ESPN ფიქსტურები (რისი წამოღებაც შეიძლება)\n🏆 <b>laliga შედეგები</b> — დასრულებული მატჩები\n🏁 <b>laliga settle</b> — ტურის settlement\n🎫 <b>laliga ბილეთები</b> — აქტიური ბილეთები\n💰 <b>laliga რესეტი</b> — ბალანსები → 1,000\n<i>იგივე ბრძანებები ყველა ლიგაზე (მაგ. ucl კოეფები, epl გუნდები).</i>`
+      response = `🥊 <b>Fight Night Fantasy Bot</b>\n\n<b>── გენერალური ბრძანებები ──</b>\n🎫 <b>ბილეთები</b> — აქტიური ბილეთები (სამივე სპორტი ჯვარედინად + ჯამი სპორტების მიხედვით)\n✅ <b>ვერიფიცირებული იუზერები</b> — რამდენ მომხმარებელს აქვს ნომერი/ტელეგრამი\n\n<b>── UFC ──</b>\n📥 <b>ufc ივენთი</b> — ESPN-დან მომდევნო ივენთი\n🔃 <b>ufc ბრძოლები</b> — არსებულ ივენთს ESPN-ს ადარებს, დაკლებულ ბრძოლებს ამატებს\n🖼️ <b>ufc ფოტო</b> — მებრძოლების ფოტოები\n📊 <b>ufc კოეფიციენტები</b> — Odds API განახლება\n🏆 <b>ufc შედეგები</b> — ESPN-დან შედეგები\n🏁 <b>ufc settle</b> — ბილეთების დამუშავება\n🔄 <b>ufc სრულად</b> — ყველაფერი ერთად\n🎫 <b>ufc ბილეთები</b> — აქტიური ბილეთები (ვინ რას დებს)\n📋 <b>ufc სტატუსი</b> — მდგომარეობა\n💰 <b>ufc რესეტი</b> — ბალანსები → 1,000\n\n<b>── F1 ──</b>\n📥 <b>f1 ივენთი</b> — ESPN-დან მომდევნო რბოლა\n🎫 <b>f1 ბილეთები</b> — აქტიური F1 ბილეთები\n📋 <b>f1 სტატუსი</b> — რბოლა/მარკეტები/ბილეთები\n📊 <b>f1 კოეფ</b> — Cloudbet კოეფების განახლება\n🏆 <b>f1 შედეგი</b> — ESPN-დან ავტომატურად (ან ხელით: <b>f1 შედეგი race 1</b> / <b>f1 შედეგი fastest_lap 1</b>)\n🏎️ <b>f1 მძღოლები</b> — ნომრების სია\n🏁 <b>f1 settle</b> — ბილეთები + რბოლის დახურვა + რესეტი\n💰 <b>f1 რესეტი</b> — F1 ბალანსები → 1,000\n🔄 <b>f1 სრულად</b> — კოეფ+settle+სტატუსი\n\n<b>── NBA ──</b>\n📋 <b>nba სტატუსი</b> — თამაშები/ბილეთები\n📊 <b>nba კოეფ</b> — Odds API განახლება\n🏆 <b>nba შედეგები</b> — ESPN შედეგები + settle\n🏁 <b>nba settle</b> — ბილეთების დამუშავება\n🎫 <b>nba ბილეთები</b> — აქტიური ბილეთები\n💰 <b>nba რესეტი</b> — NBA ბალანსები → 1,000 (ავტო: ყოველ ორშაბათს)\n\n<b>── ⚽️ ფეხბურთი ──</b>\n<i>ლიგები: laliga · epl · seriea · bundesliga · ligue1 · ucl</i>\n📋 <b>laliga</b> — სტატუსი (ტური/მატჩები/ბილეთები)\n📊 <b>laliga კოეფები</b> — მიმდინარე ტურის კოეფები (1X2 + ტოტალი)\n⚽️ <b>laliga გუნდები</b> — ტურის მატჩები\n📥 <b>laliga ივენთი</b> — ESPN ფიქსტურები (რისი წამოღებაც შეიძლება)\n🏆 <b>laliga შედეგები</b> — დასრულებული მატჩები\n🏁 <b>laliga settle</b> — ტურის settlement\n🎫 <b>laliga ბილეთები</b> — აქტიური ბილეთები\n💰 <b>laliga რესეტი</b> — ბალანსები → 1,000\n<i>იგივე ბრძანებები ყველა ლიგაზე (მაგ. ucl კოეფები, epl გუნდები).</i>`
     }
     else if (text.startsWith('ufc') || text.startsWith('/ufc')) {
       const t = text.replace(/^\/?ufc\s*/, '')
