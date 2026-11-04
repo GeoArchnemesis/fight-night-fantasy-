@@ -66,7 +66,7 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
-<link rel="stylesheet" href="/style.css?v=216" />
+<link rel="stylesheet" href="/style.css?v=217" />
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
 <style>
 /* ── MOBILE BOTTOM NAV (mnav) — მხოლოდ მობილურზე ── (ufc/index.html-იდან, nav-ის სრულად აღსადგენად) */
@@ -131,11 +131,6 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
    (this stays the two-column 1100px layout; .nw-comments matches the
    article column alone at 760px, not the full width+sidebar). */
 .nw-layout{flex:1;width:min(1100px,calc(100% - 2*var(--gutter)));margin:0 auto;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:40px;align-items:start}
-/* Continuous-reading articles (PRD 10.4) have content only, no sidebar
-   -- single column at every width, not just the mobile breakpoint
-   below, or a 300px empty grid track would show up next to them on
-   desktop. */
-.nw-layout--continuous{grid-template-columns:1fr;border-top:1px solid var(--line);padding-top:clamp(24px,5vw,48px);margin-top:clamp(24px,5vw,48px)}
 .nw-art{min-width:0;padding:clamp(24px,5vw,48px) 0 60px}
 .nw-sidebar{padding:clamp(24px,5vw,48px) 0 60px}
 .nw-sidebar-inner{position:sticky;top:20px}
@@ -242,6 +237,21 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
 .nw-comment-delete:hover{color:var(--red)}
 .nw-comment-body{color:var(--text);font-size:.9rem;line-height:1.6;white-space:pre-wrap;word-break:break-word}
 .nw-comment-more{display:block;background:none;border:none;color:var(--gold);font-size:.85rem;font-weight:700;font-family:inherit;cursor:pointer;padding:4px 0 0;margin:0}
+/* Replaces the old infinite-scroll continuous feed: a single bounded
+   horizontal slider of every other published article. Always a row
+   (no column breakpoint) with scroll-snap so touch swipe works
+   natively -- same card (.article-card--list) and same row layout
+   values (150x112 thumb, column-oriented card, 3-line title clamp)
+   .nw-sidebar-list already uses for its own mobile horizontal row. */
+.nw-related{border-top:1px solid var(--line);padding:clamp(24px,5vw,48px) 0}
+.nw-related-inner{width:min(1100px,calc(100% - 2*var(--gutter)));margin:0 auto}
+.nw-related-head{margin-bottom:18px}
+.nw-related-list{display:flex;gap:14px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior-x:contain;padding:4px 4px 14px}
+.nw-related-list::-webkit-scrollbar{display:none}
+.nw-related-list .article-card--list{scroll-snap-align:start;flex:0 0 150px;flex-direction:column;gap:8px;padding:0;margin-bottom:0}
+.nw-related-list .acl-thumb{width:150px;height:112px}
+.nw-related-list .acl-title{-webkit-line-clamp:3}
+.nw-related-cta{display:flex;justify-content:center;margin-top:18px}
 </style>
 </head>
 <body>
@@ -289,12 +299,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div>
 </div></nav>
 
-<!-- PRD 8.9 -- measures #nwArt's own box, reset per article (see the
-     scroll handler near nwRenderReactions() below), not the whole
-     document, so it's meaningful once Phase 5's continuous-reading
-     appends a second article. -->
-<div class="read-progress" id="nwReadProgress"><i></i></div>
-
 <div class="nw-layout" id="nwFirstArticle">
 <main class="nw-art" id="nwArt">
 <a class="qback" href="/news/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">სიახლეები</span></a>
@@ -319,15 +323,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div id="nwCommentsList"></div>
 </section>
 
-<!-- PRD 10.4 -- continuous reading. Each appended article is its own
-     <article class="nw-layout" data-slug data-url data-title
-     data-canonical>, content only (no sidebar/reactions/comments of its
-     own -- those stay bound to #nwFirstArticle only, out of this
-     phase's explicit scope). #nwContinuousSentinel sits 1200px below
-     whichever article is currently last; nwRepositionSentinel() moves
-     it after every append. -->
-<div id="nwContinuousFeed"></div>
-<div id="nwContinuousSentinel" style="height:1px"></div>
+<!-- Replaces the old infinite-scroll continuous feed (PRD 10.4,
+     retired): a single bounded horizontal slider of every other
+     published article, oldest first, populated by
+     nwLoadRelatedArticles()/nwRenderRelatedList() below. -->
+<section class="nw-related" id="nwRelatedWrap">
+<div class="nw-related-inner">
+<div class="nw-related-head"><div class="sec-head"><h2>სიახლეები</h2></div></div>
+<div class="nw-related-list" id="nwRelatedList"><div class="nw-loading">იტვირთება...</div></div>
+<div class="nw-related-cta"><a class="btn btn--lg btn-primary" id="nwRelatedAllLink" href="/news/">ყველა სტატია</a></div>
+</div>
+</section>
 
 <div class="nw-share-pop-bg" id="nwSharePopBg" onclick="if(event.target===this) nwCloseSharePopover()">
   <div class="nw-share-pop">
@@ -769,18 +775,6 @@ function nwRenderArticle() {
   // write) -- a read of already-loaded state, safe to call before
   // nwLoadSidebarArticles() resolves.
   nwRenderSidebarList();
-
-  // PRD 10.4 -- the dominant-article observer (set up once nwLoad()
-  // resolves, see below) reads these off every [data-slug] element,
-  // #nwFirstArticle included, to know which article is on screen.
-  const first = document.getElementById('nwFirstArticle');
-  if (first) {
-    first.dataset.slug = a.slug;
-    first.dataset.url = cleanUrl;
-    first.dataset.title = metaTitle;
-    first.dataset.canonical = cleanUrl;
-    first.dataset.publishedAt = a.published_at || '';
-  }
 }
 
 // Article JSON-LD describes THIS page's own language (ka or en -- see
@@ -1251,13 +1245,7 @@ async function nwLoad() {
   nwArticle = data;
   nwRenderArticle();
   nwLoadSidebarArticles(slug);
-
-  nwSetupDominantObserver();
-  // Continuous (infinite-scroll) reading always appends the next
-  // article's Georgian content (nwContinuousArticleHtml) -- not wired
-  // for English yet, so it's switched off on /en/ pages rather than
-  // silently mixing languages.
-  if (nwPageLang() === 'ka') nwSetupContinuousSentinel();
+  nwLoadRelatedArticles(slug);
 
   document.getElementById('nwCommentsWrap').style.display = 'block';
   await nwInitEngagement();
@@ -1271,39 +1259,6 @@ function nwShowNotFound() {
     <a class="qback" href="${backHref}"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">${backLabel}</span></a>
     <div class="nw-notfound">სტატია ვერ მოიძებნა.</div>`;
 }
-
-// PRD 8.9 -- progress through the DOMINANT article's own box (top of
-// its content to the bottom, relative to the viewport), not the whole
-// document -- nwDominantEl is kept current by the observer below, and
-// defaults to #nwFirstArticle before continuous reading has appended
-// anything. rAF-throttled per the PRD's own INP guidance (8.9, 11)
-// rather than running on every scroll event.
-let nwProgressRaf = null;
-let nwDominantEl = null;
-function nwUpdateReadProgress() {
-  const art = nwDominantEl || document.getElementById('nwFirstArticle');
-  const bar = document.getElementById('nwReadProgress');
-  if (!art || !bar) return;
-  const r = art.getBoundingClientRect();
-  const total = r.height - innerHeight;
-  const scrolled = total > 0 ? Math.min(1, Math.max(0, -r.top / total)) : (r.top <= 0 ? 1 : 0);
-  bar.firstElementChild.style.width = (scrolled * 100) + '%';
-}
-window.addEventListener('scroll', () => {
-  if (nwProgressRaf) return;
-  nwProgressRaf = requestAnimationFrame(() => { nwUpdateReadProgress(); nwProgressRaf = null; });
-}, { passive: true });
-window.addEventListener('resize', nwUpdateReadProgress);
-
-// ─────────────────────────────────────────────────────────────
-//  PHASE 5 -- continuous reading (PRD 10.4). This site has no gtag.js
-//  (only the GTM container snippet, which works off window.dataLayer
-//  directly) -- this is the standard gtag.js bootstrap shim, so the
-//  gtag('event', ...) calls PRD 10.4 specifies still work by pushing
-//  into the same dataLayer GTM already reads, without loading the
-//  actual gtag.js library.
-// ─────────────────────────────────────────────────────────────
-function gtag() { (window.dataLayer = window.dataLayer || []).push(arguments); }
 
 // ─────────────────────────────────────────────────────────────
 //  OPTIONAL "მოუსმინე" PLAYER (PRD Phase 6 item 5) -- Web Speech API,
@@ -1464,143 +1419,58 @@ async function nwSetupAudioPlayer(bodyHtml) {
   nwRenderAudioUI();
 }
 
-let nwAppendedCount = 0;
-let nwContinuousLoading = false;
-let nwContinuousObserver = null;
-let nwDominantObserver = null;
-const NW_MAX_APPENDED = 5;
+let nwRelatedArticles = [];
 
-function nwContinuousArticleHtml(a) {
-  const title = a.title_ka;
-  const alt = a.cover_image_alt_ka || title;
-  const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), 'ka', 'long') : '';
-  const cleanUrl = `https://fnf.ge/news/${a.slug}/`;
-  const coverHtml = a.cover_image_url
-    ? `<img class="nw-art-cover" src="${nwTransformUrl(a.cover_image_url, 800, 75, 450)}" srcset="${nwSrcset(a.cover_image_url, [[400, 225], [800, 450], [1200, 675], [1600, 900]], 75)}" sizes="(min-width: 1100px) 760px, (min-width: 768px) 700px, 100vw" width="800" height="450" alt="${nwEscapeHtml(alt)}" loading="lazy" decoding="async" />`
-    : '';
-  return `<article class="nw-layout nw-layout--continuous" data-slug="${a.slug}" data-url="${cleanUrl}" data-title="${nwEscapeHtml(title)}" data-canonical="${cleanUrl}">
-    <main class="nw-art">
-      <h1 class="nw-art-title">${nwEscapeHtml(title)}</h1>
-      <div class="nw-art-meta">${[nwAuthorHtml(a.author, 'ka'), dateStr ? `<time datetime="${a.published_at || ''}">${dateStr}</time>` : ''].filter(Boolean).join(' · ')}</div>
-      ${coverHtml}
-      <div class="nw-art-body">${a.body_ka}</div>
-    </main>
-  </article>`;
-}
-
-// Next OLDER published article the reader hasn't already seen in this
-// session, by published_at -- there is no "series"/category context
-// for "next" here, just the same reverse-chronological order the
-// listing itself uses.
-async function nwFetchNextArticle(beforePublishedAt, excludeSlugs) {
-  let q = nwGetClient()
+// Replaces the old infinite-scroll continuous feed: every OTHER
+// published article, oldest first (Giorgi's explicit order -- not the
+// listing's usual newest-first), for the horizontal slider below the
+// comments. Same EN-eligibility rule nwLoadSidebarArticles() already
+// uses, so the slider also appears on /en/ pages.
+async function nwLoadRelatedArticles(excludeSlug) {
+  const { data, error } = await nwGetClient()
     .from('news')
-    .select('*')
+    .select('title_ka,title_en,slug,body_ka,body_en,cover_image_url,cover_image_alt_ka,cover_image_alt_en,published_at')
     .eq('is_published', true)
-    .order('published_at', { ascending: false })
-    .limit(1);
-  if (beforePublishedAt) q = q.lt('published_at', beforePublishedAt);
-  const { data, error } = await q;
-  if (error || !data || !data.length) return null;
-  const next = data.find((a) => !excludeSlugs.includes(a.slug));
-  return next || null;
+    .neq('slug', excludeSlug)
+    .order('published_at', { ascending: true });
+  if (error) { nwRelatedArticles = []; nwRenderRelatedList(); return; }
+  const lang = nwPageLang();
+  nwRelatedArticles = (data || []).filter((a) => lang !== 'en' || (a.title_en && a.body_en));
+  const allLink = document.getElementById('nwRelatedAllLink');
+  if (allLink) allLink.href = lang === 'en' ? '/en/news/' : '/news/';
+  nwRenderRelatedList();
 }
 
-function nwShownSlugs() {
-  return [...document.querySelectorAll('[data-slug]')].map((el) => el.dataset.slug);
-}
-
-function nwLastArticlePublishedAt() {
-  const nodes = [...document.querySelectorAll('[data-slug]')];
-  const last = nodes[nodes.length - 1];
-  return last ? last.dataset.publishedAt || null : null;
-}
-
-function nwRenderContinuousCta() {
-  const feed = document.getElementById('nwContinuousFeed');
-  if (!feed) return;
-  feed.insertAdjacentHTML('beforeend', `
-    <div class="nw-layout nw-layout--continuous" style="text-align:center">
-      <a class="btn btn--lg btn-primary" href="/news/">ყველა სტატია</a>
-    </div>`);
-}
-
-async function nwAppendNextArticle() {
-  if (nwContinuousLoading || nwAppendedCount >= NW_MAX_APPENDED) return;
-  nwContinuousLoading = true;
-  if (nwContinuousObserver) nwContinuousObserver.disconnect();
-
-  const lastSlugEl = [...document.querySelectorAll('[data-slug]')].pop();
-  const beforeDate = lastSlugEl ? lastSlugEl.dataset.publishedAt : (nwArticle ? nwArticle.published_at : null);
-  const next = await nwFetchNextArticle(beforeDate, nwShownSlugs());
-
-  nwContinuousLoading = false;
-  if (!next) return; // no more articles -- nothing to append, not an error
-
-  const feed = document.getElementById('nwContinuousFeed');
-  feed.insertAdjacentHTML('beforeend', nwContinuousArticleHtml(next));
-  const appended = feed.lastElementChild;
-  appended.dataset.publishedAt = next.published_at || '';
-  nwAppendedCount++;
-
-  if (nwDominantObserver) nwDominantObserver.observe(appended);
-
-  if (nwAppendedCount >= NW_MAX_APPENDED) {
-    nwRenderContinuousCta();
-  } else {
-    nwRepositionContinuousSentinel();
+// Same article-card--list card markup/CSS nwRenderSidebarList() already
+// renders for the "სხვა სტატიები" sidebar (and the news listing itself,
+// scripts/prerender-news.js's listCardHtml) -- reused as-is here, just
+// inside a horizontal scroll-snap row instead of a vertical list.
+function nwRenderRelatedList() {
+  const box = document.getElementById('nwRelatedList');
+  if (!box) return;
+  const lang = nwPageLang();
+  if (!nwRelatedArticles.length) {
+    box.innerHTML = `<div class="nw-comment-empty">${lang === 'en' ? 'No other articles yet' : 'სხვა სტატია ჯერ არ არის'}</div>`;
+    return;
   }
-}
 
-// Keeps #nwContinuousSentinel as the last element in the flow, so
-// "1200px below the end of the current article" tracks whichever
-// article was most recently appended, not a fixed position.
-function nwRepositionContinuousSentinel() {
-  const sentinel = document.getElementById('nwContinuousSentinel');
-  const feed = document.getElementById('nwContinuousFeed');
-  if (!sentinel || !feed) return;
-  feed.parentNode.insertBefore(sentinel, feed.nextSibling);
-  if (nwContinuousObserver) nwContinuousObserver.observe(sentinel);
-}
-
-function nwSetupContinuousSentinel() {
-  const sentinel = document.getElementById('nwContinuousSentinel');
-  if (!sentinel) return;
-  nwContinuousObserver = new IntersectionObserver((entries) => {
-    if (entries[0].isIntersecting) nwAppendNextArticle();
-  }, { rootMargin: '0px 0px 1200px 0px' });
-  nwContinuousObserver.observe(sentinel);
-}
-
-// Determines which article is "dominant" -- the one occupying the
-// viewport's center band. rootMargin's -45%/-45% shrinks the
-// observation root to the middle 10% of the viewport, so only the
-// article actually centered on screen intersects at all. threshold must
-// stay 0 (not 0.5): intersectionRatio is intersecting-area / the
-// TARGET's own full height, and real articles are almost always taller
-// than that 10%-tall band, so the ratio can never reach 0.5 no matter
-// where the article sits on screen -- verified via a direct
-// IntersectionObserver probe during Phase 5 testing (a 240px-tall test
-// article centered in an 800px viewport maxed out at ratio 0.33). 0
-// correctly fires on any overlap with the center band, which is exactly
-// "this article currently occupies the screen's center."
-function nwSetupDominantObserver() {
-  const first = document.getElementById('nwFirstArticle');
-  nwDominantEl = first;
-  nwDominantObserver = new IntersectionObserver((entries) => {
-    const hit = entries.find((e) => e.isIntersecting);
-    if (!hit || hit.target === nwDominantEl) return;
-    nwDominantEl = hit.target;
-    const d = nwDominantEl.dataset;
-    if (!d.slug) return;
-    history.replaceState({ slug: d.slug }, '', d.url);
-    document.title = d.title;
-    const canonical = document.querySelector('link[rel=canonical]');
-    if (canonical) canonical.href = d.canonical;
-    gtag('event', 'page_view', { page_path: d.url, page_title: d.title });
-    nwUpdateReadProgress();
-  }, { threshold: 0, rootMargin: '-45% 0px -45% 0px' });
-  if (first) nwDominantObserver.observe(first);
+  box.innerHTML = nwRelatedArticles.map(a => {
+    const title = lang === 'en' ? a.title_en : a.title_ka;
+    const alt = (lang === 'en' ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
+    const dateStr = a.published_at ? nwFormatDate(new Date(a.published_at), lang, 'short') : '';
+    const thumb = a.cover_image_url
+      ? `<img class="acl-thumb" src="${nwTransformUrl(a.cover_image_url, 224, 75, 168)}" srcset="${nwSrcset(a.cover_image_url, [[224, 168], [336, 252]], 75)}" sizes="150px" width="150" height="112" alt="${nwEscapeHtml(alt)}" loading="lazy" decoding="async" />`
+      : '';
+    const href = lang === 'en' ? `/en/news/${encodeURIComponent(a.slug)}/` : `/news/${encodeURIComponent(a.slug)}/`;
+    return `
+    <a class="article-card--list" href="${href}">
+      ${thumb}
+      <div class="acl-content">
+        <h3 class="acl-title">${nwEscapeHtml(title)}</h3>
+        <div class="acl-meta"><time datetime="${a.published_at || ''}">${dateStr}</time></div>
+      </div>
+    </a>`;
+  }).join('');
 }
 
 document.addEventListener('DOMContentLoaded', nwLoad);

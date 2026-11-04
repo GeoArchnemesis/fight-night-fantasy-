@@ -448,12 +448,6 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .article-card--list .acl-title{font-size:var(--fs-title);line-height:var(--lh-title);font-weight:700;color:var(--text);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
 .article-card--list .acl-meta{font-size:var(--fs-meta);color:var(--muted);margin-top:auto;padding-top:6px}
 
-/* Reading progress bar (PRD 8.9) -- sits just under the sticky nav
-   (68px tall here, not the PRD's assumed 56px fixed header) */
-.read-progress{position:fixed;top:calc(68px + env(safe-area-inset-top,0px));left:0;right:0;height:2px;z-index:251;background:transparent;pointer-events:none}
-.read-progress>i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--red),var(--gold));transition:width 60ms linear}
-@media(prefers-reduced-motion:reduce){.read-progress>i{transition:none}}
-
 /* Article action bar (PRD 8.8, later un-floated per Giorgi's R6 review --
    it no longer tracks scroll; sits in normal document flow right after
    .nw-layout, same spot it already had in the DOM) -- like/dislike/share,
