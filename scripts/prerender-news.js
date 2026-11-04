@@ -662,18 +662,19 @@ async function main() {
   if (!sitemap.includes(enStart) || !sitemap.includes(enEnd)) {
     log('✗ sitemap.xml has no NEWS-EN:START/END markers -- add them once, skipping EN sitemap entries.');
   } else {
-    const today = new Date().toISOString().slice(0, 10);
     const enArticles = articles.filter(hasEn);
-    const urls = [enListingOk ? ['https://fnf.ge/en/news/', '0.6'] : null]
-      .concat(enArticles.map((a) => [urlFor(a.slug, 'en'), '0.5']))
+    const articleLastmod = (a) => (a.published_at || a.created_at || '').slice(0, 10);
+    const listingLastmod = enArticles.map(articleLastmod).filter(Boolean).sort().pop() || '';
+    const urls = [enListingOk ? ['https://fnf.ge/en/news/', '0.6', listingLastmod] : null]
+      .concat(enArticles.map((a) => [urlFor(a.slug, 'en'), '0.5', articleLastmod(a)]))
       .filter(Boolean);
-    const enUrls = urls.map(([loc, priority]) => [
+    const enUrls = urls.map(([loc, priority, lastmod]) => [
       '  <url>',
       `    <loc>${loc}</loc>`,
-      `    <lastmod>${today}</lastmod>`,
+      lastmod ? `    <lastmod>${lastmod}</lastmod>` : null,
       `    <priority>${priority}</priority>`,
       '  </url>',
-    ].join('\n')).join('\n');
+    ].filter(Boolean).join('\n')).join('\n');
     const block = `${enStart}\n${enUrls}\n${enEnd}`;
     const esi = sitemap.indexOf(enStart);
     const eei = sitemap.indexOf(enEnd);
