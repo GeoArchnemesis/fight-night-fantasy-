@@ -493,8 +493,7 @@ function listCardHtml(a, lang) {
 
 function buildListingGrid(articles, lang) {
   if (!articles.length) return `<div class="nw-empty">${lang === 'en' ? 'No articles yet' : 'სტატია ჯერ არ არის'}</div>`;
-  const [hero, ...rest] = articles;
-  return heroCardHtml(hero, lang) + rest.map((a) => listCardHtml(a, lang)).join('');
+  return articles.map((a) => heroCardHtml(a, lang)).join('');
 }
 
 // Builds either news/index.html (lang='ka') or en/news/index.html
