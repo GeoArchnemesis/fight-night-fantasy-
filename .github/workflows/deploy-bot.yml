@@ -33,7 +33,8 @@ jobs:
         run: |
           supabase functions deploy telegram-bot \
             --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} \
-            --no-verify-jwt
+            --no-verify-jwt \
+            --yes
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
