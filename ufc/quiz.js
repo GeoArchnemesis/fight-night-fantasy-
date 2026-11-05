@@ -478,7 +478,8 @@ const DIFFICULTY = [
   { key:"easy",   label:"მარტივი", acc:0.40, dbLevel:"მარტივი", enabled:true,
     note:"მარტივ კითხვებს ელოდე, ზოგადი ცოდნითაც შეიძლება გახვიდე ფონს.", color:"var(--green)" },
   { key:"medium", label:"საშუალო", acc:0.62, dbLevel:"საშუალო", enabled:true,
-    note:"მეტ-ნაკლებად რთული კითხვებია, ალბათ MMA-ის შესახებ გარკვეული ცოდნა გჭირდება, მაგრამ რთულს არ გირჩევ", color:"var(--gold)" },
+    note:"მეტ-ნაკლებად რთული კითხვებია, ალბათ MMA-ის შესახებ გარკვეული ცოდნა გჭირდება, მაგრამ რთულს არ გირჩევ",
+    noteHtml:'მეტ-ნაკლებად რთული კითხვებია, ალბათ MMA-ის შესახებ გარკვეული ცოდნა გჭირდება, <span style="color:var(--red-soft)">მაგრამ რთულს არ გირჩევ</span>', color:"var(--gold)" },
   { key:"hard",   label:"რთული",   acc:0.82, dbLevel:"რთული", enabled:true,
     note:'"საშუალოს" რჩევა უნდა გაგეთვალისწინებინა.', color:"var(--red-soft)" },
   { key:"mixed",  label:"შერეული", acc:0.62, dbLevel:"შერეული", enabled:true,
@@ -824,7 +825,7 @@ function buildDifficultyPicker(action, { onReady, startLabel, onStart }){
         S.diffKey = d.key;
         chips.querySelectorAll(".chip").forEach(x=> x.classList.remove("sel"));
         c.classList.add("sel");
-        note.textContent = d.note;
+        if(d.noteHtml){ note.innerHTML = d.noteHtml; } else { note.textContent = d.note; }
         note.style.color = d.color;
         note.classList.add("show");
         startBtn.disabled = false;
