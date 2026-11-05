@@ -142,12 +142,7 @@ if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
 .nw-sidebar-list .article-card--list:hover .acl-title{color:var(--gold)}
 @media(max-width:920px){
   .nw-layout{grid-template-columns:1fr;gap:0}
-  .nw-sidebar{padding-top:0}
-  .nw-sidebar-inner{position:static}
-  .nw-sidebar-list{flex-direction:row;overflow-x:auto;overflow-y:visible;max-height:none;padding:4px 4px 14px}
-  .nw-sidebar-list .article-card--list{flex-direction:column;flex:0 0 150px;gap:8px}
-  .nw-sidebar-list .acl-thumb{width:150px;height:112px}
-  .nw-sidebar-list .acl-title{-webkit-line-clamp:3}
+  .nw-sidebar{display:none}
 }
 /* 96x20 measured -- an invisible ::after hit-area overlay instead of
    padding, so the link doesn't visually grow and push the H1 down
