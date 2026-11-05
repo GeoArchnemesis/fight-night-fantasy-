@@ -1,0 +1,45 @@
+name: Deploy Trigger Prerender Function
+
+# Deploys supabase/functions/trigger-prerender, the function
+# EPJQI8FX/news.html calls after a successful save to dispatch
+# prerender-news.yml immediately instead of waiting for its cron.
+#
+# A separate workflow rather than extending deploy-bot.yml: that workflow's
+# paths filter, secrets and trailing Telegram-webhook step are all specific
+# to the telegram-bot function, and this one only needs to deploy and set
+# one secret. One workflow per function keeps each one triggering only on
+# its own function's changes, the same way deploy-bot.yml already only
+# triggers on supabase/functions/telegram-bot/**.
+
+on:
+  push:
+    paths:
+      - 'supabase/functions/trigger-prerender/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Set Edge Function secrets
+        run: |
+          supabase secrets set \
+            GITHUB_DISPATCH_TOKEN="${{ secrets.GH_DISPATCH_TOKEN }}" \
+            --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} \
+            --yes
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Deploy Edge Function
+        run: |
+          supabase functions deploy trigger-prerender \
+            --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} \
+            --yes
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
