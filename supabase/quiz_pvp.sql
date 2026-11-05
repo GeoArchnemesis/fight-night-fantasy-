@@ -277,6 +277,12 @@ $$;
 --    authenticated reach everything only through these functions).
 -- ============================================================
 
+-- ⚠️ SUPERSEDED — DO NOT RUN THIS FUNCTION DEFINITION.
+-- create_quiz_room() below is superseded by the copy in
+-- quiz_group_pvp.sql, which is already applied and live. Re-running this
+-- file would downgrade the live function (losing whatever
+-- quiz_group_pvp.sql added on top of this version) and break PvP.
+-- This copy is kept here for historical/reference reasons only.
 create or replace function public.create_quiz_room(
   p_game_type text, p_level text, p_guest_id text default null, p_guest_name text default null
 ) returns table(room_id uuid, code text)
@@ -290,6 +296,11 @@ declare
   v_row record;
   v_clues jsonb;
   v_tries int := 0;
+  -- 'შერეული' (mixed) is a query-time sentinel, never a stored `level`
+  -- value -- see the matching note in quiz_no_repeat.sql's
+  -- get_ai_quiz_questions(). The room itself still records p_level
+  -- ('შერეული') as-is in quiz_rooms.level further down, purely for display.
+  v_mixed boolean := (p_level = 'შერეული');
 begin
   if p_game_type not in ('quiz', 'guess') then
     raise exception 'invalid game_type';
@@ -301,7 +312,7 @@ begin
     for v_row in
       select question, options, correct_index
       from public.quiz_questions
-      where level = p_level and is_active = true
+      where (v_mixed or level = p_level) and is_active = true
       order by random()
       limit 10                       -- keep in sync with quiz.js QUESTIONS_PER_GAME
     loop
@@ -312,7 +323,7 @@ begin
     for v_row in
       select clue1, clue2, clue3, clue4, answer
       from public.guess_who_questions
-      where level = p_level and is_active = true
+      where (v_mixed or level = p_level) and is_active = true
       order by random()
       limit 10                       -- keep in sync with quiz.js QUESTIONS_PER_GAME
     loop

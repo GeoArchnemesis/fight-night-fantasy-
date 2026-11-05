@@ -209,7 +209,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .btn.btn-primary:disabled{opacity:1;background:var(--line);color:var(--muted)}
 
 #quizRoot .difficulty{width:100%;display:flex;flex-direction:column;gap:10px}
-#quizRoot .diff-chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+/* 4 chips now (easy/medium/hard/mixed) -- 2x2 keeps each one wide enough
+   for its Georgian label instead of cramming 4 into one row. */
+#quizRoot .diff-chips{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
 /* p8 (LittleMoreUpdates.pdf, 3rd time): labels were left-aligned inside the
    chip despite text-align:center here — root cause is style.css's own
    global .chip rule (a separate, unrelated chip-row component) setting

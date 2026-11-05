@@ -43,3 +43,6 @@ functions/
 # monthly_badges_deprecated). Kept locally for reference only -- must never be
 # run against Supabase.
 supabase/monthly_badges.sql
+
+# Local Claude Code settings -- machine-specific, not part of the deployed site.
+.claude/

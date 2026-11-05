@@ -469,14 +469,20 @@ if(sb){
 
 // AI-ის სირთულის დონეები — acc = რა ალბათობით პასუხობს AI სწორად (მაღალი = რთული)
 // dbLevel — quiz_questions.level / guess_who_questions.level მნიშვნელობა სერვერზე.
-// enabled:false — ჯერ არ არსებობს კითხვები ამ დონეზე სერვერზე, ღილაკი გამორთულია.
+// "შერეული" (mixed) დონეს საკუთარი row-ები არ გააჩნია არც ერთ ცხრილში —
+// dbLevel="შერეული" სერვერზე (get_ai_quiz_questions / create_quiz_room)
+// არის query-time სენტინელი, რომელიც არ ფილტრავს level-ით და ყველა
+// აქტიურ რიგს ირჩევს (იხ. supabase/ufc_quiz_seed.sql და
+// supabase/quiz_no_repeat.sql-ის v_mixed).
 const DIFFICULTY = [
   { key:"easy",   label:"მარტივი", acc:0.40, dbLevel:"მარტივი", enabled:true,
     note:"მარტივ კითხვებს ელოდე, ზოგადი ცოდნითაც შეიძლება გახვიდე ფონს.", color:"var(--green)" },
-  { key:"medium", label:"საშუალო", acc:0.62, dbLevel:"საშუალო", enabled:false,
+  { key:"medium", label:"საშუალო", acc:0.62, dbLevel:"საშუალო", enabled:true,
     note:"მეტ-ნაკლებად რთული კითხვებია, ალბათ MMA-ის შესახებ გარკვეული ცოდნა გჭირდება, მაგრამ რთულს არ გირჩევ", color:"var(--gold)" },
-  { key:"hard",   label:"რთული",   acc:0.82, dbLevel:"რთული", enabled:false,
+  { key:"hard",   label:"რთული",   acc:0.82, dbLevel:"რთული", enabled:true,
     note:'"საშუალოს" რჩევა უნდა გაგეთვალისწინებინა.', color:"var(--red-soft)" },
+  { key:"mixed",  label:"შერეული", acc:0.62, dbLevel:"შერეული", enabled:true,
+    note:"ამ კატეგორიაში ყველა სირთულის კითხვები შეგხვდება.", color:"var(--blue)" },
 ];
 
 /* ============================================================

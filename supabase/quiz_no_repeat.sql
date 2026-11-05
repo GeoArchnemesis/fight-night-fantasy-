@@ -45,6 +45,11 @@
 --  Keep in sync with ufc/quiz.js if you ever change this: questions per
 --  game (currently 10, hardcoded as `limit 10` below, matching
 --  QUESTIONS_PER_GAME and quiz_pvp.sql's own `limit 10`).
+--
+--  UPDATE (mixed level): get_ai_quiz_questions() below now also accepts
+--  p_level = 'შერეული' (mixed) — a sentinel that is never stored as a row
+--  value, only used at query time to drop the level filter and pull from
+--  every active level. See the v_mixed comment inside the function.
 -- ============================================================
 
 
@@ -80,6 +85,14 @@ declare
   v_total int;
   v_seen  int;
   v_result jsonb;
+  -- 'შერეული' (mixed) is a query-time sentinel only -- it is never stored
+  -- as a `level` value on quiz_questions/guess_who_questions rows. When set,
+  -- every level-filter against those two tables below is dropped so the
+  -- pool spans all active rows of that game_type. The no-repeat seen-
+  -- tracking table (quiz_user_seen_questions) still keys on the literal
+  -- p_level string ('შერეული'), so a user's mixed-pool history stays its
+  -- own independent cycle, separate from their per-level history.
+  v_mixed boolean := (p_level = 'შერეული');
 begin
   if v_uid is null then
     raise exception 'authentication required';
@@ -89,9 +102,9 @@ begin
   end if;
 
   if p_game_type = 'quiz' then
-    select count(*) into v_total from public.quiz_questions where level = p_level and is_active = true;
+    select count(*) into v_total from public.quiz_questions where (v_mixed or level = p_level) and is_active = true;
   else
-    select count(*) into v_total from public.guess_who_questions where level = p_level and is_active = true;
+    select count(*) into v_total from public.guess_who_questions where (v_mixed or level = p_level) and is_active = true;
   end if;
 
   if v_total = 0 then
@@ -113,7 +126,7 @@ begin
     select coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) into v_result
     from (
       select * from public.quiz_questions
-      where level = p_level and is_active = true
+      where (v_mixed or level = p_level) and is_active = true
         and id::text not in (
           select question_id from public.quiz_user_seen_questions
           where user_id = v_uid and game_type = p_game_type and level = p_level
@@ -125,7 +138,7 @@ begin
     select coalesce(jsonb_agg(row_to_json(t)), '[]'::jsonb) into v_result
     from (
       select * from public.guess_who_questions
-      where level = p_level and is_active = true
+      where (v_mixed or level = p_level) and is_active = true
         and id::text not in (
           select question_id from public.quiz_user_seen_questions
           where user_id = v_uid and game_type = p_game_type and level = p_level

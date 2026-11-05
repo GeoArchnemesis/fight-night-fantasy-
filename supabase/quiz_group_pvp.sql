@@ -148,6 +148,11 @@ declare
   v_row record;
   v_clues jsonb;
   v_tries int := 0;
+  -- 'შერეული' (mixed) is a query-time sentinel, never a stored `level`
+  -- value -- see the matching note in quiz_no_repeat.sql's
+  -- get_ai_quiz_questions(). The room itself still records p_level
+  -- ('შერეული') as-is in quiz_rooms.level further down, purely for display.
+  v_mixed boolean := (p_level = 'შერეული');
 begin
   if p_game_type not in ('quiz', 'guess') then
     raise exception 'invalid game_type';
@@ -159,7 +164,7 @@ begin
     for v_row in
       select question, options, correct_index
       from public.quiz_questions
-      where level = p_level and is_active = true
+      where (v_mixed or level = p_level) and is_active = true
       order by random()
       limit 10                       -- keep in sync with quiz.js QUESTIONS_PER_GAME
     loop
@@ -170,7 +175,7 @@ begin
     for v_row in
       select clue1, clue2, clue3, clue4, answer
       from public.guess_who_questions
-      where level = p_level and is_active = true
+      where (v_mixed or level = p_level) and is_active = true
       order by random()
       limit 10                       -- keep in sync with quiz.js QUESTIONS_PER_GAME
     loop
