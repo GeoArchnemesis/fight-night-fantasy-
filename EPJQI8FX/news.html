@@ -871,6 +871,31 @@ function showEditorError(msg) {
   document.getElementById('editorError').textContent = msg;
 }
 
+// სტატიის წარმატებული შენახვის შემდეგ აგზავნის Supabase Edge Function-ს
+// (supabase/functions/trigger-prerender), რომელიც GitHub-ზე დაუყოვნებლივ
+// უშვებს prerender-news.yml workflow-ს, cron-ის (*/30 * * * *, რომელსაც
+// GitHub რეალურად გაცილებით იშვიათად უშვებს) მოლოდინის ნაცვლად. ქსელის
+// ჩავარდნა ან non-2xx პასუხი აქ არასდროს გადააგდებს (throw) -- ყოველთვის
+// აბრუნებს სტრიქონს: ცარიელს წარმატებისას, შეცდომის მოკლე აღწერას
+// ჩავარდნისას, იმისთვის, რომ dispatch-ის ჩავარდნამ ვერასდროს გამოიწვიოს
+// saveArticle()-ის ვერ-დასრულებული ეკრანი.
+async function nwTriggerPrerender() {
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return '';
+    const res = await fetch(SUPABASE_URL + '/functions/v1/trigger-prerender', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + session.access_token },
+    });
+    if (res.ok) return '';
+    let detail = 'HTTP ' + res.status;
+    try { const out = await res.json(); if (out && out.error) detail = out.error; } catch (_e) {}
+    return detail;
+  } catch (e) {
+    return (e && e.message) || String(e);
+  }
+}
+
 async function saveArticle() {
   showEditorError('');
 
@@ -940,6 +965,9 @@ async function saveArticle() {
   const articleId = editingId || saved.id;
   const catErr = await nwSyncArticleCategories(articleId, nwSelectedCategoryIds());
   if (catErr) { showEditorError('სტატია შენახულია, მაგრამ კატეგორიების განახლება ვერ მოხერხდა: ' + catErr.message); return; }
+
+  const dispatchErr = await nwTriggerPrerender();
+  if (dispatchErr) { showEditorError('სტატია შენახულია, მაგრამ საიტის განახლება ვერ დაიწყო: ' + dispatchErr); return; }
 
   showList();
 }
