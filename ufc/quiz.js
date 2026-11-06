@@ -19,7 +19,7 @@
    ============================================================ */
 const QUESTIONS_PER_GAME = 10;   // რამდენი კითხვა თითო თამაშში — სინქრონში ჰყავი supabase/quiz_pvp.sql-ის "limit 10"-თან
 const AI_ACCURACY        = 0.60; // ნაგულისხმევი AI სიზუსტე (overridable დონის მიხედვით)
-const TIME_PER_Q         = 15;   // წამი თითო კითხვაზე (მრავალპასუხიანი ქვიზი, AI-ის წინააღმდეგ)
+const TIME_PER_Q         = 30;   // წამი თითო კითხვაზე (მრავალპასუხიანი ქვიზი, AI-ის წინააღმდეგ)
 const CARD_SPEED_MS      = 170;  // კარტის ბრძოლის სისწრაფე
 const PVP_TIME_PER_Q     = 30;   // PDF p7: PvP-ში (ორივე ტიპი) — 30 წამი თითო კითხვაზე, AI-ის 15-ისგან დამოუკიდებლად
 const PVP_GUESS_CLUE_BONUS = 5;  // PDF p7: "ვინ ვარ?" PvP-ში ყოველი ახალი მინიშნება +5 წამს მატებს დროს
@@ -511,6 +511,7 @@ const S = {
   cbOpp:0,
   cbTimer:null,
   cbReveal:null,
+  cbEndTimers:[],    // ბარათების ბრძოლის დასრულების ეკრანზე (strips + ქულების თვლა) დაგეგმილი setTimeout-ების სია
   aiAcc:null,
   diffKey:null,
 };
@@ -526,6 +527,10 @@ function show(id){
   // startPvpWaitPolling) -- ამ ეკრანიდან ნებისმიერ სხვაზე გადასვლისას
   // ყოველთვის წყდება აქ, ერთ ადგილას.
   if(id !== "screen-pvp-wait") stopPvpWaitPolling();
+  // ბარათების ბრძოლის დასრულების ეკრანზე (strips-ის ანიმაცია + ქულების
+  // თვლა) დაგეგმილი setTimeout-ები ყოველთვის წყდება აქ ერთ ადგილას — ახალი
+  // თამაში ძველის ტაიმერებს არასდროს იმკვიდრებს.
+  if(id !== "screen-cards") stopEndBattleAnimation();
   $$(".screen").forEach(e=>e.classList.remove("active"));
   $("#"+id).classList.add("active");
   // მინი-ჰერო (სათაური) მხოლოდ პირველ ("აირჩიე თამაში") ეკრანზე ჩანს —
@@ -1780,9 +1785,12 @@ function startCardBattle(){
   const review = document.getElementById('cbReview');
   if(review) review.style.display = "none";
   $("#cb-restart").style.display = "none";
+  $("#cb-finish").style.display = "none";
   $("#cb-skip").style.display = "";
+  const controls = document.querySelector(".cb-controls");
+  if(controls) controls.classList.remove("finished");
   const board = document.querySelector(".cb-score");
-  board.classList.remove("finished");
+  board.classList.remove("finished", "win", "lose", "draw");
   document.querySelector(".cb-side.you").classList.remove("win");
   document.querySelector(".cb-side.opp").classList.remove("win");
   $("#cb-round").className = "cb-round";
@@ -1792,6 +1800,7 @@ function startCardBattle(){
   $("#cbBanner").className = "cb-banner";
   document.querySelector(".qbattle").style.display = "";
   show("screen-cards");
+  stopEndBattleAnimation();
   clearTimeout(S.cbTimer); clearTimeout(S.cbReveal);
   S.cbTimer = setTimeout(playCard, 150);
 }
@@ -1882,38 +1891,106 @@ function bump(el, val){
   setTimeout(()=> el.classList.remove("bump"), 220);
 }
 
+/* ---------- თამაშის დასრულების ეკრანზე: სწორი/არასწორი პასუხების
+   დამოუკიდებელი (მოთამაშე vs AI) მასივი, strips-ისა და renderReview-ის
+   გასაზიარებლად. ---- */
+function computeCorrectness(i){
+  const item = S.questions[i];
+  if(S.gameType === "guess"){
+    return { pOk: (S.playerPoints[i] || 0) > 0, oOk: (S.oppPoints[i] || 0) > 0 };
+  }
+  return { pOk: S.playerPicks[i] === item.a, oOk: S.oppPicks[i] === item.a };
+}
+
+function stopEndBattleAnimation(){
+  (S.cbEndTimers || []).forEach(t => clearTimeout(t));
+  S.cbEndTimers = [];
+}
+
+/* თითო კითხვაზე ორი strip (შენ / AI) — უჯრედები თავდაპირველად საწყის
+   მდგომარეობაში იქმნება, შემდეგ animateEndBattle ანიჭებს correct/wrong
+   კლასებს დაგვიანებით. */
+function renderCardStrips(){
+  const n = S.questions.length;
+  const youWrap = document.getElementById('cbStripYou');
+  const oppWrap = document.getElementById('cbStripOpp');
+  const correctness = [];
+  if(!youWrap || !oppWrap) return { youCells:[], oppCells:[], correctness };
+  youWrap.innerHTML = ""; oppWrap.innerHTML = "";
+  for(let i=0;i<n;i++){
+    correctness.push(computeCorrectness(i));
+    const yc = document.createElement("div"); yc.className = "cb-strip-cell";
+    const oc = document.createElement("div"); oc.className = "cb-strip-cell";
+    youWrap.appendChild(yc); oppWrap.appendChild(oc);
+  }
+  return { youCells: Array.from(youWrap.children), oppCells: Array.from(oppWrap.children), correctness };
+}
+
+/* strips-ის ანიმაცია + ქულების სინქრონული ათვლა ნულიდან. prefers-reduced-
+   motion-ის შემთხვევაში ყველაფერი დაუყოვნებლივ საბოლოო მდგომარეობაშია. */
+function animateEndBattle(youFinal, oppFinal){
+  stopEndBattleAnimation();
+  const { youCells, oppCells, correctness } = renderCardStrips();
+  const youNumEl = $("#cb-you"), oppNumEl = $("#cb-opp");
+
+  if(REDUCE_MOTION){
+    correctness.forEach((c,i)=>{
+      youCells[i].classList.add(c.pOk ? "correct" : "wrong");
+      oppCells[i].classList.add(c.oOk ? "correct" : "wrong");
+    });
+    youNumEl.textContent = youFinal;
+    oppNumEl.textContent = oppFinal;
+    return;
+  }
+
+  youNumEl.textContent = "0";
+  oppNumEl.textContent = "0";
+  let youCount = 0, oppCount = 0;
+  correctness.forEach((c,i)=>{
+    const delay = 220 + i*110;
+    S.cbEndTimers.push(setTimeout(()=>{
+      youCells[i].classList.add(c.pOk ? "correct" : "wrong");
+      if(c.pOk){ youCount++; youNumEl.textContent = youCount; }
+    }, delay));
+    S.cbEndTimers.push(setTimeout(()=>{
+      oppCells[i].classList.add(c.oOk ? "correct" : "wrong");
+      if(c.oOk){ oppCount++; oppNumEl.textContent = oppCount; }
+    }, delay));
+  });
+}
+
 function endBattle(){
   clearTimeout(S.cbTimer); clearTimeout(S.cbReveal);
   $("#cb-skip").style.display = "none";
   $("#cb-restart").style.display = "";
+  $("#cb-finish").style.display = "";
+  const controls = document.querySelector(".cb-controls");
+  if(controls) controls.classList.add("finished");
 
   const you=S.cbYou, opp=S.cbOpp;
   const board = document.querySelector(".cb-score");
   const sideYou = document.querySelector(".cb-side.you");
   const sideOpp = document.querySelector(".cb-side.opp");
   board.classList.add("finished");
+  board.classList.remove("win", "lose", "draw");
   sideYou.classList.remove("win"); sideOpp.classList.remove("win");
 
   document.querySelector(".qbattle").style.display = "none";
   $("#cb-log").innerHTML = "";
   $("#cb-round").className = "cb-round";
-  $("#cb-round").textContent = "დასრულდა";
+  $("#cb-round").innerHTML = '<span class="cb-vs-rule"></span><span class="cb-vs-text">VS</span><span class="cb-vs-rule"></span>';
 
-  const emoji = $("#cbf-emoji"), title = $("#cbf-title"), score = $("#cbf-score");
-  score.textContent = `${you} - ${opp}`;
-  if(you>opp){
-    sideYou.classList.add("win");
-    emoji.textContent = "🏆"; title.textContent = "თქვენ გაიმარჯვეთ"; title.className = "cbf-title win";
-    $("#cbBanner").className = "cb-banner win show";
-  } else if(you<opp){
-    sideOpp.classList.add("win");
-    emoji.textContent = "💀"; title.textContent = "თქვენ დამარცხდით"; title.className = "cbf-title lose";
-    $("#cbBanner").className = "cb-banner lose show";
-  } else {
-    emoji.textContent = "⚖️"; title.textContent = "ქვიზი ფრედ დასრულდა"; title.className = "cbf-title draw";
-    $("#cbBanner").className = "cb-banner";
-  }
-  $("#cb-final").classList.add("show");
+  // CHANGE 1: დასრულების ეკრანზე ემოჯი აღარ ჩანს არც ერთ მხარეს.
+  const myLab = ((currentAuthUser && currentAuthUser.nick) || "შენ").slice(0,14);
+  $("#cb-you-tag").textContent = myLab;
+  $("#cb-opp-ava").textContent = "";
+  $("#cb-opp-lab").textContent = "AI";
+
+  if(you>opp){ sideYou.classList.add("win"); board.classList.add("win"); }
+  else if(you<opp){ sideOpp.classList.add("win"); board.classList.add("lose"); }
+  else { board.classList.add("draw"); }
+
+  animateEndBattle(you, opp);
   renderReview();
 }
 
@@ -1926,7 +2003,6 @@ function renderReview(){
   if(!wrap || !list) return;
   const myLab = ((currentAuthUser && currentAuthUser.nick) || "შენ").slice(0,14);
   const oppLab = "AI";
-  const oppIco = "🤖";
 
   list.innerHTML = "";
   S.questions.forEach((item, i)=>{
@@ -1948,9 +2024,9 @@ function renderReview(){
     row.className = "cb-review-item";
     row.innerHTML = `
       <div class="cb-review-q"><span class="cb-review-num">${i+1}.</span>${qText}</div>
-      <div class="cb-review-a ${pOk ? "ok" : "bad"}">🤠 ${myLab}: ${pText}</div>
-      <div class="cb-review-a ${oOk ? "ok" : "bad"}">${oppIco} ${oppLab}: ${oText}</div>
-      <div class="cb-review-correct">✓ სწორი პასუხი: ${correctText}</div>`;
+      <div class="cb-review-a ${pOk ? "ok" : "bad"}">${myLab}: ${pText}</div>
+      <div class="cb-review-a ${oOk ? "ok" : "bad"}"><span class="cb-review-ai">${oppLab}:</span> ${oText}</div>
+      <div class="cb-review-correct">სწორი პასუხი: ${correctText}</div>`;
     list.appendChild(row);
   });
   wrap.style.display = "";
@@ -1976,11 +2052,19 @@ $("#cb-skip").addEventListener("click", ()=>{
   endBattle();
 });
 
-$("#cb-restart").addEventListener("click", resetToMode);
+$("#cb-restart").addEventListener("click", ()=>{
+  stopQuestionTimer(); clearTimeout(S.cbTimer); clearTimeout(S.cbReveal); stopEndBattleAnimation();
+  if(!S.gameType){ resetToMode(); return; }
+  chooseGameType(S.gameType);
+});
+$("#cb-finish").addEventListener("click", ()=>{
+  stopQuestionTimer(); clearTimeout(S.cbTimer); clearTimeout(S.cbReveal); stopEndBattleAnimation();
+  location.href = "/";
+});
 $("#back-from-cards").addEventListener("click", resetToMode);
 
 function resetToMode(){
-  stopQuestionTimer(); clearTimeout(S.cbTimer); clearTimeout(S.cbReveal);
+  stopQuestionTimer(); clearTimeout(S.cbTimer); clearTimeout(S.cbReveal); stopEndBattleAnimation();
   S.gameType = null;
   show("screen-gametype");
   pushQuizStep(null, null);

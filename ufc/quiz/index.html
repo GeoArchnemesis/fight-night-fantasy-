@@ -36,7 +36,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-<link rel="stylesheet" href="/style.css?v=218">
+<link rel="stylesheet" href="/style.css?v=219">
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
@@ -260,7 +260,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 #quizRoot .back-row+.cb-score,#quizRoot .cardarena{flex:1}
 #quizRoot .cb-score{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px;transition:border-color .3s}
-#quizRoot .cb-score.finished{border-color:var(--gold)}
 #quizRoot .cb-side{display:flex;flex-direction:column;align-items:center;gap:4px}
 #quizRoot .cb-side .tag{font-family:var(--mono);font-size:.8rem;color:var(--text);display:flex;align-items:center;gap:5px}
 #quizRoot .cb-side .num{font-family:var(--mono);font-weight:700;font-size:2.1rem;line-height:1;transition:transform .2s}
@@ -313,18 +312,61 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .cb-log{margin-top:14px;font-size:.85rem;color:var(--text);text-align:center;min-height:20px;line-height:1.4}
 #quizRoot .cb-controls{margin-top:16px;display:flex;gap:10px}
 #quizRoot .cb-controls .btn{padding:13px;font-size:.82rem}
+#quizRoot .cb-controls.finished{flex-direction:column;gap:9px}
+
+/* ---------- დასრულების ეკრანის სქორბორდი (CHANGE 1-3 — qxfc) ---------- */
+#quizRoot .cb-score.finished .cb-side .tag{font-size:12.5px;color:var(--text-2)}
+#quizRoot .cb-score.finished #cb-opp-lab{color:var(--red);font-weight:800;letter-spacing:.04em;text-shadow:0 0 6px rgba(243,29,37,.85),0 0 16px rgba(243,29,37,.45)}
+#quizRoot .cb-score.finished .cb-round{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+#quizRoot .cb-vs-rule{width:1px;height:22px;background:var(--line)}
+#quizRoot .cb-vs-text{font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--muted)}
+#quizRoot .cb-score.finished .cb-side .num{color:var(--text)}
+#quizRoot .cb-score.finished.win .cb-side.you .num{color:var(--green)}
+#quizRoot .cb-score.finished.lose .cb-side.opp .num{color:var(--green)}
+#quizRoot .cb-score.finished.draw .cb-side .num{color:var(--gold)}
+#quizRoot .cb-score.finished.win{border-left:3px solid var(--green)}
+#quizRoot .cb-score.finished.lose{border-left:3px solid var(--red)}
+#quizRoot .cb-score.finished.draw{border-left:3px solid var(--gold)}
+
+/* ---------- თითო-კითხვის strips (CHANGE 2-3 — qxfc) ---------- */
+#quizRoot .cb-strips{grid-column:1/-1;display:none;flex-direction:column;gap:7px;margin-top:10px}
+#quizRoot .cb-score.finished .cb-strips{display:flex}
+#quizRoot .cb-score.finished ~ .table-felt{display:none}
+#quizRoot .cb-strip-row{display:flex;align-items:center;gap:6px}
+#quizRoot .cb-strip-label{font-family:var(--mono);font-size:10px;letter-spacing:.1em;font-weight:700;width:26px;flex:0 0 26px;color:var(--text)}
+#quizRoot .cb-strip-label-ai{color:var(--red);text-shadow:0 0 6px rgba(243,29,37,.7)}
+#quizRoot .cb-strip{display:flex;flex:1;gap:3px;height:7px}
+#quizRoot .cb-strip-cell{flex:1;height:7px;border-radius:2px;background:var(--surface-2);opacity:.35;transform:scaleY(.5);transition:background .25s ease,opacity .25s ease,transform .25s ease}
+#quizRoot .cb-strip-cell.correct{background:var(--green);opacity:1;transform:scaleY(1)}
+#quizRoot .cb-strip-cell.wrong{background:var(--red);opacity:1;transform:scaleY(1)}
+
+/* ---------- დასრულების ეკრანის ქმედების ღილაკები (CHANGE 6 — qxfc) ---------- */
+#quizRoot .cb-controls .cb-finish-btn{min-height:48px;border-radius:999px;font-weight:800;font-size:15px;width:100%}
+#quizRoot .cb-finish-btn:not(.cb-finish-btn-ghost){background:var(--red);color:#fff;box-shadow:0 0 .2em 0 var(--red);border:none}
+#quizRoot .cb-finish-btn:not(.cb-finish-btn-ghost):active{transform:scale(.97)}
+#quizRoot .cb-finish-btn-ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+@media (hover:hover) and (pointer:fine){
+  #quizRoot .cb-finish-btn:not(.cb-finish-btn-ghost){transition:1s}
+  #quizRoot .cb-finish-btn:not(.cb-finish-btn-ghost):hover{outline:.1em solid transparent;outline-offset:.2em;box-shadow:0 0 1em 0 var(--red);animation:cbNewGameRipple 1s linear infinite,cbNewGameColorize 1s infinite;transition:.5s}
+}
+@keyframes cbNewGameRipple{0%{outline:0em solid transparent;outline-offset:-.1em}50%{outline:.2em solid rgba(243,29,37,.25);outline-offset:.2em}100%{outline:.4em solid transparent;outline-offset:.4em}}
+@keyframes cbNewGameColorize{0%{background:var(--red)}50%{background:var(--red-soft)}100%{background:var(--red)}}
 
 /* ---------- თამაშის შემდეგ: ყველა კითხვა-პასუხის მუდმივი სია ---------- */
 #quizRoot .cb-review{margin-top:18px;border-top:1px solid var(--line);padding-top:16px}
 #quizRoot .cb-review-head{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text);margin-bottom:10px;text-align:center}
-#quizRoot .cb-review-list{display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto;padding-right:4px}
+#quizRoot .cb-review-list{display:flex;flex-direction:column;gap:10px;max-height:300px;overflow-y:auto;padding-right:4px;overscroll-behavior:contain;-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent)}
+#quizRoot .cb-review-list::-webkit-scrollbar{width:4px}
+#quizRoot .cb-review-list::-webkit-scrollbar-track{background:transparent}
+#quizRoot .cb-review-list::-webkit-scrollbar-thumb{background:var(--surface-2);border-radius:999px}
 #quizRoot .cb-review-item{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
 #quizRoot .cb-review-q{font-size:.86rem;font-weight:700;line-height:1.4;margin-bottom:8px}
 #quizRoot .cb-review-num{color:var(--gold);margin-right:4px}
 #quizRoot .cb-review-a{font-size:.78rem;line-height:1.5}
 #quizRoot .cb-review-a.ok{color:var(--green)}
 #quizRoot .cb-review-a.bad{color:var(--red-soft)}
-#quizRoot .cb-review-correct{font-size:.74rem;color:var(--text);margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)}
+#quizRoot .cb-review-ai{color:var(--red);font-weight:700;text-shadow:0 0 6px rgba(243,29,37,.6)}
+#quizRoot .cb-review-correct{font-size:.74rem;color:var(--green);margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)}
 
 #quizRoot .gq-clues{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;max-height:168px;overflow-y:auto;padding-right:4px}
 #quizRoot .gq-clue{background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:.88rem;line-height:1.45;text-align:left}
@@ -626,6 +668,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="tag"><span id="cb-opp-ava">🤖</span> <span id="cb-opp-lab">AI</span></div>
           <div class="num" id="cb-opp">0</div>
         </div>
+        <div class="cb-strips" id="cbStrips">
+          <div class="cb-strip-row">
+            <span class="cb-strip-label">შენ</span>
+            <div class="cb-strip" id="cbStripYou"></div>
+          </div>
+          <div class="cb-strip-row">
+            <span class="cb-strip-label cb-strip-label-ai">AI</span>
+            <div class="cb-strip" id="cbStripOpp"></div>
+          </div>
+        </div>
       </div>
 
       <div class="table-felt">
@@ -665,12 +717,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
       <div class="cb-controls">
         <button class="btn btn-ghost" id="cb-skip">⏭ გამოტოვება</button>
-        <button class="btn btn-green" id="cb-restart" style="display:none">✓ დასრულება</button>
+        <button class="btn cb-finish-btn" id="cb-restart" style="display:none">ხელახლა თამაში</button>
+        <button class="btn cb-finish-btn cb-finish-btn-ghost" id="cb-finish" style="display:none">დასრულება</button>
       </div>
 
       <!-- QuizUpdates.pdf: ყველა კითხვა-პასუხის მუდმივი სია, თამაშის შემდეგ -->
       <div class="cb-review" id="cbReview" style="display:none">
-        <div class="cb-review-head">კითხვები და პასუხები</div>
+        <div class="cb-review-head">შედეგები</div>
         <div class="cb-review-list" id="cbReviewList"></div>
       </div>
     </div>
@@ -803,7 +856,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </nav>
 
 <!-- ── SCRIPTS ── -->
-<script src="/fantasy-nav.js?v=10"></script>
+<script src="/fantasy-nav.js?v=11"></script>
 <script>
 /* ── ufc-quiz-nav — "ქვიზი" ბმულის ჩამატება ნავში, მხოლოდ /ufc/ გვერდებზე.
    ბმული ემატება ზედა ნავის ძირითად ჯგუფში (#navLinks) — იგივე ადგილას,
@@ -838,7 +891,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=41"></script>
+<script src="/ufc/quiz.js?v=45"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){
