@@ -25,6 +25,19 @@ const r2  = x => Math.round(x * 100) / 100;
 const fmt = n => Number.isFinite(+n) ? Math.round(+n).toLocaleString('en-US') : '0';
 const METHODS = ['ნოკაუტი', 'მტკივნეული', 'გადაწყვეტილება'];
 const EN_MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+// ბილეთის განთავსების დრო — საქართველოს დროით, ხელით (ბრაუზერის ka-GE
+// locale ყველგან არ არსებობს სრულად, იხ. football-app.js-ის იგივე KA_MONTHS)
+const TZ = 'Asia/Tbilisi';
+const KA_MONTHS = ['იანვარი', 'თებერვალი', 'მარტი', 'აპრილი', 'მაისი', 'ივნისი', 'ივლისი', 'აგვისტო', 'სექტემბერი', 'ოქტომბერი', 'ნოემბერი', 'დეკემბერი'];
+const TK_CHEVRON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+function fmtPlacedAt(ms) {
+  if (!ms) return '-';
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: TZ, day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, hourCycle: 'h23' }).formatToParts(new Date(ms));
+  const get = t => (parts.find(p => p.type === t) || {}).value || '';
+  const mon = +get('month');
+  let hh = get('hour'); if (hh === '24') hh = '00';
+  return `${get('day')} ${KA_MONTHS[mon - 1] || ''} ${get('year')}, ${hh}:${get('minute')}`;
+}
 const $ = id => document.getElementById(id);
 function $on(id, ev, fn) { const el = document.getElementById(id); if (el) el.addEventListener(ev, fn); }
 
@@ -504,22 +517,25 @@ function renderTickets() {
     const isCollapsed = state.tkCollapsed[key] !== false;
     // #6: void leg-ები ბილეთიდან ქრება — მხოლოდ აქტიური პოზიციები ჩანს
     const visSels = t.sels.filter(s => selResult(s) !== 'void');
-    const statusColor = t.status === 'won' ? 'var(--green)' : (t.status === 'lost' ? 'var(--red-soft)' : (t.status === 'cashout' ? 'var(--gold)' : (t.status === 'void' ? 'var(--muted)' : '#ff9d3c')));
-    const winColor = t.status === 'won' ? 'var(--green)' : t.status === 'lost' ? 'var(--red-soft)' : 'var(--gold)';
-    const winText = t.status === 'won' ? '+' + fmt(potentialWin) : fmt(potentialWin);
-    const collapsedView = `<div class="tk-collapsed-info">
-        <div class="tkc-col"><span class="tkc-lbl">პოზიცია</span><span class="tkc-val">${visSels.length}</span></div>
-        <div class="tkc-col"><span class="tkc-lbl">ფსონი</span><span class="tkc-val">${fmt(t.stake)}</span></div>
-        <div class="tkc-col"><span class="tkc-lbl">კოეფ.</span><span class="tkc-val">${totalOdds}</span></div>
-        <div class="tkc-col"><span class="tkc-lbl">${t.status === 'cashout' ? 'ქეშაუთი' : t.status === 'void' ? 'დაბრუნდა' : 'შესაძლო მოგება'}</span><span class="tkc-val" style="color:${winColor}">${t.status === 'cashout' ? '✓' : t.status === 'void' ? fmt(t.stake) : winText}</span></div>
-      </div>`;
+    const markOf = (s) => { const r = selResult(s); return r === 'ok' ? { cls: 'ok', txt: '✓' } : r === 'no' ? { cls: 'no', txt: '✗' } : { cls: 'pending', txt: '•' }; };
+    const marksHtml = visSels.map(s => { const m = markOf(s); return `<span class="tk-mark ${m.cls}">${m.txt}</span>`; }).join('');
+    const figLabel = t.status === 'cashout' ? 'ქეშაუთი' : t.status === 'void' ? 'დაბრუნდა' : t.status === 'won' ? 'მოგება' : 'შესაძლო მოგება';
+    const figValue = t.status === 'cashout' ? '✓' : t.status === 'void' ? fmt(t.stake) : fmt(potentialWin);
     return `
     <div class="ticket tk-${t.status} ${isCollapsed ? 'collapsed' : ''}">
       <div class="tk-head" data-tktoggle="${key}" style="cursor:pointer">
-        <div class="tk-head-left"><span class="tk-status ${t.status}" style="color:${statusColor}">${stLabel[t.status] || t.status}</span><span class="tk-type">${t.type === 'express' ? 'ექსპრესი · ' + visSels.length + ' მოვლენა' : 'სინგლი'}</span></div>
-        <span class="tk-arrow ${isCollapsed ? '' : 'open'}">▾</span>
+        <div class="tk-head-top">
+          <span class="tk-chevron ${isCollapsed ? '' : 'open'}" aria-hidden="true">${TK_CHEVRON_SVG}</span>
+          <span class="tk-status-pill ${t.status}">${stLabel[t.status] || t.status}</span>
+          <div class="tk-marks">${marksHtml}</div>
+        </div>
+        <div class="tk-figs">
+          <div class="tk-fig"><span class="tkc-lbl">კოეფ.</span><span class="tkc-val">${totalOdds}</span></div>
+          <div class="tk-fig"><span class="tkc-lbl">ფსონი</span><span class="tkc-val">${fmt(t.stake)}</span></div>
+          <div class="tk-fig ${t.status}"><span class="tkc-lbl">${figLabel}</span><span class="tkc-val">${figValue}</span></div>
+        </div>
       </div>
-      ${isCollapsed ? collapsedView : `
+      ${isCollapsed ? '' : `
       <div class="tk-sels">
         ${visSels.length === 0 ? '<div class="tk-empty" style="padding:10px">ყველა პოზიცია გაუქმდა - ფსონი დაბრუნებულია</div>' : visSels.map(s => {
           const parts = s.name.split(' · '); const fighterName = (parts[0] || '').replace(' მოგება', ''); const extras = parts.slice(1).join(' · ');
@@ -527,20 +543,14 @@ function renderTickets() {
           const f = (s.i >= 0 && s.i < FIGHTS.length) ? FIGHTS[s.i] : null;
           const redName = s.redName || (f ? f.red.name : ''); const blueName = s.blueName || (f ? f.blue.name : '');
           const pickLabel = extras || 'გამარჯვებული';
-          const res = selResult(s); const resCls = res === 'ok' ? 'ok' : res === 'no' ? 'no' : ''; const resTxt = res === 'ok' ? '✓' : res === 'no' ? '✗' : '';
+          const m = markOf(s);
           return `<div class="tk-sel"><div class="tk-sel-main">
               <div class="tk-sel-fighters"><span class="tk-sel-dot red"></span><span class="tk-sel-red">${redName || 'Red'}</span><span class="tk-sel-vs">vs</span><span class="tk-sel-blue">${blueName || 'Blue'}</span><span class="tk-sel-dot blue"></span></div>
               <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}">${fighterName} - ${pickLabel}</div></div>
-            <div class="tk-sel-right">${resTxt ? `<span class="tk-sel-result ${resCls}">${resTxt}</span>` : ''}<span class="tk-sel-odds">${Number(s.odds || 0).toFixed(2)}</span></div></div>`;
+            <div class="tk-sel-right"><span class="tk-sel-result ${m.cls}">${m.txt}</span><span class="tk-sel-odds">${Number(s.odds || 0).toFixed(2)}</span></div></div>`;
         }).join('')}
       </div>
-      <div class="tk-foot"><span class="tk-foot-type">${t.type === 'express' ? 'ექსპრესი' : 'სინგლი'}</span><span class="tk-foot-pay">
-          ${t.status === 'won' ? '<span style="color:var(--green)">+' + fmt(potentialWin) + ' ქულა</span>'
-            : t.status === 'lost' ? '<span style="color:var(--red-soft)">' + fmt(potentialWin) + ' ქულა</span>'
-            : t.status === 'cashout' ? '<span style="color:var(--gold)">ქეშაუთი</span>'
-            : t.status === 'void' ? '<span style="color:var(--muted)">' + fmt(t.stake) + ' ქულა დაბრუნდა</span>'
-            : '<span class="tk-foot-label">შეს. მოგება</span><span style="color:var(--gold)">' + fmt(potentialWin) + '</span>'}
-        </span></div>
+      <div class="tk-foot"><span>ბილეთის ID <b>#${t._dbId != null ? t._dbId : '-'}</b></span><span>განთავსების დრო <b>${fmtPlacedAt(t.placedAt)}</b></span></div>
       ${showCashout ? `<button class="cashout-btn" data-co="${realIdx}">${cashoutLabel(t)}</button>` : ''}
       `}
     </div>`;
@@ -555,7 +565,24 @@ function renderTickets() {
   }
   document.querySelectorAll('[data-co]').forEach(b => b.onclick = (e) => { e.stopPropagation(); doCashout(+b.dataset.co); });
   document.querySelectorAll('[data-tktoggle]').forEach(b => b.onclick = () => { const key = b.dataset.tktoggle; state.tkCollapsed[key] = state.tkCollapsed[key] === false ? true : false; renderTickets(); });
+  fitTicketMarks();
 }
+
+// ── ბილეთის თავსართში მარკების (✓/✗/•) შეკვეცა, რომ ტევადობაზე მეტი არ
+// გადმოვიდეს — თითო ბარათზე რჩება რამდენიც ეტევა + ერთი "…" ბოლოში
+function fitTicketMarks() {
+  document.querySelectorAll('.tk-marks').forEach(wrap => {
+    const marks = Array.from(wrap.children).filter(c => c.classList.contains('tk-mark'));
+    marks.forEach(m => { m.style.display = ''; });
+    const oldEll = wrap.querySelector('.tk-mark-ellipsis'); if (oldEll) oldEll.remove();
+    if (!marks.length || wrap.scrollWidth <= wrap.clientWidth) return;
+    const ell = document.createElement('span'); ell.className = 'tk-mark-ellipsis'; ell.textContent = '…';
+    wrap.appendChild(ell);
+    for (let i = marks.length - 1; i >= 0 && wrap.scrollWidth > wrap.clientWidth; i--) marks[i].style.display = 'none';
+  });
+}
+let _tkMarksResizeTimer = null;
+window.addEventListener('resize', () => { clearTimeout(_tkMarksResizeTimer); _tkMarksResizeTimer = setTimeout(fitTicketMarks, 150); });
 
 // ── BALANCE / BAR ──
 function updateBalance(val) { if (!Number.isFinite(+val)) return; _balanceKnown = true; state.balance = +val; const el = document.getElementById('balNav'); if (el) el.textContent = fmt(val); }

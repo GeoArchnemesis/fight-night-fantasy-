@@ -19,7 +19,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-<link rel="stylesheet" href="/style.css?v=218">
+<link rel="stylesheet" href="/style.css?v=219">
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
@@ -531,6 +531,19 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
   });
   const AVATAR_ICONS = ['🥊','🏆','🔥','⚡','💪','🦁','🐺','👊','💎','🎯','⭐','🦅'];
   const fmt = n => Number.isFinite(+n) ? Math.round(+n).toLocaleString('en-US') : '0';
+  // ბილეთის განთავსების დრო — საქართველოს დროით, ხელით (ბრაუზერის ka-GE
+  // locale ყველგან არ არსებობს სრულად, იხ. football-app.js-ის იგივე KA_MONTHS)
+  const TZ = 'Asia/Tbilisi';
+  const KA_MONTHS = ['იანვარი', 'თებერვალი', 'მარტი', 'აპრილი', 'მაისი', 'ივნისი', 'ივლისი', 'აგვისტო', 'სექტემბერი', 'ოქტომბერი', 'ნოემბერი', 'დეკემბერი'];
+  const TK_CHEVRON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+  function fmtPlacedAt(ms) {
+    if (!ms) return '-';
+    const parts = new Intl.DateTimeFormat('en-US', { timeZone: TZ, day: 'numeric', month: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false, hourCycle: 'h23' }).formatToParts(new Date(ms));
+    const get = t => (parts.find(p => p.type === t) || {}).value || '';
+    const mon = +get('month');
+    let hh = get('hour'); if (hh === '24') hh = '00';
+    return `${get('day')} ${KA_MONTHS[mon - 1] || ''} ${get('year')}, ${hh}:${get('minute')}`;
+  }
   // რომელი ფენტეზიდან მოვიდა — ბალანსი ამის მიხედვით ჩაიტვირთება (ყოველთვის
   // შემსვლელი viewer-ის, არა იმის ვისაც სტუმრობს — ნავში ყოველთვის საკუთარი
   // ბალანსი ჩანს)
@@ -567,8 +580,8 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
     return a.join(' · ') || '-';
   }
   function resParts(res){
-    const cls = res === 'ok' ? 'ok' : res === 'no' ? 'no' : '';
-    const txt = res === 'ok' ? '✓' : res === 'no' ? '✗' : '';
+    const cls = res === 'ok' ? 'ok' : res === 'no' ? 'no' : 'pending';
+    const txt = res === 'ok' ? '✓' : res === 'no' ? '✗' : '•';
     return { cls, txt };
   }
 
@@ -583,14 +596,14 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       const r = resParts(s.result || null);
       return { kind:'fighters', redName: redName || 'Red', blueName: blueName || 'Blue', isRed: s.picked_fighter === 'red', fighterName: fName, pickLabel, odds: Number(s.odds || 0), resCls: r.cls, resTxt: r.txt };
     });
-    return { id: tk.id, type: tk.type, stake: Number(tk.stake), odds: Number(tk.total_odds), status: STATUS_MAP[tk.status] || tk.status, sels };
+    return { id: tk.id, type: tk.type, stake: Number(tk.stake), odds: Number(tk.total_odds), status: STATUS_MAP[tk.status] || tk.status, sels, placedAt: tk.placed_at ? new Date(tk.placed_at).getTime() : null };
   }
   function normalizeF1Ticket(tk){
     const sels = (tk.f1_selections || []).map(s => {
       const mk = s.market || {}; const r = resParts(s.result ? (RES_MAP[s.result] || null) : null);
       return { kind:'simple', left: KIND_SHORT[mk.kind] || mk.kind || '', pickLabel: (s.driver && s.driver.name) || '-', odds: Number(s.odds || 0), resCls: r.cls, resTxt: r.txt };
     });
-    return { id: tk.id, type: tk.type, stake: Number(tk.stake), odds: Number(tk.total_odds), status: STATUS_MAP[tk.status] || tk.status, sels };
+    return { id: tk.id, type: tk.type, stake: Number(tk.stake), odds: Number(tk.total_odds), status: STATUS_MAP[tk.status] || tk.status, sels, placedAt: tk.placed_at ? new Date(tk.placed_at).getTime() : null };
   }
   function normalizeNbaTicket(tk){
     const sels = (tk.nba_selections || []).map(s => {
@@ -600,7 +613,7 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       const r = resParts(s.result ? (RES_MAP[s.result] || null) : null);
       return { kind:'simple', left: matchup, pickLabel: pickName, odds: Number(s.odds || 0), resCls: r.cls, resTxt: r.txt };
     });
-    return { id: tk.id, type: tk.type, stake: Number(tk.stake), odds: Number(tk.total_odds), status: STATUS_MAP[tk.status] || tk.status, sels };
+    return { id: tk.id, type: tk.type, stake: Number(tk.stake), odds: Number(tk.total_odds), status: STATUS_MAP[tk.status] || tk.status, sels, placedAt: tk.placed_at ? new Date(tk.placed_at).getTime() : null };
   }
   function normalizeSoccerTicket(tk){
     const sels = (tk.soccer_selections || []).map(s => {
@@ -614,7 +627,7 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       const r = resParts(s.result ? (RES_MAP[s.result] || null) : null);
       return { kind:'simple', left: matchup, pickLabel: pickName, odds: Number(s.odds || 0), resCls: r.cls, resTxt: r.txt };
     });
-    return { id: tk.id, type: tk.type, stake: Number(tk.stake), odds: Number(tk.total_odds), status: STATUS_MAP[tk.status] || tk.status, sels };
+    return { id: tk.id, type: tk.type, stake: Number(tk.stake), odds: Number(tk.total_odds), status: STATUS_MAP[tk.status] || tk.status, sels, placedAt: tk.placed_at ? new Date(tk.placed_at).getTime() : null };
   }
 
   async function fetchTicketsForTab(userId, key){
@@ -651,15 +664,9 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
   function ticketCardHtml(t, key){
     const isCollapsed = tkCollapsed[key] !== false;
     const potentialWin = Math.round((t.stake || 0) * (t.odds || 0));
-    const statusColor = t.status === 'won' ? 'var(--green)' : (t.status === 'lost' ? 'var(--red-soft)' : (t.status === 'cashout' ? 'var(--gold)' : (t.status === 'void' ? 'var(--muted)' : '#ff9d3c')));
-    const winColor = t.status === 'won' ? 'var(--green)' : t.status === 'lost' ? 'var(--red-soft)' : 'var(--gold)';
-    const winText = t.status === 'won' ? '+' + fmt(potentialWin) : fmt(potentialWin);
-    const collapsedView = `<div class="tk-collapsed-info">
-        <div class="tkc-col"><span class="tkc-lbl">პოზიცია</span><span class="tkc-val">${t.sels.length}</span></div>
-        <div class="tkc-col"><span class="tkc-lbl">ფსონი</span><span class="tkc-val">${fmt(t.stake)}</span></div>
-        <div class="tkc-col"><span class="tkc-lbl">კოეფ.</span><span class="tkc-val">${t.odds.toFixed(2)}</span></div>
-        <div class="tkc-col"><span class="tkc-lbl">${t.status === 'cashout' ? 'ქეშაუთი' : t.status === 'void' ? 'დაბრუნდა' : 'შესაძლო მოგება'}</span><span class="tkc-val" style="color:${winColor}">${t.status === 'cashout' ? '✓' : t.status === 'void' ? fmt(t.stake) : winText}</span></div>
-      </div>`;
+    const marksHtml = t.sels.map(s => `<span class="tk-mark ${s.resCls}">${s.resTxt}</span>`).join('');
+    const figLabel = t.status === 'cashout' ? 'ქეშაუთი' : t.status === 'void' ? 'დაბრუნდა' : t.status === 'won' ? 'მოგება' : 'შესაძლო მოგება';
+    const figValue = t.status === 'cashout' ? '✓' : t.status === 'void' ? fmt(t.stake) : fmt(potentialWin);
     const selsHtml = t.sels.map(s => {
       const left = s.kind === 'fighters'
         ? `<span class="tk-sel-dot red"></span><span class="tk-sel-red">${s.redName}</span><span class="tk-sel-vs">vs</span><span class="tk-sel-blue">${s.blueName}</span><span class="tk-sel-dot blue"></span>`
@@ -668,18 +675,24 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       return `<div class="tk-sel"><div class="tk-sel-main">
           <div class="tk-sel-fighters">${left}</div>
           <div class="tk-sel-pick ${s.kind === 'fighters' ? 'pick-' + (s.isRed ? 'red' : 'blue') : 'pick-red'}">${pickText}</div></div>
-        <div class="tk-sel-right">${s.resTxt ? `<span class="tk-sel-result ${s.resCls}">${s.resTxt}</span>` : ''}<span class="tk-sel-odds">${s.odds.toFixed(2)}</span></div></div>`;
+        <div class="tk-sel-right"><span class="tk-sel-result ${s.resCls}">${s.resTxt}</span><span class="tk-sel-odds">${s.odds.toFixed(2)}</span></div></div>`;
     }).join('');
-    const payHtml = t.status === 'won' ? `<span style="color:var(--green)">+${fmt(potentialWin)} ქულა</span>`
-      : t.status === 'lost' ? `<span style="color:var(--red-soft)">${fmt(potentialWin)} ქულა</span>`
-      : t.status === 'cashout' ? `<span style="color:var(--gold)">ქეშაუთი</span>`
-      : t.status === 'void' ? `<span style="color:var(--muted)">${fmt(t.stake)} ქულა დაბრუნდა</span>`
-      : `<span class="tk-foot-label">შეს. მოგება</span><span style="color:var(--gold)">${fmt(potentialWin)}</span>`;
     return `<div class="ticket tk-${t.status} ${isCollapsed ? 'collapsed' : ''}">
-      <div class="tk-head" data-tktoggle="${key}"><div class="tk-head-left"><span class="tk-status ${t.status}" style="color:${statusColor}">${STATUS_LABEL[t.status] || t.status}</span><span class="tk-type">${t.type === 'express' ? 'ექსპრესი · ' + t.sels.length + ' მოვლენა' : 'სინგლი'}</span></div><span class="tk-arrow ${isCollapsed ? '' : 'open'}">▾</span></div>
-      ${isCollapsed ? collapsedView : `
+      <div class="tk-head" data-tktoggle="${key}" style="cursor:pointer">
+        <div class="tk-head-top">
+          <span class="tk-chevron ${isCollapsed ? '' : 'open'}" aria-hidden="true">${TK_CHEVRON_SVG}</span>
+          <span class="tk-status-pill ${t.status}">${STATUS_LABEL[t.status] || t.status}</span>
+          <div class="tk-marks">${marksHtml}</div>
+        </div>
+        <div class="tk-figs">
+          <div class="tk-fig"><span class="tkc-lbl">კოეფ.</span><span class="tkc-val">${t.odds.toFixed(2)}</span></div>
+          <div class="tk-fig"><span class="tkc-lbl">ფსონი</span><span class="tkc-val">${fmt(t.stake)}</span></div>
+          <div class="tk-fig ${t.status}"><span class="tkc-lbl">${figLabel}</span><span class="tkc-val">${figValue}</span></div>
+        </div>
+      </div>
+      ${isCollapsed ? '' : `
       <div class="tk-sels">${selsHtml || '<div class="tk-empty" style="padding:10px">პოზიციები არ არის</div>'}</div>
-      <div class="tk-foot"><span class="tk-foot-type">${t.type === 'express' ? 'ექსპრესი' : 'სინგლი'}</span><span class="tk-foot-pay">${payHtml}</span></div>
+      <div class="tk-foot"><span>ბილეთის ID <b>#${t.id != null ? t.id : '-'}</b></span><span>განთავსების დრო <b>${fmtPlacedAt(t.placedAt)}</b></span></div>
       `}
     </div>`;
   }
@@ -728,7 +741,24 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
       tkCollapsed[k] = tkCollapsed[k] === false ? true : false;
       renderTicketGroups(sportKey, rows);
     });
+    fitTicketMarks();
   }
+
+  // ── ბილეთის თავსართში მარკების (✓/✗/•) შეკვეცა, რომ ტევადობაზე მეტი არ
+  // გადმოვიდეს — თითო ბარათზე რჩება რამდენიც ეტევა + ერთი "…" ბოლოში
+  function fitTicketMarks() {
+    document.querySelectorAll('.tk-marks').forEach(wrap => {
+      const marks = Array.from(wrap.children).filter(c => c.classList.contains('tk-mark'));
+      marks.forEach(m => { m.style.display = ''; });
+      const oldEll = wrap.querySelector('.tk-mark-ellipsis'); if (oldEll) oldEll.remove();
+      if (!marks.length || wrap.scrollWidth <= wrap.clientWidth) return;
+      const ell = document.createElement('span'); ell.className = 'tk-mark-ellipsis'; ell.textContent = '…';
+      wrap.appendChild(ell);
+      for (let i = marks.length - 1; i >= 0 && wrap.scrollWidth > wrap.clientWidth; i--) marks[i].style.display = 'none';
+    });
+  }
+  let _tkMarksResizeTimer = null;
+  window.addEventListener('resize', () => { clearTimeout(_tkMarksResizeTimer); _tkMarksResizeTimer = setTimeout(fitTicketMarks, 150); });
 
   async function selectSportTab(key){
     activeSportTab = key;
@@ -1433,7 +1463,7 @@ document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.
 <script>
 (function(){var sp=document.getElementById('mnavSport');if(!sp)return;var pop=sp.querySelector('.mnav-pop');sp.addEventListener('click',function(e){if(e.target.closest('.mnav-pop-opt'))return;if(pop)pop.classList.toggle('show');});document.addEventListener('click',function(e){if(pop&&!e.target.closest('#mnavSport'))pop.classList.remove('show');});})();
 </script>
-<script src="/fantasy-nav.js?v=10"></script>
+<script src="/fantasy-nav.js?v=11"></script>
 <!-- ── REPORT CONTACT POPUP ── -->
 <div id="reportPopup" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(5,4,8,.8);backdrop-filter:blur(6px);justify-content:center;align-items:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--surface,#14121c);border:1px solid var(--line,#2a2734);border-radius:12px;padding:28px;max-width:340px;width:100%;text-align:center">
