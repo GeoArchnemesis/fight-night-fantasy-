@@ -478,6 +478,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 /* PvP AFK rule -- "დაბრუნება" button shown after 2 consecutive timed-out
    questions, see quiz.js updateAfkButtonVisibility. */
 .afk-return-btn{display:block;margin:0 auto 10px}
+#quizRoot .afk-return-btn{background:var(--green);color:#06230f;border:none;
+  box-shadow:0 0 .4em .05em rgba(58,209,126,.95), 0 0 1.6em .25em rgba(58,209,126,.5);
+  animation:afkGlowPulse 1.4s ease-in-out infinite}
+@keyframes afkGlowPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@media (prefers-reduced-motion:reduce){#quizRoot .afk-return-btn{animation:none}}
 </style>
 </head>
 <body>
@@ -914,7 +919,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=51"></script>
+<script src="/ufc/quiz.js?v=52"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){
