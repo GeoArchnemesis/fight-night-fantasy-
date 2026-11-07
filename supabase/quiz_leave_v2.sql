@@ -1,19 +1,21 @@
 -- ============================================================
 --  quiz_leave_v2.sql — away-budget forfeit, no-delete active-leave,
 --  stuck-room fix, + Phase 1b amendments below
---  NOT APPLIED. Nothing in this repo runs this file — review it, then
---  paste the WHOLE thing into the Supabase SQL Editor (project
---  qxfcwsiysnjxhxljqigl) and run it once, top to bottom, AFTER
---  quiz_pvp.sql, quiz_group_pvp.sql, quiz_pvp_r2.sql,
+--  APPLIED. This file (sections A-G) has been run in full against the live
+--  Supabase project (qxfcwsiysnjxhxljqigl) via the SQL Editor, top to
+--  bottom, AFTER quiz_pvp.sql, quiz_group_pvp.sql, quiz_pvp_r2.sql,
 --  quiz_pvp_host_leave.sql, quiz_presence.sql and quiz_cron.sql (this file
 --  replaces sweep_quiz_room and submit_quiz_answer from quiz_presence.sql,
 --  leave_quiz_room from quiz_pvp_host_leave.sql, rejoin_quiz_room from
 --  quiz_group_pvp.sql, and sweep_abandoned_quiz_rooms from quiz_cron.sql —
---  all CREATE OR REPLACE, same signatures, no DROP needed). Safe to re-run
---  top to bottom. Live function bodies were re-confirmed byte-for-byte
---  against the repo files via pg_get_functiondef() on the live project
---  right before writing this (and again before the Phase 1b amendments
---  below).
+--  all CREATE OR REPLACE, same signatures, no DROP needed). Applied
+--  2026-11-07; every statement in sections A-G is idempotent and was
+--  re-run (as a no-op verification pass) the same day with no errors.
+--  Live function bodies were re-confirmed byte-for-byte against the repo
+--  files via pg_get_functiondef() on the live project right before writing
+--  this (and again before the Phase 1b amendments below). Section H's two
+--  one-off statements have ALREADY been run against the two rooms named
+--  there — do not run them again.
 --
 --  THREE BUGS FIXED HERE (original pass):
 --
