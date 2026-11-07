@@ -457,7 +457,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #pvpRecoveryBanner{display:none;position:fixed;top:0;left:0;right:0;z-index:60;align-items:center;gap:10px;background:var(--gold);color:var(--ink);padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top,0px));font-family:var(--head)}
 #pvpRecoveryBanner.show{display:flex}
 #pvpRecoveryBanner .pvp-rb-text{flex:1;min-width:0;font-weight:700;font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#pvpRecoveryBanner .pvp-rb-return{min-height:auto;padding:3px 12px;margin:0 2px;font-size:inherit;border-color:currentColor;vertical-align:baseline}
+#pvpRecoveryBanner .pvp-rb-return{min-height:auto;padding:3px 12px;margin:0 2px;font-size:inherit;vertical-align:baseline}
+/* "დაბრუნება" glow -- same filled-button + ripple/colorize-pulse pattern as
+   #quizRoot .cb-finish-btn (results screen "ხელახლა თამაში"), var(--red)
+   swapped for var(--green) so it reads as a clear call-to-action on the
+   gold banner instead of blending into it as a ghost button. */
+#pvpRecoveryBanner .pvp-rb-return{background:var(--green);color:#06240f;border:none;box-shadow:0 0 .2em 0 var(--green)}
+#pvpRecoveryBanner .pvp-rb-return:active{transform:scale(.97)}
+@media (hover:hover) and (pointer:fine){
+  #pvpRecoveryBanner .pvp-rb-return{transition:1s}
+  #pvpRecoveryBanner .pvp-rb-return:hover{outline:.1em solid transparent;outline-offset:.2em;box-shadow:0 0 1em 0 var(--green);animation:pvpRbReturnRipple 1s linear infinite,pvpRbReturnColorize 1s infinite;transition:.5s}
+}
+@media (prefers-reduced-motion:reduce){
+  #pvpRecoveryBanner .pvp-rb-return{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+@keyframes pvpRbReturnRipple{0%{outline:0em solid transparent;outline-offset:-.1em}50%{outline:.2em solid rgba(58,209,126,.35);outline-offset:.2em}100%{outline:.4em solid transparent;outline-offset:.4em}}
+@keyframes pvpRbReturnColorize{0%{background:var(--green)}50%{background:#5fe0a0}100%{background:var(--green)}}
 #pvpRecoveryBanner .pvp-rb-timer{flex:none;font-family:var(--mono);font-weight:700;font-size:1.05rem;min-width:22px;text-align:center}
 #pvpRecoveryBanner .pvp-rb-close{flex:none;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--ink);font-size:1.5rem;line-height:1;cursor:pointer}
 /* PvP AFK rule -- "დაბრუნება" button shown after 2 consecutive timed-out
@@ -899,7 +914,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=49"></script>
+<script src="/ufc/quiz.js?v=51"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){

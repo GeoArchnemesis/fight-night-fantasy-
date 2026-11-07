@@ -62,6 +62,18 @@
   if (!record) return;
   if (typeof record.awayStartedAt !== "number") return;
   if (typeof record.savedAt !== "number" || Date.now() - record.savedAt > MAX_AGE_MS) return;
+
+  // Fold any time already elapsed under the OLD awayStartedAt into
+  // awayMsUsed immediately, then move the reference point to now -- same
+  // fix as ufc/quiz.js's initPvpRoomRecovery, needed here too since this
+  // script runs on every other page and reads the same stored record.
+  // Without this, reopening/refreshing this page recomputes the remaining
+  // budget against a stale awayStartedAt that never advanced on its own,
+  // making the countdown look like it restarted at a fresh 20s.
+  var foldedUsed = (typeof record.awayMsUsed === "number" ? record.awayMsUsed : 0) + Math.max(0, Date.now() - record.awayStartedAt);
+  record = Object.assign({}, record, { awayMsUsed: foldedUsed, awayStartedAt: Date.now() });
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(record)); } catch (e) {}
+
   if (remainingMs(record) <= 0) return;
 
   // Copy of #pvpRecoveryBanner's own CSS (ufc/quiz/index.html) so the two
@@ -71,7 +83,17 @@
       '#fnfQrb{display:none;position:fixed;top:0;left:0;right:0;z-index:60;align-items:center;gap:10px;background:var(--gold);color:var(--ink);padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top,0px));font-family:var(--head)}',
       '#fnfQrb.show{display:flex}',
       '#fnfQrb .pvp-rb-text{flex:1;min-width:0;font-weight:700;font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
-      '#fnfQrb .pvp-rb-return{min-height:auto;padding:3px 12px;margin:0 2px;font-size:inherit;border-color:currentColor;vertical-align:baseline}',
+      '#fnfQrb .pvp-rb-return{min-height:auto;padding:3px 12px;margin:0 2px;font-size:inherit;vertical-align:baseline}',
+      // "დაბრუნება" glow -- same filled-button + ripple/colorize-pulse
+      // pattern as ufc/quiz/index.html's #quizRoot .cb-finish-btn (results
+      // screen "ხელახლა თამაში") and its #pvpRecoveryBanner counterpart,
+      // var(--red) swapped for var(--green).
+      '#fnfQrb .pvp-rb-return{background:var(--green);color:#06240f;border:none;box-shadow:0 0 .2em 0 var(--green)}',
+      '#fnfQrb .pvp-rb-return:active{transform:scale(.97)}',
+      '@media (hover:hover) and (pointer:fine){#fnfQrb .pvp-rb-return{transition:1s}#fnfQrb .pvp-rb-return:hover{outline:.1em solid transparent;outline-offset:.2em;box-shadow:0 0 1em 0 var(--green);animation:fnfQrbReturnRipple 1s linear infinite,fnfQrbReturnColorize 1s infinite;transition:.5s}}',
+      '@media (prefers-reduced-motion:reduce){#fnfQrb .pvp-rb-return{animation-duration:.01ms !important;transition-duration:.01ms !important}}',
+      '@keyframes fnfQrbReturnRipple{0%{outline:0em solid transparent;outline-offset:-.1em}50%{outline:.2em solid rgba(58,209,126,.35);outline-offset:.2em}100%{outline:.4em solid transparent;outline-offset:.4em}}',
+      '@keyframes fnfQrbReturnColorize{0%{background:var(--green)}50%{background:#5fe0a0}100%{background:var(--green)}}',
       '#fnfQrb .pvp-rb-timer{flex:none;font-family:var(--mono);font-weight:700;font-size:1.05rem;min-width:22px;text-align:center}',
       '#fnfQrb .pvp-rb-close{flex:none;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--ink);font-size:1.5rem;line-height:1;cursor:pointer}'
     ].join('');
@@ -109,7 +131,13 @@
     var token = findAccessToken();
     if (token) {
       try {
-        fetch(SUPABASE_URL + "/rest/v1/rpc/quiz_forfeit_player", {
+        // leave_quiz_room, not quiz_forfeit_player: the latter raises
+        // "room not active" for a room that hasn't started yet, so the x
+        // did nothing while the room was still in its lobby. leave_quiz_room
+        // does the right thing either way (deletes the player and hands off
+        // host in a 'waiting' room, forfeits with answers zeroed in an
+        // 'active' one).
+        fetch(SUPABASE_URL + "/rest/v1/rpc/leave_quiz_room", {
           method: "POST",
           headers: {
             "apikey": SUPABASE_ANON_KEY,
@@ -144,7 +172,14 @@
 
     returnBtn.onclick = function () {
       hide();
-      location.href = '/ufc/quiz/?resume=1';
+      // Phase 5A fix D: a room now has its own URL (?room=<code>, set by
+      // ufc/quiz.js's setRoomUrlParam) -- ufc/quiz.js's own ?room= handling
+      // rejoins and resumes straight back into it in one click, the same
+      // as ?resume=1 did, so this reuses that single path instead of a
+      // second bespoke one. ?resume=1 itself is untouched and still works.
+      location.href = record.code
+        ? '/ufc/quiz/?room=' + encodeURIComponent(record.code)
+        : '/ufc/quiz/?resume=1';
     };
     closeBtn.onclick = function (e) {
       e.stopPropagation();

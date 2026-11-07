@@ -926,6 +926,22 @@ function pvpAwayRemainingMs(record){
   return Math.max(0, PVP_AWAY_BUDGET_MS - used - (Date.now() - startedAt));
 }
 
+// Phase 5A: give every room a shareable/refreshable URL. history.state keeps
+// whatever pushQuizStep/quizRestoreStep already put there (the popstate
+// handler below reads st.quizGameType/st.quizMode from it) -- only the
+// address bar itself changes, so a plain room link always resumes into the
+// right place without disturbing that back/forward stack.
+function setRoomUrlParam(code){
+  if(!code) return;
+  history.replaceState(history.state, "", "/ufc/quiz/?room=" + encodeURIComponent(code));
+}
+function stripRoomParam(){
+  const url = new URL(location.href);
+  if(!url.searchParams.has("room")) return;
+  url.searchParams.delete("room");
+  history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+}
+
 // Fired on 'pagehide' (navigating away / closing the tab) while a PvP game
 // is active -- a normal sb.rpc() call would usually get cancelled during
 // unload, so this sends a keepalive fetch instead. Deliberately not hooked
@@ -1066,6 +1082,7 @@ async function joinPvpRoom(codeRaw){
 
 function enterPvpLobby({ roomId, code, isHost, questions }){
   savePvpRoomRecoveryState(roomId, code);
+  setRoomUrlParam(code);
   PVP = {
     roomId, code, isHost,
     myId: currentAuthUser && currentAuthUser.id,
@@ -1201,6 +1218,7 @@ function startPvpWaitPolling(){
 function onPvpRoomActive(){
   if(!PVP || PVP.started) return;
   PVP.started = true;
+  setRoomUrlParam(PVP.code);
   S.questions = PVP.questions || [];
   S.qi = 0;
   S.playerPicks = []; S.playerPoints = [];
@@ -1276,6 +1294,7 @@ async function onPvpRoomFinished(){
 function onPvpRoomAbandoned(){
   if(!PVP) return;
   clearPvpRoomRecoveryState();
+  stripRoomParam();
   showQuizToast("ოთახი დაიხურა.", 3500);
   resetPvp();
   S.gameType = null;
@@ -1320,6 +1339,7 @@ $("#back-to-mode-from-pvp").addEventListener("click", ()=>{ resetPvp(); history.
 
 async function leavePvpRoom(){
   clearPvpRoomRecoveryState();
+  stripRoomParam();
   if(PVP){ try{ await sb.rpc('leave_quiz_room', { p_room_id: PVP.roomId }); }catch(e){} }
   resetPvp();
   history.back();
@@ -1424,6 +1444,7 @@ $("#pvp-copy-code").addEventListener("click", async ()=>{
 
 function finishPvpResults(){
   clearPvpRoomRecoveryState();
+  stripRoomParam();
   resetPvp();
   S.gameType = null;
   show("screen-gametype");
@@ -2108,6 +2129,21 @@ function resetToMode(){
    then straightens the address bar back out to the canonical path.
    ============================================================ */
 window.addEventListener("popstate", e=>{
+  // Phase 5A fix A: this page's own history steps (pushQuizStep/
+  // quizRestoreStep) mean going back inside a live PvP game only ever
+  // switches screens -- pagehide never fires, so quiz_mark_away never
+  // fires either, and the other players never learn this player is gone.
+  // A backward move out of a live game (results not shown yet) must mean
+  // actually leaving it, no confirmation dialog. The PvP lobby ('waiting')
+  // is untouched -- its own back-row button (leavePvpRoom) already calls
+  // leave_quiz_room.
+  if(PVP && PVP.started && !PVP.resultsShown){
+    const roomId = PVP.roomId;
+    clearPvpRoomRecoveryState();
+    stripRoomParam();
+    resetPvp();
+    if(roomId && sb) sb.rpc('leave_quiz_room', { p_room_id: roomId }).catch(()=>{});
+  }
   const st = e.state || {};
   quizRestoreStep(st.quizGameType || null, st.quizMode || null);
 });
@@ -2127,16 +2163,31 @@ window.addEventListener("popstate", e=>{
 })();
 
 // PvP share link (?room=<code>) must join the room directly, not just
-// prefill the join input on a screen the visitor never reaches.
+// prefill the join input on a screen the visitor never reaches. Phase 5A
+// fix D: a matching local recovery record means this ?room= link is OUR
+// OWN room (setRoomUrlParam put us here ourselves, on entering the lobby
+// or going active) -- rejoin and resume straight back into it below, no
+// recovery banner, no extra click, instead of running the "join a
+// friend's room" flow. No matching record (or rejoin saying "not a
+// participant") means a genuine shared invite link, so that flow still
+// runs exactly as before.
 (async function initQuizRoomDeepLink(){
   const params = new URLSearchParams(location.search);
   const roomCode = (params.get("room") || "").trim().toUpperCase();
   if(!roomCode || !sb) return;
-  // S.gameType may already be set by the ?s= shim above (e.g. a "guess"
-  // room link), so keep it when present instead of forcing "quiz".
-  quizRestoreStep(S.gameType || "quiz", "pvp");
-  const codeInput = document.getElementById("pvp-join-code");
-  if(codeInput) codeInput.value = roomCode;
+
+  function showPvpJoinUi(){
+    // S.gameType may already be set by the ?s= shim above (e.g. a "guess"
+    // room link), so keep it when present instead of forcing "quiz".
+    quizRestoreStep(S.gameType || "quiz", "pvp");
+    const codeInput = document.getElementById("pvp-join-code");
+    if(codeInput) codeInput.value = roomCode;
+  }
+
+  const saved = readPvpRoomRecoveryState();
+  const isOwnRoom = !!(saved && saved.roomId && saved.code && saved.code.toUpperCase() === roomCode);
+  if(!isOwnRoom) showPvpJoinUi();
+
   // A signed-in visitor must not see the auth modal flash while
   // currentAuthUser is still being filled in asynchronously by
   // applyAuthSession. A stored Supabase session key means that will
@@ -2154,6 +2205,32 @@ window.addEventListener("popstate", e=>{
       await new Promise(resolve => setTimeout(resolve, 100));
     }
   }
+
+  if(isOwnRoom && currentAuthUser){
+    try{
+      const { data, error } = await sb.rpc('rejoin_quiz_room', { p_room_id: saved.roomId });
+      if(error){
+        if(/player forfeited/.test(error.message || "")){
+          clearPvpRoomRecoveryState();
+          showQuizToast("ეს ქვიზი თქვენთვის დასრულებულია", 3500);
+          stripRoomParam();
+          return;
+        }
+        // 'not a participant' or anything else -- stale/mismatched record,
+        // fall through to the normal join flow below.
+      } else if(data && data.length){
+        const row = data[0];
+        if(row.status === "waiting" || row.status === "active"){
+          resumePvpRoom(saved.roomId, row);
+          return;
+        }
+        // 'finished'/'abandoned' -- nothing left to resume into, fall
+        // through (a stale link to our own, now-over room).
+      }
+    }catch(e){ /* fall through to the join flow below */ }
+  }
+
+  if(isOwnRoom) showPvpJoinUi(); // rejoin above didn't pan out -- same fallback UI as a friend's link
   requireAuth(()=> joinPvpRoom(roomCode));
 })();
 
@@ -2267,6 +2344,7 @@ async function resumePvpRoom(roomId, row){
   // branch builds PVP directly, so it must set it too, or the displayed
   // code can keep showing whatever room this player was in before.
   $("#pvp-room-code").textContent = row.code;
+  setRoomUrlParam(row.code);
   subscribePvpRoom();
   S.questions = PVP.questions;
   S.qi = 0;
@@ -2285,13 +2363,18 @@ async function resumePvpRoom(roomId, row){
 }
 
 // submit_quiz_answer now rejects a forfeited player server-side (Phase 1),
-// so looping submitPvpAnswer over every unanswered index is dead code --
-// quiz_forfeit_player is the single source of truth for the all-zeros
-// forfeit. Never calls leave_quiz_room -- that removes the player row and
-// would erase them from the other players' results.
+// so looping submitPvpAnswer over every unanswered index is dead code.
+// Phase 5A fix B: this used to call quiz_forfeit_player, which raises
+// 'room not active' for a 'waiting' room -- the banner's x in the lobby
+// did nothing. leave_quiz_room is the single "give up and get out" path
+// for every room status now: it deletes the player (and hands off host)
+// in a 'waiting' room, and forfeits with all answers zeroed (same as
+// quiz_forfeit_player did) in an 'active' one -- quiz_forfeit_player
+// itself is left in place with no remaining caller.
 async function forfeitPvpRoom(roomId){
-  try{ await sb.rpc('quiz_forfeit_player', { p_room_id: roomId }); }catch(e){}
+  try{ await sb.rpc('leave_quiz_room', { p_room_id: roomId }); }catch(e){}
   clearPvpRoomRecoveryState();
+  stripRoomParam();
 }
 
 (async function initPvpRoomRecovery(){
@@ -2312,6 +2395,20 @@ async function forfeitPvpRoom(roomId){
     clearPvpRoomRecoveryState();
     return;
   }
+
+  // Phase 5A fix C: fold any time already elapsed under the OLD
+  // awayStartedAt into awayMsUsed immediately, then move the reference
+  // point to now -- awayMsUsed otherwise only ever grows on an actual
+  // resume (see resumePvpRoom below), so every refresh/reopen in between
+  // recomputed the remaining budget against a stale awayStartedAt that
+  // never advanced on its own, making the countdown look like it restarted
+  // at a fresh 20s instead of continuing to run down.
+  if(typeof saved.awayStartedAt === "number"){
+    const foldedUsed = (saved.awayMsUsed || 0) + Math.max(0, Date.now() - saved.awayStartedAt);
+    saved = Object.assign({}, saved, { awayMsUsed: foldedUsed, awayStartedAt: Date.now() });
+    updatePvpAwayRecoveryState({ awayMsUsed: foldedUsed, awayStartedAt: Date.now() });
+  }
+
   if(!sb) return;
 
   // Same "wait briefly for an already-known session" pattern as
