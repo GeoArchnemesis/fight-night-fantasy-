@@ -1149,6 +1149,7 @@ async function refreshPvpPlayers(){
     .order("joined_at", { ascending: true });
   if(error){ console.warn("[quiz] PvP player list fetch failed:", error); return; }
   PVP.players = data || [];
+  PVP.isHost = PVP.players.some(p=> p.player_id === PVP.myId && p.is_host);
   await fetchPvpAvatars();
   const lobbyEl = document.getElementById("screen-pvp-lobby");
   const waitEl = document.getElementById("screen-pvp-wait");
@@ -1179,10 +1180,17 @@ function renderPvpLobbyList(){
     list.appendChild(row);
   }
   $("#pvp-players-count").textContent = `${PVP.players.length} / ${PVP.maxPlayers} მოთამაშე`;
+  const startBtn = $("#pvp-start-btn");
+  const hint = $("#pvp-lobby-hint");
+  startBtn.style.display = PVP.isHost ? "" : "none";
   if(PVP.isHost){
     const enough = PVP.players.length >= 2;
-    $("#pvp-start-btn").disabled = !enough;
-    $("#pvp-lobby-hint").style.display = enough ? "none" : "";
+    startBtn.disabled = !enough;
+    hint.textContent = "ველოდებით მინიმუმ 1 მეგობარს...";
+    hint.style.display = enough ? "none" : "";
+  } else {
+    hint.textContent = "ველოდებით ჰოსტს დაწყებას...";
+    hint.style.display = "";
   }
 }
 
