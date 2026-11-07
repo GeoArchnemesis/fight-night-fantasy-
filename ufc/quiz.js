@@ -20,11 +20,20 @@
 const QUESTIONS_PER_GAME = 10;   // რამდენი კითხვა თითო თამაშში — სინქრონში ჰყავი supabase/quiz_pvp.sql-ის "limit 10"-თან
 const AI_ACCURACY        = 0.60; // ნაგულისხმევი AI სიზუსტე (overridable დონის მიხედვით)
 const TIME_PER_Q         = 30;   // წამი თითო კითხვაზე (მრავალპასუხიანი ქვიზი, AI-ის წინააღმდეგ)
-const CARD_SPEED_MS      = 170;  // კარტის ბრძოლის სისწრაფე
 const PVP_TIME_PER_Q     = 30;   // PDF p7: PvP-ში (ორივე ტიპი) — 30 წამი თითო კითხვაზე, AI-ის 15-ისგან დამოუკიდებლად
 const PVP_GUESS_CLUE_BONUS = 5;  // PDF p7: "ვინ ვარ?" PvP-ში ყოველი ახალი მინიშნება +5 წამს მატებს დროს
 const TIMER_AMBER_MS = 10000; // ბოლო ~10 წამი — ბარი ყვითლდება
 const TIMER_RED_MS   = 5000;  // ბოლო ~5 წამი — ბარი წითლდება
+
+// PvP away/forfeit budget (server-authoritative, see quiz_pvp_away_budget_seconds()
+// in supabase/quiz_leave_v2.sql) — hardcoded here only for the client-side
+// recovery-banner countdown display, never to decide an actual forfeit.
+const PVP_AWAY_BUDGET_MS = 20000;
+// PvP AFK rule: after this many *consecutive* timed-out questions, every
+// following question's timer shrinks to AFK_SHORT_TIME_MS and a
+// "დაბრუნება" button appears — see updateAfkButtonVisibility/startTimer/startGuessTimer.
+const AFK_TIMEOUT_THRESHOLD = 2;
+const AFK_SHORT_TIME_MS = 5000;
 
 /* prefers-reduced-motion: თაიმერის ბარი წყვეტს უწყვეტ (rAF) ანიმაციას და
    მხოლოდ მთელ წამებზე "ხტება" (იგივე სიხშირით, რითაც რიცხვი იცვლება) —
@@ -427,10 +436,16 @@ async function fetchAuthUser(session){
 }
 
 let currentAuthUser = null; // თუ null-ია — ვიზიტორი შესული არ არის; თამაშის დასაწყებად საჭიროა (requireAuth)
+// PvP pagehide mark-away (see quiz_mark_away below) needs the current access
+// token synchronously, from inside a pagehide handler that can't await a
+// fresh sb.auth.getSession() call -- kept current by every session event.
+let _authAccessToken = null;
 
 let _authApplying = false;
 async function applyAuthSession(session){
-  if(!session || _authApplying) return;
+  if(!session) return;
+  _authAccessToken = session.access_token;
+  if(_authApplying) return;
   _authApplying = true;
   try{
     const user = await fetchAuthUser(session);
@@ -461,7 +476,7 @@ if(sb){
     .catch(()=>{});
   sb.auth.onAuthStateChange((event, session)=>{
     setTimeout(()=>{
-      if(event === 'SIGNED_OUT'){ currentAuthUser = null; updateAuthNav(null); }
+      if(event === 'SIGNED_OUT'){ currentAuthUser = null; _authAccessToken = null; updateAuthNav(null); }
       else if(session) applyAuthSession(session);
     }, 0);
   });
@@ -509,11 +524,10 @@ const S = {
   bIndex:0,
   cbYou:0,
   cbOpp:0,
-  cbTimer:null,
-  cbReveal:null,
   cbEndTimers:[],    // ბარათების ბრძოლის დასრულების ეკრანზე (strips + ქულების თვლა) დაგეგმილი setTimeout-ების სია
   aiAcc:null,
   diffKey:null,
+  consecTimeouts:0, // PvP AFK rule — consecutive timed-out questions for the local player (vs-AI never touches this)
 };
 
 /* ---------- helpers ---------- */
@@ -884,12 +898,59 @@ let PVP = null; // { roomId, code, isHost, myId, myName, maxPlayers, players, st
 // near the bottom of this file.
 const PVP_ROOM_STORAGE_KEY = "fnf_quiz_room";
 const PVP_ROOM_STORAGE_MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours
+// awayMsUsed/awayStartedAt track the cumulative away budget (client-side
+// display only, see PVP_AWAY_BUDGET_MS -- the server is the actual forfeit
+// authority) across possibly multiple leave/return cycles of the same room.
 function savePvpRoomRecoveryState(roomId, code){
-  try{ localStorage.setItem(PVP_ROOM_STORAGE_KEY, JSON.stringify({ roomId, code, savedAt: Date.now() })); }catch(e){}
+  try{ localStorage.setItem(PVP_ROOM_STORAGE_KEY, JSON.stringify({ roomId, code, savedAt: Date.now(), awayMsUsed: 0, awayStartedAt: null })); }catch(e){}
+}
+function readPvpRoomRecoveryState(){
+  try{
+    const raw = localStorage.getItem(PVP_ROOM_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  }catch(e){ return null; }
+}
+function updatePvpAwayRecoveryState(patch){
+  const cur = readPvpRoomRecoveryState();
+  if(!cur) return;
+  try{ localStorage.setItem(PVP_ROOM_STORAGE_KEY, JSON.stringify(Object.assign({}, cur, patch, { savedAt: Date.now() }))); }catch(e){}
 }
 function clearPvpRoomRecoveryState(){
   try{ localStorage.removeItem(PVP_ROOM_STORAGE_KEY); }catch(e){}
 }
+// 20000 - awayMsUsed - (time elapsed since awayStartedAt), clamped at 0 --
+// display-only countdown for the recovery banner (change 2/3).
+function pvpAwayRemainingMs(record){
+  const used = (record && typeof record.awayMsUsed === "number") ? record.awayMsUsed : 0;
+  const startedAt = (record && typeof record.awayStartedAt === "number") ? record.awayStartedAt : Date.now();
+  return Math.max(0, PVP_AWAY_BUDGET_MS - used - (Date.now() - startedAt));
+}
+
+// Fired on 'pagehide' (navigating away / closing the tab) while a PvP game
+// is active -- a normal sb.rpc() call would usually get cancelled during
+// unload, so this sends a keepalive fetch instead. Deliberately not hooked
+// to visibilitychange: switching tabs must do nothing (see PVP.forfeited /
+// PVP.resultsShown guards below for "don't fire twice").
+function pvpShouldMarkAway(){
+  return !!(PVP && PVP.started && !PVP.resultsShown && !PVP.forfeited && _authAccessToken);
+}
+function sendQuizMarkAwayKeepalive(){
+  if(!pvpShouldMarkAway()) return;
+  try{
+    fetch(SUPABASE_URL + "/rest/v1/rpc/quiz_mark_away", {
+      method: "POST",
+      keepalive: true,
+      headers: {
+        "apikey": SUPABASE_ANON_KEY,
+        "Authorization": "Bearer " + _authAccessToken,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ p_room_id: PVP.roomId })
+    });
+  }catch(e){}
+  updatePvpAwayRecoveryState({ awayStartedAt: Date.now() });
+}
+window.addEventListener("pagehide", sendQuizMarkAwayKeepalive);
 
 function resetPvp(){
   stopPvpWaitPolling();
@@ -1143,6 +1204,7 @@ function onPvpRoomActive(){
   S.questions = PVP.questions || [];
   S.qi = 0;
   S.playerPicks = []; S.playerPoints = [];
+  S.consecTimeouts = 0;
   if(S.gameType === "guess") S.gCluesShown = 1;
   show(S.gameType === "guess" ? "screen-guess" : "screen-quiz");
   renderQuestion();
@@ -1154,15 +1216,17 @@ function finishPvpQuiz(){
   startPvpWaitPolling();
 }
 
-// roomId defaults to PVP.roomId; an explicit override lets forfeitPvpRoom
-// submit a room's missing answers before PVP itself has been rebuilt (a
-// forfeit from the recovery banner happens before resumePvpRoom ever runs).
+// roomId defaults to PVP.roomId; an explicit override lets a caller submit
+// against a room before PVP itself has been rebuilt.
 async function submitPvpAnswer(qIndex, pick, roomId){
   roomId = roomId || (PVP && PVP.roomId);
   if(!roomId || !sb) return;
   try{
     const { error } = await sb.rpc('submit_quiz_answer', { p_room_id: roomId, p_question_index: qIndex, p_pick: pick });
-    if(error) console.warn("[quiz] PvP submit_quiz_answer failed:", error.message || error);
+    if(error){
+      console.warn("[quiz] PvP submit_quiz_answer failed:", error.message || error);
+      if(PVP && /player forfeited/.test(error.message || "")) PVP.forfeited = true;
+    }
   }catch(e){ console.warn("[quiz] PvP submit_quiz_answer failed:", e); }
 }
 
@@ -1371,6 +1435,33 @@ $("#back-from-pvp-results").addEventListener("click", finishPvpResults);
 /* ============================================================
    3) ქვიზი
    ============================================================ */
+/* ============================================================
+   "რთული" დონის AI-ის ზედა ზღვარი — დანარჩენი დონეებისგან განსხვავებით
+   (დამოუკიდებელი per-question ალბათობა, იხ. DIFFICULTY[].acc) "რთულზე"
+   AI-ის საბოლოო შედეგი ზუსტად იზღუდება, რომ მოთამაშეს მოგების შანსი
+   დარჩეს: ქვიზში ყოველთვის კითხვების რაოდენობის 80% ან 90% სწორი პასუხი
+   (არასდროს 100%, არასდროს <80%), "ვინ ვარ?"-ში კი ქულების ჯამი —
+   მაქსიმალური შესაძლო ჯამის შემთხვევითი 80-90%, კითხვებზე განაწილებული. */
+function computeHardQuizAnswers(n){
+  const wrongCount = Math.max(1, Math.round(n * (Math.random() < 0.5 ? 0.2 : 0.1)));
+  const wrongIdx = new Set(shuffle(Array.from({length:n}, (_,i)=>i)).slice(0, wrongCount));
+  return Array.from({length:n}, (_,i)=> !wrongIdx.has(i));
+}
+
+function computeHardGuessPoints(n){
+  const maxTotal = n * 4;
+  const target = Math.round(maxTotal * (0.8 + Math.random() * 0.1));
+  const points = new Array(n).fill(4);
+  let excess = maxTotal - target;
+  for(const i of shuffle(Array.from({length:n}, (_,i)=>i))){
+    if(excess <= 0) break;
+    const reduceBy = Math.min(points[i] - 1, excess);
+    points[i] -= reduceBy;
+    excess -= reduceBy;
+  }
+  return points;
+}
+
 async function beginQuiz(){
   let pool = null;
   const diff = DIFFICULTY.find(d => d.key === S.diffKey);
@@ -1387,8 +1478,13 @@ async function beginQuiz(){
   S.questions = pool;
   S.qi = 0;
   S.playerPicks = []; S.playerPoints = []; S.oppPoints = [];
+  const isHard = !!(diff && diff.key === "hard");
   const acc = (S.aiAcc != null) ? S.aiAcc : AI_ACCURACY;
-  S.aiAnswers = S.questions.map(()=> Math.random() < acc);
+  if(isHard){
+    S.aiAnswers = S.gameType === "guess" ? S.questions.map(()=>true) : computeHardQuizAnswers(S.questions.length);
+  } else {
+    S.aiAnswers = S.questions.map(()=> Math.random() < acc);
+  }
 
   if(S.gameType === "guess"){
     S.oppPicks = S.questions.map((item,i)=>{
@@ -1397,7 +1493,7 @@ async function beginQuiz(){
       const pick = others.length ? others[Math.floor(Math.random()*others.length)] : item;
       return pick.answer;
     });
-    S.oppPoints = S.questions.map((item,i)=>{
+    S.oppPoints = isHard ? computeHardGuessPoints(S.questions.length) : S.questions.map((item,i)=>{
       if(!S.aiAnswers[i]) return 0;
       const clueCount = 1 + Math.floor(Math.random()*4); // 1..4
       return 5 - clueCount; // 4..1 ქულა
@@ -1569,9 +1665,35 @@ function catchUpPvpTimer(){
                       // dispatch the normal in-game flow already uses.
 }
 
+/* ---------- PvP AFK rule — 2 consecutive timeouts shrink every following
+   question's timer to AFK_SHORT_TIME_MS and surface a "დაბრუნება" button
+   (vs-AI games never set S.consecTimeouts, so pvpAfkModeActive is always
+   false there). ---------- */
+function pvpAfkModeActive(){
+  return !!(PVP && S.consecTimeouts >= AFK_TIMEOUT_THRESHOLD);
+}
+function updateAfkButtonVisibility(){
+  const show = pvpAfkModeActive();
+  const qBtn = document.getElementById("q-afk-btn");
+  const gqBtn = document.getElementById("gq-afk-btn");
+  if(qBtn) qBtn.style.display = show ? "" : "none";
+  if(gqBtn) gqBtn.style.display = show ? "" : "none";
+}
+function handleAfkReturnClick(){
+  S.consecTimeouts = 0;
+  if(S.gameType === "guess") startGuessTimer(); else startTimer();
+}
+(function initAfkButtons(){
+  const qBtn = document.getElementById("q-afk-btn");
+  if(qBtn) qBtn.addEventListener("click", handleAfkReturnClick);
+  const gqBtn = document.getElementById("gq-afk-btn");
+  if(gqBtn) gqBtn.addEventListener("click", handleAfkReturnClick);
+})();
+
 function startTimer(){
-  const totalMs = (PVP ? PVP_TIME_PER_Q : TIME_PER_Q) * 1000;
+  const totalMs = pvpAfkModeActive() ? AFK_SHORT_TIME_MS : (PVP ? PVP_TIME_PER_Q : TIME_PER_Q) * 1000;
   startQuestionTimer($("#q-timer"), $("#q-timer-num"), totalMs, ()=> answer(-1, null));
+  updateAfkButtonVisibility();
 }
 
 /* ---------- „ვინ ვარ?“ — პროგრესული მინიშნებები (AI-ის წინააღმდეგ) ----------
@@ -1616,7 +1738,9 @@ function renderGuessQuestion(){
 // ცარიელი ველის დაბლოკვის გარეშე, ყოველთვის გადადის შემდეგ კითხვაზე.
 function startGuessTimer(){
   $("#gq-timer-row").style.display = "";
-  startQuestionTimer($("#gq-timer"), $("#gq-timer-num"), PVP_TIME_PER_Q*1000, ()=> submitGuess(true));
+  const totalMs = pvpAfkModeActive() ? AFK_SHORT_TIME_MS : PVP_TIME_PER_Q*1000;
+  startQuestionTimer($("#gq-timer"), $("#gq-timer-num"), totalMs, ()=> submitGuess(true));
+  updateAfkButtonVisibility();
 }
 
 function renderGuessClues(){
@@ -1663,6 +1787,7 @@ function submitGuess(forced){
     // მაგივრად — დუმილად, პირდაპირ შემდეგ კითხვაზე.
     S.playerPoints[S.qi] = 0;
     submitPvpAnswer(S.qi, val);
+    S.consecTimeouts = forced ? (S.consecTimeouts||0) + 1 : 0;
     advanceGuessQuestion();
     return;
   }
@@ -1736,7 +1861,10 @@ function answer(chosen, btn){
     opts.forEach((o,i)=>{ if(i!==chosen) o.classList.add("dim"); });
   }
   S.playerPicks[S.qi] = chosen; // -1 თუ დრო ამოიწურა
-  if(PVP) submitPvpAnswer(S.qi, chosen);
+  if(PVP){
+    submitPvpAnswer(S.qi, chosen);
+    S.consecTimeouts = (chosen === -1) ? (S.consecTimeouts||0) + 1 : 0;
+  }
 
   setTimeout(()=>{
     S.qi++;
@@ -1779,14 +1907,10 @@ function startCardBattle(){
   $("#cb-you-tag").textContent = "🤠 " + myLab;
   $("#cb-opp-ava").textContent = oppAva;
   $("#cb-opp-lab").textContent = oppLab;
-  $("#qb-you-who").textContent = "🤠 " + myLab;
-  $("#qb-opp-ava").textContent = oppAva;
-  $("#qb-opp-lab2").textContent = oppLab;
   const review = document.getElementById('cbReview');
   if(review) review.style.display = "none";
   $("#cb-restart").style.display = "none";
   $("#cb-finish").style.display = "none";
-  $("#cb-skip").style.display = "";
   const controls = document.querySelector(".cb-controls");
   if(controls) controls.classList.remove("finished");
   const board = document.querySelector(".cb-score");
@@ -1794,101 +1918,29 @@ function startCardBattle(){
   document.querySelector(".cb-side.you").classList.remove("win");
   document.querySelector(".cb-side.opp").classList.remove("win");
   $("#cb-round").className = "cb-round";
-  $("#cb-log").textContent = "კითხვები ბრუნდება - ვნახოთ ვინ იყო უფრო ზუსტი!";
-  $("#qb-card").classList.remove("show");
   $("#cb-final").classList.remove("show");
   $("#cbBanner").className = "cb-banner";
-  document.querySelector(".qbattle").style.display = "";
   show("screen-cards");
   stopEndBattleAnimation();
-  clearTimeout(S.cbTimer); clearTimeout(S.cbReveal);
-  S.cbTimer = setTimeout(playCard, 150);
+  // vs-AI აღარასდროს თამაშობს კარტა-კარტაზე ბრძოლას — პირდაპირ საბოლოო
+  // მდგომარეობაზე გადადის (tallyFinalScores + endBattle); animateEndBattle-ის
+  // ქულების თვლის ანიმაცია (ქვემოთ) ერთადერთია, რაც ამის შემდეგ რჩება.
+  tallyFinalScores();
+  endBattle();
 }
 
-function fillCard(idx){
-  const item = S.questions[idx];
-  const pPick = S.playerPicks[idx], oPick = S.oppPicks[idx];
-  $("#qb-num").textContent = `კითხვა ${idx+1}`;
-  $("#qb-q").textContent = item.q;
-  $("#qb-you-pick").textContent = (pPick>=0 && pPick!=null) ? item.o[pPick] : "პასუხი არ გაეცა";
-  $("#qb-opp-pick").textContent = (oPick>=0 && oPick!=null) ? item.o[oPick] : "-";
-  $("#qb-you-badge").textContent = "";
-  $("#qb-opp-badge").textContent = "";
-  $("#qb-you-correct").textContent = "";
-}
-
-function fillGuessCard(idx){
-  const item = S.questions[idx];
-  const pPick = S.playerPicks[idx], oPick = S.oppPicks[idx];
-  $("#qb-num").textContent = `კითხვა ${idx+1}`;
-  $("#qb-q").textContent = item.clues && item.clues[0] ? item.clues[0] : "პასუხი შეიყვანე #ქართულად";
-  $("#qb-you-pick").textContent = (pPick && String(pPick).trim()) ? pPick : "პასუხი არ გაეცა";
-  $("#qb-opp-pick").textContent = (oPick && String(oPick).trim()) ? oPick : "-";
-  $("#qb-you-badge").textContent = "";
-  $("#qb-opp-badge").textContent = "";
-  $("#qb-you-correct").textContent = "";
-}
-
-function playCard(){
-  if(S.bIndex >= S.questions.length){ return endBattle(); }
-  const idx = S.bIndex;
-  $("#cb-round").textContent = `კითხვა ${idx+1} / ${S.questions.length}`;
-
-  const card = $("#qb-card");
-  card.classList.remove("show");
-  $("#qb-ans-you").className = "qb-ans you";
-  $("#qb-ans-opp").className = "qb-ans opp";
-  if(S.gameType === "guess") fillGuessCard(idx); else fillCard(idx);
-
-  requestAnimationFrame(()=>{ card.classList.add("show"); });
-
-  S.cbReveal = setTimeout(()=> revealCard(idx), Math.min(CARD_SPEED_MS*0.55, 480));
-}
-
-function revealCard(idx){
-  const item = S.questions[idx];
-  let pCorrect, oCorrect, correctText, pGain, oGain;
-  if(S.gameType === "guess"){
-    pGain = S.playerPoints[idx] || 0;
-    oGain = S.oppPoints[idx] || 0;
-    pCorrect = pGain > 0;
-    oCorrect = oGain > 0;
-    correctText = item.answer;
-  } else {
-    pCorrect = S.playerPicks[idx] === item.a;
-    oCorrect = S.oppPicks[idx] === item.a;
-    correctText = item.o[item.a];
-    pGain = pCorrect ? 1 : 0;
-    oGain = oCorrect ? 1 : 0;
+function tallyFinalScores(){
+  while(S.bIndex < S.questions.length){
+    const item = S.questions[S.bIndex];
+    if(S.gameType === "guess"){
+      S.cbYou += S.playerPoints[S.bIndex] || 0;
+      S.cbOpp += S.oppPoints[S.bIndex] || 0;
+    } else {
+      if(S.playerPicks[S.bIndex] === item.a) S.cbYou++;
+      if(S.oppPicks[S.bIndex] === item.a) S.cbOpp++;
+    }
+    S.bIndex++;
   }
-
-  $("#qb-ans-you").classList.add(pCorrect ? "correct" : "wrong");
-  $("#qb-ans-opp").classList.add(oCorrect ? "correct" : "wrong");
-  if(S.gameType === "guess"){
-    $("#qb-you-badge").textContent = pCorrect ? ("✓ +"+pGain) : "✗";
-    $("#qb-opp-badge").textContent = oCorrect ? ("✓ +"+oGain) : "✗";
-  } else {
-    $("#qb-you-badge").textContent = pCorrect ? "✓" : "✗";
-    $("#qb-opp-badge").textContent = oCorrect ? "✓" : "✗";
-  }
-  if(!pCorrect) $("#qb-you-correct").textContent = "სწორი: " + correctText;
-
-  if(pGain>0){ S.cbYou += pGain; bump($("#cb-you"), S.cbYou); }
-  if(oGain>0){ S.cbOpp += oGain; bump($("#cb-opp"), S.cbOpp); }
-
-  if(pCorrect && !oCorrect)      $("#cb-log").innerHTML = `<b style="color:var(--green)">შენ სწორად უპასუხე!</b> +${pGain} შენ`;
-  else if(!pCorrect && oCorrect) $("#cb-log").innerHTML = `<b style="color:var(--red-soft)">AI-მ სწორად უპასუხა.</b> +${oGain} AI`;
-  else if(pCorrect && oCorrect)  $("#cb-log").innerHTML = `ორივემ სწორად უპასუხა ✓`;
-  else                           $("#cb-log").innerHTML = `ვერცერთმა ვერ გამოიცნო.`;
-
-  S.bIndex = idx + 1;
-  S.cbTimer = setTimeout(playCard, CARD_SPEED_MS);
-}
-
-function bump(el, val){
-  el.textContent = val;
-  el.classList.add("bump");
-  setTimeout(()=> el.classList.remove("bump"), 220);
 }
 
 /* ---------- თამაშის დასრულების ეკრანზე: სწორი/არასწორი პასუხების
@@ -1960,8 +2012,6 @@ function animateEndBattle(youFinal, oppFinal){
 }
 
 function endBattle(){
-  clearTimeout(S.cbTimer); clearTimeout(S.cbReveal);
-  $("#cb-skip").style.display = "none";
   $("#cb-restart").style.display = "";
   $("#cb-finish").style.display = "";
   const controls = document.querySelector(".cb-controls");
@@ -2032,39 +2082,19 @@ function renderReview(){
   wrap.style.display = "";
 }
 
-/* skip -> სწრაფად ბოლომდე */
-$("#cb-skip").addEventListener("click", ()=>{
-  clearTimeout(S.cbTimer);
-  clearTimeout(S.cbReveal);
-  while(S.bIndex < S.questions.length){
-    const item = S.questions[S.bIndex];
-    if(S.gameType === "guess"){
-      S.cbYou += S.playerPoints[S.bIndex] || 0;
-      S.cbOpp += S.oppPoints[S.bIndex] || 0;
-    } else {
-      if(S.playerPicks[S.bIndex] === item.a) S.cbYou++;
-      if(S.oppPicks[S.bIndex] === item.a) S.cbOpp++;
-    }
-    S.bIndex++;
-  }
-  $("#cb-you").textContent = S.cbYou;
-  $("#cb-opp").textContent = S.cbOpp;
-  endBattle();
-});
-
 $("#cb-restart").addEventListener("click", ()=>{
-  stopQuestionTimer(); clearTimeout(S.cbTimer); clearTimeout(S.cbReveal); stopEndBattleAnimation();
+  stopQuestionTimer(); stopEndBattleAnimation();
   if(!S.gameType){ resetToMode(); return; }
   chooseGameType(S.gameType);
 });
 $("#cb-finish").addEventListener("click", ()=>{
-  stopQuestionTimer(); clearTimeout(S.cbTimer); clearTimeout(S.cbReveal); stopEndBattleAnimation();
+  stopQuestionTimer(); stopEndBattleAnimation();
   location.href = "/";
 });
 $("#back-from-cards").addEventListener("click", resetToMode);
 
 function resetToMode(){
-  stopQuestionTimer(); clearTimeout(S.cbTimer); clearTimeout(S.cbReveal); stopEndBattleAnimation();
+  stopQuestionTimer(); stopEndBattleAnimation();
   S.gameType = null;
   show("screen-gametype");
   pushQuizStep(null, null);
@@ -2151,15 +2181,22 @@ function hidePvpRecoveryBanner(){
   if(_pvpBannerInterval){ clearInterval(_pvpBannerInterval); _pvpBannerInterval = null; }
 }
 
-function showPvpRecoveryBanner(code, onReturn, onForfeit){
+// remainingMs: the away budget left to display (pvpAwayRemainingMs), not a
+// fixed countdown -- the server is the sole forfeit authority, so reaching
+// 0 here just clears the banner/local state, it doesn't call onForfeit.
+function showPvpRecoveryBanner(remainingMs, onReturn, onForfeit){
   const el = document.getElementById("pvpRecoveryBanner");
   if(!el) return;
-  const codeEl = document.getElementById("pvpRecoveryCode");
   const timerEl = document.getElementById("pvpRecoveryTimer");
   const closeBtn = document.getElementById("pvpRecoveryClose");
-  if(codeEl) codeEl.textContent = code || "";
-  let remaining = 10;
-  if(timerEl) timerEl.textContent = remaining;
+  const returnBtn = document.getElementById("pvpRecoveryReturn");
+  const deadline = Date.now() + Math.max(0, remainingMs || 0);
+  function renderRemaining(){
+    const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    if(timerEl) timerEl.textContent = left;
+    return left;
+  }
+  renderRemaining();
   el.classList.add("show");
   setNavOffsetForBanner(el.offsetHeight);
 
@@ -2173,13 +2210,16 @@ function showPvpRecoveryBanner(code, onReturn, onForfeit){
 
   if(_pvpBannerInterval) clearInterval(_pvpBannerInterval);
   _pvpBannerInterval = setInterval(()=>{
-    remaining--;
-    if(timerEl) timerEl.textContent = Math.max(0, remaining);
-    if(remaining <= 0) finish(onForfeit);
+    if(renderRemaining() <= 0){
+      // Budget ran out -- the server has already forfeited the player on
+      // its own (sweep_quiz_room); the client just clears the UI.
+      settled = true;
+      hidePvpRecoveryBanner();
+      clearPvpRoomRecoveryState();
+    }
   }, 1000);
 
-  el.onclick = ()=> finish(onReturn);
-  el.onkeydown = e => { if(e.key === "Enter" || e.key === " "){ e.preventDefault(); finish(onReturn); } };
+  if(returnBtn) returnBtn.onclick = ()=> finish(onReturn);
   if(closeBtn) closeBtn.onclick = e => { e.stopPropagation(); finish(onForfeit); };
 }
 
@@ -2188,7 +2228,20 @@ function showPvpRecoveryBanner(code, onReturn, onForfeit){
 // fresh savedAt -- harmless, and keeps the 6h window alive while active).
 // 'active' has no existing entry point (enterPvpLobby is lobby-only), so
 // PVP is built directly here, landing on the first unanswered question.
-function resumePvpRoom(roomId, row){
+async function resumePvpRoom(roomId, row){
+  // Tell the server the player is back (resets its own away clock) before
+  // touching any local game state. awayMsUsed/awayStartedAt are then folded
+  // together into a new cumulative awayMsUsed for the display-only budget
+  // (change 2) -- the server stays the real forfeit authority regardless.
+  try{ await sb.rpc('quiz_mark_back', { p_room_id: roomId }); }catch(e){}
+  const rec = readPvpRoomRecoveryState();
+  if(rec && typeof rec.awayStartedAt === "number"){
+    updatePvpAwayRecoveryState({
+      awayMsUsed: (rec.awayMsUsed || 0) + Math.max(0, Date.now() - rec.awayStartedAt),
+      awayStartedAt: null
+    });
+  }
+
   const myId = currentAuthUser && currentAuthUser.id;
   const players = row.players || [];
   const me = players.find(p => p.player_id === myId);
@@ -2218,6 +2271,7 @@ function resumePvpRoom(roomId, row){
   S.questions = PVP.questions;
   S.qi = 0;
   S.playerPicks = []; S.playerPoints = [];
+  S.consecTimeouts = 0;
   if(S.gameType === "guess") S.gCluesShown = 1;
   const answered = new Set(row.answered_indexes || []);
   const firstUnanswered = S.questions.findIndex((_, i) => !answered.has(i));
@@ -2230,24 +2284,21 @@ function resumePvpRoom(roomId, row){
   }
 }
 
-// Submits every still-missing index as a timeout (same pick convention as
-// submitPvpTimeoutSilently: -1 for quiz, "" for guess-who), in order,
-// awaiting each call so the server ends up with a complete set for this
-// player. Never calls leave_quiz_room -- that removes the player row and
+// submit_quiz_answer now rejects a forfeited player server-side (Phase 1),
+// so looping submitPvpAnswer over every unanswered index is dead code --
+// quiz_forfeit_player is the single source of truth for the all-zeros
+// forfeit. Never calls leave_quiz_room -- that removes the player row and
 // would erase them from the other players' results.
-async function forfeitPvpRoom(roomId, questions, answeredIndexes, gameType){
-  const answered = new Set(answeredIndexes || []);
-  const pick = gameType === "guess" ? "" : -1;
-  const total = (questions || []).length;
-  for(let i = 0; i < total; i++){
-    if(answered.has(i)) continue;
-    await submitPvpAnswer(i, pick, roomId);
-  }
+async function forfeitPvpRoom(roomId){
+  try{ await sb.rpc('quiz_forfeit_player', { p_room_id: roomId }); }catch(e){}
   clearPvpRoomRecoveryState();
 }
 
 (async function initPvpRoomRecovery(){
   if(new URLSearchParams(location.search).get("room")) return; // the ?room= deep link above already owns this load
+  // Set by quiz-return-banner.js's "დაბრუნება" button (sitewide banner) --
+  // skip the in-page banner entirely and resume straight into the game.
+  const isResume = new URLSearchParams(location.search).get("resume") === "1";
   let saved = null;
   try{
     const raw = localStorage.getItem(PVP_ROOM_STORAGE_KEY);
@@ -2283,16 +2334,31 @@ async function forfeitPvpRoom(roomId, questions, answeredIndexes, gameType){
   let row;
   try{
     const { data, error } = await sb.rpc('rejoin_quiz_room', { p_room_id: saved.roomId });
-    if(error || !data || !data.length){ clearPvpRoomRecoveryState(); return; }
+    if(error){
+      clearPvpRoomRecoveryState();
+      if(/player forfeited/.test(error.message || "")){
+        showQuizToast("ეს ქვიზი თქვენთვის დასრულებულია", 3500);
+      }
+      return;
+    }
+    if(!data || !data.length){ clearPvpRoomRecoveryState(); return; }
     row = data[0];
   }catch(e){ clearPvpRoomRecoveryState(); return; }
 
   if(row.status === "finished" || row.status === "abandoned"){ clearPvpRoomRecoveryState(); return; }
   if(row.status !== "waiting" && row.status !== "active") return;
 
+  if(isResume){
+    const url = new URL(location.href);
+    url.searchParams.delete("resume");
+    history.replaceState(history.state, "", url.pathname + url.search + url.hash);
+    resumePvpRoom(saved.roomId, row);
+    return;
+  }
+
   showPvpRecoveryBanner(
-    row.code,
+    pvpAwayRemainingMs(saved),
     ()=> resumePvpRoom(saved.roomId, row),
-    ()=> forfeitPvpRoom(saved.roomId, row.questions, row.answered_indexes, row.game_type)
+    ()=> forfeitPvpRoom(saved.roomId)
   );
 })();
