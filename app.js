@@ -430,64 +430,83 @@ function fbTrackTicket() {
   return fbEventId;
 }
 
+let _placeBetInFlight = false;
 async function placeBets() {
-  const pb = document.getElementById('placeBtn');
-  if (!currentUser) { closeSlip(); openModal('join'); return; }
-  if (isBettingClosed()) { closeSlip(); showToast('ფსონების მიღება დასრულებულია', 3500); return; }
-  const arr = picksArr(); if (arr.length === 0) return;
-  if (arr.some(s => !(Number.isFinite(s.odds) && s.odds > 0))) { showToast('ერთ-ერთ ბრძოლას კოეფიციენტი ჯერ არ აქვს - წაშალე იგი ბილეთიდან', 3500); return; }
-  const eventId = window.__currentEventId || null;
-  if (!eventId) { closeSlip(); showToast('ივენთი ვერ მოიძებნა', 3500); return; }
-
-  // ორმაგი დაკლიკვის ბლოკი + რეალური ბალანსი DB-დან (თავიდან ავიცილოთ ცრუ 1000)
-  if (pb) pb.disabled = true;
-  await refreshBalance();
-
+  // მეორე გამოძახება ვერ შევა სანამ პირველი არ დასრულდება (disabled-ღილაკი არ ფარავს კლავიატურას/მეორე entry point-ს)
+  if (_placeBetInFlight) return;
+  _placeBetInFlight = true;
   try {
-    if (state.mode === 'express') {
-      const st = state.expressStake;
-      if (st <= 0) { return; }
-      if (st > state.balance) { updateTotals(); showToast('არასაკმარისი ქულები ბალანსზე (გაქვს ' + fmt(state.balance) + ')', 3500); return; }
-      const odds = comboOdds();
-      // #1: p_total_odds/odds მხოლოდ ჩვენებისთვის მიდის — სერვერი (place_bet RPC) თვითონ ითვლის და კლიენტისას იგნორირებს
-      const selections = arr.map(s => ({ fight_id: FIGHTS[s.i]?._dbId, picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds }));
-      const { data: res, error } = await sb.rpc('place_bet', { p_event_id: eventId, p_type: 'express', p_stake: st, p_total_odds: odds, p_selections: selections });
-      if (error || !res || !res.ok) { await refreshBalance(); updateTotals(); showToast(betError(res, error), 3500); return; }
-      updateBalance(res.balance);
-      const finalOdds = res.total_odds != null ? Number(res.total_odds) : odds;
-      state.tickets.unshift({ _dbId: res.ticket_id, type: 'express',
-        sels: arr.map(s => ({ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name, redName: FIGHTS[s.i]?.red.name, blueName: FIGHTS[s.i]?.blue.name })),
-        stake: st, odds: finalOdds, status: 'open', placedAt: serverNow() });
-      window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'express', event_name: state.eventName||'', num_picks: arr.length, fb_event_id: fbTrackTicket(), external_id: (currentUser && currentUser.id) || ''});
-    } else {
-      const ts = totalStakeSingle();
-      if (ts <= 0) { return; }
-      if (ts > state.balance) { updateTotals(); showToast('არასაკმარისი ქულები ბალანსზე (გაქვს ' + fmt(state.balance) + ')', 3500); return; }
-      let placedAny = false;
-      for (const s of arr) {
-        if (s.stake > 0) {
-          const selections = [{ fight_id: FIGHTS[s.i]?._dbId, picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds }];
-          const { data: res, error } = await sb.rpc('place_bet', { p_event_id: eventId, p_type: 'single', p_stake: s.stake, p_total_odds: s.odds, p_selections: selections });
-          if (error || !res || !res.ok) { await refreshBalance(); showToast(betError(res, error), 3500); continue; }
-          updateBalance(res.balance); placedAny = true;
-          const finalOdds = res.total_odds != null ? Number(res.total_odds) : s.odds;
-          state.tickets.unshift({ _dbId: res.ticket_id, type: 'single',
-            sels: [{ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name, redName: FIGHTS[s.i]?.red.name, blueName: FIGHTS[s.i]?.blue.name }],
-            stake: s.stake, odds: finalOdds, status: 'open', placedAt: serverNow() });
-          window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'single', event_name: state.eventName||'', num_picks:1, fb_event_id: fbTrackTicket(), external_id: (currentUser && currentUser.id) || ''});
+    const pb = document.getElementById('placeBtn');
+    if (!currentUser) { closeSlip(); openModal('join'); return; }
+    if (isBettingClosed()) { closeSlip(); showToast('ფსონების მიღება დასრულებულია', 3500); return; }
+    const arr = picksArr(); if (arr.length === 0) return;
+    if (arr.some(s => !(Number.isFinite(s.odds) && s.odds > 0))) { showToast('ერთ-ერთ ბრძოლას კოეფიციენტი ჯერ არ აქვს - წაშალე იგი ბილეთიდან', 3500); return; }
+    const eventId = window.__currentEventId || null;
+    if (!eventId) { closeSlip(); showToast('ივენთი ვერ მოიძებნა', 3500); return; }
+
+    // ორმაგი დაკლიკვის ბლოკი + რეალური ბალანსი DB-დან (თავიდან ავიცილოთ ცრუ 1000)
+    if (pb) pb.disabled = true;
+    await refreshBalance();
+
+    try {
+      if (state.mode === 'express') {
+        const st = state.expressStake;
+        if (st <= 0) { return; }
+        if (st > state.balance) { updateTotals(); showToast('არასაკმარისი ქულები ბალანსზე (გაქვს ' + fmt(state.balance) + ')', 3500); return; }
+        const odds = comboOdds();
+        // #1: p_total_odds/odds მხოლოდ ჩვენებისთვის მიდის — სერვერი (place_bet RPC) თვითონ ითვლის და კლიენტისას იგნორირებს
+        const selections = arr.map(s => ({ fight_id: FIGHTS[s.i]?._dbId, picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds }));
+        const { data: res, error } = await sb.rpc('place_bet', { p_event_id: eventId, p_type: 'express', p_stake: st, p_total_odds: odds, p_selections: selections });
+        if (error || !res || !res.ok) { await refreshBalance(); updateTotals(); showToast(betError(res, error), 3500); await loadUserTickets(); renderTickets(); return; }
+        if (res.duplicate) {
+          await refreshBalance();
+          showToast('ეს ბილეთი უკვე დადებულია', 3500);
+        } else {
+          updateBalance(res.balance);
+          const finalOdds = res.total_odds != null ? Number(res.total_odds) : odds;
+          state.tickets.unshift({ _dbId: res.ticket_id, type: 'express',
+            sels: arr.map(s => ({ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name, redName: FIGHTS[s.i]?.red.name, blueName: FIGHTS[s.i]?.blue.name })),
+            stake: st, odds: finalOdds, status: 'open', placedAt: serverNow() });
+          window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'express', event_name: state.eventName||'', num_picks: arr.length, fb_event_id: fbTrackTicket(), external_id: (currentUser && currentUser.id) || ''});
         }
+      } else {
+        const ts = totalStakeSingle();
+        if (ts <= 0) { return; }
+        if (ts > state.balance) { updateTotals(); showToast('არასაკმარისი ქულები ბალანსზე (გაქვს ' + fmt(state.balance) + ')', 3500); return; }
+        let placedAny = false;
+        for (const s of arr) {
+          if (s.stake > 0) {
+            const selections = [{ fight_id: FIGHTS[s.i]?._dbId, picked_fighter: s.fighter, picked_round: s.round || null, picked_method: s.method || null, odds: s.odds }];
+            const { data: res, error } = await sb.rpc('place_bet', { p_event_id: eventId, p_type: 'single', p_stake: s.stake, p_total_odds: s.odds, p_selections: selections });
+            if (error || !res || !res.ok) { await refreshBalance(); showToast(betError(res, error), 3500); await loadUserTickets(); renderTickets(); continue; }
+            if (res.duplicate) {
+              await refreshBalance(); placedAny = true;
+              showToast('ეს ბილეთი უკვე დადებულია', 3500);
+              continue;
+            }
+            updateBalance(res.balance); placedAny = true;
+            const finalOdds = res.total_odds != null ? Number(res.total_odds) : s.odds;
+            state.tickets.unshift({ _dbId: res.ticket_id, type: 'single',
+              sels: [{ i: s.i, fighter: s.fighter, round: s.round, method: s.method, odds: s.odds, name: s.name, redName: FIGHTS[s.i]?.red.name, blueName: FIGHTS[s.i]?.blue.name }],
+              stake: s.stake, odds: finalOdds, status: 'open', placedAt: serverNow() });
+            window.dataLayer = window.dataLayer || []; window.dataLayer.push({event:'ticket_placed', ticket_type:'single', event_name: state.eventName||'', num_picks:1, fb_event_id: fbTrackTicket(), external_id: (currentUser && currentUser.id) || ''});
+          }
+        }
+        if (!placedAny) { updateTotals(); return; }
       }
-      if (!placedAny) { updateTotals(); return; }
+      state.picks = {}; state.expressStake = 0;
+      closeSlip(); refresh(); renderSlip(); renderTickets();
+    } catch (e) {
+      console.warn('placeBets failed:', e);
+      await refreshBalance(); updateTotals();
+      showToast('ფსონი ვერ დაიდო - სცადე თავიდან', 3500);
+      await loadUserTickets(); renderTickets();
+    } finally {
+      const pb2 = document.getElementById('placeBtn'); if (pb2) pb2.disabled = false;
+      updateTotals();
     }
-    state.picks = {}; state.expressStake = 0;
-    closeSlip(); refresh(); renderSlip(); renderTickets();
-  } catch (e) {
-    console.warn('placeBets failed:', e);
-    await refreshBalance(); updateTotals();
-    showToast('ფსონი ვერ დაიდო - სცადე თავიდან', 3500);
   } finally {
-    const pb2 = document.getElementById('placeBtn'); if (pb2) pb2.disabled = false;
-    updateTotals();
+    _placeBetInFlight = false;
   }
 }
 
@@ -526,7 +545,7 @@ function renderTickets() {
       <div class="tk-head" data-tktoggle="${key}" style="cursor:pointer">
         <div class="tk-head-top">
           <span class="tk-chevron ${isCollapsed ? '' : 'open'}" aria-hidden="true">${TK_CHEVRON_SVG}</span>
-          <span class="tk-status-pill ${t.status}">${stLabel[t.status] || t.status}</span>
+          <span class="tk-status-pill ${t.status}">${(t.status === 'open' || t.status === 'pending') ? '<span class="tk-live-dot" aria-hidden="true"></span>' : ''}${stLabel[t.status] || t.status}</span>
           <div class="tk-marks">${marksHtml}</div>
         </div>
         <div class="tk-figs">
@@ -546,8 +565,8 @@ function renderTickets() {
           const m = markOf(s);
           return `<div class="tk-sel"><div class="tk-sel-main">
               <div class="tk-sel-fighters"><span class="tk-sel-dot red"></span><span class="tk-sel-red">${redName || 'Red'}</span><span class="tk-sel-vs">vs</span><span class="tk-sel-blue">${blueName || 'Blue'}</span><span class="tk-sel-dot blue"></span></div>
-              <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}">${fighterName} - ${pickLabel}</div></div>
-            <div class="tk-sel-right"><span class="tk-sel-result ${m.cls}">${m.txt}</span><span class="tk-sel-odds">${Number(s.odds || 0).toFixed(2)}</span></div></div>`;
+              <div class="tk-sel-pick pick-${isRed ? 'red' : 'blue'}"><span class="tk-sel-pick-text">${fighterName} - ${pickLabel}</span><span class="tk-sel-result tk-sel-result-inline ${m.cls}">${m.txt}</span></div></div>
+            <div class="tk-sel-right"><span class="tk-sel-result tk-sel-result-aside ${m.cls}">${m.txt}</span><span class="tk-sel-odds">${Number(s.odds || 0).toFixed(2)}</span></div></div>`;
         }).join('')}
       </div>
       <div class="tk-foot"><span>ბილეთის ID <b>#${t._dbId != null ? t._dbId : '-'}</b></span><span>განთავსების დრო <b>${fmtPlacedAt(t.placedAt)}</b></span></div>

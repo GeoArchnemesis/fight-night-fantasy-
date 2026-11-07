@@ -550,7 +550,7 @@ function renderTickets() {
       <div class="tk-head" data-tktoggle="${key}" style="cursor:pointer">
         <div class="tk-head-top">
           <span class="tk-chevron ${isCollapsed ? '' : 'open'}" aria-hidden="true">${TK_CHEVRON_SVG}</span>
-          <span class="tk-status-pill ${t.status}">${stLabel[t.status] || t.status}</span>
+          <span class="tk-status-pill ${t.status}">${(t.status === 'open' || t.status === 'pending') ? '<span class="tk-live-dot" aria-hidden="true"></span>' : ''}${stLabel[t.status] || t.status}</span>
           <div class="tk-marks">${marksHtml}</div>
         </div>
         <div class="tk-figs">
@@ -565,8 +565,8 @@ function renderTickets() {
           const m = markOf(s);
           return `<div class="tk-sel"><div class="tk-sel-main">
               <div class="tk-sel-fighters"><span class="tk-sel-red">${KIND_SHORT[s.kind] || s.kind}</span></div>
-              <div class="tk-sel-pick pick-red">${s.driverName} - მოგება</div></div>
-            <div class="tk-sel-right"><span class="tk-sel-result ${m.cls}">${m.txt}</span><span class="tk-sel-odds">${Number(s.odds || 0).toFixed(2)}</span></div></div>`;
+              <div class="tk-sel-pick pick-red"><span class="tk-sel-pick-text">${s.driverName} - მოგება</span><span class="tk-sel-result tk-sel-result-inline ${m.cls}">${m.txt}</span></div></div>
+            <div class="tk-sel-right"><span class="tk-sel-result tk-sel-result-aside ${m.cls}">${m.txt}</span><span class="tk-sel-odds">${Number(s.odds || 0).toFixed(2)}</span></div></div>`;
         }).join('')}
       </div>
       <div class="tk-foot"><span>ბილეთის ID <b>#${t._dbId != null ? t._dbId : '-'}</b></span><span>განთავსების დრო <b>${fmtPlacedAt(t.placedAt)}</b></span></div>
