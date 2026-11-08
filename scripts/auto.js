@@ -104,11 +104,17 @@ async function fetchJSON(url) {
 async function sendTelegram(msg) {
   if (!TG_TOKEN || !TG_CHAT) return;
   try {
-    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+    const res = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chat_id: TG_CHAT, text: msg, parse_mode: 'HTML' })
     });
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      let desc = body;
+      try { desc = JSON.parse(body).description || body; } catch {}
+      log(`⚠ Telegram შეცდომა: HTTP ${res.status} — ${desc}`);
+    }
   } catch (e) { log('⚠ Telegram შეცდომა: ' + e.message); }
 }
 
@@ -499,7 +505,7 @@ async function fetchResultsAndSettle(eventId, eventDate, eventName) {
   if (espnState === 'pre') { log('ივენთი ჯერ არ დაწყებულა'); return; }
 
   const { data: dbFights } = await sb.from('fights')
-    .select('id,status,is_voided,red_fighter_id,blue_fighter_id,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
+    .select('id,status,is_voided,result_winner,red_fighter_id,blue_fighter_id,red:fighters!red_fighter_id(name,espn_id),blue:fighters!blue_fighter_id(name,espn_id)')
     .eq('event_id', eventId);
 
   if (!dbFights) return;
@@ -540,12 +546,19 @@ async function fetchResultsAndSettle(eventId, eventDate, eventName) {
       continue;
     }
 
-    // გამარჯვებული — სახელით (ID აღარ გვჭირდება)
-    const wn = _nnm(winnerName);
-    const redN = _nnm(match.red?.name), blueN = _nnm(match.blue?.name);
-    let exactWinner = null;
-    if (wn && (wn === redN || redN.includes(wn) || wn.includes(redN)))       exactWinner = match.red.name;
-    else if (wn && (wn === blueN || blueN.includes(wn) || wn.includes(blueN))) exactWinner = match.blue.name;
+    // გამარჯვებული — პირველ რიგში espn_id-ით (ESPN-ზე სახელი შეიძლება შეიცვალოს/განსხვავდებოდეს
+    // DB-ში არსებულისგან — fights.id ზუსტად იმიტომ დაემთხვა ზემოთ ID fallback-ით);
+    // name-ით მხოლოდ მაშინ, თუ ID ვერ გამოიყენება (espn_id აკლია/არ ემთხვევა).
+    const winnerId = String(winner.id || '');
+    let exactWinner = null, matchedBy = '';
+    if (winnerId && match.red?.espn_id && winnerId === String(match.red.espn_id))       { exactWinner = match.red.name; matchedBy = 'ID'; }
+    else if (winnerId && match.blue?.espn_id && winnerId === String(match.blue.espn_id)) { exactWinner = match.blue.name; matchedBy = 'ID'; }
+    if (!exactWinner) {
+      const wn = _nnm(winnerName);
+      const redN = _nnm(match.red?.name), blueN = _nnm(match.blue?.name);
+      if (wn && (wn === redN || redN.includes(wn) || wn.includes(redN)))       { exactWinner = match.red.name; matchedBy = 'სახელი'; }
+      else if (wn && (wn === blueN || blueN.includes(wn) || wn.includes(blueN))) { exactWinner = match.blue.name; matchedBy = 'სახელი'; }
+    }
     if (!exactWinner) {
       log(`  ⚠ გამარჯვებული "${winnerName}" ვერ დაემთხვა მხარეებს — გამოტოვება`);
       continue;
@@ -557,7 +570,7 @@ async function fetchResultsAndSettle(eventId, eventDate, eventName) {
     }).eq('id', match.id);
     handledIds.add(match.id);
 
-    log(`  🏆 ${match.red?.name} vs ${match.blue?.name} → ${exactWinner} (${method} R${round}) [ID✓]`);
+    log(`  🏆 ${match.red?.name} vs ${match.blue?.name} → ${exactWinner} (${method} R${round}) [${matchedBy}✓]`);
     resultsUpdated++;
   }
   // ── გაუქმებული/მოხსნილი ბრძოლების ავტო-ვოიდი ──
@@ -623,6 +636,27 @@ async function fetchResultsAndSettle(eventId, eventDate, eventName) {
 
   log(`✅ Settlement: ${settleRes.won} მოგებული | ${settleRes.lost} წაგებული | ${settleRes.skipped} გამოტოვებული | ${settleRes.voided} სრული void${settleRes.unmatched_winner > 0 ? ` | ⚠ ${settleRes.unmatched_winner} leg-ზე გამარჯვებულის სახელი ვერ დაემთხვა` : ''}`);
   await sendTelegram(`🏁 <b>Settlement დასრულდა</b>\n\n✅ ${settleRes.won} მოგებული\n❌ ${settleRes.lost} წაგებული\n⏭ ${settleRes.skipped} გამოტოვებული${settleRes.voided > 0 ? `\n↩️ ${settleRes.voided} სრული void (stake დაბრუნდა)` : ''}${settleRes.unmatched_winner > 0 ? `\n🚨 ${settleRes.unmatched_winner} leg: result_winner სახელი მებრძოლებს არ ემთხვევა — ხელით შეამოწმე!` : ''}`);
+
+  // ── გადაუჭრელი ბრძოლების გაფრთხილება — მხოლოდ როცა მთელი card დასრულებულია ──
+  // Telegram-ზე ერთხელ იგზავნება და აღარ მეორდება ყოველ 15 წუთში: app_state-ში ვინახავთ
+  // ბოლოს გაგზავნილ სიას და ვაგზავნით მხოლოდ მაშინ, როცა სია შეიცვალა; ცარიელზე — ვასუფთავებთ.
+  if (espnState === 'post') {
+    const unresolved = (dbFights || []).filter(f => !f.is_voided && !handledIds.has(f.id) && !f.result_winner);
+    const stateKey = `unmatched_fights_${eventId}`;
+    const { data: stateRow } = await sb.from('app_state').select('value').eq('key', stateKey).maybeSingle();
+    const prevValue = stateRow?.value || '';
+
+    if (unresolved.length > 0) {
+      const names = unresolved.map(f => `${f.red?.name || '?'} vs ${f.blue?.name || '?'}`).sort();
+      const newValue = names.join('|');
+      if (newValue !== prevValue) {
+        await sb.from('app_state').upsert({ key: stateKey, value: newValue, updated_at: new Date().toISOString() });
+        await sendTelegram(`🚨 <b>ბრძოლის შედეგი ვერ დადგინდა</b>\n\nავტომატურმა დამთხვევამ ვერ იმუშავა — საჭიროა ხელით შემოწმება:\n${names.map(n => `• ${n}`).join('\n')}`);
+      }
+    } else if (prevValue) {
+      await sb.from('app_state').delete().eq('key', stateKey);
+    }
+  }
 }
 
 // ── STEP 4: Google Sheets Backup ─────────────────────────────
