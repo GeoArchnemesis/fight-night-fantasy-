@@ -345,15 +345,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 /* ---------- დასრულების ეკრანის ქმედების ღილაკები (CHANGE 6 — qxfc) ---------- */
 #quizRoot .cb-controls .cb-finish-btn{min-height:48px;border-radius:999px;font-weight:800;font-size:15px;width:100%}
-#quizRoot .cb-finish-btn:not(.cb-finish-btn-ghost){background:var(--red);color:#fff;box-shadow:0 0 .2em 0 var(--red);border:none}
-#quizRoot .cb-finish-btn:not(.cb-finish-btn-ghost):active{transform:scale(.97)}
-#quizRoot .cb-finish-btn-ghost{background:transparent;color:var(--text);border:none}
+#quizRoot .cb-finish-btn#cb-restart{background:var(--green);color:#06230f;box-shadow:0 0 .2em 0 var(--green);border:none}
+#quizRoot .cb-finish-btn#cb-restart:active{transform:scale(.97)}
+#quizRoot .cb-finish-btn#cb-finish{background:var(--red);color:#fff;border:none}
+#quizRoot .cb-finish-btn#cb-finish:active{transform:scale(.97)}
 @media (hover:hover) and (pointer:fine){
-  #quizRoot .cb-finish-btn:not(.cb-finish-btn-ghost){transition:1s}
-  #quizRoot .cb-finish-btn:not(.cb-finish-btn-ghost):hover{outline:.1em solid transparent;outline-offset:.2em;box-shadow:0 0 1em 0 var(--red);animation:cbNewGameRipple 1s linear infinite,cbNewGameColorize 1s infinite;transition:.5s}
+  #quizRoot .cb-finish-btn#cb-restart{transition:1s}
+  #quizRoot .cb-finish-btn#cb-restart:hover{outline:.1em solid transparent;outline-offset:.2em;box-shadow:0 0 1em 0 var(--green);animation:cbNewGameRippleGreen 1s linear infinite,cbNewGameColorizeGreen 1s infinite;transition:.5s}
 }
 @keyframes cbNewGameRipple{0%{outline:0em solid transparent;outline-offset:-.1em}50%{outline:.2em solid rgba(243,29,37,.25);outline-offset:.2em}100%{outline:.4em solid transparent;outline-offset:.4em}}
 @keyframes cbNewGameColorize{0%{background:var(--red)}50%{background:var(--red-soft)}100%{background:var(--red)}}
+@keyframes cbNewGameRippleGreen{0%{outline:0em solid transparent;outline-offset:-.1em}50%{outline:.2em solid rgba(58,209,126,.25);outline-offset:.2em}100%{outline:.4em solid transparent;outline-offset:.4em}}
+@keyframes cbNewGameColorizeGreen{0%{background:var(--green)}50%{background:#5fe0a0}100%{background:var(--green)}}
 
 /* ---------- თამაშის შემდეგ: ყველა კითხვა-პასუხის მუდმივი სია ---------- */
 #quizRoot .cb-review{margin-top:18px;padding-top:16px}
@@ -459,9 +462,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #pvpRecoveryBanner .pvp-rb-text{flex:1;min-width:0;font-weight:700;font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #pvpRecoveryBanner .pvp-rb-return{min-height:auto;padding:3px 12px;margin:0 2px;font-size:inherit;vertical-align:baseline}
 /* "დაბრუნება" glow -- same filled-button + ripple/colorize-pulse pattern as
-   #quizRoot .cb-finish-btn (results screen "ხელახლა თამაში"), var(--red)
-   swapped for var(--green) so it reads as a clear call-to-action on the
-   gold banner instead of blending into it as a ghost button. */
+   #quizRoot #cb-restart (results screen "ხელახლა თამაში"), var(--green)
+   so it reads as a clear call-to-action on the gold banner instead of
+   blending into it as a ghost button. */
 #pvpRecoveryBanner .pvp-rb-return{background:var(--green);color:#06240f;border:none;box-shadow:0 0 .2em 0 var(--green)}
 #pvpRecoveryBanner .pvp-rb-return:active{transform:scale(.97)}
 @media (hover:hover) and (pointer:fine){
@@ -548,6 +551,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- GAME TYPE SELECT -->
   <section id="screen-gametype" class="screen active">
+    <div class="back-row"><a class="qback" href="/"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">მთავარი გვერდი</span></a></div>
     <div class="modes">
       <div class="mode" tabindex="0" role="button" aria-label="ქვიზი" data-gametype="quiz">
         <span class="glyph">❓</span>
@@ -746,7 +750,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="cb-controls">
         <button class="btn btn-ghost" id="cb-skip" style="display:none">⏭ გამოტოვება</button>
         <button class="btn cb-finish-btn" id="cb-restart" style="display:none">ხელახლა თამაში</button>
-        <button class="btn cb-finish-btn cb-finish-btn-ghost" id="cb-finish" style="display:none">დასრულება</button>
+        <button class="btn cb-finish-btn" id="cb-finish" style="display:none">დასრულება</button>
       </div>
 
       <!-- QuizUpdates.pdf: ყველა კითხვა-პასუხის მუდმივი სია, თამაშის შემდეგ -->
@@ -919,7 +923,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=54"></script>
+<script src="/ufc/quiz.js?v=55"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){
