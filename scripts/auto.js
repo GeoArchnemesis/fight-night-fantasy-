@@ -270,7 +270,7 @@ async function createEventFromESPN(espnData) {
       weight_class: c.type?.abbreviation || 'Unknown',
       max_rounds: rounds, bout_order: idx + 1,
       is_title_bout: rounds === 5, red_odds: null, blue_odds: null,
-      show_details: false, status: 'upcoming',
+      show_details: false, status: 'upcoming', starts_at: c.date || null,
     });
 
     if (!fErr) { log(`  🥊 ${red.name} vs ${blue.name}`); saved++; }
@@ -348,6 +348,7 @@ async function syncNewFights(eventId, eventName, eventDate) {
       weight_class: c.type?.abbreviation || 'Unknown', max_rounds: rounds,
       bout_order: maxOrder, is_title_bout: rounds === 5,
       red_odds: null, blue_odds: null, show_details: false, status: 'upcoming',
+      starts_at: c.date || null,
     });
     if (!fErr) {
       added++; addedNames.push(`${red.name} vs ${blue.name}`);
@@ -362,21 +363,38 @@ async function syncNewFights(eventId, eventName, eventDate) {
   // ── bout_order-ის სრული გასწორება ESPN-ის რიგით (append-ის ნაცვლად რეალური პოზიცია) ──
   // comps = [main ... პირველი prelim] → პოზიცია idx+1 (main=1). სახელით ვამთხვევთ (espn_id შეიძლება ძველი იყოს).
   const posMap = new Map();
+  const dateMap = new Map();   // წყვილი → ESPN-ის segment-ის start დრო (c.date) — starts_at-ის რეფრეშისთვის
   comps.forEach((c, idx) => {
     const nm = (c.competitors || []).map(x => _nn2(x.athlete?.fullName)).filter(Boolean).sort();
-    if (nm.length === 2) posMap.set(nm.join('|'), idx + 1);
+    if (nm.length === 2) {
+      posMap.set(nm.join('|'), idx + 1);
+      if (c.date) dateMap.set(nm.join('|'), c.date);
+    }
   });
   const { data: allF } = await sb.from('fights')
-    .select('id,bout_order,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
+    .select('id,bout_order,starts_at,red:fighters!red_fighter_id(name),blue:fighters!blue_fighter_id(name)')
     .eq('event_id', eventId);
-  let maxPos = comps.length, reordered = 0;
+  let maxPos = comps.length, reordered = 0, startsAtUpdated = 0;
   for (const f of (allF || [])) {
     const key = [_nn2(f.red?.name), _nn2(f.blue?.name)].sort().join('|');
     let pos = posMap.get(key);
     if (pos == null) { maxPos++; pos = maxPos; }        // ESPN-ზე აღარ არის (phantom/void) → ბოლოში
-    if (f.bout_order !== pos) { await sb.from('fights').update({ bout_order: pos }).eq('id', f.id); reordered++; }
+
+    const patch = {};
+    if (f.bout_order !== pos) patch.bout_order = pos;
+    // UFC ხშირად ცვლის segment-ების დროს — ყოველ სინქრონზე ვადარებთ რეალურ დროს (არასდროს ვასუფთავებთ null-ით)
+    const newDate = dateMap.get(key);
+    if (newDate && (!f.starts_at || new Date(f.starts_at).getTime() !== new Date(newDate).getTime())) {
+      patch.starts_at = newDate;
+    }
+    if (Object.keys(patch).length > 0) {
+      await sb.from('fights').update(patch).eq('id', f.id);
+      if (patch.bout_order !== undefined) reordered++;
+      if (patch.starts_at !== undefined) startsAtUpdated++;
+    }
   }
   if (reordered > 0) log(`  🔢 bout_order გასწორდა ${reordered} ბრძოლაზე (ESPN რიგით)`);
+  if (startsAtUpdated > 0) log(`  🕐 starts_at განახლდა ${startsAtUpdated} ბრძოლაზე (ESPN-ის segment დროით)`);
 
   if (added > 0) {
     await sendTelegram(`➕ <b>ახალი ბრძოლა(ები) დაემატა</b>\n\n${eventName}\n${addedNames.map(n => '🥊 ' + n).join('\n')}\n\n➡️ კოეფიციენტები მომდევნო განახლებაზე ჩაიწერება.`);

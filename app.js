@@ -69,7 +69,17 @@ async function syncServerTime() {
 }
 
 // ── BETTING RULES ──
-function isBettingClosed() { const ed = window.__eventDate; if (!ed) return false; return (ed - serverNow()) < 60000; }
+// Card-wide close — only events.status = 'completed' stops the whole card now;
+// the real cutoff is per fight, see isFightLocked().
+function isBettingClosed() { return window.__eventCompleted === true; }
+// 3 minutes before that specific fight's own ESPN segment start (fights.starts_at),
+// falling back to the event date for any fight auto.js hasn't backfilled yet —
+// mirrors place_bet's `coalesce(v_fight.starts_at, v_event.event_date) - interval '3 minutes'`.
+function isFightLocked(f) {
+  const cutoffSrc = (f && f.startsAt) || window.__eventDate;
+  if (!cutoffSrc) return false;
+  return (new Date(cutoffSrc).getTime() - serverNow()) < 3 * 60000;
+}
 function isEventInProgress() { const ed = window.__eventDate; if (!ed) return false; return (ed - serverNow()) < 0; }
 function canCashout() { const ed = window.__eventDate; if (!ed) return true; return (ed - serverNow()) > 3600000; }
 function cashoutAmount(t) { const age = serverNow() - (t.placedAt || serverNow()); return age <= 3600000 ? t.stake : Math.round(t.stake * 0.8); }
@@ -172,7 +182,7 @@ async function loadEventFromDB() {
   state.eventName = ev.name || '';
 
   const { data: fights, error: fErr } = await sb.from('fights')
-    .select(`id,bout_order,weight_class,max_rounds,is_title_bout,red_odds,blue_odds,show_details,status,result_winner,result_method,result_round,is_voided,
+    .select(`id,bout_order,weight_class,max_rounds,is_title_bout,red_odds,blue_odds,show_details,status,result_winner,result_method,result_round,is_voided,starts_at,
              red:fighters!red_fighter_id(name,flag,rank,record,age,height_cm,weight_kg,reach_cm,ufc_slug,ko_pct,sub_pct,dec_pct,image_url),
              blue:fighters!blue_fighter_id(name,flag,rank,record,age,height_cm,weight_kg,reach_cm,ufc_slug,ko_pct,sub_pct,dec_pct,image_url)`)
     .eq('event_id', ev.id).order('bout_order', { ascending: true });
@@ -189,7 +199,7 @@ async function loadEventFromDB() {
     return {
       _dbId: f.id, wc: f.weight_class, rounds: f.max_rounds + ' Rounds', maxRound: f.max_rounds,
       showDetails: f.show_details !== false, status: f.status || 'upcoming', resultWinner,
-      isVoided: f.is_voided === true,
+      isVoided: f.is_voided === true, startsAt: f.starts_at ? new Date(f.starts_at) : null,
       resultMethod: f.result_method || null, resultRound: f.result_round || null,
       red: { name: f.red.name, flag: f.red.flag || '🏳️', odds: f.red_odds == null ? null : Number(f.red_odds), img: f.red.image_url || null,
         record: f.red.record || '-', age: String(f.red.age || '-'), ht: (f.red.height_cm || '-') + ' სმ', wt: (f.red.weight_kg || '-') + ' კგ', reach: (f.red.reach_cm || '-') + ' სმ' },
@@ -198,10 +208,7 @@ async function loadEventFromDB() {
     };
   });
 
-  // ESPN ივენთის დროს 1 საათით ადრე იძლევა — ჩვენებაზე ვასწორებთ (+1სთ).
-  // ბაზაში event_date უცვლელი რჩება, რომ ავტომატიკამ შედეგები სწორი თარიღით იპოვოს.
-  const ESPN_FIX_MS = 60 * 60 * 1000;
-  const dt = new Date(new Date(ev.event_date).getTime() + ESPN_FIX_MS);
+  const dt = new Date(ev.event_date);
   window.__eventDate = dt;
   const diff = dt - serverNow();
   let label = 'UPCOMING EVENT';
@@ -216,6 +223,7 @@ async function loadEventFromDB() {
   const cdEl = $('countdown');
   const endedEl = $('eventEndedMsg');
   const eventFullyOver = (ev.status === 'completed');
+  window.__eventCompleted = eventFullyOver;
   if (cdEl) cdEl.style.display = eventFullyOver ? 'none' : '';
   if (endedEl) endedEl.style.display = eventFullyOver ? 'block' : 'none';
 
@@ -256,8 +264,8 @@ function renderMarkets() {
   // #markets section -- skip rendering entirely rather than throw.
   if (!document.getElementById('markets')) return;
   if (FIGHTS.length === 0) { document.getElementById('markets').innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted)">ამ ეტაპზე ბრძოლები არ არის ხელმისაწვდომი.</div>'; return; }
-  const betting = !isBettingClosed();
-  if (!betting) { const betbarEl = document.getElementById('betbar'); if (betbarEl) betbarEl.classList.remove('show'); }
+  const cardClosed = isBettingClosed();
+  if (cardClosed) { const betbarEl = document.getElementById('betbar'); if (betbarEl) betbarEl.classList.remove('show'); }
   const noImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%230E0D14'/%3E%3Ccircle cx='100' cy='85' r='42' fill='%23F31D25' opacity='.9'/%3E%3Crect x='75' y='110' width='50' height='40' rx='8' fill='%23F31D25' opacity='.85'/%3E%3Ctext x='100' y='185' text-anchor='middle' font-size='14' fill='%23555'%3EMMA%3C/text%3E%3C/svg%3E";
 
   document.getElementById('markets').innerHTML = FIGHTS.map((f, i) => {
@@ -265,7 +273,8 @@ function renderMarkets() {
     const mainOn = p && p.fighter && !p.round && !p.method;
     const fcls = fr || '';
     const hasOdds = fightHasOdds(f);
-    const canBet = betting && hasOdds;
+    const locked = cardClosed || isFightLocked(f);
+    const canBet = !locked && hasOdds;
     const winner = (f.status === 'completed') ? f.resultWinner : null;
     const isCompleted = !!winner;
 
@@ -289,14 +298,14 @@ function renderMarkets() {
       const flag = `<span class="p-flag">${d.flag}</span>`, name = `<span class="p-name">${d.name}</span>`, od = `<span class="p-od">${has ? d.odds.toFixed(2) : '-'}</span>`;
       const inner = side === 'red' ? flag + name + od : od + name + flag;
       const winnerCls = isCompleted && winner === side ? ' winner' : '';
-      const onCls = betting && mainOn && fr === side ? ' on' : '';
-      const canPick = betting && has;
+      const onCls = !locked && mainOn && fr === side ? ' on' : '';
+      const canPick = !locked && has;
       return `<button class="pick ${side}${onCls}${winnerCls}" ${canPick ? `data-winner="${i}" data-fr="${side}"` : ''}${canPick ? '' : ' disabled'}>${inner}</button>`;
     };
 
     let hint;
-    if (betting && !hasOdds) hint = '<div class="picks-hint" style="color:var(--gold)">კოეფიციენტები ჯერ არ არის - მალე დაემატება</div>';
-    else if (betting) hint = '<div class="picks-hint">აირჩიე ფავორიტი მებრძოლი</div>';
+    if (!locked && !hasOdds) hint = '<div class="picks-hint" style="color:var(--gold)">კოეფიციენტები ჯერ არ არის - მალე დაემატება</div>';
+    else if (!locked) hint = '<div class="picks-hint">აირჩიე ფავორიტი მებრძოლი</div>';
     else if (isCompleted) hint = '<div class="picks-hint" style="color:var(--green)">დასრულდა</div>';
     else hint = '<div class="picks-hint">ფსონები დაკეტილია</div>';
 
@@ -622,6 +631,7 @@ function betError(res, error) {
     'not authenticated': 'გთხოვ, გაიარე ავტორიზაცია',
     'fight not open': 'ეს ბრძოლა ფსონისთვის დაკეტილია',
     'fight is not open for betting': 'ეს ბრძოლა ფსონისთვის დაკეტილია',
+    'fight started': 'ბილეთის დადება ვერ მოხერხდა, ბრძოლა დაწყებულია',
     'event not found': 'ივენთი ვერ მოიძებნა',
     'cashout closed': 'ქეშაუთი დახურულია',
     'ticket not open': 'ბილეთი უკვე დამუშავებულია',
@@ -871,13 +881,24 @@ function closeSlip() { document.getElementById('slipBg').classList.remove('show'
 
 // ── COUNTDOWN ──
 const cd_d = document.getElementById('cd-d'), cd_h = document.getElementById('cd-h'), cd_m = document.getElementById('cd-m'), cd_s = document.getElementById('cd-s');
+let _fightLockSnapshot = [];
 function tick() {
   const ed = window.__eventDate; const p = n => String(n).padStart(2, '0');
-  if (!ed) { [cd_d, cd_h, cd_m, cd_s].forEach(el => { if (el) el.innerHTML = '<span class="skeleton" style="display:inline-block;width:1.1em;height:0.85em;border-radius:4px;vertical-align:-0.1em"></span>'; }); return; }
-  const diff = ed - serverNow();
-  if (diff <= 0) { [cd_d, cd_h, cd_m, cd_s].forEach(el => { if (el) el.textContent = '00'; }); return; }
-  const d = Math.floor(diff / 864e5), h = Math.floor(diff % 864e5 / 36e5), m = Math.floor(diff % 36e5 / 6e4), s = Math.floor(diff % 6e4 / 1e3);
-  if (cd_d) cd_d.textContent = p(d); if (cd_h) cd_h.textContent = p(h); if (cd_m) cd_m.textContent = p(m); if (cd_s) cd_s.textContent = p(s);
+  if (!ed) { [cd_d, cd_h, cd_m, cd_s].forEach(el => { if (el) el.innerHTML = '<span class="skeleton" style="display:inline-block;width:1.1em;height:0.85em;border-radius:4px;vertical-align:-0.1em"></span>'; }); }
+  else {
+    const diff = ed - serverNow();
+    if (diff <= 0) { [cd_d, cd_h, cd_m, cd_s].forEach(el => { if (el) el.textContent = '00'; }); }
+    else {
+      const d = Math.floor(diff / 864e5), h = Math.floor(diff % 864e5 / 36e5), m = Math.floor(diff % 36e5 / 6e4), s = Math.floor(diff % 6e4 / 1e3);
+      if (cd_d) cd_d.textContent = p(d); if (cd_h) cd_h.textContent = p(h); if (cd_m) cd_m.textContent = p(m); if (cd_s) cd_s.textContent = p(s);
+    }
+  }
+  // per-fight betting cutoff self-locks without a reload — only re-renders
+  // the markets list when a fight's locked/unlocked state actually flips.
+  if (FIGHTS.length) {
+    const snap = FIGHTS.map(isFightLocked);
+    if (snap.some((v, idx) => v !== _fightLockSnapshot[idx])) { _fightLockSnapshot = snap; renderMarkets(); renderBar(); }
+  }
 }
 tick(); setInterval(tick, 1000);
 
