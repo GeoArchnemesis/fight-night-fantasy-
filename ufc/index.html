@@ -38,7 +38,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://a.espncdn.com" />
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-<link rel="stylesheet" href="/style.css?v=221">
+<link rel="stylesheet" href="/style.css?v=222">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -82,8 +82,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .mnav{display:none}
   body.logged-in .mnav{display:flex}
   body.logged-in .menu-btn{display:none}
-  body.logged-in{padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))}
-  body.logged-in .betbar{bottom:calc(58px + env(safe-area-inset-bottom,0px))}
+  body.logged-in{padding-bottom:calc(var(--mnav-h,58px) + 34px + env(safe-area-inset-bottom,0px))}
+  body.logged-in .betbar{bottom:calc(var(--mnav-h,58px) + env(safe-area-inset-bottom,0px))}
   .d-only{display:none !important}
   .nav-links.open .m-only{display:block !important}
 }
@@ -627,7 +627,7 @@ function openSocial(type){
 </nav>
 <script defer src="/fantasy-nav.js?v=13"></script>
 <script defer src="/quiz-return-banner.js?v=4"></script>
-<script defer src="/app.js?v=226"></script>
+<script defer src="/app.js?v=227"></script>
 <!-- ── REPORT CONTACT POPUP ── -->
 <div id="reportPopup" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(5,4,8,.8);backdrop-filter:blur(6px);justify-content:center;align-items:center;padding:20px" onclick="if(event.target===this)this.style.display='none'">
   <div style="background:var(--surface,#14121c);border:1px solid var(--line,#2a2734);border-radius:12px;padding:28px;max-width:340px;width:100%;text-align:center">

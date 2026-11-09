@@ -241,7 +241,9 @@ section{padding:clamp(34px,5vw,64px) 0}
 .sel{border:1px solid var(--line);border-left-width:3px;border-radius:7px;padding:13px 14px;margin-bottom:11px;background:var(--ink)}
 .sel.red{border-left-color:var(--red)}.sel.blue{border-left-color:var(--blue)}
 .sel-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
-.sel-name{font-weight:700;font-size:.95rem}
+.sel-info{min-width:0;flex:1}
+.sel-bout{font-size:var(--fs-meta);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sel-name{font-weight:700;font-size:.95rem;margin-top:3px}
 .sel.red .sel-name{color:var(--red-soft)}.sel.blue .sel-name{color:var(--blue-soft)}
 .sel-mk{font-family:var(--mono);font-size:var(--fs-meta);color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-top:3px}
 .sel-od{font-family:var(--mono);font-weight:700;color:var(--gold);white-space:nowrap}

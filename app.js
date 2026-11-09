@@ -354,12 +354,24 @@ function renderSlip() {
   document.getElementById('tabSingle').classList.toggle('on', state.mode === 'single');
   const body = document.getElementById('slipBody'), foot = document.getElementById('slipFoot');
   if (arr.length === 0) { body.innerHTML = '<div class="slip-empty">ბილეთი ცარიელია.<br>დააჭირე კოეფიციენტს ბრძოლების სიაში.</div>'; foot.innerHTML = ''; return; }
-  body.innerHTML = arr.map(s => `
+  // სლიპის მწკრივს (ბილეთში ჯერ არ განთავსებულ არჩევანს) სჭირდება ბრძოლის ორივე
+  // მებრძოლის სახელი -- s.name (selName()) ამას არ იძლევა და ტიკეტების
+  // ისტორიაშიც გამოიყენება (tk-sel-ის parts.split), ამიტომ selName() უცვლელი
+  // რჩება და ეს მწკრივი ცალკე, s.fighter/s.round/s.method-იდან, შენდება.
+  body.innerHTML = arr.map(s => {
+    const f = FIGHTS[s.i];
+    const fighterName = s.fighter ? (s.fighter === 'red' ? f.red.name : f.blue.name) : '';
+    const pickParts = [s.mk];
+    if (fighterName) pickParts.push(fighterName);
+    if (s.round) pickParts.push(s.round + '-ე რაუნდი');
+    if (s.method) pickParts.push(s.method);
+    return `
     <div class="sel ${s.fighter || ''}">
-      <div class="sel-top"><div><div class="sel-name">${s.name}</div><div class="sel-mk">${s.mk} · კოეფ. ${s.odds.toFixed(2)}</div></div>
+      <div class="sel-top"><div class="sel-info"><div class="sel-bout">${f.red.name} vs ${f.blue.name}</div><div class="sel-name">${pickParts.join(' · ')}</div><div class="sel-mk">კოეფ. ${s.odds.toFixed(2)}</div></div>
         <button class="sel-rm" data-rm="${s.i}" aria-label="წაშლა">&times;</button></div>
       ${state.mode === 'single' ? `<div class="stake-row"><input class="stake-in" type="text" inputmode="numeric" placeholder="ფსონი (ქულა)" value="${s.stake || ''}" data-stake="${s.i}"><span class="sel-ret">მოგება: <b data-ret="${s.i}">${s.stake ? fmt(s.stake * s.odds) : '0'}</b></span></div>` : ''}
-    </div>`).join('');
+    </div>`;
+  }).join('');
   body.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { delete state.picks[+b.dataset.rm]; refresh(); renderSlip(); });
   body.querySelectorAll('[data-stake]').forEach(inp => inp.oninput = () => {
     const i = +inp.dataset.stake, v = digits(inp);
@@ -999,8 +1011,22 @@ function navAvaHtml(user) {
     ? `<img src="${escapeHtml(user.avatar_url)}" alt="" style="width:100%;height:100%;object-fit:cover;border-radius:50%">`
     : (user.icon || '🥊');
 }
+// .mnav-lbl რამდენიმე სიტყვიანი ლეიბლებისთვის (მაგ. "ბილეთების ისტორია") ვიწრო
+// ეკრანზე ორ ხაზზე იშლება, ამიტომ .mnav-ის რეალური სიმაღლე ჰარდქოდზე მეტია და
+// იცვლება ეკრანის სიგანესთან ერთად — .betbar-ის bottom ოფსეტი ამ ცვლადს
+// (--mnav-h) ეყრდნობა hardcoded 58px-ის ნაცვლად (ufc/f1/nba index.html).
+function updateMnavHeight() {
+  const mnav = document.getElementById('mnav');
+  const h = (mnav && getComputedStyle(mnav).display !== 'none') ? Math.round(mnav.getBoundingClientRect().height) : 0;
+  document.documentElement.style.setProperty('--mnav-h', h + 'px');
+}
+window.addEventListener('resize', updateMnavHeight);
+window.addEventListener('orientationchange', updateMnavHeight);
+updateMnavHeight();
+
 function updateNavForUser(user) {
   document.body.classList.toggle('logged-in', !!user);   // მობილურის ქვედა ბარი (.mnav) ამ კლასზეა დამოკიდებული
+  updateMnavHeight();
   const joinBtn = document.getElementById('joinBtn'), signinBtn = document.getElementById('signinBtn'), balancePill = document.querySelector('.balance-pill');
   let navUser = document.getElementById('navUser');
   if (user) {
