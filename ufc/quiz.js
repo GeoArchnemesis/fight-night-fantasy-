@@ -371,7 +371,11 @@ function resumePendingIntent(){
 
   // იგივე პატერნი, რასაც quizRestoreStep იყენებს popstate-ზე -- პირდაპირ
   // S.gameType-ის დაყენება და startLobby(), screen-mode-ის გავლის გარეშე.
+  // intent.sport missing (an older/pre-sport-picker intent) defaults to
+  // UFC -- every pre-existing intent was UFC-only.
+  S.sport = intent.sport || 'UFC';
   S.gameType = intent.gameType;
+  updateLandAbout();
   if(intent.type === 'ai'){
     startLobby('ai', { push:false });
     const startBtn = document.querySelector('#lobby-action .btn-primary');
@@ -489,7 +493,7 @@ if(sb){
 // არის query-time სენტინელი, რომელიც არ ფილტრავს level-ით და ყველა
 // აქტიურ რიგს ირჩევს (იხ. supabase/ufc_quiz_seed.sql და
 // supabase/quiz_no_repeat.sql-ის v_mixed).
-const DIFFICULTY = [
+const DIFFICULTY_UFC = [
   { key:"easy",   label:"მარტივი", acc:0.40, dbLevel:"მარტივი", enabled:true,
     note:"მარტივ კითხვებს ელოდე, ზოგადი ცოდნითაც შეიძლება გახვიდე ფონს.", color:"var(--green)" },
   { key:"medium", label:"საშუალო", acc:0.62, dbLevel:"საშუალო", enabled:true,
@@ -500,11 +504,29 @@ const DIFFICULTY = [
   { key:"mixed",  label:"შერეული", acc:0.62, dbLevel:"შერეული", enabled:true,
     note:"ამ კატეგორიაში ყველა სირთულის კითხვები შეგხვდება.", color:"var(--blue)" },
 ];
+// Football-flavored level descriptions (verbatim, see FOOTBALL-QUIZ-PRD.md §6
+// and FOOTBALL-QUIZ-DATABASE.md's own "სტრუქტურა და დონეების აღწერები") --
+// same key/dbLevel/acc/color per level as UFC (same vs-AI accuracy curve,
+// same stored level values), only the note text differs by sport.
+const DIFFICULTY_FOOTBALL = [
+  { key:"easy",   label:"მარტივი", acc:0.40, dbLevel:"მარტივი", enabled:true,
+    note:"ზოგადი საფეხბურთო ცოდნაც საკმარისია", color:"var(--green)" },
+  { key:"medium", label:"საშუალო", acc:0.62, dbLevel:"საშუალო", enabled:true,
+    note:"გარკვეული ცოდნა გჭირდება კითხვებზე პასუხის გასაცემად", color:"var(--gold)" },
+  { key:"hard",   label:"რთული",   acc:0.82, dbLevel:"რთული", enabled:true,
+    note:"ტატო ბაციკაზე თუ არ ხარ გაეშვი.", color:"var(--red-soft)" },
+  { key:"mixed",  label:"შერეული", acc:0.62, dbLevel:"შერეული", enabled:true,
+    note:"ამ დონეზე ალბათ ყველაზე კარგად გაერთობი", color:"var(--blue)" },
+];
+function currentDifficulty(){
+  return S.sport === "Football" ? DIFFICULTY_FOOTBALL : DIFFICULTY_UFC;
+}
 
 /* ============================================================
    მდგომარეობა
    ============================================================ */
 const S = {
+  sport:null,      // "UFC" | "Football" -- chosen on screen-sport, see chooseSport()
   gameType:null,   // "quiz" | "guess"
   questions:[],
   gCluesShown:1,   // "ვინ ვარ?" — რამდენი მინიშნებაა ამჟამად გამოჩენილი
@@ -547,11 +569,11 @@ function show(id){
   if(id !== "screen-cards") stopEndBattleAnimation();
   $$(".screen").forEach(e=>e.classList.remove("active"));
   $("#"+id).classList.add("active");
-  // მინი-ჰერო (სათაური) მხოლოდ პირველ ("აირჩიე თამაში") ეკრანზე ჩანს —
-  // თამაშის პროცესში (კითხვები, ლობი, შედეგი) ბრენდინგის მაგივრად პირდაპირ
-  // კითხვა/ტაიმერი ჩანდეს თავში.
+  // მინი-ჰერო (სათაური) მხოლოდ ყველაზე პირველ ("აირჩიე ქვიზის ტიპი",
+  // სპორტის არჩევა) ეკრანზე ჩანს — თამაშის პროცესში (კითხვები, ლობი,
+  // შედეგი) ბრენდინგის მაგივრად პირდაპირ კითხვა/ტაიმერი ჩანდეს თავში.
   const hero = document.getElementById('quizHero');
-  if(hero) hero.style.display = (id === "screen-gametype") ? "" : "none";
+  if(hero) hero.style.display = (id === "screen-sport") ? "" : "none";
   const inGame = ["screen-quiz","screen-guess","screen-cards","screen-pvp-setup","screen-pvp-lobby","screen-pvp-wait","screen-pvp-results"].indexOf(id) > -1;
   if(!inGame){ window.scrollTo(0,0); return; }
   requestAnimationFrame(()=>{
@@ -597,7 +619,7 @@ async function fetchQuestions(dbLevel){
     // get_ai_quiz_questions (supabase/quiz_no_repeat.sql) ირჩევს 10 კითხვას
     // სერვერზე, user-ის „ნანახის" ისტორიის გათვალისწინებით (no-repeat) —
     // კლიენტს აღარ სჭირდება მთელი პულის წამოღება/shuffle/slice.
-    const { data, error } = await sb.rpc('get_ai_quiz_questions', { p_game_type: 'quiz', p_level: dbLevel });
+    const { data, error } = await sb.rpc('get_ai_quiz_questions', { p_game_type: 'quiz', p_level: dbLevel, p_category: S.sport || 'UFC' });
     if(error){ console.error("[quiz] Supabase შეცდომა:", error.message||error); return null; }
     // ⚠️ განზრახ არ ვბეჭდავთ არც კითხვის, არც პასუხის შემცველ მონაცემებს კონსოლში (anti-cheat).
     if(!Array.isArray(data) || !data.length) return null;
@@ -623,7 +645,7 @@ async function fetchGuessQuestions(dbLevel){
   if(!sb || !dbLevel) return null;
   try{
     // იხ. ზემოთ fetchQuestions-ის შენიშვნა — იგივე no-repeat RPC, guess-who პულზე.
-    const { data, error } = await sb.rpc('get_ai_quiz_questions', { p_game_type: 'guess', p_level: dbLevel });
+    const { data, error } = await sb.rpc('get_ai_quiz_questions', { p_game_type: 'guess', p_level: dbLevel, p_category: S.sport || 'UFC' });
     if(error){ console.error("[quiz] Supabase შეცდომა (ვინ ვარ?):", error.message||error); return null; }
     // ⚠️ აქაც არ ვბეჭდავთ მონაცემებს (პასუხებს) კონსოლში.
     if(!Array.isArray(data) || !data.length) return null;
@@ -715,6 +737,9 @@ function quizStepFor(gameType, mode){
 // from the four places below that build a screen's UI for the first time
 // in a given visit (chooseGameType, startLobby's ai branch, startPvpSetup,
 // and the two "play again"/"done" resets back to the gametype screen).
+// Football shares every one of these seven (gameType,mode) URL slugs with
+// UFC (no separate URL scheme this run, see pushSportStep below) --
+// quizSport is carried in history.state only, never in the path/rest.
 function pushQuizStep(gameType, mode){
   const step = quizStepFor(gameType, mode);
   if(!step) return;
@@ -724,21 +749,46 @@ function pushQuizStep(gameType, mode){
   // pushState(..., path) would silently drop it from the address bar.
   const roomParam = new URLSearchParams(location.search).get("room");
   const addressBarUrl = path + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
-  history.pushState({ quizGameType: step.gameType, quizMode: step.mode }, "", addressBarUrl);
+  history.pushState({ quizSport: S.sport, quizGameType: step.gameType, quizMode: step.mode }, "", addressBarUrl);
   window.dataLayer = window.dataLayer || [];
   const payload = { event: "quiz_step", page_path: path, page_title: step.title, external_id: (currentAuthUser && currentAuthUser.id) || "" };
+  if(S.sport) payload.quiz_sport = S.sport;
   if(step.gameType) payload.quiz_game_type = step.gameType;
   if(step.mode) payload.quiz_mode = step.mode;
   window.dataLayer.push(payload);
 }
-// Rebuilds a screen's UI for a given (gameType, mode) pair without
+// Rebuilds a screen's UI for a given (sport, gameType, mode) triple without
 // touching history -- shared by popstate and the ?s= direct-link shim.
-// Reuses chooseGameType/startLobby themselves (push:false) rather than
-// duplicating their UI-building logic.
-function quizRestoreStep(gameType, mode){
-  if(!gameType){
+// Reuses chooseSport/chooseGameType/startLobby themselves (push:false)
+// rather than duplicating their UI-building logic. sport===null means the
+// true root (screen-sport, nothing chosen yet -- see pushSportStep).
+function quizRestoreStep(sport, gameType, mode){
+  if(!sport){
+    S.sport = null;
     S.gameType = null;
-    show("screen-gametype");
+    show("screen-sport");
+    updateLandAbout();
+    return;
+  }
+  if(sport === "Football"){
+    // Football has no gametype screen (no guess-who content yet) -- the
+    // sport step itself already lands on screen-mode with gameType
+    // forced to "quiz" (see chooseSport). A null `mode` here means
+    // exactly that step; a set `mode` means one level further in.
+    if(!mode){
+      chooseSport("Football", { push:false });
+      return;
+    }
+    S.sport = "Football";
+    S.gameType = "quiz";
+    updateLandAbout();
+    startLobby(mode, { push:false });
+    return;
+  }
+  S.sport = "UFC";
+  updateLandAbout();
+  if(!gameType){
+    chooseSport("UFC", { push:false });
     return;
   }
   if(!mode){
@@ -750,7 +800,76 @@ function quizRestoreStep(gameType, mode){
 }
 
 /* ============================================================
-   0) თამაშის ტიპის არჩევა (ქვიზი / ვინ ვარ?)
+   -1) სპორტის არჩევა (UFC / ფეხბურთი) -- ყველაზე პირველი ეკრანი
+   ============================================================ */
+$$("#screen-sport .mode").forEach(card=>{
+  const go = ()=> chooseSport(card.dataset.sport);
+  card.addEventListener("click", go);
+  card.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); }});
+});
+
+// A real page refresh on a sub-path (e.g. /ufc/quiz/questionquiz) never
+// reaches a static file -- 404.html shims it to /ufc/quiz/?s=<rest>, and
+// that rest string is shared byte-for-byte between UFC and Football (see
+// pushQuizStep above), so the URL alone can't say which sport was active.
+// Persisting the last chosen sport here lets initQuizDeepLink below
+// recover it instead of always assuming UFC.
+const QUIZ_SPORT_STORAGE_KEY = "fnfQuizSport";
+function persistCurrentSport(sport){
+  try{ if(sport) sessionStorage.setItem(QUIZ_SPORT_STORAGE_KEY, sport); }catch(e){}
+}
+function readPersistedSport(){
+  try{ return sessionStorage.getItem(QUIZ_SPORT_STORAGE_KEY); }catch(e){ return null; }
+}
+
+// Sport-aware land-about explainer (ufc/quiz/index.html, below the quiz
+// app) -- one <div data-landabout="neutral|UFC|Football"> per sport in the
+// markup, this just shows the one matching S.sport and hides the others.
+// Called from every place S.sport changes (chooseSport, quizRestoreStep,
+// PvP join/resume, the pending-intent resume after login) so the text
+// never drifts from what's actually selected, plus once on initial load
+// below for the neutral default.
+function updateLandAbout(){
+  const key = (S.sport === "UFC" || S.sport === "Football") ? S.sport : "neutral";
+  $$(".land-about [data-landabout]").forEach(el=>{
+    el.style.display = (el.dataset.landabout === key) ? "" : "none";
+  });
+}
+updateLandAbout();
+
+// Football has no guess-who content yet (see DIFFICULTY_FOOTBALL/PRD §4.2) --
+// rather than a hardcoded block that would need a rewrite later, picking
+// Football just defaults S.gameType to "quiz" and skips straight to
+// screen-mode. Re-enabling a Football guess-who mode later only needs a
+// gametype screen branch added here, nothing downstream changes.
+function chooseSport(sport, opts){
+  opts = opts || {};
+  S.sport = sport; // "UFC" | "Football"
+  persistCurrentSport(sport);
+  updateLandAbout();
+  if(sport === "Football"){
+    S.gameType = "quiz";
+    $("#screen-mode-heading").textContent = "ქვიზი";
+    show("screen-mode");
+  } else {
+    show("screen-gametype");
+  }
+  if(opts.push !== false) pushSportStep(sport);
+}
+
+// Same address-bar URL as the root step ("/ufc/quiz/", no new route this
+// run) -- only history.state's quizSport differs, which is enough for the
+// existing popstate handler to give one-screen-at-a-time Back from here.
+function pushSportStep(sport){
+  const roomParam = new URLSearchParams(location.search).get("room");
+  const addressBarUrl = "/ufc/quiz/" + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
+  history.pushState({ quizSport: sport, quizGameType: sport === "Football" ? "quiz" : null, quizMode: null }, "", addressBarUrl);
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push({ event: "quiz_step", page_path: "/ufc/quiz/", page_title: "Quiz — Sport: " + sport, quiz_sport: sport, external_id: (currentAuthUser && currentAuthUser.id) || "" });
+}
+
+/* ============================================================
+   0) თამაშის ტიპის არჩევა (ქვიზი / ვინ ვარ?) -- UFC-ს ეკრანი
    ============================================================ */
 $$("#screen-gametype .mode").forEach(card=>{
   const go = ()=> chooseGameType(card.dataset.gametype);
@@ -766,8 +885,28 @@ function chooseGameType(type, opts){
   if(opts.push !== false) pushQuizStep(type, null);
 }
 
+// #quizHero's back control sits above the sport picker, outside the
+// QUIZ_STEPS history stack the other .qback buttons rely on -- it needs
+// its own in-site-history check rather than a plain history.back().
+const quizHeroBackBtn = $("#quizHeroBack");
+if(quizHeroBackBtn) quizHeroBackBtn.addEventListener("click", (e)=>{
+  e.preventDefault();
+  if(document.referrer.startsWith(location.origin) && history.length > 1){
+    history.back();
+  } else {
+    location.href = "/";
+  }
+});
+
 const backBtn = $("#back-to-gametype");
 if(backBtn) backBtn.addEventListener("click", ()=> history.back());
+
+// screen-gametype is one level below the sport picker now (it used to be
+// the root screen and had no back control of its own) -- Back here always
+// means "return to the sport picker", same history.back() pattern as
+// every other qback button.
+const backToSportBtn = $("#back-to-sport");
+if(backToSportBtn) backToSportBtn.addEventListener("click", ()=> history.back());
 
 $("#back-from-lobby").addEventListener("click", ()=>{ stopQuestionTimer(); history.back(); });
 
@@ -817,7 +956,7 @@ function buildDifficultyPicker(action, { onReady, startLabel, onStart }){
   startBtn.disabled = true;
   startBtn.onclick = ()=>{
     if(S.aiAcc == null) return;
-    requireAuth(()=> startDifficulty(), { type:'ai', gameType:S.gameType });
+    requireAuth(()=> startDifficulty(), { type:'ai', gameType:S.gameType, sport:S.sport });
   };
   async function startDifficulty(){
     startBtn.disabled = true;
@@ -832,7 +971,7 @@ function buildDifficultyPicker(action, { onReady, startLabel, onStart }){
     }
   };
 
-  DIFFICULTY.forEach(d=>{
+  currentDifficulty().forEach(d=>{
     const c = document.createElement("button");
     c.className = "chip"; c.textContent = d.label + (d.enabled ? "" : " 🔒");
     if(!d.enabled){
@@ -855,7 +994,7 @@ function buildDifficultyPicker(action, { onReady, startLabel, onStart }){
 
   // წინასწარ არჩეული დონე — ერთადერთი ხელმისაწვდომი ("მარტივი") ავტომატურად
   // მონიშნულია და ღილაკი აქტიურია, მოთამაშეს აღარ სჭირდება ხელით არჩევა.
-  const defaultChip = Array.from(chips.children).find((_,i)=> DIFFICULTY[i].enabled);
+  const defaultChip = Array.from(chips.children).find((_,i)=> currentDifficulty()[i].enabled);
   if(defaultChip) defaultChip.click();
 
   action.appendChild(wrap);
@@ -989,7 +1128,7 @@ function startPvpSetup(opts){
 
   const chips = document.createElement("div");
   chips.className = "diff-chips";
-  DIFFICULTY.forEach(d=>{
+  currentDifficulty().forEach(d=>{
     const c = document.createElement("button");
     c.className = "chip"; c.textContent = d.label + (d.enabled ? "" : " 🔒");
     if(!d.enabled){
@@ -1006,10 +1145,10 @@ function startPvpSetup(opts){
     chips.appendChild(c);
   });
   diffWrap.appendChild(chips);
-  const defaultChip = Array.from(chips.children).find((_,i)=> DIFFICULTY[i].enabled);
+  const defaultChip = Array.from(chips.children).find((_,i)=> currentDifficulty()[i].enabled);
   if(defaultChip) defaultChip.click();
 
-  createBtn.onclick = ()=> requireAuth(()=> createPvpRoom(chosenLevel), { type:'pvp-create', gameType:S.gameType });
+  createBtn.onclick = ()=> requireAuth(()=> createPvpRoom(chosenLevel), { type:'pvp-create', gameType:S.gameType, sport:S.sport });
 
   const codeInput = $("#pvp-join-code");
   const joinErr = $("#pvp-join-error");
@@ -1018,7 +1157,7 @@ function startPvpSetup(opts){
   const urlCode = new URLSearchParams(location.search).get("room");
   codeInput.value = urlCode ? urlCode.toUpperCase() : "";
 
-  $("#pvp-join-btn").onclick = ()=> requireAuth(()=> joinPvpRoom(codeInput.value), { type:'pvp-join', gameType:S.gameType, roomCode:codeInput.value });
+  $("#pvp-join-btn").onclick = ()=> requireAuth(()=> joinPvpRoom(codeInput.value), { type:'pvp-join', gameType:S.gameType, sport:S.sport, roomCode:codeInput.value });
 
   show("screen-pvp-setup");
   if(opts.push !== false) pushQuizStep(S.gameType, "pvp");
@@ -1039,7 +1178,7 @@ async function createPvpRoom(level){
   const btn = $("#pvp-create-btn");
   btn.disabled = true; btn.textContent = "იქმნება…";
   try{
-    const { data, error } = await sb.rpc('create_quiz_room', { p_game_type: S.gameType || 'quiz', p_level: level });
+    const { data, error } = await sb.rpc('create_quiz_room', { p_game_type: S.gameType || 'quiz', p_level: level, p_category: S.sport || 'UFC' });
     if(error || !data || !data.length){
       showQuizToast("ოთახის შექმნა ვერ მოხერხდა: " + pvpErrorMessage(error), 3500);
       btn.disabled = false; btn.textContent = "ოთახის შექმნა";
@@ -1072,6 +1211,8 @@ async function joinPvpRoom(codeRaw){
     }
     const row = data[0];
     S.gameType = row.game_type;
+    S.sport = row.category || 'UFC';
+    updateLandAbout();
     enterPvpLobby({ roomId: row.room_id, code, isHost: false, questions: row.questions });
   }catch(e){
     err.textContent = "დაფიქსირდა შეცდომა - სცადე თავიდან.";
@@ -1454,6 +1595,7 @@ function finishPvpResults(){
   clearPvpRoomRecoveryState();
   stripRoomParam();
   resetPvp();
+  if(S.sport === "Football"){ chooseSport("Football"); return; }
   S.gameType = null;
   show("screen-gametype");
   pushQuizStep(null, null);
@@ -1493,7 +1635,7 @@ function computeHardGuessPoints(n){
 
 async function beginQuiz(){
   let pool = null;
-  const diff = DIFFICULTY.find(d => d.key === S.diffKey);
+  const diff = currentDifficulty().find(d => d.key === S.diffKey);
 
   if(S.gameType === "guess"){
     pool = await fetchGuessQuestions(diff && diff.dbLevel);
@@ -2124,6 +2266,9 @@ $("#back-from-cards").addEventListener("click", resetToMode);
 
 function resetToMode(){
   stopQuestionTimer(); stopEndBattleAnimation();
+  // Football has no gametype screen -- its "reset" destination is its own
+  // entry screen (screen-mode, gameType forced to "quiz"), not UFC's.
+  if(S.sport === "Football"){ chooseSport("Football"); return; }
   S.gameType = null;
   show("screen-gametype");
   pushQuizStep(null, null);
@@ -2153,7 +2298,7 @@ window.addEventListener("popstate", e=>{
     if(roomId && sb) sb.rpc('leave_quiz_room', { p_room_id: roomId }).catch(()=>{});
   }
   const st = e.state || {};
-  quizRestoreStep(st.quizGameType || null, st.quizMode || null);
+  quizRestoreStep(st.quizSport || null, st.quizGameType || null, st.quizMode || null);
 });
 
 (function initQuizDeepLink(){
@@ -2161,13 +2306,35 @@ window.addEventListener("popstate", e=>{
   const sParam = params.get("s");
   if(!sParam) return;
   const step = QUIZ_STEPS.find(s => s.rest === sParam);
-  if(!step || !step.rest) return; // unrecognised -- leave the gametype screen showing, untouched
-  quizRestoreStep(step.gameType, step.mode);
+  if(!step || !step.rest) return; // unrecognised -- leave the sport screen showing, untouched
+  // These ?s= slugs are shared byte-for-byte between UFC and Football (see
+  // pushQuizStep/persistCurrentSport above) -- the URL itself can't say
+  // which sport was active, so fall back to the last one persisted in this
+  // tab, defaulting to UFC only when nothing was ever persisted (e.g. a
+  // bookmarked/shared link, or every pre-existing UFC-only link).
+  const sportHere = readPersistedSport() || "UFC";
+  quizRestoreStep(sportHere, step.gameType, step.mode);
   // ?room=<code> (the PvP share link, independent of this shim) stays
   // live if it rode along with the ?s= redirect.
   const roomParam = params.get("room");
   const canonicalPath = "/ufc/quiz/" + step.rest + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
-  history.replaceState({ quizGameType: step.gameType, quizMode: step.mode }, "", canonicalPath);
+  history.replaceState({ quizSport: sportHere, quizGameType: step.gameType, quizMode: step.mode }, "", canonicalPath);
+})();
+
+// Homepage sport cards (index.html) link straight here with ?sport=ufc or
+// ?sport=football so the card's own sport is picked immediately, skipping
+// screen-sport -- a plain deep link one level shallower than the ?s= shim
+// above, so it's skipped whenever ?s= already resolved a sport+step.
+(function initQuizSportDeepLink(){
+  const params = new URLSearchParams(location.search);
+  if(params.get("s")) return;
+  const raw = (params.get("sport") || "").trim().toLowerCase();
+  const sport = raw === "football" ? "Football" : raw === "ufc" ? "UFC" : null;
+  if(!sport) return;
+  quizRestoreStep(sport, null, null);
+  const roomParam = params.get("room");
+  const canonicalPath = "/ufc/quiz/" + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
+  history.replaceState({ quizSport: sport, quizGameType: sport === "Football" ? "quiz" : null, quizMode: null }, "", canonicalPath);
 })();
 
 // PvP share link (?room=<code>) must join the room directly, not just
@@ -2186,8 +2353,12 @@ window.addEventListener("popstate", e=>{
 
   function showPvpJoinUi(){
     // S.gameType may already be set by the ?s= shim above (e.g. a "guess"
-    // room link), so keep it when present instead of forcing "quiz".
-    quizRestoreStep(S.gameType || "quiz", "pvp");
+    // room link), so keep it when present instead of forcing "quiz". The
+    // room's real sport isn't known until the join/rejoin call below
+    // returns its category -- default UFC here is just pre-join
+    // scaffolding (a generic "enter code" screen), corrected immediately
+    // after a successful join/rejoin.
+    quizRestoreStep(S.sport || "UFC", S.gameType || "quiz", "pvp");
     const codeInput = document.getElementById("pvp-join-code");
     if(codeInput) codeInput.value = roomCode;
   }
@@ -2332,6 +2503,11 @@ async function resumePvpRoom(roomId, row){
   const me = players.find(p => p.player_id === myId);
   const isHost = !!(me && me.is_host);
   S.gameType = row.game_type;
+  // rejoin_quiz_room returns the room's own category (see
+  // quiz_category_isolation.sql) -- a Football player resuming must land
+  // back in Football, never bounced to UFC.
+  S.sport = row.category || 'UFC';
+  updateLandAbout();
 
   if(row.status === "waiting"){
     enterPvpLobby({ roomId, code: row.code, isHost, questions: row.questions });

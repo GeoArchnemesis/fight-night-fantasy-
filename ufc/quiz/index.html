@@ -36,7 +36,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-<link rel="stylesheet" href="/style.css?v=221">
+<link rel="stylesheet" href="/style.css?v=222">
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
@@ -110,31 +110,27 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
 /* Quiz-area background artwork — decorative only, scoped to #quizApp (the
    header-to-footer quiz region), never body/nav/footer. The image lives on
-   #quizApp::before, not on #quizApp itself, so mask-image only fades the
-   background -- the real quiz content (stacked above it via z-index:-1 on
-   the pseudo-element) is never masked or dimmed itself. min-height is tuned
-   against every screen's measured natural height (game-type, mode, both AI
-   difficulty pickers, pvp-setup, pvp-lobby, pvp-wait, cards) so the artwork
-   reads properly on the shortest screens without adding visible empty space
-   under any other screen's own content. */
+   #quizApp::before, not on #quizApp itself, so the real quiz content
+   (stacked above it via z-index:-1 on the pseudo-element) is never dimmed
+   itself. min-height is tuned against every screen's measured natural
+   height (game-type, mode, both AI difficulty pickers, pvp-setup,
+   pvp-lobby, pvp-wait, cards) so the artwork reads properly on the
+   shortest screens without adding visible empty space under any other
+   screen's own content. */
 #quizApp{position:relative;min-height:400px}
 #quizApp::before{
   content:"";
   position:absolute;
   inset:0;
   z-index:-1;
+  background-color:var(--canvas);
+  background-image:linear-gradient(rgba(11,10,18,.55),rgba(11,10,18,.55)),url(/images/BackgroundQuiz.png);
   background-size:cover;
   background-position:center;
   background-repeat:no-repeat;
-  -webkit-mask-image:linear-gradient(to bottom,transparent,#000 12%,#000 88%,transparent);
-  mask-image:linear-gradient(to bottom,transparent,#000 12%,#000 88%,transparent);
-}
-@media(max-width:920px){
-  #quizApp::before{background-image:linear-gradient(rgba(11,10,18,.5),rgba(11,10,18,.5)),url(quiz-bg-mobile.webp)}
 }
 @media(min-width:921px){
   #quizApp{min-height:480px}
-  #quizApp::before{background-image:linear-gradient(rgba(11,10,18,.5),rgba(11,10,18,.5)),url(quiz-bg-desktop.webp)}
 }
 
 .qz-hero{padding:clamp(20px,5vw,34px) 0 clamp(10px,2vw,16px)}
@@ -161,7 +157,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    this page's own appearance is unchanged. */
 
 #quizRoot .modes{display:grid;grid-template-columns:1fr;gap:12px}
+/* #screen-sport's two cards are the .quiz-card photo cards (style.css) --
+   2-column regardless of viewport, unlike the other .modes screens (which
+   stay single-column, untouched above). */
+#screen-sport .modes{grid-template-columns:repeat(2,1fr)}
 #quizRoot .mode{position:relative;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden;cursor:pointer;padding:22px 20px;min-height:116px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;transition:border-color .15s,transform .15s}
+/* .quiz-card's own padding/min-height/gap (style.css) must win over the
+   generic .mode rule above so its photo is full-bleed -- #quizRoot .mode
+   .quiz-card matches that rule's ID+class specificity plus one class. */
+#quizRoot .mode.quiz-card{padding:0;min-height:0;gap:0;align-items:stretch}
 #quizRoot .mode:hover,#quizRoot .mode:focus-visible{border-color:var(--muted);transform:translateY(-2px);outline:none}
 #quizRoot .mode .glyph{position:absolute;font-size:84px;opacity:.06;right:-10px;bottom:-18px;line-height:1}
 #quizRoot .mode h2{font-family:var(--display);font-weight:700;font-size:1.3rem;line-height:1.15;z-index:1}
@@ -545,8 +549,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- ── MINI-HERO (მხოლოდ "აირჩიე თამაში" ეკრანზე ჩანს — quiz.js show() მართავს) ── -->
 <header class="hero qz-hero" id="quizHero"><div class="wrap hero-in">
-<a class="qz-home" href="/" aria-label="მთავარი გვერდი"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true" focusable="false"><path d="M12 3 2 12h3v8h5v-6h4v6h5v-8h3z"></path></svg></a>
-<h1 class="qz-title reveal d1">UFC ქვიზი</h1>
+<a class="qz-home" id="quizHeroBack" href="/" aria-label="უკან"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" width="18" height="18" fill="currentColor" aria-hidden="true" focusable="false" style="transform:scaleX(-1)"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg></a>
+<h1 class="qz-title reveal d1"></h1>
 <span class="qz-home-spacer" aria-hidden="true"></span>
 </div></header>
 
@@ -554,8 +558,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <section id="quizApp" style="padding-top:8px"><div class="wrap">
 <div id="quizRoot">
 
+  <!-- SPORT SELECT -->
+  <section id="screen-sport" class="screen active">
+    <h2 style="text-align:center;font-family:var(--display);margin-bottom:18px">აირჩიე ქვიზის ტიპი</h2>
+    <div class="modes">
+      <div class="mode quiz-card" tabindex="0" role="button" aria-label="UFC" data-sport="UFC">
+        <span class="quiz-card-photo ufc"></span>
+        <span class="quiz-card-label">UFC Quiz</span>
+        <button type="button" class="btn btn-primary">ითამაშე</button>
+      </div>
+      <div class="mode quiz-card" tabindex="0" role="button" aria-label="ფეხბურთი" data-sport="Football">
+        <span class="quiz-card-photo football"></span>
+        <span class="quiz-card-label">Football Quiz</span>
+        <button type="button" class="btn btn-primary">ითამაშე</button>
+      </div>
+    </div>
+  </section>
+
   <!-- GAME TYPE SELECT -->
-  <section id="screen-gametype" class="screen active">
+  <section id="screen-gametype" class="screen">
+    <div class="back-row"><button class="qback" id="back-to-sport"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button></div>
     <div class="modes">
       <div class="mode" tabindex="0" role="button" aria-label="ქვიზი" data-gametype="quiz">
         <span class="glyph">❓</span>
@@ -803,6 +825,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 </div></div>
 
 <section class="land-about"><div class="wrap">
+<div data-landabout="neutral">
+<h2>რა არის FNF ქვიზი</h2>
+<p>პირველად საქართველოში FNF.GE-ზე შეგიძლია შენი სპორტული ცოდნა გამოცადო ონლაინ - მეგობრების წინააღმდეგ ან საკუთარი ცოდნა AI ის წინააღმდეგ. აირჩიე ქვიზის ტიპი - და ითამაშე. თამაში პირდაპირ საიტზე, მარტივი რეგისტრაციის შემდეგ ხდება. თამაში და რეგისტრაცია რათქმაუნდა უფასოა.</p>
+</div>
+<div data-landabout="UFC">
 <h2>რა არის UFC ქვიზი</h2>
 <p>პირველად საქართველოში FNF.GE-ზე შეგიძლია შენი სპორტული ცოდნა MMA-ში გამოცადო ონლაინ -მეგობრების წინააღმდეგ. თამაში შეგიძლია პირდაპირ საიტზე მარტივი რეგისტრაციის შემდეგ. თამაში და რეგისტრაცია ცხადია უფასოა.</p>
 
@@ -816,13 +843,34 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <p>ადამიანის წინააღმდეგ - ქმნი ოთახს და 8-მდე მეგობარს იწვევ ოთახის კოდით ან პირდაპირ ლინკით. ბოლოს ყველას შედეგი ერთ სიაში ჩანს.</p>
 
 <h2>სირთულე</h2>
-<p>ამჟამად ღიაა მარტივი დონე - ზოგადი ცოდნითაც შეიძლება ფონს გახვიდე. საშუალო და რთული კითხვები მზადდება.</p>
+<p>ოთხივე დონე ღიაა - მარტივი, საშუალო, რთული და შერეული. აირჩიე შენზე მორგებული.</p>
 
 <h2>თამაშის შემდეგ</h2>
 <p>ყველა კითხვა და სწორი პასუხი თამაშის ბოლოს გამოჩნდება , შეგიძლია გადახედო, რა შეგეშალა. ქვიზის ქულები ლიდერბორდზე არ აისახება - ეს ცალკე თამაშია, ფენტეზის ქულებზე არ აისახება. რაც ხდება ქვიზში, რჩება ქვიზში</p>
 
 <h2>ქვიზის გარდა რითი გაერთო?</h2>
 <p>fnf.ge-ზე UFC-ის, F1-ის, NBA-სა და ფეხბურთის ფენტეზიც არის. რეგისტრაცია და თამაში ცხადია უფასოა.</p>
+</div>
+<div data-landabout="Football">
+<h2>რა არის ფეხბურთის ქვიზი</h2>
+<p>პირველად საქართველოში FNF.GE-ზე შეგიძლია შენი საფეხბურთო ცოდნა გამოცადო ონლაინ - მეგობრების წინააღმდეგ. თამაში შეგიძლია პირდაპირ საიტზე მარტივი რეგისტრაციის შემდეგ. თამაში და რეგისტრაცია ცხადია უფასოა.</p>
+
+<h2>კითხვები ფეხბურთიდან</h2>
+<p>ფეხბურთელებზე, კლუბებზე და ჩემპიონატებზე. თითო თამაშში 10 კითხვაა.</p>
+
+<h2>ითამაშე მარტო ან მეგობრებთან</h2>
+<p>AI-ის წინააღმდეგ - მარტო თამაშობ, ოპონენტად AI გყავს. ანუ შენს თავს ეჯიბრები და მოწინააღმდეგე ფიქტიურია.</p>
+<p>ადამიანის წინააღმდეგ - ქმნი ოთახს და 8-მდე მეგობარს იწვევ ოთახის კოდით ან პირდაპირ ლინკით. ბოლოს ყველას შედეგი ერთ სიაში ჩანს.</p>
+
+<h2>სირთულე</h2>
+<p>ოთხივე დონე ღიაა - მარტივი, საშუალო, რთული და შერეული. აირჩიე შენზე მორგებული.</p>
+
+<h2>თამაშის შემდეგ</h2>
+<p>ყველა კითხვა და სწორი პასუხი თამაშის ბოლოს გამოჩნდება, შეგიძლია გადახედო, რა შეგეშალა. ქვიზის ქულები ლიდერბორდზე არ აისახება - ეს ცალკე თამაშია, ფენტეზის ქულებზე არ აისახება. რაც ხდება ქვიზში, რჩება ქვიზში.</p>
+
+<h2>ქვიზის გარდა რითი გაერთო?</h2>
+<p>fnf.ge-ზე UFC-ის, F1-ის, NBA-სა და ფეხბურთის ფენტეზიც არის. რეგისტრაცია და თამაში ცხადია უფასოა.</p>
+</div>
 </div></section>
 
 <!-- ── FOOTER (იდენტურია ufc/index.html-ის) ── -->
@@ -927,7 +975,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=56"></script>
+<script src="/ufc/quiz.js?v=60"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){

@@ -35,7 +35,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
-<link rel="stylesheet" href="/style.css?v=222" />
+<link rel="stylesheet" href="/style.css?v=223" />
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -85,6 +85,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .land-card.nba:hover{border-color:#ff8c42}
   .land-card[class*="fb-"]:hover{border-color:#4da3ff}
   .fb-cap{position:absolute;left:0;right:0;bottom:0;padding:8px 10px;background:linear-gradient(transparent,rgba(0,0,0,.8));color:#fff;font-weight:800;font-size:clamp(var(--fs-meta),1.7vw,.95rem);text-align:center;font-family:var(--head)}
+  .quiz-land-cards{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;width:100%;max-width:440px}
   footer{width:100%;margin-top:34px}
   /* #newsStrip itself now lives in style.css (shared with the nine sport
      pages' NEWS-SPORT strip -- task 6), not here. */
@@ -115,6 +116,22 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <a href="/football/ligue1/" class="land-card fb-ligue1" aria-label="ლიგა 1"><span class="fb-cap">ლიგა 1</span></a>
   <a href="/football/ucl/" class="land-card fb-ucl" aria-label="ჩემპიონთა ლიგა"><span class="fb-cap">ჩემპიონთა ლიგა</span></a>
 </div>
+
+<section class="quiz-land"><div class="wrap">
+<h1 class="land-title">ქვიზი</h1>
+<div class="quiz-land-cards">
+  <a href="/ufc/quiz/?sport=ufc" class="quiz-card">
+    <span class="quiz-card-photo ufc"></span>
+    <span class="quiz-card-label">UFC Quiz</span>
+    <span class="btn btn-primary">ითამაშე</span>
+  </a>
+  <a href="/ufc/quiz/?sport=football" class="quiz-card">
+    <span class="quiz-card-photo football"></span>
+    <span class="quiz-card-label">Football Quiz</span>
+    <span class="btn btn-primary">ითამაშე</span>
+  </a>
+</div>
+</div></section>
 
 <!-- NEWS-HOME:START -->
 <section id="newsStrip"><div class="wrap">
