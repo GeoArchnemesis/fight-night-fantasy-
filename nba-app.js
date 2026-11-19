@@ -1160,12 +1160,16 @@ const loadingEl = $('markets');
 if (loadingEl) loadingEl.innerHTML = '<div style="display:flex;flex-direction:column;gap:12px;padding:16px 0">' + Array(3).fill('<div class="card" style="display:flex;gap:12px;padding:12px;align-items:center"><div class="skeleton skeleton--thumb"></div><div style="flex:1;display:flex;flex-direction:column;gap:8px"><div class="skeleton skeleton--line w-80"></div><div class="skeleton skeleton--line w-60"></div></div></div>').join('') + '</div>';
 
 async function init() {
-  try { await syncServerTime(); } catch (e) {}
+  // ავტორიზაციის სტატუსი (nav) რაც შეიძლება ადრე უნდა გაირკვეს — syncServerTime()
+  // (RPC round trip) აქ აღარ ბლოკავს nav-ის განახლებას, რადგან ავტორიზაციასთან
+  // კავშირი არა აქვს; header არასდროს უნდა გაიელვოს "გამოსული" მდგომარეობით
+  // შესული მომხმარებლისთვის.
   let session = null;
   try { const { data } = await sb.auth.getSession(); session = data.session; } catch (e) {}
   if (session) { const jb = $('joinBtn'), sb2 = $('signinBtn'); if (jb) jb.style.display = 'none'; if (sb2) sb2.style.display = 'none'; }
+  if (session && !currentUser) applySession(session).catch(() => {});
+  syncServerTime().catch(() => {});
   await loadGamesAndRender();
-  if (session && !currentUser) { try { await applySession(session); } catch (e) {} }
 }
 init();
 

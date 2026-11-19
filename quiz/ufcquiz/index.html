@@ -47,10 +47,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-<link rel="stylesheet" href="/style.css?v=225">
+<link rel="stylesheet" href="/style.css?v=226">
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<!-- supabase-js moved to just before quiz.js at the bottom of <body> --
+     quiz.js's initSB() needs window.supabase already defined, but a
+     blocking <script src> in <head> delays first paint while it downloads.
+     Loading it right before quiz.js (still a plain blocking script, not
+     defer/async) keeps the exact same execution order without blocking
+     the head. -->
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -135,7 +140,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   inset:0;
   z-index:-1;
   background-color:var(--canvas);
-  background-image:linear-gradient(rgba(11,10,18,.55),rgba(11,10,18,.55)),url(/images/BackgroundQuiz.png);
+  background-image:linear-gradient(rgba(11,10,18,.55),rgba(11,10,18,.55)),url(/images/BackgroundQuiz.webp);
   background-size:cover;
   background-position:center;
   background-repeat:no-repeat;
@@ -459,23 +464,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .pvp-wait{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:60px 0;text-align:center}
 #quizRoot .pvp-wait-spinner{font-size:40px;display:inline-block;animation:qzSpin 1.6s linear infinite}
 @keyframes qzSpin{to{transform:rotate(360deg)}}
-#quizRoot .podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;align-items:end;gap:10px;margin-bottom:18px}
-#quizRoot .podium-slot{display:flex;flex-direction:column;align-items:center;gap:6px}
-#quizRoot .podium-ring{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-size:26px;background:var(--ink);border:3px solid var(--line);overflow:hidden}
-#quizRoot .podium-ring img{width:100%;height:100%;object-fit:cover;border-radius:50%}
-#quizRoot .podium-slot.p1 .podium-ring{width:78px;height:78px;font-size:32px;border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,196,81,.25)}
-#quizRoot .podium-slot.p2 .podium-ring{border-color:var(--silver);box-shadow:0 0 0 3px rgba(201,205,214,.2)}
-#quizRoot .podium-slot.p3 .podium-ring{border-color:var(--bronze);box-shadow:0 0 0 3px rgba(205,127,50,.2)}
-#quizRoot .podium-nm{font-family:var(--head);font-weight:700;font-size:.86rem;text-align:center;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#quizRoot .podium-pts{font-family:var(--mono);font-weight:700;font-size:.9rem}
-#quizRoot .podium-slot.p1 .podium-pts{color:var(--gold)}
-#quizRoot .podium-slot.p2 .podium-pts{color:var(--silver)}
-#quizRoot .podium-slot.p3 .podium-pts{color:var(--bronze)}
-#quizRoot .podium-base{width:100%;border-radius:8px 8px 0 0;background:var(--surface);border:1px solid var(--line);border-bottom:none}
-#quizRoot .podium-slot.p1 .podium-base{height:70px;border-color:var(--gold)}
-#quizRoot .podium-slot.p2 .podium-base{height:48px;border-color:var(--silver)}
-#quizRoot .podium-slot.p3 .podium-base{height:34px;border-color:var(--bronze)}
-#quizRoot .pvp-rest{display:flex;flex-direction:column;gap:8px}
+#quizRoot .pvp-rest{display:flex;flex-direction:column;gap:8px;margin-bottom:18px}
 #quizRoot .pvp-rest-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
 #quizRoot .pvp-rest-row .rank{font-family:var(--mono);font-weight:700;color:var(--text);width:20px}
 #quizRoot .pvp-rest-row .nm{flex:1;font-family:var(--head);font-weight:700;font-size:.88rem}
@@ -604,7 +593,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
       <div class="mode" tabindex="0" role="button" aria-label="ვინ ვარ" data-gametype="guess">
         <h2>გამოიცანი ვინ ვარ</h2>
-        <p id="gametype-guess-desc">ფაქტებს გეტყვი მებრძოლებზე<br>ეცადე გამოიცნო ვისზეა საუბარი</p>
+        <p id="gametype-guess-desc" class="">ფაქტებს გეტყვი მებრძოლებზე<br>ეცადე გამოიცნო ვისზეა საუბარი</p>
       </div>
     </div>
   </section>
@@ -684,12 +673,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </section>
 
-  <!-- PvP — RESULTS (podium) -->
+  <!-- PvP — RESULTS -->
   <section id="screen-pvp-results" class="screen">
     <div class="back-row"><button class="qback" id="back-from-pvp-results"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button></div>
     <h2 style="text-align:center;font-family:var(--display);margin-bottom:18px">შედეგები</h2>
-    <div class="podium" id="pvp-podium"></div>
     <div class="pvp-rest" id="pvp-rest-list"></div>
+    <div class="cb-review" id="pvpResultsReview">
+      <div class="cb-review-list" id="pvpResultsReviewList"></div>
+    </div>
     <button class="btn btn-primary" id="pvp-results-done" style="width:100%;margin-top:18px">დასრულება</button>
   </section>
 
@@ -707,8 +698,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- GUESS WHO -->
   <section id="screen-guess" class="screen">
-    <div class="quiz-head"><span class="qcount"><span id="gq-idx">1</span>/<span id="gq-total">10</span></span></div>
-    <div class="timer-wrap" id="gq-timer-row" style="display:none"><div class="timer"><i id="gq-timer"></i></div><span class="timer-num" id="gq-timer-num">30</span></div>
+    <div class="quiz-head"><span class="qcount"><span id="gq-idx">1</span> / <span id="gq-total">10</span></span></div>
+    <div class="timer-wrap" id="gq-timer-row" style="display:none"><div class="timer"><i id="gq-timer"></i></div><span class="timer-num" id="gq-timer-num">40</span></div>
     <button type="button" class="btn btn-ghost afk-return-btn" id="gq-afk-btn" style="display:none">დაბრუნება</button>
     <div class="qcard">
       <div class="qnum">კითხვა <span id="gq-num">1</span></div>
@@ -724,6 +715,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <input type="text" id="gq-input" aria-label="გამოიცანი მებრძოლი" autocomplete="off" />
         </div>
         <button class="btn btn-primary" id="gq-submit" style="margin-top:14px;width:100%">პასუხის გაცემა</button>
+        <button type="button" class="btn btn-ghost" id="gq-idk" style="margin-top:10px;width:100%">არ ვიცი</button>
       </div>
       <div class="gq-feedback" id="gq-feedback"></div>
       <button class="btn btn-gold" id="gq-next-q" style="margin-top:14px;width:100%;display:none">შემდეგი →</button>
@@ -959,7 +951,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- ── SCRIPTS ── -->
 <script src="/fantasy-nav.js?v=14"></script>
-<script src="/quiz/quiz.js?v=66"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<script src="/quiz/quiz.js?v=67"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){

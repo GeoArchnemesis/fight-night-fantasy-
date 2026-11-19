@@ -37,6 +37,25 @@ const log = (m) => console.log(`[${new Date().toISOString()}] ${m}`);
 // Exact Georgian SEO copy, agreed verbatim -- do not reword, translate, or
 // add to any of these strings without checking first (see MoonUpdate.md
 // standing rule: never invent user-facing site text).
+// Exact strings from quiz/quiz.js's GAMETYPE_CARD_TEXT -- keep byte-identical
+// with that object (the only reason this exists is to pre-paint the right
+// sport's copy before quiz.js runs; quiz.js's own updateLandAbout() still
+// re-applies the identical text/class at runtime, so a drift here would
+// only ever show as a one-frame flash back to the correct text, never
+// wrong text staying on screen).
+const GAMETYPE_CARD_TEXT = {
+  UFC: {
+    quiz: 'კითხვები UFC-დან',
+    guess: 'ფაქტებს გეტყვი მებრძოლებზე<br>ეცადე გამოიცნო ვისზეა საუბარი',
+    guessTight: false,
+  },
+  Football: {
+    quiz: 'კითხვები ფეხბურთიდან',
+    guess: 'ფეხბურთთან დაკავშირებულ ფაქტებს გეტყვი<br>ეცადე გამოიცნო ვისზე ან რაზეა საუბარი',
+    guessTight: true,
+  },
+};
+
 const PAGES = [
   {
     outFile: 'quiz/index.html',
@@ -49,6 +68,9 @@ const PAGES = [
       { name: 'მთავარი', item: 'https://fnf.ge/' },
       { name: 'ქვიზი', item: 'https://fnf.ge/quiz/' },
     ],
+    // bare /quiz/ shows screen-sport first -- no sport chosen yet, so this
+    // matches quiz.js updateLandAbout()'s own UFC fallback for S.sport===null.
+    gametype: GAMETYPE_CARD_TEXT.UFC,
   },
   {
     outFile: 'quiz/ufcquiz/index.html',
@@ -62,6 +84,7 @@ const PAGES = [
       { name: 'ქვიზი', item: 'https://fnf.ge/quiz/' },
       { name: 'UFC ქვიზი', item: 'https://fnf.ge/quiz/ufcquiz/' },
     ],
+    gametype: GAMETYPE_CARD_TEXT.UFC,
   },
   {
     outFile: 'quiz/footballquiz/index.html',
@@ -75,6 +98,7 @@ const PAGES = [
       { name: 'ქვიზი', item: 'https://fnf.ge/quiz/' },
       { name: 'საფეხბურთო ქვიზი', item: 'https://fnf.ge/quiz/footballquiz/' },
     ],
+    gametype: GAMETYPE_CARD_TEXT.Football,
   },
 ];
 
@@ -97,7 +121,13 @@ function renderPage(template, page) {
     .replace(/__QUIZ_CANONICAL__/g, page.canonical)
     .replace(/__QUIZ_OG_TITLE__/g, escapeHtml(page.ogTitle))
     .replace(/__QUIZ_OG_DESCRIPTION__/g, escapeHtml(page.ogDescription))
-    .replace(/__QUIZ_BREADCRUMB_JSON__/g, breadcrumbJson(page.breadcrumb));
+    .replace(/__QUIZ_BREADCRUMB_JSON__/g, breadcrumbJson(page.breadcrumb))
+    // These two carry literal markup (a <br>), exactly as quiz.js's
+    // GAMETYPE_CARD_TEXT sets it via innerHTML/textContent at runtime --
+    // not HTML-escaped, unlike the meta/title fields above.
+    .replace(/__QUIZ_GAMETYPE_QUIZ_DESC__/g, () => page.gametype.quiz)
+    .replace(/__QUIZ_GAMETYPE_GUESS_DESC__/g, () => page.gametype.guess)
+    .replace(/__QUIZ_GAMETYPE_GUESS_DESC_CLASS__/g, page.gametype.guessTight ? 'gametype-desc--tight' : '');
 }
 
 function main() {
@@ -108,6 +138,7 @@ function main() {
   const requiredPlaceholders = [
     '__QUIZ_TITLE__', '__QUIZ_DESCRIPTION__', '__QUIZ_CANONICAL__',
     '__QUIZ_OG_TITLE__', '__QUIZ_OG_DESCRIPTION__', '__QUIZ_BREADCRUMB_JSON__',
+    '__QUIZ_GAMETYPE_QUIZ_DESC__', '__QUIZ_GAMETYPE_GUESS_DESC__', '__QUIZ_GAMETYPE_GUESS_DESC_CLASS__',
   ];
   for (const ph of requiredPlaceholders) {
     if (!template.includes(ph)) throw new Error(`template missing placeholder: ${ph}`);

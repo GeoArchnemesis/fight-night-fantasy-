@@ -26,6 +26,7 @@ const QUESTIONS_PER_GAME = 10;   // რამდენი კითხვა თ
 const AI_ACCURACY        = 0.60; // ნაგულისხმევი AI სიზუსტე (overridable დონის მიხედვით)
 const TIME_PER_Q         = 30;   // წამი თითო კითხვაზე (მრავალპასუხიანი ქვიზი, AI-ის წინააღმდეგ)
 const PVP_TIME_PER_Q     = 30;   // PDF p7: PvP-ში (ორივე ტიპი) — 30 წამი თითო კითხვაზე, AI-ის 15-ისგან დამოუკიდებლად
+const GUESS_TIME_PER_Q   = 40;   // "ვინ ვარ?" — 40 წამი თითო კითხვაზე, AI-ის და PvP-ის წინააღმდეგ ორივეში (TIME_PER_Q/PVP_TIME_PER_Q-სგან დამოუკიდებლად, ჩვეულებრივ ქვიზს არ ეხება)
 const PVP_GUESS_CLUE_BONUS = 5;  // PDF p7: "ვინ ვარ?" PvP-ში ყოველი ახალი მინიშნება +5 წამს მატებს დროს
 const TIMER_AMBER_MS = 10000; // ბოლო ~10 წამი — ბარი ყვითლდება
 const TIMER_RED_MS   = 5000;  // ბოლო ~5 წამი — ბარი წითლდება
@@ -1560,37 +1561,76 @@ function onPvpRoomAbandoned(){
   show("screen-mode");
 }
 
+// get_quiz_results sorts players by total_score desc already (see
+// supabase/quiz_category_isolation.sql's get_quiz_results -- "order by
+// pr.total_score desc, pr.joined_at asc") -- this just assigns the dense
+// place number on top of that existing order: tied scores share one place
+// number, and the next *distinct* score gets the very next number (no
+// gaps), e.g. two players tied at the top are both "1", the next player
+// is "2", not "3".
 function renderPvpResults(result){
   const players = (result && result.players) || [];
-  const podiumEl = $("#pvp-podium"); podiumEl.innerHTML = "";
   const restEl = $("#pvp-rest-list"); restEl.innerHTML = "";
 
-  const top3 = players.slice(0, 3);
-  const slots = [ { idx:1, cls:"p2" }, { idx:0, cls:"p1" }, { idx:2, cls:"p3" } ];
-  slots.forEach(s=>{
-    const p = top3[s.idx];
-    const slot = document.createElement("div");
-    slot.className = "podium-slot " + s.cls;
-    if(!p){ slot.style.visibility = "hidden"; podiumEl.appendChild(slot); return; }
-    const isMe = PVP && p.player_id === PVP.myId;
-    // PDF p1: პოდიუმში ემოჯის ნაცვლად მოთამაშის რეალური სურათი/აიქონი —
-    // ფერადი რგოლი (ოქრო/ვერცხლი/ბრინჯაო) კი .podium-slot.pN-ზეა, უცვლელი.
-    const avaHtml = (p.avatar_type === "photo" && p.avatar_url) ? `<img src="${escapeHtml(p.avatar_url)}" alt="" />` : (p.icon || "🥊");
-    slot.innerHTML = `<div class="podium-ring">${avaHtml}</div>`+
-      `<div class="podium-nm">${escapeHtml(p.player_name)}${isMe ? " (შენ)" : ""}</div>`+
-      `<div class="podium-pts">${p.total_score} ქულა</div>`+
-      `<div class="podium-base"></div>`;
-    podiumEl.appendChild(slot);
-  });
-
-  players.slice(3).forEach((p,i)=>{
+  let rank = 0, prevScore = null;
+  players.forEach(p=>{
+    if(prevScore === null || p.total_score !== prevScore){ rank++; prevScore = p.total_score; }
     const isMe = PVP && p.player_id === PVP.myId;
     const row = document.createElement("div");
     row.className = "pvp-rest-row";
-    row.innerHTML = `<span class="rank">${i+4}</span>`+
+    row.innerHTML = `<span class="rank">${rank}</span>`+
       `<span class="nm">${escapeHtml(p.player_name)}${isMe ? " (შენ)" : ""}</span>`+
       `<span class="pts">${p.total_score}</span>`;
     restEl.appendChild(row);
+  });
+
+  renderPvpResultsReview(result, players);
+}
+
+// Same per-question correct/wrong breakdown as the offline vs-AI results
+// screen (renderReview above -- reuses its .cb-review* classes so both
+// screens read the same way), generalized from the fixed you/AI pair to
+// however many players were in the room. S.questions/PVP.questions never
+// carried the correct answer to the client during play (PvP anti-cheat,
+// see submitGuess's own comment on this) -- result.answer_key (from
+// get_quiz_results, same array order as S.questions) is what finally
+// reveals it, now that the game is over.
+function renderPvpResultsReview(result, players){
+  const list = $("#pvpResultsReviewList");
+  if(!list) return;
+  const answerKey = (result && result.answer_key) || [];
+  const isGuess = S.gameType === "guess";
+  list.innerHTML = "";
+
+  S.questions.forEach((item, i)=>{
+    const qText = isGuess ? ((item.clues && item.clues[0]) || "") : (item.q || "");
+    const correctText = isGuess ? String(answerKey[i] ?? "") : ((item.o && item.o[answerKey[i]] != null) ? item.o[answerKey[i]] : "");
+
+    const rowsHtml = players.map(p=>{
+      const isMe = PVP && p.player_id === PVP.myId;
+      const pick = p.picks ? p.picks[String(i)] : undefined;
+      const points = (p.points ? p.points[String(i)] : 0) || 0;
+      const ok = points > 0;
+      let pText;
+      if(isGuess){
+        // Another player's free-text guess -- unlike item.q/item.o/answerKey
+        // (trusted, author-written question content), this came from a
+        // participant's own input, so it must be escaped same as nick/
+        // player_name elsewhere in this file.
+        pText = (pick != null && String(pick).trim()) ? escapeHtml(String(pick)) : "პასუხი არ გაეცა";
+      } else {
+        pText = (typeof pick === "number" && pick >= 0 && item.o && item.o[pick] != null) ? item.o[pick] : "პასუხი არ გაეცა";
+      }
+      return `<div class="cb-review-a ${ok ? "ok" : "bad"}">${escapeHtml(p.player_name)}${isMe ? " (შენ)" : ""}: ${pText}</div>`;
+    }).join("");
+
+    const row = document.createElement("div");
+    row.className = "cb-review-item";
+    row.innerHTML = `
+      <div class="cb-review-q"><span class="cb-review-num">${i+1}.</span>${qText}</div>
+      ${rowsHtml}
+      <div class="cb-review-correct">სწორი პასუხი: ${correctText}</div>`;
+    list.appendChild(row);
   });
 }
 
@@ -1934,7 +1974,7 @@ function catchUpPvpTimer(){
     S.timerRaf = requestAnimationFrame(tickQuestionTimer);
     return;
   }
-  const totalMs = PVP_TIME_PER_Q * 1000;
+  const totalMs = (S.gameType === "guess" ? GUESS_TIME_PER_Q : PVP_TIME_PER_Q) * 1000;
   const questionsToSkip = Math.floor(overrun / totalMs) + 1;
   for(let i = 0; i < questionsToSkip && S.qi < S.questions.length; i++){
     submitPvpTimeoutSilently();
@@ -2020,6 +2060,7 @@ function renderGuessQuestion(){
   inp.setAttribute("aria-label", inputLabel);
   inp.value = ""; inp.disabled = false;
   $("#gq-submit").disabled = false;
+  $("#gq-idk").disabled = false;
   $("#gq-next-clue").disabled = (item.clues.length <= 1);
   $("#gq-answer-area").style.display = "";
 
@@ -2033,14 +2074,15 @@ function renderGuessQuestion(){
   startGuessTimer();
 }
 
-// PDF p7-p8: "ვინ ვარ?" — 30 წამი (PvP-ის და AI-ის წინააღმდეგ ორივეში),
+// "ვინ ვარ?" — GUESS_TIME_PER_Q წამი (PvP-ის და AI-ის წინააღმდეგ ორივეში,
+// ჩვეულებრივი ქვიზის TIME_PER_Q/PVP_TIME_PER_Q-სგან დამოუკიდებლად),
 // ყოველი ახალი მინიშნება +5 წამს მატებს (ქულის ჯარიმა უცვლელი რჩება —
 // reveal_quiz_clue-ს არსებული ლოგიკა, ახალი scoring არაფერი დამატებული).
 // დრო რომ ამოიწურება, submitGuess(true) იძახება — "ნაძალადევი" submit,
 // ცარიელი ველის დაბლოკვის გარეშე, ყოველთვის გადადის შემდეგ კითხვაზე.
 function startGuessTimer(){
   $("#gq-timer-row").style.display = "";
-  const totalMs = pvpAfkModeActive() ? AFK_SHORT_TIME_MS : PVP_TIME_PER_Q*1000;
+  const totalMs = pvpAfkModeActive() ? AFK_SHORT_TIME_MS : GUESS_TIME_PER_Q*1000;
   startQuestionTimer($("#gq-timer"), $("#gq-timer-num"), totalMs, ()=> submitGuess(true));
   updateAfkButtonVisibility();
 }
@@ -2057,21 +2099,14 @@ function renderGuessClues(){
   wrap.scrollTop = wrap.scrollHeight;
 }
 
-function submitGuess(forced){
+// giveUp === true — მოთამაშემ "არ ვიცი" დააჭირა: პასუხი ყოველთვის
+// არასწორია, ველში ჩაწერილი ტექსტი (თუ იყო) უგულებელყოფილია. ცარიელი
+// ველის გაგზავნაც (ღილაკი "პასუხის გაცემა", forced არ არის) ახლა იგივენაირად
+// არასწორია, დაბლოკვის გარეშე — ქვემოთ isGuessCorrect-ის განშტოება ცარიელ
+// val-საც არასწორად თვლის.
+function submitGuess(forced, giveUp){
   const item = S.questions[S.qi];
-  const val = ($("#gq-input").value || "").trim();
-
-  // PDF p7-p8: PvP-ში ცარიელი ველით "პასუხის გაცემა" დაჭერა (დრო ჯერ არ
-  // ამოწურულა — forced არ არის) იბლოკება, წითლად "ველი ცარიელია" —
-  // მხოლოდ დროის ამოწურვა (startGuessTimer-ის submitGuess(true))
-  // გადადის ცარიელი ველითაც ავტომატურად შემდეგ კითხვაზე.
-  if(PVP && !forced && !val){
-    const fb = $("#gq-feedback");
-    fb.classList.add("show","bad");
-    fb.classList.remove("ok");
-    fb.innerHTML = `<span style="color:var(--red)">ველი ცარიელია</span>`;
-    return;
-  }
+  const val = giveUp ? "" : ($("#gq-input").value || "").trim();
 
   stopQuestionTimer();
   $("#gq-answer-area").style.display = "none";
@@ -2132,6 +2167,7 @@ $("#gq-next-clue").addEventListener("click", ()=>{
 });
 $("#gq-submit").addEventListener("click", ()=> submitGuess());
 $("#gq-input").addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); submitGuess(); }});
+$("#gq-idk").addEventListener("click", ()=> submitGuess(false, true));
 
 // R7: mobile keyboard was covering #gq-input and #gq-submit — uses
 // visualViewport (not a fixed pixel guess, so it adapts to whatever height
@@ -2431,8 +2467,16 @@ window.addEventListener("popstate", e=>{
   quizRestoreStep(st.quizSport || null, st.quizGameType || null, st.quizMode || null);
 });
 
+// initQuizDeepLink below resolves and consumes ?s=, then rewrites the URL
+// via replaceState -- initQuizSportDeepLink runs right after it and must
+// not re-read the now-rewritten location.search (it would silently
+// re-trigger on the same load and stomp the step initQuizDeepLink just
+// restored, regressing a sub-path refresh back to the bare sport/gametype
+// screen). Both read from this one snapshot, taken before either runs.
+const _quizInitialSearch = location.search;
+
 (function initQuizDeepLink(){
-  const params = new URLSearchParams(location.search);
+  const params = new URLSearchParams(_quizInitialSearch);
   const sParam = params.get("s");
   if(!sParam) return;
   const step = QUIZ_STEPS.find(s => s.rest === sParam);
@@ -2463,7 +2507,7 @@ window.addEventListener("popstate", e=>{
 // either root), but ?sport= itself still works for any old/shared link
 // that still has it.
 (function initQuizSportDeepLink(){
-  const params = new URLSearchParams(location.search);
+  const params = new URLSearchParams(_quizInitialSearch);
   if(params.get("s")) return;
   const raw = (params.get("sport") || "").trim().toLowerCase();
   let sport = raw === "football" ? "Football" : raw === "ufc" ? "UFC" : null;
