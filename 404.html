@@ -43,15 +43,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     // აქ არაფერი ხდება — თორემ '/ufc' → '/ufc/' → 404 → უსასრულო loop-ი გამოვიდოდა.
     else if (raw !== p && /^\/(ufc|f1|nba|profile)$/.test(p)) target = p + '/';
     else if (raw !== p && /^\/football\/(laliga|epl|seriea|bundesliga|ligue1|ucl)$/.test(p)) target = p + '/';
-    // Phase 9: ufc/quiz.js-ის URL/history ფუნქციონალის 7 ეკრანიდან 6-ს
-    // (საბაზისო /ufc/quiz/ თავად რეალური ფაილია, შიმი არ სჭირდება) არ
-    // გააჩნია შესაბამისი ფაილი — პირდაპირი ბმული ან refresh ამ მისამართებზე
-    // 404-ზე მოხვდებოდა. canon-ის მნიშვნელობები ზუსტად ემთხვევა
-    // ufc/quiz.js-ის QUIZ_STEPS-ის rest ველებს (ჩათვლით რეგისტრის –
+    // Phase 9 (Task 1-ით მირორებული სამივე quiz root-ზე): quiz.js-ის
+    // URL/history ფუნქციონალის 7 ეკრანიდან 6-ს (საბაზისო /quiz/,
+    // /quiz/ufcquiz/, /quiz/footballquiz/ თავად რეალური ფაილებია, შიმი არ
+    // სჭირდებათ) არ გააჩნია შესაბამისი ფაილი — პირდაპირი ბმული ან refresh
+    // ამ მისამართებზე 404-ზე მოხვდებოდა. canon-ის მნიშვნელობები ზუსტად
+    // ემთხვევა quiz.js-ის QUIZ_STEPS-ის rest ველებს (ჩათვლით რეგისტრის –
     // quizAI/whoAI, არა quizai/whoai) -- ქვემოთ შედარება პატარა ასოებზეა,
     // რადგან p უკვე დაპატარავებულია ზემოთ, მაგრამ redirect-ში ყოველთვის
-    // კანონიკური (სწორი რეგისტრის) მნიშვნელობა მიდის.
-    else if (/^\/ufc\/quiz\/(questionquiz|wheami|questionquiz\/quizai|questionquiz\/quizcoop|wheami\/whoai|wheami\/whocoop)$/.test(p)) {
+    // კანონიკური (სწორი რეგისტრის) მნიშვნელობა მიდის. /ufc/quiz/ branch
+    // ძველი (pre-Task 1) ბმულებისთვისაა დატოვებული — /ufc/quiz/index.html
+    // ახლა მხოლოდ /quiz/-ზე მიმყვან რედირექტია, ?s= query მასაც გადაჰყვება.
+    else if (/^\/(ufc\/quiz|quiz\/ufcquiz|quiz\/footballquiz)\/(questionquiz|wheami|questionquiz\/quizai|questionquiz\/quizcoop|wheami\/whoai|wheami\/whocoop)$/.test(p)) {
       var QUIZ_REST_CANON = {
         'questionquiz': 'questionquiz',
         'wheami': 'wheamI',
@@ -60,8 +63,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         'wheami/whoai': 'wheamI/whoAI',
         'wheami/whocoop': 'wheamI/whocoop'
       };
-      target = '/ufc/quiz/';
-      targetQuery = '?s=' + QUIZ_REST_CANON[p.slice('/ufc/quiz/'.length)];
+      var quizRootMatch = /^\/(ufc\/quiz|quiz\/ufcquiz|quiz\/footballquiz)\//.exec(p);
+      target = '/' + quizRootMatch[1] + '/';
+      targetQuery = '?s=' + QUIZ_REST_CANON[p.slice(target.length)];
     }
     // guard: pathname-ებს ვადარებთ (query/hash-ის გარეშე) → loop შეუძლებელია,
     // მხოლოდ query ან hash-ით განსხვავებულ გვერდსაც კი არ გადაამისამართებს საკუთარ თავზე.
@@ -132,6 +136,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <button onclick="document.getElementById('contactPopup').style.display='none'" style="color:var(--muted);font-size:.9rem;font-family:inherit;cursor:pointer;background:none;border:none">დახურვა</button>
   </div>
 </div>
-<script defer src="/quiz-return-banner.js?v=4"></script>
+<script defer src="/quiz-return-banner.js?v=5"></script>
 </body>
 </html>

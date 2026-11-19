@@ -1,5 +1,10 @@
 // ============================================================
-//  ufc/quiz.js — UFC ქვიზი (ქვიზი + "ვინ ვარ?", AI-ის და ადამიანის წინააღმდეგ)
+//  quiz/quiz.js — UFC + Football ქვიზი (ქვიზი + "ვინ ვარ?", AI-ის და
+//  ადამიანის წინააღმდეგ). ადრე ufc/quiz.js იყო, ერთადერთ გვერდზე
+//  (ufc/quiz/index.html) ჩატვირთული -- Task 1 (quiz URL restructure)-ის
+//  შემდეგ სამივე რეალურ გვერდზეა გაზიარებული: /quiz/ (სპორტის ამრჩევი),
+//  /quiz/ufcquiz/, /quiz/footballquiz/ (იხ. quizRootForSport/
+//  QUIZ_DEFAULT_SPORT ქვემოთ). /ufc/quiz/ ახლა მხოლოდ რედირექტია.
 //  პორტირებულია ufc-epic-quiz.html პროტოტიპიდან.
 //  არ ტვირთავს app.js-ს. ავტორიზაციის მდგომარეობა (nav-ის ჩვენება ვიზუალური
 //  თანხვედრისთვის) რეპლიცირებულია app.js-ის updateNavForUser/applySession-იდან,
@@ -34,6 +39,33 @@ const PVP_AWAY_BUDGET_MS = 20000;
 // "დაბრუნება" button appears — see updateAfkButtonVisibility/startTimer/startGuessTimer.
 const AFK_TIMEOUT_THRESHOLD = 2;
 const AFK_SHORT_TIME_MS = 5000;
+
+/* ============================================================
+   Task 1 (quiz URL restructure): three real static roots now exist --
+   /quiz/ (sport picker), /quiz/ufcquiz/ (UFC), /quiz/footballquiz/
+   (Football) -- each a real file/directory so a direct visit or refresh
+   works without server-side rewrites (GitHub Pages has none). The
+   canonical root for address-bar/pushState/share-link purposes is derived
+   from S.sport (quizRootForSport), not fixed at page load: choosing a
+   sport from the bare /quiz/ picker moves the canonical root to the
+   matching sport page, which is what 404.html's mirrored ufcquiz/
+   footballquiz shims expect a deep refresh to land back on.
+   QUIZ_DEFAULT_SPORT reads which of the three roots this load started on,
+   so /quiz/ufcquiz/ and /quiz/footballquiz/ boot straight into their sport
+   (skipping screen-sport) exactly like the old ?sport=ufc/?sport=football
+   deep link already did, while bare /quiz/ still shows the picker. ============================================================ */
+function quizRootForSport(sport){
+  if(sport === 'UFC') return '/quiz/ufcquiz/';
+  if(sport === 'Football') return '/quiz/footballquiz/';
+  return '/quiz/';
+}
+const QUIZ_DEFAULT_SPORT = (function(){
+  if(typeof location === "undefined") return null;
+  var p = location.pathname;
+  if(p.indexOf('/quiz/ufcquiz/') === 0) return 'UFC';
+  if(p.indexOf('/quiz/footballquiz/') === 0) return 'Football';
+  return null;
+})();
 
 /* prefers-reduced-motion: თაიმერის ბარი წყვეტს უწყვეტ (rAF) ანიმაციას და
    მხოლოდ მთელ წამებზე "ხტება" (იგივე სიხშირით, რითაც რიცხვი იცვლება) —
@@ -330,16 +362,21 @@ async function doQuizAuthSubmit(){
 // PDF p5: ამ გვერდის ავტორიზაციის მოდალს (app.js-ის მთავარი auth-მოდალისგან
 // დამოუკიდებელი, იხ. ფაილის თავი) Google-ით შესვლა საერთოდ არ ჰქონდა —
 // app.js-ის handleGoogleAuth()-ის იდენტური ლოგიკა, მხოლოდ redirectTo
-// განსხვავებულია: აქ ყოველთვის რეალური /ufc/quiz/ მისამართი გამოიყენება
-// (ქვესადგურებზე, მაგ. /ufc/quiz/questionquiz, 404.html შიმი Supabase-ის
-// დაბრუნებულ auth fragment/code-ს location.replace-ით შლის, სანამ
-// supabase-js მას წაიკითხავდა). ?room=<კოდი> დეპ-ლინკი (location.search)
-// მაინც შემორჩება, ხოლო რომელ ეკრანზე იყო მოთამაშე, უკვე
-// persistPendingIntent-ით sessionStorage-შია შენახული.
+// განსხვავებულია: Task 1-მდე აქ ყოველთვის ჰარდქოდილი /ufc/quiz/ მისამართი
+// გამოიყენებოდა (სამი ცალკე რეალური გვერდის -- /quiz/, /quiz/ufcquiz/,
+// /quiz/footballquiz/ -- გაჩენის შემდეგ ეს არასწორი იქნებოდა: მომხმარებელი
+// /quiz/footballquiz/-დან Google-ით შესვლის შემდეგ /quiz/ufcquiz/-ზე
+// დაბრუნდებოდა). ახლა origin+pathname+search -- რომელ გვერდზეც დაიწყო,
+// იმავეზე ბრუნდება. ქვესადგურებზე (მაგ. /quiz/ufcquiz/questionquiz)
+// 404.html-ის მირორებული შიმები კანონიკურ root-ზე მიჰყავს, სანამ
+// supabase-js Supabase-ის დაბრუნებულ auth fragment/code-ს წაიკითხავდა.
+// ?room=<კოდი> დეპ-ლინკი (location.search) მაინც შემორჩება, ხოლო რომელ
+// ეკრანზე იყო მოთამაშე, უკვე persistPendingIntent-ით sessionStorage-შია
+// შენახული.
 async function handleQuizGoogleAuth(){
   if(!sb) { showAuthError('სერვერთან კავშირი ვერ დამყარდა.'); return; }
   persistPendingIntent();
-  const redirectTo = window.location.origin + '/ufc/quiz/' + window.location.search;
+  const redirectTo = window.location.origin + window.location.pathname + window.location.search;
   const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo } });
   if(error) showAuthError(error.message || 'Google-ით შესვლა ვერ მოხერხდა.');
 }
@@ -775,11 +812,11 @@ function isGuessCorrect(guess, answer){
    Phase 9: URL + analytics map for the seven tracked quiz screens --
    single source of truth for pushState's path, the dataLayer page_title,
    and the ?s= direct-link shim's reverse (rest -> screen) lookup. 404.html
-   has the matching forward (path -> ?s=) direction; keep the "rest"
-   strings byte-identical between the two, including capitalisation
-   (quizAI/whoAI, not quizai/whoai -- 404.html's own matching is
-   case-insensitive, but the canonical ?s= value it redirects to, and
-   everything here, is not).
+   has the matching forward (path -> ?s=) direction (mirrored for all three
+   roots as of Task 1); keep the "rest" strings byte-identical between the
+   two, including capitalisation (quizAI/whoAI, not quizai/whoai --
+   404.html's own matching is case-insensitive, but the canonical ?s= value
+   it redirects to, and everything here, is not).
    ============================================================ */
 const QUIZ_STEPS = [
   { rest: "",                      gameType: null,    mode: null,  title: "Quiz — Start" },
@@ -804,7 +841,7 @@ function quizStepFor(gameType, mode){
 function pushQuizStep(gameType, mode){
   const step = quizStepFor(gameType, mode);
   if(!step) return;
-  const path = "/ufc/quiz/" + step.rest;
+  const path = quizRootForSport(S.sport) + step.rest;
   // ?room=<code> (the PvP share link) has to survive every pushState
   // between here and screen-pvp-setup actually reading it, or a plain
   // pushState(..., path) would silently drop it from the address bar.
@@ -854,9 +891,10 @@ $$("#screen-sport .mode").forEach(card=>{
   card.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); }});
 });
 
-// A real page refresh on a sub-path (e.g. /ufc/quiz/questionquiz) never
-// reaches a static file -- 404.html shims it to /ufc/quiz/?s=<rest>, and
-// that rest string is shared byte-for-byte between UFC and Football (see
+// A real page refresh on a sub-path (e.g. /quiz/ufcquiz/questionquiz) never
+// reaches a static file -- 404.html shims it to ?s=<rest> on the matching
+// root, and that rest string is shared byte-for-byte between UFC and
+// Football (see
 // pushQuizStep above), so the URL alone can't say which sport was active.
 // Persisting the last chosen sport here lets initQuizDeepLink below
 // recover it instead of always assuming UFC.
@@ -913,15 +951,19 @@ function chooseSport(sport, opts){
   if(opts.push !== false) pushSportStep(sport);
 }
 
-// Same address-bar URL as the root step ("/ufc/quiz/", no new route this
-// run) -- only history.state's quizSport differs, which is enough for the
-// existing popstate handler to give one-screen-at-a-time Back from here.
+// Task 1: the address-bar URL for this root step is now sport-specific --
+// choosing a sport from the bare /quiz/ picker moves the canonical root to
+// /quiz/ufcquiz/ or /quiz/footballquiz/ (quizRootForSport) -- only
+// history.state's quizSport used to differ; now the path does too, which
+// is still enough for the existing popstate handler to give
+// one-screen-at-a-time Back from here.
 function pushSportStep(sport){
+  const root = quizRootForSport(sport);
   const roomParam = new URLSearchParams(location.search).get("room");
-  const addressBarUrl = "/ufc/quiz/" + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
+  const addressBarUrl = root + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
   history.pushState({ quizSport: sport, quizGameType: null, quizMode: null }, "", addressBarUrl);
   window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({ event: "quiz_step", page_path: "/ufc/quiz/", page_title: "Quiz — Sport: " + sport, quiz_sport: sport, external_id: (currentAuthUser && currentAuthUser.id) || "" });
+  window.dataLayer.push({ event: "quiz_step", page_path: root, page_title: "Quiz — Sport: " + sport, quiz_sport: sport, external_id: (currentAuthUser && currentAuthUser.id) || "" });
 }
 
 /* ============================================================
@@ -1128,7 +1170,7 @@ function pvpAwayRemainingMs(record){
 // right place without disturbing that back/forward stack.
 function setRoomUrlParam(code){
   if(!code) return;
-  history.replaceState(history.state, "", "/ufc/quiz/?room=" + encodeURIComponent(code));
+  history.replaceState(history.state, "", quizRootForSport(S.sport) + "?room=" + encodeURIComponent(code));
 }
 function stripRoomParam(){
   const url = new URL(location.href);
@@ -1209,7 +1251,7 @@ function startPvpSetup(opts){
   const codeInput = $("#pvp-join-code");
   const joinErr = $("#pvp-join-error");
   joinErr.style.display = "none";
-  // დეპ-ლინკი (fnf.ge/ufc/quiz/?room=ABC123) — კოდი წინასწარ ივსება.
+  // დეპ-ლინკი (fnf.ge/quiz/ufcquiz/?room=ABC123 და ა.შ.) — კოდი წინასწარ ივსება.
   const urlCode = new URLSearchParams(location.search).get("room");
   codeInput.value = urlCode ? urlCode.toUpperCase() : "";
 
@@ -1614,7 +1656,7 @@ async function copyToClipboard(text){
 
 $("#pvp-copy-link").addEventListener("click", async ()=>{
   if(!PVP) return;
-  const url = location.origin + "/ufc/quiz/?room=" + PVP.code;
+  const url = location.origin + quizRootForSport(S.sport) + "?room=" + PVP.code;
   const btn = $("#pvp-copy-link");
   try{
     const ok = await copyToClipboard(url);
@@ -2351,9 +2393,11 @@ function resetToMode(){
 /* ============================================================
    Phase 9: quiz URL history -- popstate moves back one screen inside the
    quiz (instead of leaving the page), and a direct link / refresh on one
-   of the seven paths (served by 404.html's shim as /ufc/quiz/?s=<rest>,
-   since these paths aren't real files) opens the matching screen and
-   then straightens the address bar back out to the canonical path.
+   of the seven paths (served by 404.html's shim as ?s=<rest> on the
+   ufcquiz/footballquiz root -- or on the bare /quiz/ root, for an old
+   /ufc/quiz/ link -- since these paths aren't real files) opens the
+   matching screen and then straightens the address bar back out to the
+   canonical path.
    ============================================================ */
 window.addEventListener("popstate", e=>{
   // Phase 5A fix A: this page's own history steps (pushQuizStep/
@@ -2383,31 +2427,39 @@ window.addEventListener("popstate", e=>{
   if(!step || !step.rest) return; // unrecognised -- leave the sport screen showing, untouched
   // These ?s= slugs are shared byte-for-byte between UFC and Football (see
   // pushQuizStep/persistCurrentSport above) -- the URL itself can't say
-  // which sport was active, so fall back to the last one persisted in this
-  // tab, defaulting to UFC only when nothing was ever persisted (e.g. a
-  // bookmarked/shared link, or every pre-existing UFC-only link).
-  const sportHere = readPersistedSport() || "UFC";
+  // which sport was active on the bare /quiz/ root (an old /ufc/quiz/ link,
+  // via the redirect stub), so prefer this page's own default sport
+  // (QUIZ_DEFAULT_SPORT, set when the link already landed on /quiz/ufcquiz/
+  // or /quiz/footballquiz/ -- 404.html's mirrored shims always build these),
+  // then the last one persisted in this tab, defaulting to UFC only when
+  // nothing else is known (e.g. a bookmarked/shared pre-sport-picker link).
+  const sportHere = QUIZ_DEFAULT_SPORT || readPersistedSport() || "UFC";
   quizRestoreStep(sportHere, step.gameType, step.mode);
   // ?room=<code> (the PvP share link, independent of this shim) stays
   // live if it rode along with the ?s= redirect.
   const roomParam = params.get("room");
-  const canonicalPath = "/ufc/quiz/" + step.rest + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
+  const canonicalPath = quizRootForSport(sportHere) + step.rest + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
   history.replaceState({ quizSport: sportHere, quizGameType: step.gameType, quizMode: step.mode }, "", canonicalPath);
 })();
 
-// Homepage sport cards (index.html) link straight here with ?sport=ufc or
-// ?sport=football so the card's own sport is picked immediately, skipping
+// Homepage sport cards (index.html) used to link here with ?sport=ufc or
+// ?sport=football so the card's own sport was picked immediately, skipping
 // screen-sport -- a plain deep link one level shallower than the ?s= shim
-// above, so it's skipped whenever ?s= already resolved a sport+step.
+// above, so it's skipped whenever ?s= already resolved a sport+step. The
+// cards now link straight to /quiz/ufcquiz/ and /quiz/footballquiz/
+// instead (QUIZ_DEFAULT_SPORT below does the same job for a bare visit to
+// either root), but ?sport= itself still works for any old/shared link
+// that still has it.
 (function initQuizSportDeepLink(){
   const params = new URLSearchParams(location.search);
   if(params.get("s")) return;
   const raw = (params.get("sport") || "").trim().toLowerCase();
-  const sport = raw === "football" ? "Football" : raw === "ufc" ? "UFC" : null;
+  let sport = raw === "football" ? "Football" : raw === "ufc" ? "UFC" : null;
+  if(!sport) sport = QUIZ_DEFAULT_SPORT;
   if(!sport) return;
   quizRestoreStep(sport, null, null);
   const roomParam = params.get("room");
-  const canonicalPath = "/ufc/quiz/" + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
+  const canonicalPath = quizRootForSport(sport) + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
   history.replaceState({ quizSport: sport, quizGameType: null, quizMode: null }, "", canonicalPath);
 })();
 

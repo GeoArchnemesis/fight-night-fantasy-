@@ -1,11 +1,12 @@
 // ============================================================
 //  quiz-return-banner.js — PvP "return to the room" banner, sitewide.
-//  ufc/quiz/index.html already has its own #pvpRecoveryBanner (built by
-//  initPvpRoomRecovery in ufc/quiz.js); this is the same banner for every
+//  The three real quiz pages (/quiz/, /quiz/ufcquiz/, /quiz/footballquiz/)
+//  already have their own #pvpRecoveryBanner (built by
+//  initPvpRoomRecovery in quiz.js); this is the same banner for every
 //  OTHER page, so a player who navigates away mid-game during his 20s
-//  away budget (see PVP_AWAY_BUDGET_MS / fnf_quiz_room in ufc/quiz.js)
+//  away budget (see PVP_AWAY_BUDGET_MS / fnf_quiz_room in quiz.js)
 //  can still get back to it. Self-contained: no supabase-js, reads/writes
-//  only the existing "fnf_quiz_room" localStorage record that ufc/quiz.js
+//  only the existing "fnf_quiz_room" localStorage record that quiz.js
 //  already maintains. Same idempotent IIFE pattern as fantasy-nav.js.
 //  ჩართვა: <script defer src="/quiz-return-banner.js"></script>
 // ============================================================
@@ -13,14 +14,17 @@
   if (window.__FNF_QUIZ_RETURN_BANNER__) return;
   window.__FNF_QUIZ_RETURN_BANNER__ = true;
 
-  // ufc/quiz/index.html has its own banner -- don't double up there.
-  if (location.pathname.indexOf('/ufc/quiz') === 0) return;
+  // The three real quiz pages (/quiz/, /quiz/ufcquiz/, /quiz/footballquiz/)
+  // have their own banner (quiz.js's initPvpRoomRecovery) -- don't double up
+  // there. /ufc/quiz/ is kept only as a redirect stub to /quiz/ now, but the
+  // check stays for the brief window before that redirect fires.
+  if (/^\/(ufc\/quiz\/|quiz\/)/.test(location.pathname)) return;
 
   var STORAGE_KEY = 'fnf_quiz_room';
   var AWAY_BUDGET_MS = 20000;
   var MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours
 
-  // Same public anon key already embedded in ufc/quiz.js -- read-only RPC
+  // Same public anon key already embedded in quiz.js -- read-only RPC
   // call, safe to ship client-side.
   var SUPABASE_URL = "https://qxfcwsiysnjxhxljqigl.supabase.co";
   var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InF4ZmN3c2l5c25qeGh4bGpxaWdsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxODM4MDUsImV4cCI6MjA5Nzc1OTgwNX0.SOeTrxnKulgO8ao8HSwxyKE-m9pvaQ54Pa_IGWWyKDc";
@@ -38,10 +42,10 @@
     var used = (typeof record.awayMsUsed === "number") ? record.awayMsUsed : 0;
     return Math.max(0, AWAY_BUDGET_MS - used - (Date.now() - record.awayStartedAt));
   }
-  // No supabase-js on this page to hold a live session var (ufc/quiz.js's
+  // No supabase-js on this page to hold a live session var (quiz.js's
   // _authAccessToken) -- supabase-js's own localStorage session record is
   // the only place left to read it from, keyed "...-auth-token" the same
-  // way ufc/quiz.js already scans for an existing session (see
+  // way quiz.js already scans for an existing session (see
   // initPvpRoomRecovery's hasStoredSession check).
   function findAccessToken() {
     try {
@@ -65,7 +69,7 @@
 
   // Fold any time already elapsed under the OLD awayStartedAt into
   // awayMsUsed immediately, then move the reference point to now -- same
-  // fix as ufc/quiz.js's initPvpRoomRecovery, needed here too since this
+  // fix as quiz.js's initPvpRoomRecovery, needed here too since this
   // script runs on every other page and reads the same stored record.
   // Without this, reopening/refreshing this page recomputes the remaining
   // budget against a stale awayStartedAt that never advanced on its own,
@@ -76,7 +80,8 @@
 
   if (remainingMs(record) <= 0) return;
 
-  // Copy of #pvpRecoveryBanner's own CSS (ufc/quiz/index.html) so the two
+  // Copy of #pvpRecoveryBanner's own CSS (the three quiz pages' shared
+  // template, scripts/templates/quiz-page.template.html) so the two
   // look identical -- own <style>, own ids, no shared DOM with that page.
   function injectStyle() {
     var css = [
@@ -85,7 +90,7 @@
       '#fnfQrb .pvp-rb-text{flex:1;min-width:0;font-weight:700;font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
       '#fnfQrb .pvp-rb-return{min-height:auto;padding:3px 12px;margin:0 2px;font-size:inherit;vertical-align:baseline}',
       // "დაბრუნება" glow -- same filled-button + ripple/colorize-pulse
-      // pattern as ufc/quiz/index.html's #quizRoot .cb-finish-btn (results
+      // pattern as the quiz pages' #quizRoot .cb-finish-btn (results
       // screen "ხელახლა თამაში") and its #pvpRecoveryBanner counterpart,
       // var(--red) swapped for var(--green).
       '#fnfQrb .pvp-rb-return{background:var(--green);color:#06240f;border:none;box-shadow:0 0 .2em 0 var(--green)}',
@@ -113,7 +118,7 @@
     return el;
   }
 
-  // Same approach as ufc/quiz.js's setNavOffsetForBanner: push body down by
+  // Same approach as quiz.js's setNavOffsetForBanner: push body down by
   // the banner's own height so the fixed banner doesn't cover the nav.
   function setBodyOffset(px) {
     document.body.style.paddingTop = px ? px + "px" : "";
@@ -173,13 +178,17 @@
     returnBtn.onclick = function () {
       hide();
       // Phase 5A fix D: a room now has its own URL (?room=<code>, set by
-      // ufc/quiz.js's setRoomUrlParam) -- ufc/quiz.js's own ?room= handling
-      // rejoins and resumes straight back into it in one click, the same
-      // as ?resume=1 did, so this reuses that single path instead of a
-      // second bespoke one. ?resume=1 itself is untouched and still works.
+      // quiz.js's setRoomUrlParam) -- quiz.js's own ?room= handling rejoins
+      // and resumes straight back into it in one click, the same as
+      // ?resume=1 did, so this reuses that single path instead of a second
+      // bespoke one. ?resume=1 itself is untouched and still works. This
+      // record never stored which sport the room was (see quiz.js's
+      // PVP_ROOM_STORAGE_KEY shape) and this script runs on pages that have
+      // no idea either, so it always lands on the sport-picker root -- quiz.js
+      // resolves the room's real sport itself from the rejoin/resume RPC.
       location.href = record.code
-        ? '/ufc/quiz/?room=' + encodeURIComponent(record.code)
-        : '/ufc/quiz/?resume=1';
+        ? '/quiz/?room=' + encodeURIComponent(record.code)
+        : '/quiz/?resume=1';
     };
     closeBtn.onclick = function (e) {
       e.stopPropagation();

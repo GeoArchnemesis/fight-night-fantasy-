@@ -1,0 +1,994 @@
+<!-- ============================================================
+     SOURCE TEMPLATE for the three quiz pages (quiz/index.html,
+     quiz/ufcquiz/index.html, quiz/footballquiz/index.html).
+     Not served directly -- scripts/build-quiz-pages.js fills the
+     placeholder tokens below from its own per-page config and
+     writes the three real files. Edit the shared markup/CSS/scripts
+     HERE (once), then re-run the script; edit per-page title/
+     description/og/twitter/breadcrumb copy in the script's PAGES
+     array, never in the three generated files directly (a re-run
+     would overwrite it there).
+     ============================================================ -->
+<!DOCTYPE html>
+<html lang="ka">
+<head>
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-TLSVRK7V');</script>
+<!-- End Google Tag Manager -->
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>ითამაშე სპორტული ქვიზი</title>
+<meta name="description" content="გამოსცადე შენი ცოდნა fnf.ge-ზე. ითამაშე UFC ან საფეხბურთო ქვიზი და გამოიცანი ვინ ვარ მე. ითამაშე მეგობრის წინააღმდეგ ონლაინ ან AI-ის წინააღმდეგ." />
+<!-- Favicon -->
+<link rel="icon" type="image/x-icon" href="/favicon.ico" />
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+<link rel="canonical" href="https://fnf.ge/quiz/" />
+<!-- Open Graph (Facebook, Telegram, Instagram, etc.) -->
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="Fight Night Fantasy" />
+<meta property="og:url" content="https://fnf.ge/quiz/" />
+<meta property="og:title" content="სპორტული ქვიზი | Fight Night Fantasy" />
+<meta property="og:description" content="რამდენად კარგად იცნობ სპორტს? ითამაშე UFC და საფეხბურთო ქვიზი fnf.ge-ზე." />
+<meta property="og:image" content="https://fnf.ge/og-image.png" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<!-- Twitter / X Card -->
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="სპორტული ქვიზი | Fight Night Fantasy" />
+<meta name="twitter:description" content="რამდენად კარგად იცნობ სპორტს? ითამაშე UFC და საფეხბურთო ქვიზი fnf.ge-ზე." />
+<meta name="twitter:image" content="https://fnf.ge/og-image.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+<link rel="stylesheet" href="/style.css?v=222">
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "მთავარი", "item": "https://fnf.ge/" },
+    { "@type": "ListItem", "position": 2, "name": "ქვიზი", "item": "https://fnf.ge/quiz/" }
+  ]
+}
+</script>
+
+<style>
+/* ── MOBILE BOTTOM NAV (mnav) — იგივე წესები, რაც ufc/index.html-ზე (ხილვადობა body.logged-in-ზეა დამოკიდებული,
+   ეს გვერდი app.js-ს არ ტვირთავს, ამიტომ ეს ბლოკი არასდროს ჩანს — მხოლოდ სტრუქტურული თანმიმდევრობისთვის) ── */
+.mnav{position:fixed !important;top:auto !important;bottom:0 !important;left:0 !important;right:0 !important;height:auto !important;z-index:46;background:#000;border-top:1px solid var(--line);border-bottom:none;display:flex;padding:8px 4px calc(8px + env(safe-area-inset-bottom,0px));box-shadow:0 -4px 20px rgba(0,0,0,.5)}
+.mnav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;cursor:pointer;padding:6px 2px;min-width:0;text-decoration:none;position:relative;-webkit-tap-highlight-color:transparent;-webkit-touch-callout:none;user-select:none}
+.mnav-ic{width:24px;height:24px;flex-shrink:0;opacity:.75;transition:opacity .15s,transform .15s}
+.mnav-btn:hover .mnav-ic,.mnav-btn.on .mnav-ic{opacity:1}
+.mnav-btn.on .mnav-ic{transform:translateY(-1px)}
+.mnav-lbl{font-size:clamp(8px,2.5vw,11px);font-weight:600;color:var(--muted);white-space:normal;overflow-wrap:break-word;max-width:100%;letter-spacing:.01em;transition:color .15s;text-align:center;line-height:1.2;min-height:2.4em}
+.mnav-btn.on .mnav-lbl{color:var(--gold)}
+.mnav-btn:hover .mnav-lbl{color:var(--text)}
+.mnav-pop{position:absolute;bottom:calc(100% + 10px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:150px;display:flex;flex-direction:column;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s ease,transform .2s ease,visibility .2s;z-index:48}
+.mnav-pop.show{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.mnav-pop::after{content:"";position:absolute;top:100%;left:50%;transform:translateX(-50%);border:6px solid transparent;border-top-color:var(--line)}
+.mnav-pop-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;min-height:44px;border-radius:7px;font-family:var(--head);font-weight:700;font-size:.9rem;color:var(--text);cursor:pointer;transition:background .15s;white-space:nowrap;text-decoration:none;box-sizing:border-box}
+.mnav-pop-opt.on{background:rgba(245,196,81,.1);color:var(--gold);cursor:default}
+.mnav-pop-opt:not(.on):active{background:rgba(255,255,255,.08)}
+.mnav-pop-tag{font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.04em;color:var(--green);text-transform:uppercase}
+.mnav-pop-tag.soon{color:var(--muted)}
+#mnavSport .mnav-pop{left:8px;right:auto;transform:translateY(6px)}
+#mnavSport .mnav-pop.show{transform:translateY(0)}
+#mnavSport .mnav-pop::after{left:38px;transform:translateX(-50%)}
+@media(min-width:921px){.mnav{display:none}.m-only{display:none !important}}
+@media(max-width:920px){
+  .mnav{display:none}
+  body.logged-in .mnav{display:flex}
+  body.logged-in .menu-btn{display:none}
+  body.logged-in{padding-bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+  .d-only{display:none !important}
+  .nav-links.open .m-only{display:block !important}
+}
+/* ── დესკტოპ ზედა nav: ფენტეზის ტიპი (hover dropdown) ── */
+.nav-fx{position:relative}
+.nav-fx-lbl{font-size:.8rem;letter-spacing:.04em;font-weight:700;color:var(--muted);cursor:pointer;transition:color .2s;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.nav-fx:hover .nav-fx-lbl{color:var(--text)}
+.nav-fx-caret{font-size:.7rem;transition:transform .2s}
+.nav-fx:hover .nav-fx-caret{transform:rotate(180deg)}
+.nav-fx::after{content:"";position:absolute;top:100%;left:0;right:0;height:14px}
+.nav-fx-pop{position:absolute;top:calc(100% + 12px);left:50%;transform:translateX(-50%) translateY(6px);background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:6px;min-width:150px;display:flex;flex-direction:column;gap:2px;opacity:0;visibility:hidden;pointer-events:none;transition:opacity .2s,transform .2s,visibility .2s;z-index:60}
+.nav-fx:hover .nav-fx-pop{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.nav-fx-pop a{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:7px;font-family:var(--head);font-weight:700;font-size:.9rem;color:var(--text);text-decoration:none;transition:background .15s;white-space:nowrap}
+.nav-fx-pop a:hover{background:rgba(255,255,255,.05)}
+.nav-fx.open .nav-fx-lbl{color:var(--text)}
+.nav-fx.open .nav-fx-caret{transform:rotate(180deg)}
+.nav-fx.open .nav-fx-pop{opacity:1;visibility:visible;pointer-events:auto;transform:translateX(-50%) translateY(0)}
+.nav-fx-pop a.on{background:rgba(245,196,81,.1);color:var(--gold)}
+.fx-tag{font-family:var(--mono);font-size:.6rem;font-weight:700;letter-spacing:.04em;color:var(--green);text-transform:uppercase}
+
+/* ============================================================
+   UFC ქვიზი — კომპონენტები (ყველა ახალი წესი #quizRoot/.qz-hero-ქვეშ
+   არის დასქოუპილი, რომ საიტის გლობალურ სტილებს არ შეეჯახოს).
+   ტიპოგრაფიის სისტემა: headline-ები (.mode h2, .cbf-title) —
+   var(--display), ყველა ცოცხალი რიცხვი/მთვლელი/ლეიბლი (მსგავსად საიტის
+   .cd-num/.bb-n/.lb-pts/.market-label-ის) — var(--mono).
+   ============================================================ */
+
+/* Quiz-area background artwork — decorative only, scoped to #quizApp (the
+   header-to-footer quiz region), never body/nav/footer. The image lives on
+   #quizApp::before, not on #quizApp itself, so the real quiz content
+   (stacked above it via z-index:-1 on the pseudo-element) is never dimmed
+   itself. min-height is tuned against every screen's measured natural
+   height (game-type, mode, both AI difficulty pickers, pvp-setup,
+   pvp-lobby, pvp-wait, cards) so the artwork reads properly on the
+   shortest screens without adding visible empty space under any other
+   screen's own content. */
+#quizApp{position:relative;min-height:400px}
+#quizApp::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  background-color:var(--canvas);
+  background-image:linear-gradient(rgba(11,10,18,.55),rgba(11,10,18,.55)),url(/images/BackgroundQuiz.png);
+  background-size:cover;
+  background-position:center;
+  background-repeat:no-repeat;
+}
+@media(min-width:921px){
+  #quizApp{min-height:480px}
+}
+
+.qz-hero{padding:clamp(20px,5vw,34px) 0 clamp(10px,2vw,16px)}
+.qz-hero .hero-in{display:flex;flex-direction:row;align-items:center;gap:10px}
+.qz-title{display:flex;align-items:center;justify-content:center;gap:10px;font-family:var(--display);font-weight:700;font-size:clamp(1.375rem,3vw,1.75rem);line-height:1.1;flex:1;min-width:0}
+.qz-title-ico{font-size:.85em}
+.qz-home{display:flex;align-items:center;justify-content:center;flex:none;width:40px;height:40px;border-radius:999px;background:var(--red);border:none;color:#fff}
+.qz-home-spacer{flex:none;width:40px;height:40px}
+
+#quizRoot{width:100%;max-width:560px;margin:0 auto}
+/* global section{padding:clamp(34px,5vw,64px) 0} (style.css) applies to
+   every screen <section> here too -- without this override its top padding
+   was the dead space between the nav and each screen's back-row. */
+#quizRoot .screen{display:none;animation:qzFade .3s ease both;padding-top:0}
+#quizRoot .screen.active{display:flex;flex-direction:column}
+@keyframes qzFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){#quizRoot *{animation-duration:.01ms !important;transition-duration:.01ms !important}}
+
+#quizRoot .back-row{display:flex;justify-content:flex-start;margin-bottom:12px}
+/* .qback/.qback-label (the red chevron "back" pill) moved to style.css,
+   unscoped, so the same shared class can be reused outside the quiz too
+   (news article back link, profile back link). Declarations there are
+   verbatim from this page's own rule, only the #quizRoot prefix dropped --
+   this page's own appearance is unchanged. */
+
+#quizRoot .modes{display:grid;grid-template-columns:1fr;gap:12px}
+/* #screen-sport's two cards are the .quiz-card photo cards (style.css) --
+   2-column regardless of viewport, unlike the other .modes screens (which
+   stay single-column, untouched above). */
+#screen-sport .modes{grid-template-columns:repeat(2,1fr)}
+#quizRoot .mode{position:relative;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden;cursor:pointer;padding:22px 20px;min-height:116px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;transition:border-color .15s,transform .15s}
+/* .quiz-card's own padding/min-height/gap (style.css) must win over the
+   generic .mode rule above so its photo is full-bleed -- #quizRoot .mode
+   .quiz-card matches that rule's ID+class specificity plus one class. */
+#quizRoot .mode.quiz-card{padding:0;min-height:0;gap:0;align-items:stretch}
+#quizRoot .mode:hover,#quizRoot .mode:focus-visible{border-color:var(--muted);transform:translateY(-2px);outline:none}
+#quizRoot .mode .glyph{position:absolute;font-size:84px;opacity:.06;right:-10px;bottom:-18px;line-height:1}
+#quizRoot .mode h2{font-family:var(--display);font-weight:700;font-size:1.3rem;line-height:1.15;z-index:1}
+#quizRoot .mode p{color:var(--text);font-size:.84rem;line-height:1.4;z-index:1;max-width:240px}
+#quizRoot .mode.locked{cursor:not-allowed;opacity:.55}
+#quizRoot .mode.locked:hover{transform:none;border-color:var(--line)}
+#quizRoot .mode-soon{position:absolute;top:10px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 10px;z-index:1;white-space:nowrap}
+
+/* vs-AI hologram card -- faithful red-palette port of a CodePen hologram-card
+   effect, scoped to [data-mode="ai"] only; .mode already has
+   position:relative/overflow:hidden (above), relied on here, no duplicate
+   rule added. Colour-only substitution, nothing else changed from the
+   original: rgba(0,255,255,X) -> rgba(243,29,37,X) (var(--red));
+   #00ffff -> var(--red); #ff00ff -> var(--red-soft). Every alpha, blur
+   radius, px offset, duration and easing is unchanged from the original,
+   including the continuous (non-hover-gated) animation -- 80-90% of this
+   site's traffic is mobile, where :hover doesn't apply. background and
+   backdrop-filter are departures from the original (opaque var(--surface),
+   no blur) now that the page has background artwork behind the card: the
+   translucent fill let the artwork show through and made the heading hard
+   to read, and the blur was pointless cost once the fill is opaque. */
+#quizRoot .mode[data-mode="ai"]{border:2px solid rgba(243,29,37,.5);background:var(--surface);box-shadow:0 0 15px rgba(243,29,37,.3)}
+#quizRoot .mode[data-mode="ai"] .qai-glitch{position:relative;display:inline-block;text-shadow:0 0 8px rgba(243,29,37,.5)}
+#quizRoot .mode[data-mode="ai"] .qai-glitch::before,#quizRoot .mode[data-mode="ai"] .qai-glitch::after{content:attr(data-text);position:absolute;left:0;opacity:0;filter:blur(1px);transition:all .3s ease}
+#quizRoot .mode[data-mode="ai"] .qai-glitch::before{top:-2px;color:var(--red-soft);transform:translateX(0);animation:qaiGlitch 2s infinite}
+#quizRoot .mode[data-mode="ai"] .qai-glitch::after{bottom:-2px;color:var(--red);transform:translateX(0);animation:qaiGlitch 2s infinite reverse}
+@keyframes qaiGlitch{0%,100%{transform:translateX(0);opacity:.3}20%{transform:translateX(-5px);opacity:.5}40%{transform:translateX(5px);opacity:.7}60%{transform:translateX(-3px);opacity:.5}80%{transform:translateX(3px);opacity:.3}}
+
+/* vs-human card - the green counterpart to the vs-AI card above. Only the
+   border and glow remain; the Matrix-rain animation that used to live here
+   was removed on request. The fill stays var(--surface) so the card reads as
+   opaque over the page's background artwork, like the AI card, and the green
+   is var(--green) (#3ad17e), the site's existing accent, not pure #0f0. */
+#quizRoot .mode[data-mode="pvp"]{border:2px solid rgba(58,209,126,.5);background:var(--surface);box-shadow:0 0 15px rgba(58,209,126,.3)}
+
+#quizRoot .tinyinfo{margin-top:12px;text-align:center;color:var(--text);font-size:12px;line-height:1.5}
+
+#quizRoot .arena{display:flex;flex-direction:column;align-items:center;gap:20px;padding:6px 0}
+
+#quizRoot .btn-row{margin-top:16px;display:flex;flex-direction:column;gap:10px;width:100%}
+#quizRoot .btn:disabled{opacity:.4;cursor:not-allowed}
+#quizRoot .btn-gold{background:var(--gold);color:#241a00}
+#quizRoot .btn-gold:hover{filter:brightness(1.05)}
+#quizRoot .btn-green{background:var(--green);color:#06240f}
+#quizRoot .btn-green:hover{filter:brightness(1.05)}
+/* style.css's global .btn-ghost has no background (fine elsewhere, over a
+   solid page), and .btn-primary:disabled only dims via opacity -- both let
+   the quiz-area artwork show through. Scoped opaque overrides, same pattern
+   as .btn-gold/.btn-green above; the global rules are untouched. */
+#quizRoot .btn-ghost{background:var(--surface)}
+#quizRoot .btn.btn-primary:disabled{opacity:1;background:var(--line);color:var(--muted)}
+
+#quizRoot .difficulty{width:100%;display:flex;flex-direction:column;gap:10px}
+/* 4 chips now (easy/medium/hard/mixed) -- 2x2 keeps each one wide enough
+   for its Georgian label instead of cramming 4 into one row. */
+#quizRoot .diff-chips{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+/* p8 (LittleMoreUpdates.pdf, 3rd time): labels were left-aligned inside the
+   chip despite text-align:center here — root cause is style.css's own
+   global .chip rule (a separate, unrelated chip-row component) setting
+   display:inline-flex, which makes text-align a no-op since flex children
+   align via justify-content, not text-align. Fixed at the source: */
+#quizRoot .chip{font-family:var(--head);font-weight:700;font-size:.82rem;padding:12px 6px;border-radius:8px;cursor:pointer;color:var(--text);border:1px solid var(--line);background:var(--ink);transition:.15s;line-height:1.3;text-align:center;justify-content:center}
+#quizRoot .chip:hover{border-color:var(--muted)}
+#quizRoot .chip.sel{border-color:var(--green);background:var(--surface);color:var(--green)}
+#quizRoot .chip:disabled{opacity:.4;cursor:not-allowed;color:var(--muted)}
+/* R2: vs-AI picker now matches PvP room-create — SELECTED chip is green
+   (reusing --green) in both; no gold selected-chip state remains. */
+#quizRoot .diff-note{display:none;border-radius:8px;padding:11px 14px;font-size:.82rem;line-height:1.5;font-weight:600;background:var(--ink);border:1px solid var(--line);border-left:3px solid currentColor;text-align:left}
+#quizRoot .diff-note.show{display:block}
+
+#quizRoot .quiz-head{display:flex;align-items:center;justify-content:center;margin-bottom:14px}
+#quizRoot .qcount{font-family:var(--mono);font-weight:700;font-size:.78rem;letter-spacing:.1em;color:var(--text)}
+#quizRoot .timer-wrap{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+#quizRoot .timer-wrap .timer{flex:1;margin-bottom:0}
+#quizRoot .timer{height:6px;background:var(--ink);border-radius:999px;overflow:hidden}
+#quizRoot .timer>i{display:block;height:100%;width:100%;background:var(--green);transition:width .3s ease-out,background-color .6s ease}
+#quizRoot .timer>i.amber{background:var(--gold)}
+#quizRoot .timer>i.red{background:var(--red)}
+#quizRoot .timer-num{font-family:var(--mono);font-weight:700;font-size:.78rem;color:var(--text);min-width:1.4em;text-align:right;font-variant-numeric:tabular-nums}
+#quizRoot .qcard{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px 18px}
+#quizRoot .qnum{font-family:var(--mono);color:var(--red-soft);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase}
+#quizRoot .qtext{font-size:1.05rem;font-weight:700;line-height:1.45;margin:10px 0 18px}
+#quizRoot .opts{display:flex;flex-direction:column;gap:10px}
+#quizRoot .opt{text-align:left;border:1px solid var(--line);background:var(--ink);color:var(--text);border-radius:8px;padding:13px 14px;font-size:.95rem;line-height:1.4;cursor:pointer;display:flex;align-items:center;gap:12px;transition:.15s;font-family:var(--head)}
+/* question screens must fit between the site nav and the mobile bottom
+   nav without scrolling on a phone -- tightened spacing/sizing only,
+   same colours/borders/radii, same HTML structure. */
+@media(max-width:480px){
+  #quizRoot .quiz-head{margin-bottom:8px}
+  #quizRoot .timer-wrap{margin-bottom:10px}
+  #quizRoot .qcard{padding:14px 15px}
+  #quizRoot .qtext{margin:8px 0 12px}
+  #quizRoot .opts{gap:8px}
+  #quizRoot .opt{padding:11px 14px}
+}
+#quizRoot .opt .key{width:27px;height:27px;flex:0 0 27px;border-radius:7px;display:grid;place-items:center;background:var(--surface-2);font-family:var(--mono);font-weight:700;font-size:.78rem;color:var(--text)}
+#quizRoot .opt:hover:not(:disabled){border-color:var(--muted)}
+#quizRoot .opt:disabled{cursor:default}
+#quizRoot .opt.chosen{border-color:var(--gold);background:rgba(245,196,81,.12)}
+#quizRoot .opt.chosen .key{background:var(--gold);color:#241a00}
+#quizRoot .opt.dim{opacity:.45}
+
+#quizRoot .back-row+.cb-score,#quizRoot .cardarena{flex:1}
+#quizRoot .cb-score{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px;transition:border-color .3s}
+#quizRoot .cb-side{display:flex;flex-direction:column;align-items:center;gap:4px}
+#quizRoot .cb-side .tag{font-family:var(--mono);font-size:.8rem;color:var(--text);display:flex;align-items:center;gap:5px}
+#quizRoot .cb-side .num{font-family:var(--mono);font-weight:700;font-size:2.1rem;line-height:1;transition:transform .2s}
+#quizRoot .cb-side.you .num{color:var(--blue)}
+#quizRoot .cb-side.opp .num{color:var(--red-soft)}
+#quizRoot .cb-side .num.bump{transform:scale(1.3)}
+#quizRoot .cb-side.win .num{transform:scale(1.1)}
+#quizRoot .cb-round{font-family:var(--mono);font-size:.8rem;letter-spacing:.06em;color:var(--text);text-align:center}
+#quizRoot .table-felt{position:relative;flex:1;min-height:260px;display:flex;flex-direction:column;align-items:center;justify-content:center;border-radius:10px;padding:18px 14px;background:var(--ink);border:1px solid var(--line);overflow:hidden}
+#quizRoot .table-felt svg.oct{position:absolute;inset:6%;width:88%;height:88%;opacity:.35;z-index:1}
+#quizRoot .qbattle{display:flex;align-items:center;justify-content:center;z-index:2;width:100%}
+/* win/lose banner behind the result -- missing image files simply leave
+   this dark (no background-image), never hiding #cb-final or breaking
+   the layout. */
+#quizRoot .cb-banner{position:absolute;inset:0;z-index:0;display:none;background-position:center;background-size:cover;background-repeat:no-repeat;opacity:.45}
+#quizRoot .cb-banner.show{display:block}
+#quizRoot .cb-banner.win{background-image:url("/quiz/img/result-win.webp")}
+#quizRoot .cb-banner.lose{background-image:url("/quiz/img/result-lose.webp")}
+#quizRoot .cb-banner::after{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(rgba(11,10,15,.35),rgba(11,10,15,.75))}
+#quizRoot .qbattle-card{width:100%;max-width:400px;border-radius:10px;padding:18px 16px;background:var(--surface);border:1px solid var(--line);transform:scale(.94);opacity:0;transition:transform .12s ease,opacity .1s}
+#quizRoot .qbattle-card.show{transform:none;opacity:1}
+#quizRoot .cb-final{display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;z-index:2}
+#quizRoot .cb-final.show{display:flex;animation:qzFade .35s ease both}
+#quizRoot .cbf-emoji{font-size:48px;line-height:1}
+#quizRoot .cbf-title{font-family:var(--display);font-weight:700;font-size:1.54rem;line-height:1.2}
+#quizRoot .cbf-title.win{color:var(--green)}
+#quizRoot .cbf-title.lose{color:var(--red-soft)}
+#quizRoot .cbf-title.draw{color:var(--gold)}
+#quizRoot .cbf-score{font-family:var(--mono);font-weight:700;font-size:2rem;letter-spacing:2px;color:var(--text)}
+@media(min-width:481px){
+  #quizRoot .cb-side .tag{font-size:.88rem}
+  #quizRoot .cb-side .num{font-size:2.3rem}
+  #quizRoot .cb-round{font-size:.88rem}
+  #quizRoot .cbf-emoji{font-size:54px}
+  #quizRoot .cbf-title{font-size:1.72rem}
+  #quizRoot .cbf-score{font-size:2.2rem}
+}
+#quizRoot .qb-num{font-family:var(--mono);color:var(--gold);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;text-align:center}
+#quizRoot .qb-q{font-size:.92rem;font-weight:700;line-height:1.4;text-align:center;margin:10px 0 16px;min-height:50px;display:flex;align-items:center;justify-content:center}
+#quizRoot .qb-answers{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+#quizRoot .qb-ans{border-radius:8px;padding:12px 9px;border:1px solid var(--line);background:var(--ink);text-align:center;transition:.3s}
+#quizRoot .qb-who{font-family:var(--mono);font-size:.68rem;color:var(--text);display:flex;align-items:center;justify-content:center;gap:4px;margin-bottom:7px}
+#quizRoot .qb-pick{font-size:.82rem;font-weight:700;line-height:1.3;min-height:36px;display:flex;align-items:center;justify-content:center}
+#quizRoot .qb-badge{font-family:var(--mono);font-weight:700;font-size:1.1rem;min-height:22px;margin-top:3px}
+#quizRoot .qb-correct{font-size:.72rem;color:var(--green);margin-top:7px;min-height:14px;line-height:1.35}
+#quizRoot .qb-ans.correct{border-color:var(--green);background:rgba(58,209,126,.14)}
+#quizRoot .qb-ans.correct .qb-who,#quizRoot .qb-ans.correct .qb-badge{color:var(--green)}
+#quizRoot .qb-ans.wrong{border-color:var(--red);background:rgba(243,29,37,.1)}
+#quizRoot .qb-ans.wrong .qb-who,#quizRoot .qb-ans.wrong .qb-badge{color:var(--red-soft)}
+#quizRoot .cb-log{margin-top:14px;font-size:.85rem;color:var(--text);text-align:center;min-height:20px;line-height:1.4}
+#quizRoot .cb-controls{margin-top:16px;display:flex;gap:10px}
+#quizRoot .cb-controls .btn{padding:13px;font-size:.82rem}
+#quizRoot .cb-controls.finished{flex-direction:row;gap:10px}
+
+/* ---------- დასრულების ეკრანის სქორბორდი (CHANGE 1-3 — qxfc) ---------- */
+#quizRoot .cb-score.finished .cb-side .tag{font-size:12.5px;color:var(--text-2)}
+#quizRoot .cb-score.finished #cb-opp-lab{color:var(--red);font-weight:800;letter-spacing:.04em;text-shadow:0 0 6px rgba(243,29,37,.85),0 0 16px rgba(243,29,37,.45)}
+#quizRoot .cb-score.finished .cb-round{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px}
+#quizRoot .cb-vs-rule{width:1px;height:22px}
+#quizRoot .cb-vs-text{font-family:var(--mono);font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--muted)}
+#quizRoot .cb-score.finished .cb-side .num{color:var(--text)}
+#quizRoot .cb-score.finished.win .cb-side.you .num{color:var(--green)}
+#quizRoot .cb-score.finished.lose .cb-side.opp .num{color:var(--green)}
+#quizRoot .cb-score.finished.draw .cb-side .num{color:var(--gold)}
+#quizRoot .cb-score.finished.win{border-left:3px solid var(--green)}
+#quizRoot .cb-score.finished.lose{border-left:3px solid var(--red)}
+#quizRoot .cb-score.finished.draw{border-left:3px solid var(--gold)}
+
+/* ---------- თითო-კითხვის strips (CHANGE 2-3 — qxfc) ---------- */
+#quizRoot .cb-strips{grid-column:1/-1;display:none;flex-direction:column;gap:7px;margin-top:10px}
+#quizRoot .cb-score.finished .cb-strips{display:flex}
+#quizRoot .cb-score.finished ~ .table-felt{display:none}
+#quizRoot .cb-strip-row{display:flex;align-items:center;gap:6px}
+#quizRoot .cb-strip-label{font-family:var(--mono);font-size:10px;letter-spacing:.1em;font-weight:700;width:26px;flex:0 0 26px;color:var(--text)}
+#quizRoot .cb-strip-label-ai{color:var(--red);text-shadow:0 0 6px rgba(243,29,37,.7)}
+#quizRoot .cb-strip{display:flex;flex:1;gap:3px;height:7px}
+#quizRoot .cb-strip-cell{flex:1;height:7px;border-radius:2px;background:var(--surface-2);opacity:.35;transform:scaleY(.5);transition:background .25s ease,opacity .25s ease,transform .25s ease}
+#quizRoot .cb-strip-cell.correct{background:var(--green);opacity:1;transform:scaleY(1)}
+#quizRoot .cb-strip-cell.wrong{background:var(--red);opacity:1;transform:scaleY(1)}
+
+/* ---------- დასრულების ეკრანის ქმედების ღილაკები (CHANGE 6 — qxfc) ---------- */
+#quizRoot .cb-controls .cb-finish-btn{min-height:48px;border-radius:999px;font-weight:800;font-size:13px;padding:0 8px;flex:1;min-width:0}
+#quizRoot .cb-finish-btn#cb-restart{background:var(--green);color:#06230f;box-shadow:0 0 .2em 0 var(--green);border:none}
+#quizRoot .cb-finish-btn#cb-restart:active{transform:scale(.97)}
+#quizRoot .cb-finish-btn#cb-finish{background:var(--red);color:#fff;border:none}
+#quizRoot .cb-finish-btn#cb-finish:active{transform:scale(.97)}
+@media (hover:hover) and (pointer:fine){
+  #quizRoot .cb-finish-btn#cb-restart{transition:1s}
+  #quizRoot .cb-finish-btn#cb-restart:hover{outline:.1em solid transparent;outline-offset:.2em;box-shadow:0 0 1em 0 var(--green);animation:cbNewGameRippleGreen 1s linear infinite,cbNewGameColorizeGreen 1s infinite;transition:.5s}
+}
+@keyframes cbNewGameRipple{0%{outline:0em solid transparent;outline-offset:-.1em}50%{outline:.2em solid rgba(243,29,37,.25);outline-offset:.2em}100%{outline:.4em solid transparent;outline-offset:.4em}}
+@keyframes cbNewGameColorize{0%{background:var(--red)}50%{background:var(--red-soft)}100%{background:var(--red)}}
+@keyframes cbNewGameRippleGreen{0%{outline:0em solid transparent;outline-offset:-.1em}50%{outline:.2em solid rgba(58,209,126,.25);outline-offset:.2em}100%{outline:.4em solid transparent;outline-offset:.4em}}
+@keyframes cbNewGameColorizeGreen{0%{background:var(--green)}50%{background:#5fe0a0}100%{background:var(--green)}}
+
+/* ---------- თამაშის შემდეგ: ყველა კითხვა-პასუხის მუდმივი სია ---------- */
+#quizRoot .cb-review{margin-top:18px;padding-top:16px}
+#quizRoot .cb-review-head{font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text);margin-bottom:10px;text-align:center}
+#quizRoot .cb-review-list{display:flex;flex-direction:column;gap:10px;max-height:300px;overflow-y:auto;padding-right:4px;overscroll-behavior:contain;-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 26px),transparent)}
+#quizRoot .cb-review-list::-webkit-scrollbar{width:4px}
+#quizRoot .cb-review-list::-webkit-scrollbar-track{background:transparent}
+#quizRoot .cb-review-list::-webkit-scrollbar-thumb{background:var(--surface-2);border-radius:999px}
+#quizRoot .cb-review-item{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+#quizRoot .cb-review-q{font-size:.86rem;font-weight:700;line-height:1.4;margin-bottom:8px}
+#quizRoot .cb-review-num{color:var(--gold);margin-right:4px}
+#quizRoot .cb-review-a{font-size:.78rem;line-height:1.5}
+#quizRoot .cb-review-a.ok{color:var(--green)}
+#quizRoot .cb-review-a.bad{color:var(--red-soft)}
+#quizRoot .cb-review-ai{color:var(--red);font-weight:700;text-shadow:0 0 6px rgba(243,29,37,.6)}
+#quizRoot .cb-review-correct{font-size:.74rem;color:var(--green);margin-top:5px;padding-top:5px}
+
+#quizRoot .gq-clues{display:flex;flex-direction:column;gap:8px;margin-bottom:8px;max-height:168px;overflow-y:auto;padding-right:4px}
+#quizRoot .gq-clue{background:var(--ink);border:1px solid var(--line);border-radius:8px;padding:11px 13px;font-size:.88rem;line-height:1.45;text-align:left}
+#quizRoot .gq-clue-num{color:var(--gold);font-weight:700;font-family:var(--mono);margin-right:6px}
+#quizRoot .gq-hint-row{display:flex;align-items:center;gap:10px}
+#quizRoot .gq-points{font-family:var(--mono);font-weight:700;font-size:.78rem;color:var(--gold);white-space:nowrap}
+#quizRoot .gq-feedback{display:none;margin-top:12px;border-radius:8px;padding:12px 14px;font-size:.88rem;line-height:1.45;font-weight:700;text-align:center}
+#quizRoot .gq-feedback.show{display:block;animation:qzFade .25s ease both}
+#quizRoot .gq-feedback.ok{background:rgba(58,209,126,.14);border:1px solid var(--green);color:var(--text)}
+#quizRoot .gq-feedback.bad{background:rgba(243,29,37,.12);border:1px solid var(--red);color:var(--text)}
+#quizRoot .gq-feedback .sub{display:block;font-weight:600;font-size:.78rem;color:var(--text);margin-top:5px}
+#quizRoot .name-entry{width:100%;display:flex;flex-direction:column;gap:10px}
+#quizRoot .name-entry label{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text);text-align:center}
+#quizRoot .name-entry input{width:100%;font-family:var(--head);font-size:.92rem;color:var(--text);text-align:center;padding:12px 14px;border-radius:8px;border:1px solid var(--line);background:var(--ink)}
+#quizRoot .name-entry input:focus{outline:none;border-color:var(--gold)}
+
+/* ---------- PvP (group, host + up to 8 friends) ---------- */
+#quizRoot .pvp-setup{display:flex;flex-direction:column;gap:16px}
+#quizRoot .pvp-panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+#quizRoot .pvp-panel h3{font-family:var(--display);font-weight:700;font-size:1rem;margin-bottom:12px;text-align:center}
+#quizRoot .pvp-divider{text-align:center;color:var(--text);font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase}
+/* PvP room-setup screen must fit between the site nav and the mobile
+   bottom nav without scrolling on a phone -- tightened spacing only,
+   same colours/borders/radii/font-sizes, same HTML structure. */
+@media(max-width:480px){
+  #screen-pvp-setup .back-row{margin-bottom:6px}
+  #screen-pvp-setup .pvp-setup{gap:8px}
+  #screen-pvp-setup .pvp-panel{padding:12px 15px}
+  #screen-pvp-setup .pvp-panel h3{margin-bottom:6px}
+  #screen-pvp-setup #pvp-create-btn,#screen-pvp-setup #pvp-join-btn{margin-top:6px}
+  #screen-pvp-setup .name-entry input{padding:10px 14px}
+}
+#quizRoot .pvp-lobby{display:flex;flex-direction:column;align-items:center;gap:16px;width:100%}
+#quizRoot .pvp-code-box{text-align:center}
+#quizRoot .pvp-code-label{font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;color:var(--text)}
+#quizRoot .pvp-code{font-family:var(--display);font-weight:700;font-size:2rem;letter-spacing:4px;color:var(--gold);margin-top:4px}
+#quizRoot .pvp-code-actions{display:flex;gap:8px;justify-content:center;margin-top:8px;flex-wrap:wrap}
+#quizRoot .pvp-players{width:100%;display:flex;flex-direction:column;gap:8px}
+#quizRoot .pvp-player{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+#quizRoot .pvp-player .ava{width:30px;height:30px;border-radius:50%;background:var(--ink);border:1px solid var(--line);display:grid;place-items:center;font-size:14px;flex-shrink:0}
+#quizRoot .pvp-player .ava img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+#quizRoot .pvp-player .nm{flex:1;font-family:var(--head);font-weight:700;font-size:.9rem}
+#quizRoot .pvp-player .tag{font-family:var(--mono);font-size:.62rem;color:var(--gold);text-transform:uppercase;letter-spacing:.05em}
+#quizRoot .pvp-player-empty{display:flex;align-items:center;gap:10px;background:var(--ink);border:1px dashed var(--line);border-radius:8px;padding:10px 14px}
+#quizRoot .pvp-player-empty .ava{width:30px;height:30px;border-radius:50%;border:1px dashed var(--line);display:grid;place-items:center;font-size:14px;flex-shrink:0;color:var(--text)}
+#quizRoot .pvp-player-empty .nm{font-family:var(--head);font-weight:700;font-size:.86rem;color:var(--text)}
+#quizRoot .pvp-count{font-family:var(--mono);font-size:.78rem;color:var(--text)}
+/* PvP lobby's start button must clear the mobile bottom nav at 360x640
+   with only the host (or a small group) present -- tightened spacing
+   only, same colours/borders/radii/font-sizes, same HTML structure. */
+@media(max-width:480px){
+  #screen-pvp-lobby .back-row{margin-bottom:6px}
+  #screen-pvp-lobby .pvp-lobby{gap:10px}
+  #screen-pvp-lobby .pvp-code-actions{margin-top:6px}
+  #screen-pvp-lobby .pvp-players{gap:6px}
+  #screen-pvp-lobby .pvp-player,#screen-pvp-lobby .pvp-player-empty{padding:8px 14px}
+}
+#quizRoot .pvp-wait{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:60px 0;text-align:center}
+#quizRoot .pvp-wait-spinner{font-size:40px;display:inline-block;animation:qzSpin 1.6s linear infinite}
+@keyframes qzSpin{to{transform:rotate(360deg)}}
+#quizRoot .podium{display:grid;grid-template-columns:1fr 1.15fr 1fr;align-items:end;gap:10px;margin-bottom:18px}
+#quizRoot .podium-slot{display:flex;flex-direction:column;align-items:center;gap:6px}
+#quizRoot .podium-ring{width:64px;height:64px;border-radius:50%;display:grid;place-items:center;font-size:26px;background:var(--ink);border:3px solid var(--line);overflow:hidden}
+#quizRoot .podium-ring img{width:100%;height:100%;object-fit:cover;border-radius:50%}
+#quizRoot .podium-slot.p1 .podium-ring{width:78px;height:78px;font-size:32px;border-color:var(--gold);box-shadow:0 0 0 3px rgba(245,196,81,.25)}
+#quizRoot .podium-slot.p2 .podium-ring{border-color:var(--silver);box-shadow:0 0 0 3px rgba(201,205,214,.2)}
+#quizRoot .podium-slot.p3 .podium-ring{border-color:var(--bronze);box-shadow:0 0 0 3px rgba(205,127,50,.2)}
+#quizRoot .podium-nm{font-family:var(--head);font-weight:700;font-size:.86rem;text-align:center;max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#quizRoot .podium-pts{font-family:var(--mono);font-weight:700;font-size:.9rem}
+#quizRoot .podium-slot.p1 .podium-pts{color:var(--gold)}
+#quizRoot .podium-slot.p2 .podium-pts{color:var(--silver)}
+#quizRoot .podium-slot.p3 .podium-pts{color:var(--bronze)}
+#quizRoot .podium-base{width:100%;border-radius:8px 8px 0 0;background:var(--surface);border:1px solid var(--line);border-bottom:none}
+#quizRoot .podium-slot.p1 .podium-base{height:70px;border-color:var(--gold)}
+#quizRoot .podium-slot.p2 .podium-base{height:48px;border-color:var(--silver)}
+#quizRoot .podium-slot.p3 .podium-base{height:34px;border-color:var(--bronze)}
+#quizRoot .pvp-rest{display:flex;flex-direction:column;gap:8px}
+#quizRoot .pvp-rest-row{display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px}
+#quizRoot .pvp-rest-row .rank{font-family:var(--mono);font-weight:700;color:var(--text);width:20px}
+#quizRoot .pvp-rest-row .nm{flex:1;font-family:var(--head);font-weight:700;font-size:.88rem}
+#quizRoot .pvp-rest-row .pts{font-family:var(--mono);font-weight:700;color:var(--text)}
+/* PvP game recovery banner -- fixed above nav (nav is z-index:50), nav's
+   own top offset is pushed down by quiz.js while this is shown so the two
+   never overlap. */
+#pvpRecoveryBanner{display:none;position:fixed;top:0;left:0;right:0;z-index:60;align-items:center;gap:10px;background:var(--gold);color:var(--ink);padding:10px 14px;padding-top:calc(10px + env(safe-area-inset-top,0px));font-family:var(--head)}
+#pvpRecoveryBanner.show{display:flex}
+#pvpRecoveryBanner .pvp-rb-text{flex:1;min-width:0;font-weight:700;font-size:.85rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#pvpRecoveryBanner .pvp-rb-return{min-height:auto;padding:3px 12px;margin:0 2px;font-size:inherit;vertical-align:baseline}
+/* "დაბრუნება" glow -- same filled-button + ripple/colorize-pulse pattern as
+   #quizRoot #cb-restart (results screen "ხელახლა თამაში"), var(--green)
+   so it reads as a clear call-to-action on the gold banner instead of
+   blending into it as a ghost button. */
+#pvpRecoveryBanner .pvp-rb-return{background:var(--green);color:#06240f;border:none;box-shadow:0 0 .2em 0 var(--green)}
+#pvpRecoveryBanner .pvp-rb-return:active{transform:scale(.97)}
+@media (hover:hover) and (pointer:fine){
+  #pvpRecoveryBanner .pvp-rb-return{transition:1s}
+  #pvpRecoveryBanner .pvp-rb-return:hover{outline:.1em solid transparent;outline-offset:.2em;box-shadow:0 0 1em 0 var(--green);animation:pvpRbReturnRipple 1s linear infinite,pvpRbReturnColorize 1s infinite;transition:.5s}
+}
+@media (prefers-reduced-motion:reduce){
+  #pvpRecoveryBanner .pvp-rb-return{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+@keyframes pvpRbReturnRipple{0%{outline:0em solid transparent;outline-offset:-.1em}50%{outline:.2em solid rgba(58,209,126,.35);outline-offset:.2em}100%{outline:.4em solid transparent;outline-offset:.4em}}
+@keyframes pvpRbReturnColorize{0%{background:var(--green)}50%{background:#5fe0a0}100%{background:var(--green)}}
+#pvpRecoveryBanner .pvp-rb-timer{flex:none;font-family:var(--mono);font-weight:700;font-size:1.05rem;min-width:22px;text-align:center}
+#pvpRecoveryBanner .pvp-rb-close{flex:none;width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:transparent;border:none;color:var(--ink);font-size:1.5rem;line-height:1;cursor:pointer}
+/* PvP AFK rule -- "დაბრუნება" button shown after 2 consecutive timed-out
+   questions, see quiz.js updateAfkButtonVisibility. */
+.afk-return-btn{display:block;margin:0 auto 10px}
+#quizRoot .afk-return-btn{background:var(--green);color:#06230f;border:none;
+  box-shadow:0 0 .4em .05em rgba(58,209,126,.95), 0 0 1.6em .25em rgba(58,209,126,.5);
+  animation:afkGlowPulse 1.4s ease-in-out infinite}
+@keyframes afkGlowPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}
+@media (prefers-reduced-motion:reduce){#quizRoot .afk-return-btn{animation:none}}
+</style>
+</head>
+<body>
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-TLSVRK7V"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+<!-- ── PvP game recovery banner (quiz.js initPvpRoomRecovery) ── -->
+<div id="pvpRecoveryBanner">
+  <span class="pvp-rb-text">ოთახში <button type="button" class="btn btn-ghost pvp-rb-return" id="pvpRecoveryReturn">დაბრუნება</button></span>
+  <span class="pvp-rb-timer" id="pvpRecoveryTimer">20</span>
+  <button type="button" class="pvp-rb-close" id="pvpRecoveryClose" aria-label="დახურვა">&times;</button>
+</div>
+
+<!-- ── NAV (იდენტურია ufc/index.html-ის — app.js არ იტვირთება ამ გვერდზე) ── -->
+<nav><div class="wrap nav-in">
+<a href="/ufc/" class="brand">
+<img src="/logo.png?v=3" alt="Fight Night Fantasy" />
+<span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
+</a>
+<div class="nav-links" id="navLinks">
+  <div class="nav-fx d-only" id="navFx">
+    <span class="nav-fx-lbl">ფენტეზის ტიპი <span class="nav-fx-caret">▾</span></span>
+    <div class="nav-fx-pop">
+      <a href="/ufc/" class="on">UFC <span class="fx-tag">აქტიური</span></a>
+      <a href="/f1/">F1 <span class="fx-tag">აქტიური</span></a>
+      <a href="/nba/">NBA <span class="fx-tag">აქტიური</span></a>
+      <div class="fx-sub">
+        <a class="fx-sub-lbl">ფეხბურთი<span class="fx-sub-right"><span class="fx-sub-caret">▸</span></span></a>
+        <div class="fx-sub-pop">
+          <a href="/football/laliga/">ლა ლიგა</a>
+          <a href="/football/epl/">პრემიერ ლიგა</a>
+          <a href="/football/seriea/">სერია A</a>
+          <a href="/football/bundesliga/">ბუნდესლიგა</a>
+          <a href="/football/ligue1/">ლიგა 1</a>
+          <a href="/football/ucl/">ჩემპიონთა ლიგა</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <a href="/ufc/#leaderboard" class="d-only">ლიდერბორდი</a>
+  <a href="/ufc/#tickets" class="d-only">ბილეთების ისტორია</a>
+  <a href="/profile/" class="d-only">პროფილი</a>
+  <a href="/ufc/#card" class="m-only">ბრძოლები</a>
+  <a href="/ufc/#leaderboard" class="m-only">ლიდერბორდი</a>
+  <a href="/ufc/#how" class="m-only">წესები</a>
+</div>
+<div class="nav-cta">
+  <div class="balance-pill"><span class="coin"></span><b id="balNav">1,000</b> ქულა</div>
+  <a class="btn btn-ghost" id="signinBtn" href="/ufc/" style="display:inline-block" onclick="event.preventDefault(); if(window.openAuthModalMode) window.openAuthModalMode('signin');">შესვლა</a>
+  <a class="btn btn-ghost" id="joinBtn" href="/ufc/" style="display:inline-block" onclick="event.preventDefault(); if(window.openAuthModalMode) window.openAuthModalMode('signup');">რეგისტრაცია</a>
+  <button class="menu-btn" id="menuBtn" aria-label="მენიუ"><span></span></button>
+</div>
+</div></nav>
+
+<!-- ── MINI-HERO (მხოლოდ "აირჩიე თამაში" ეკრანზე ჩანს — quiz.js show() მართავს) ── -->
+<header class="hero qz-hero" id="quizHero"><div class="wrap hero-in">
+<a class="qz-home" id="quizHeroBack" href="/" aria-label="უკან"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" width="18" height="18" fill="currentColor" aria-hidden="true" focusable="false" style="transform:scaleX(-1)"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg></a>
+<h1 class="qz-title reveal d1"></h1>
+<span class="qz-home-spacer" aria-hidden="true"></span>
+</div></header>
+
+<!-- ── QUIZ APP ── -->
+<section id="quizApp" style="padding-top:8px"><div class="wrap">
+<div id="quizRoot">
+
+  <!-- SPORT SELECT -->
+  <section id="screen-sport" class="screen active">
+    <h2 style="text-align:center;font-family:var(--display);margin-bottom:18px">აირჩიე ქვიზის ტიპი</h2>
+    <div class="modes">
+      <div class="mode quiz-card" tabindex="0" role="button" aria-label="UFC" data-sport="UFC">
+        <span class="quiz-card-photo ufc"></span>
+        <span class="quiz-card-label">UFC Quiz</span>
+        <button type="button" class="btn btn-primary">ითამაშე</button>
+      </div>
+      <div class="mode quiz-card" tabindex="0" role="button" aria-label="ფეხბურთი" data-sport="Football">
+        <span class="quiz-card-photo football"></span>
+        <span class="quiz-card-label">Football Quiz</span>
+        <button type="button" class="btn btn-primary">ითამაშე</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- GAME TYPE SELECT -->
+  <section id="screen-gametype" class="screen">
+    <div class="back-row"><button class="qback" id="back-to-sport"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button></div>
+    <div class="modes">
+      <div class="mode" tabindex="0" role="button" aria-label="ქვიზი" data-gametype="quiz">
+        <span class="glyph">❓</span>
+        <h2>ქვიზი</h2>
+        <p id="gametype-quiz-desc">კითხვები UFC-დან</p>
+      </div>
+      <div class="mode" tabindex="0" role="button" aria-label="ვინ ვარ" data-gametype="guess">
+        <span class="glyph">🕵️</span>
+        <h2>გამოიცანი ვინ ვარ</h2>
+        <p id="gametype-guess-desc">ფაქტებს გეტყვი მებრძოლებზე<br>ეცადე გამოიცნო ვისზეა საუბარი</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- MODE SELECT -->
+  <section id="screen-mode" class="screen">
+    <div class="back-row"><button class="qback" id="back-to-gametype"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button></div>
+    <h2 id="screen-mode-heading" style="text-align:center;font-family:var(--display);margin-bottom:18px"></h2>
+    <div class="modes">
+      <div class="mode" tabindex="0" role="button" aria-label="AI-ის წინააღმდეგ" data-mode="ai">
+        <h2><span class="qai-glitch" data-text="AI-ის წინააღმდეგ">AI-ის წინააღმდეგ</span></h2>
+        <p>შეეჯიბრე შენს თავს</p>
+      </div>
+      <div class="mode" tabindex="0" role="button" aria-label="ადამიანის წინააღმდეგ - მეგობრის მოწვევა" data-mode="pvp">
+        <h2>ადამიანის წინააღმდეგ</h2>
+        <p>მოიწვიე 8-მდე მეგობარი</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- LOBBY -->
+  <section id="screen-lobby" class="screen">
+    <div class="back-row"><button class="qback" id="back-from-lobby"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button></div>
+    <div class="arena">
+      <div style="text-align:center;font-family:var(--display);font-weight:700;font-size:13px;color:var(--text);letter-spacing:1px" id="lobby-belt">აირჩიე სირთულის დონე</div>
+      <div id="lobby-action" class="btn-row" style="width:100%;max-width:340px"></div>
+    </div>
+  </section>
+
+  <!-- PvP — SETUP (create room / join by code) -->
+  <section id="screen-pvp-setup" class="screen">
+    <div class="back-row"><button class="qback" id="back-to-mode-from-pvp"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან დაბრუნება</span></button></div>
+    <div class="pvp-setup">
+      <div class="pvp-panel">
+        <h3>აირჩიე დონე</h3>
+        <div id="pvp-create-diff" class="difficulty"></div>
+        <button class="btn btn-primary" id="pvp-create-btn" style="width:100%;margin-top:10px" disabled>ოთახის შექმნა</button>
+      </div>
+      <div class="pvp-divider">ან</div>
+      <div class="pvp-panel">
+        <h3>ოთახში შესასვლელად შეიყვანე კოდი</h3>
+        <div class="name-entry">
+          <input type="text" id="pvp-join-code" placeholder="კოდი, მაგ. AB12CD" maxlength="6" autocomplete="off" style="text-transform:uppercase" />
+        </div>
+        <button class="btn btn-gold" id="pvp-join-btn" style="width:100%;margin-top:10px">ოთახში შესვლა</button>
+        <div id="pvp-join-error" style="color:var(--red);font-size:.82rem;margin-top:8px;display:none"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- PvP — LOBBY -->
+  <section id="screen-pvp-lobby" class="screen">
+    <div class="back-row"><button class="qback" id="pvp-leave-btn"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">ოთახის დატოვება</span></button></div>
+    <div class="pvp-lobby">
+      <div class="pvp-code-box">
+        <div class="pvp-code-label">ოთახის კოდი</div>
+        <div class="pvp-code" id="pvp-room-code">------</div>
+        <div class="pvp-code-actions">
+          <button class="btn btn-ghost" id="pvp-copy-code">კოდის კოპირება</button>
+          <button class="btn btn-ghost" id="pvp-copy-link">ოთახის ლინკის კოპირება</button>
+        </div>
+      </div>
+      <div class="pvp-players" id="pvp-players-list"></div>
+      <div class="pvp-count" id="pvp-players-count">1 / 9 მოთამაშე</div>
+      <button class="btn btn-primary" id="pvp-start-btn" style="width:100%" disabled>დაწყება</button>
+      <p class="tinyinfo" id="pvp-lobby-hint">ველოდებით მინიმუმ 1 მეგობარს...</p>
+    </div>
+  </section>
+
+  <!-- PvP — WAITING FOR OTHERS -->
+  <section id="screen-pvp-wait" class="screen">
+    <div class="back-row"><button class="qback" id="back-from-pvp-wait"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">ოთახის დატოვება</span></button></div>
+    <div class="pvp-wait">
+      <div class="pvp-wait-spinner">⏳</div>
+      <h2>ველოდებით ოპონენტებს</h2>
+      <div id="pvp-wait-count" class="tinyinfo">0 / 0 დაასრულა</div>
+    </div>
+  </section>
+
+  <!-- PvP — RESULTS (podium) -->
+  <section id="screen-pvp-results" class="screen">
+    <div class="back-row"><button class="qback" id="back-from-pvp-results"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button></div>
+    <h2 style="text-align:center;font-family:var(--display);margin-bottom:18px">შედეგები</h2>
+    <div class="podium" id="pvp-podium"></div>
+    <div class="pvp-rest" id="pvp-rest-list"></div>
+    <button class="btn btn-primary" id="pvp-results-done" style="width:100%;margin-top:18px">დასრულება</button>
+  </section>
+
+  <!-- QUIZ -->
+  <section id="screen-quiz" class="screen">
+    <div class="quiz-head"><span class="qcount"><span id="q-idx">1</span>/<span id="q-total">10</span></span></div>
+    <div class="timer-wrap"><div class="timer"><i id="q-timer"></i></div><span class="timer-num" id="q-timer-num">15</span></div>
+    <button type="button" class="btn btn-ghost afk-return-btn" id="q-afk-btn" style="display:none">დაბრუნება</button>
+    <div class="qcard">
+      <div class="qnum">კითხვა <span id="q-num">1</span></div>
+      <div class="qtext" id="q-text">-</div>
+      <div class="opts" id="q-opts"></div>
+    </div>
+  </section>
+
+  <!-- GUESS WHO -->
+  <section id="screen-guess" class="screen">
+    <div class="quiz-head"><span class="qcount"><span id="gq-idx">1</span>/<span id="gq-total">10</span></span></div>
+    <div class="timer-wrap" id="gq-timer-row" style="display:none"><div class="timer"><i id="gq-timer"></i></div><span class="timer-num" id="gq-timer-num">30</span></div>
+    <button type="button" class="btn btn-ghost afk-return-btn" id="gq-afk-btn" style="display:none">დაბრუნება</button>
+    <div class="qcard">
+      <div class="qnum">კითხვა <span id="gq-num">1</span></div>
+      <div class="qtext" style="margin-bottom:14px">პასუხი შეიყვანე #ქართულად</div>
+      <div class="gq-clues" id="gq-clues"></div>
+      <div id="gq-answer-area">
+        <div class="gq-hint-row" style="margin-top:6px">
+          <button class="btn btn-ghost" id="gq-next-clue" style="flex:1">+ შემდეგი მინიშნება</button>
+          <span class="gq-points" id="gq-points">4 ქულა</span>
+        </div>
+        <div class="name-entry" style="margin-top:18px">
+          <label for="gq-input" id="gq-input-label">გამოიცანი მებრძოლი</label>
+          <input type="text" id="gq-input" aria-label="გამოიცანი მებრძოლი" autocomplete="off" />
+        </div>
+        <button class="btn btn-primary" id="gq-submit" style="margin-top:14px;width:100%">პასუხის გაცემა</button>
+      </div>
+      <div class="gq-feedback" id="gq-feedback"></div>
+      <button class="btn btn-gold" id="gq-next-q" style="margin-top:14px;width:100%;display:none">შემდეგი →</button>
+    </div>
+  </section>
+
+  <!-- CARD BATTLE -->
+  <section id="screen-cards" class="screen">
+    <div class="cardarena">
+      <div class="back-row"><button class="qback" id="back-from-cards"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button></div>
+      <div class="cb-score">
+        <div class="cb-side you">
+          <div class="tag" id="cb-you-tag">🤠 შენ</div>
+          <div class="num" id="cb-you">0</div>
+        </div>
+        <div class="cb-round" id="cb-round">კითხვა 0 / 0</div>
+        <div class="cb-side opp">
+          <div class="tag"><span id="cb-opp-ava">🤖</span> <span id="cb-opp-lab">AI</span></div>
+          <div class="num" id="cb-opp">0</div>
+        </div>
+        <div class="cb-strips" id="cbStrips">
+          <div class="cb-strip-row">
+            <span class="cb-strip-label">შენ</span>
+            <div class="cb-strip" id="cbStripYou"></div>
+          </div>
+          <div class="cb-strip-row">
+            <span class="cb-strip-label cb-strip-label-ai">AI</span>
+            <div class="cb-strip" id="cbStripOpp"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-felt">
+        <div class="cb-banner" id="cbBanner" aria-hidden="true"></div>
+        <svg class="oct" viewBox="0 0 100 100" aria-hidden="true">
+          <polygon points="30,4 70,4 96,30 96,70 70,96 30,96 4,70 4,30" fill="none" stroke="rgba(58,209,126,.25)" stroke-width=".8"/>
+        </svg>
+        <div class="qbattle">
+          <div class="qbattle-card" id="qb-card">
+            <div class="qb-num" id="qb-num">კითხვა 1</div>
+            <div class="qb-q" id="qb-q">-</div>
+            <div class="qb-answers">
+              <div class="qb-ans you" id="qb-ans-you">
+                <div class="qb-who" id="qb-you-who">🤠 შენ</div>
+                <div class="qb-pick" id="qb-you-pick">-</div>
+                <div class="qb-badge" id="qb-you-badge"></div>
+                <div class="qb-correct" id="qb-you-correct"></div>
+              </div>
+              <div class="qb-ans opp" id="qb-ans-opp">
+                <div class="qb-who"><span id="qb-opp-ava">🤖</span> <span id="qb-opp-lab2">AI</span></div>
+                <div class="qb-pick" id="qb-opp-pick">-</div>
+                <div class="qb-badge" id="qb-opp-badge"></div>
+                <div class="qb-correct"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cb-final" id="cb-final">
+          <div class="cbf-emoji" id="cbf-emoji">🏆</div>
+          <div class="cbf-title" id="cbf-title">-</div>
+          <div class="cbf-score" id="cbf-score">0 - 0</div>
+        </div>
+      </div>
+
+      <div class="cb-log" id="cb-log">კარტების დარიგება...</div>
+
+      <div class="cb-controls">
+        <button class="btn btn-ghost" id="cb-skip" style="display:none">⏭ გამოტოვება</button>
+        <button class="btn cb-finish-btn" id="cb-restart" style="display:none">ხელახლა თამაში</button>
+        <button class="btn cb-finish-btn" id="cb-finish" style="display:none">დასრულება</button>
+      </div>
+
+      <!-- QuizUpdates.pdf: ყველა კითხვა-პასუხის მუდმივი სია, თამაშის შემდეგ -->
+      <div class="cb-review" id="cbReview" style="display:none">
+        <div class="cb-review-head">შედეგები</div>
+        <div class="cb-review-list" id="cbReviewList"></div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</div></section>
+
+<!-- ── ავტორიზაციის მოდალი (QuizUpdates.pdf) — ჩაშენებული, app.js-ის გარეშე.
+     იხსნება ნებისმიერი "დაწყება"-ს წინ, თუ ვიზიტორი შესული არ არის. ── -->
+<div class="modal-bg" id="quizAuthModal"><div class="modal">
+  <button class="modal-close" id="quizAuthClose" aria-label="დახურვა">&times;</button>
+  <h3 id="quizAuthTitle">შესვლა</h3>
+  <button type="button" class="btn btn-google" id="quizAuthGoogleBtn">
+    <svg width="18" height="18" viewBox="0 0 18 18">
+      <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/>
+      <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/>
+      <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/>
+      <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z"/>
+    </svg>
+    Google-ით შესვლა
+  </button>
+  <p class="sub" id="quizAuthSub">თამაშის დასაწყებად საჭიროა ავტორიზაცია.</p>
+  <form id="quizAuthForm" method="post" action="#">
+    <div class="field" id="quizAuthNickField" style="display:none">
+      <label for="quizAuthNick">ნიქნეიმი</label>
+      <input type="text" id="quizAuthNick" maxlength="20" placeholder="მაგ. UFC.King" autocomplete="nickname" />
+    </div>
+    <div class="field">
+      <label for="quizAuthEmail">ელ. ფოსტა</label>
+      <input type="email" id="quizAuthEmail" placeholder="შეიყვანე შენი მეილი" autocomplete="email" />
+    </div>
+    <div class="field">
+      <label for="quizAuthPass">პასვორდი</label>
+      <input type="password" id="quizAuthPass" placeholder="მინ. 6 სიმბოლო" autocomplete="current-password" />
+    </div>
+  </form>
+  <div id="quizAuthError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
+  <button type="button" class="btn btn-primary" id="quizAuthSubmit">შესვლა</button>
+  <p class="modal-foot" id="quizAuthSwitch">არ გაქვს ანგარიში? <button type="button" id="quizAuthSwitchBtn">რეგისტრაცია</button></p>
+</div></div>
+
+<section class="land-about"><div class="wrap">
+<div data-landabout="neutral">
+<h2>რა არის FNF ქვიზი</h2>
+<p>პირველად საქართველოში FNF.GE-ზე შეგიძლია შენი სპორტული ცოდნა გამოცადო ონლაინ - მეგობრების წინააღმდეგ ან საკუთარი ცოდნა AI ის წინააღმდეგ. აირჩიე ქვიზის ტიპი - და ითამაშე. თამაში პირდაპირ საიტზე, მარტივი რეგისტრაციის შემდეგ ხდება. თამაში და რეგისტრაცია რათქმაუნდა უფასოა.</p>
+</div>
+<div data-landabout="UFC">
+<h2>რა არის UFC ქვიზი</h2>
+<p>პირველად საქართველოში FNF.GE-ზე შეგიძლია შენი სპორტული ცოდნა MMA-ში გამოცადო ონლაინ -მეგობრების წინააღმდეგ. თამაში შეგიძლია პირდაპირ საიტზე მარტივი რეგისტრაციის შემდეგ. თამაში და რეგისტრაცია ცხადია უფასოა.</p>
+
+<h2>ორი ტიპის თამაში</h2>
+<p>ქვიზი - კითხვები UFC-დან, მებრძოლებზე და ბრძოლებზე.</p>
+<p>გამოიცანი ვინ ვარ - მებრძოლს მისი ისტორიით უნდა მიხვდე. პასუხს ქართულად წერ. თუ გაგიჭირდა, დამატებით მინიშნებას ითხოვ, ყოველი მინიშნება 5 წამს გიმატებს და 1 ქულას გაკლებს.</p>
+<p>თითო თამაშში 10 კითხვაა.</p>
+
+<h2>ითამაშე მარტო ან მეგობრებთან</h2>
+<p>AI-ის წინააღმდეგ - მარტო თამაშობ, ოპონენტად AI გყავს. ანუ შენს თავს ეჯიბრები და მოწინააღმდეგე ფიქტიურია.</p>
+<p>ადამიანის წინააღმდეგ - ქმნი ოთახს და 8-მდე მეგობარს იწვევ ოთახის კოდით ან პირდაპირ ლინკით. ბოლოს ყველას შედეგი ერთ სიაში ჩანს.</p>
+
+<h2>სირთულე</h2>
+<p>ოთხივე დონე ღიაა - მარტივი, საშუალო, რთული და შერეული. აირჩიე შენზე მორგებული.</p>
+
+<h2>თამაშის შემდეგ</h2>
+<p>ყველა კითხვა და სწორი პასუხი თამაშის ბოლოს გამოჩნდება , შეგიძლია გადახედო, რა შეგეშალა. ქვიზის ქულები ლიდერბორდზე არ აისახება - ეს ცალკე თამაშია, ფენტეზის ქულებზე არ აისახება. რაც ხდება ქვიზში, რჩება ქვიზში</p>
+
+<h2>ქვიზის გარდა რითი გაერთო?</h2>
+<p>fnf.ge-ზე UFC-ის, F1-ის, NBA-სა და ფეხბურთის ფენტეზიც არის. რეგისტრაცია და თამაში ცხადია უფასოა.</p>
+</div>
+<div data-landabout="Football">
+<h2>რა არის ფეხბურთის ქვიზი</h2>
+<p>პირველად საქართველოში FNF.GE-ზე შეგიძლია შენი საფეხბურთო ცოდნა გამოცადო ონლაინ - მეგობრების წინააღმდეგ. თამაში შეგიძლია პირდაპირ საიტზე მარტივი რეგისტრაციის შემდეგ. თამაში და რეგისტრაცია ცხადია უფასოა.</p>
+
+<h2>კითხვები ფეხბურთიდან</h2>
+<p>ფეხბურთელებზე, კლუბებზე და ჩემპიონატებზე. თითო თამაშში 10 კითხვაა.</p>
+
+<h2>ითამაშე მარტო ან მეგობრებთან</h2>
+<p>AI-ის წინააღმდეგ - მარტო თამაშობ, ოპონენტად AI გყავს. ანუ შენს თავს ეჯიბრები და მოწინააღმდეგე ფიქტიურია.</p>
+<p>ადამიანის წინააღმდეგ - ქმნი ოთახს და 8-მდე მეგობარს იწვევ ოთახის კოდით ან პირდაპირ ლინკით. ბოლოს ყველას შედეგი ერთ სიაში ჩანს.</p>
+
+<h2>სირთულე</h2>
+<p>ოთხივე დონე ღიაა - მარტივი, საშუალო, რთული და შერეული. აირჩიე შენზე მორგებული.</p>
+
+<h2>თამაშის შემდეგ</h2>
+<p>ყველა კითხვა და სწორი პასუხი თამაშის ბოლოს გამოჩნდება, შეგიძლია გადახედო, რა შეგეშალა. ქვიზის ქულები ლიდერბორდზე არ აისახება - ეს ცალკე თამაშია, ფენტეზის ქულებზე არ აისახება. რაც ხდება ქვიზში, რჩება ქვიზში.</p>
+
+<h2>ქვიზის გარდა რითი გაერთო?</h2>
+<p>fnf.ge-ზე UFC-ის, F1-ის, NBA-სა და ფეხბურთის ფენტეზიც არის. რეგისტრაცია და თამაში ცხადია უფასოა.</p>
+</div>
+</div></section>
+
+<!-- ── FOOTER (იდენტურია ufc/index.html-ის) ── -->
+<footer><div class="wrap foot-in">
+<div>
+  <span class="wordmark"><span class="bw">FIGHT</span> <span class="bn">NIGHT</span> <span class="bf">FANTASY</span></span>
+  <p class="foot-note"> პირველი ქართული UFC Fantasy. გამოცადე შენი MMA ინტუიცია უფასოდ. დადე მომგებიანი ბილეთები, გალიდერდი ლიდერბორდზე და მოიგე ფულადი პრიზები.</p>
+  <div class="foot-socials">
+   <a href="https://www.facebook.com/GeorgCuck00/" class="foot-social" aria-label="Facebook" target="_blank" rel="noopener">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+    </a>
+    <a href="https://t.me/+u7a0imzuwDhlM2Y0" class="foot-social" aria-label="Telegram" target="_blank" rel="noopener">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>
+    </a>
+    <a href="https://www.linkedin.com/in/giorgi-gugulashvili-254199208/" class="foot-social" aria-label="LinkedIn" target="_blank" rel="noopener">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/></svg>
+     </a>
+  </div>
+</div>
+<div class="foot-links">
+  <a href="/ufc/#card">ბრძოლები</a>
+  <a href="/ufc/#tickets">ბილეთები</a>
+  <a href="/rules/">ხშირად დასმული კითხვები</a>
+  <a href="/terms/">წესები და პირობები</a>
+  <a href="/privacy/">კონფიდენციალურობა</a>
+  <a href="/about/">ჩვენს შესახებ</a>
+  <button class="foot-contact-btn" onclick="document.getElementById('contactPopup').style.display='flex'">კონტაქტი</button>
+</div>
+</div></footer>
+<!-- CONTACT POPUP -->
+<div id="contactPopup" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(5,4,8,.8);backdrop-filter:blur(6px);justify-content:center;align-items:center;padding:20px">
+  <div style="background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:28px;max-width:340px;width:100%;text-align:center">
+    <h3 style="font-family:var(--display);font-weight:700;font-size:1.4rem;margin-bottom:16px">კონტაქტი</h3>
+    <a href="tel:+995557007665" style="display:block;padding:14px;margin-bottom:10px;background:var(--ink);border:1px solid var(--line);border-radius:8px;color:var(--green);font-family:var(--mono);font-weight:700;font-size:1rem;text-decoration:none">📞 557 007 665</a>
+    <a href="https://t.me/GeoArchnemesis" target="_blank" rel="noopener" style="display:block;padding:14px;margin-bottom:16px;background:var(--ink);border:1px solid var(--line);border-radius:8px;color:var(--blue-soft);font-family:var(--mono);font-weight:700;font-size:1rem;text-decoration:none"><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" style="vertical-align:-3px;margin-right:6px"><path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.479.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>@GeoArchnemesis</a>
+    <button onclick="document.getElementById('contactPopup').style.display='none'" style="color:var(--muted);font-size:.9rem;font-family:inherit;cursor:pointer;background:none;border:none">დახურვა</button>
+  </div>
+</div>
+
+<!-- ── MOBILE BOTTOM NAV (იგივე წესით, ყოველთვის დამალულია app.js-ის გარეშე) ── -->
+<nav class="mnav" id="mnav">
+  <div class="mnav-btn" id="mnavSport" role="button" tabindex="0">
+    <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNzIgNzIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjMiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3QgeD0iMTIiIHk9IjE4IiB3aWR0aD0iNDgiIGhlaWdodD0iNyIgcng9IjEuNSIvPjxyZWN0IHg9IjEyIiB5PSIzMyIgd2lkdGg9IjQ4IiBoZWlnaHQ9IjciIHJ4PSIxLjUiLz48cmVjdCB4PSIxMiIgeT0iNDgiIHdpZHRoPSI0OCIgaGVpZ2h0PSI3IiByeD0iMS41Ii8+PC9zdmc+Cg==" alt="">
+    <span class="mnav-lbl">ფენტეზის ტიპი</span>
+    <div class="mnav-pop">
+      <div class="mnav-pop-opt on">UFC <span class="mnav-pop-tag">აქტიური</span></div>
+      <a class="mnav-pop-opt" href="/f1/">F1 <span class="mnav-pop-tag">აქტიური</span></a>
+      <a class="mnav-pop-opt" href="/nba/">NBA <span class="mnav-pop-tag">აქტიური</span></a>
+    </div>
+  </div>
+  <a class="mnav-btn" href="/news/">
+    <svg class="mnav-ic" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18h-5"/><path d="M18 14h-8"/><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-4 0v-9a2 2 0 0 1 2-2h2"/><rect width="8" height="4" x="10" y="6" rx="1"/></svg>
+    <span class="mnav-lbl">ნიუსები</span>
+  </a>
+    <a class="mnav-btn on" href="/quiz/">
+    <svg class="mnav-ic" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9.2a3 3 0 0 1 5.8 1c0 2-3 2.5-3 4"/><line x1="12" y1="17.5" x2="12.01" y2="17.5"/></svg>
+    <span class="mnav-lbl">ქვიზი</span>
+  </a>
+  <a class="mnav-btn only-auth" href="/ufc/#tickets">
+    <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMjQgMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTMgOGEyIDIgMCAwIDEgMi0yaDE0YTIgMiAwIDAgMSAyIDJ2MmEyIDIgMCAwIDAgMCA0djJhMiAyIDAgMCAxLTIgMkg1YTIgMiAwIDAgMS0yLTJ2LTJhMiAyIDAgMCAwIDAtNFY4eiIvPjxsaW5lIHgxPSI5IiB5MT0iNiIgeDI9IjkiIHkyPSIxOCIgc3Ryb2tlLWRhc2hhcnJheT0iMiAyIi8+PC9zdmc+Cg==" alt="">
+    <span class="mnav-lbl">ბილეთების ისტორია</span>
+  </a>
+  <a class="mnav-btn" href="/profile/">
+    <img class="mnav-ic" src="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgMjQgMjQiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTIiIGN5PSI4IiByPSI0Ii8+PHBhdGggZD0iTTQgMjFjMC00LjQgMy42LTcgOC03czggMi42IDggNyIvPjwvc3ZnPgo=" alt="">
+    <span class="mnav-lbl">პროფილი</span>
+  </a>
+</nav>
+
+<!-- ── SCRIPTS ── -->
+<script src="/fantasy-nav.js?v=14"></script>
+<script src="/quiz/quiz.js?v=64"></script>
+<script>
+/* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
+(function(){
+  var m = document.getElementById('menuBtn'), nl = document.getElementById('navLinks');
+  if(m && nl) m.addEventListener('click', function(){ nl.classList.toggle('open'); });
+})();
+(function(){var fx=document.getElementById('navFx');if(!fx)return;
+fx.addEventListener('click',function(e){
+  if(e.target.closest('.nav-fx-pop a'))return;
+  e.preventDefault();fx.classList.toggle('open');
+});
+document.addEventListener('click',function(e){if(!e.target.closest('#navFx'))fx.classList.remove('open');});
+})();
+/* ── მობილური "ფენტეზის ტიპი" dropdown — app.js-ის #mnavSport ჰენდლერის
+   იდენტური ასლი (იხ. app.js:~1310-1326), რადგან ეს გვერდი app.js-ს არ
+   ტვირთავს -- ზემოთ #navFx-ის იდენტურ მიზეზს. ── */
+(function(){
+  var sp = document.getElementById('mnavSport');
+  if(!sp) return;
+  var pop = sp.querySelector('.mnav-pop');
+  if(!pop) return;
+  sp.addEventListener('click', function(e){
+    if(e.target.closest('.mnav-pop-opt')) return;
+    e.stopPropagation();
+    pop.classList.toggle('show');
+  });
+  sp.addEventListener('keydown', function(e){
+    if(e.key !== 'Enter' && e.key !== ' ') return;
+    if(e.target.closest('.mnav-pop-opt')) return;
+    e.preventDefault();
+    pop.classList.toggle('show');
+  });
+  document.addEventListener('click', function(e){
+    if(!e.target.closest('#mnavSport')) pop.classList.remove('show');
+  });
+})();
+</script>
+</body>
+</html>

@@ -119,13 +119,13 @@
 
     var d = document.createElement('a');
     d.className = 'd-only quiz-nav-link';
-    d.href = '/ufc/quiz/';
+    d.href = '/quiz/';
     d.textContent = 'ქვიზი';
     nav.appendChild(d);
 
     var m = document.createElement('a');
     m.className = 'm-only quiz-nav-link';
-    m.href = '/ufc/quiz/';
+    m.href = '/quiz/';
     m.textContent = 'ქვიზი';
     nav.appendChild(m);
   }
