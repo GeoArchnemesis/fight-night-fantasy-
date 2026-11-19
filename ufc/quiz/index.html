@@ -582,12 +582,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="mode" tabindex="0" role="button" aria-label="ქვიზი" data-gametype="quiz">
         <span class="glyph">❓</span>
         <h2>ქვიზი</h2>
-        <p>კითხვები UFC-დან</p>
+        <p id="gametype-quiz-desc">კითხვები UFC-დან</p>
       </div>
       <div class="mode" tabindex="0" role="button" aria-label="ვინ ვარ" data-gametype="guess">
         <span class="glyph">🕵️</span>
         <h2>გამოიცანი ვინ ვარ</h2>
-        <p>გამოიცანი მებრძოლი მისი ისტორიით</p>
+        <p id="gametype-guess-desc">ფაქტებს გეტყვი მებრძოლებზე<br>ეცადე გამოიცნო ვისზეა საუბარი</p>
       </div>
     </div>
   </section>
@@ -703,7 +703,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <span class="gq-points" id="gq-points">4 ქულა</span>
         </div>
         <div class="name-entry" style="margin-top:18px">
-          <input type="text" id="gq-input" aria-label="ჩაწერე მებრძოლის სახელი და გვარი" autocomplete="off" />
+          <label for="gq-input" id="gq-input-label">გამოიცანი მებრძოლი</label>
+          <input type="text" id="gq-input" aria-label="გამოიცანი მებრძოლი" autocomplete="off" />
         </div>
         <button class="btn btn-primary" id="gq-submit" style="margin-top:14px;width:100%">პასუხის გაცემა</button>
       </div>
@@ -975,7 +976,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   else build();
 })();
 </script>
-<script src="/ufc/quiz.js?v=60"></script>
+<script src="/ufc/quiz.js?v=63"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){

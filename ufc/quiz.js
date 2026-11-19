@@ -490,9 +490,9 @@ if(sb){
 // dbLevel — quiz_questions.level / guess_who_questions.level მნიშვნელობა სერვერზე.
 // "შერეული" (mixed) დონეს საკუთარი row-ები არ გააჩნია არც ერთ ცხრილში —
 // dbLevel="შერეული" სერვერზე (get_ai_quiz_questions / create_quiz_room)
-// არის query-time სენტინელი, რომელიც არ ფილტრავს level-ით და ყველა
-// აქტიურ რიგს ირჩევს (იხ. supabase/ufc_quiz_seed.sql და
-// supabase/quiz_no_repeat.sql-ის v_mixed).
+// არის query-time სენტინელი: ყოველთვის ზუსტად 3 მარტივი + 5 საშუალო +
+// 2 რთული კითხვისგან შედგება (არა წმინდა შემთხვევითობა ყველა დონეზე),
+// იხ. supabase/quiz_mixed_composition.sql.
 const DIFFICULTY_UFC = [
   { key:"easy",   label:"მარტივი", acc:0.40, dbLevel:"მარტივი", enabled:true,
     note:"მარტივ კითხვებს ელოდე, ზოგადი ცოდნითაც შეიძლება გახვიდე ფონს.", color:"var(--green)" },
@@ -638,7 +638,12 @@ function normalizeGuessRow(row){
       .filter(c => c != null && String(c).trim() !== "");
   }
   const answer = row.answer ?? row.correct_answer ?? row.correctAnswer ?? row.name ?? "";
-  return { clues: (clues||[]).map(String), answer: String(answer) };
+  return {
+    clues: (clues||[]).map(String),
+    answer: String(answer),
+    sub_category: row.sub_category ?? null,
+    is_abbrev_hint: !!row.is_abbrev_hint,
+  };
 }
 
 async function fetchGuessQuestions(dbLevel){
@@ -655,15 +660,52 @@ async function fetchGuessQuestions(dbLevel){
   }catch(e){ console.error("[quiz] fetch გაითიშა (ვინ ვარ?):", e); return null; }
 }
 
-/* ---------- თავისუფალი ტექსტის პასუხის შემოწმება „ვინ ვარ?“-სთვის ---------- */
+/* ---------- თავისუფალი ტექსტის პასუხის შემოწმება „ვინ ვარ?“-სთვის ----------
+   ზუსტი ანალოგია Supabase-ის quiz_norm_name / quiz_build_answer_variants /
+   quiz_is_guess_correct ფუნქციებისა (იხ. supabase/guess_who_answer_matching.sql)
+   — PvP-ში ქულებს ეს იგივე ლოგიკა სერვერზე ითვლის, ამიტომ ორივე მხარეს
+   ხელით უნდა მოვარგოთ ერთმანეთს, საერთო წყარო არ არსებობს. */
 function normName(s){
   return String(s||"")
     .toLowerCase()
-    .replace(/['"’‘´`.,!?()\-–—]/g, "")
+    .replace(/[„“”"‘’'`´().,!?\-–—]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
-function collapseSpaces(s){ return s.replace(/\s+/g, ""); }
+// პასუხი, რომელსაც ხელით დამატებული ვარიანტები სჭირდება, რადგან
+// buildAnswerVariants-ის ზოგადი (a)-(e) წესები მათთვის საკმარისი არაა.
+const MANUAL_ANSWER_ALIASES = [
+  { answer: "ქუინზ პარკ რეინჯერსი", aliases: ["ქპრ"] },
+  { answer: "RCDE", aliases: ["არსიდიი", "არესიდიი", "რცდე"] },
+  { answer: "სტად ლუი II", aliases: ["სტად ლუი", "სტად ლუი 2"] },
+];
+function buildAnswerVariants(answerRaw){
+  const answer = String(answerRaw||"");
+  const full = normName(answer);
+  const variants = [];
+  if(full) variants.push(full);
+
+  const pStart = answer.indexOf("(");
+  const pEnd = answer.indexOf(")");
+  let outside = full, inside = "";
+  if(pStart >= 0 && pEnd > pStart){
+    outside = normName(answer.slice(0,pStart) + " " + answer.slice(pEnd+1));
+    inside = normName(answer.slice(pStart+1, pEnd));
+  }
+  if(outside && outside !== full) variants.push(outside);
+  if(inside) variants.push(inside);
+
+  const words = outside.split(" ").filter(Boolean);
+  if(words.length >= 1) variants.push(words[words.length-1]); // ბოლო სიტყვა (გვარი/საკვანძო სიტყვა)
+  if(words.length >= 2) variants.push(words.slice(1).join(" ")); // პირველი (ქალაქი/კუთვნილებითი) სიტყვის მოცილებით
+
+  for(const entry of MANUAL_ANSWER_ALIASES){
+    if(full === normName(entry.answer)){
+      for(const alias of entry.aliases) variants.push(normName(alias));
+    }
+  }
+  return variants;
+}
 function levenshtein(a,b){
   const m=a.length, n=b.length;
   if(!m) return n; if(!n) return m;
@@ -683,29 +725,48 @@ function nameSimilarity(a,b){
   const maxLen = Math.max(a.length,b.length);
   return maxLen===0 ? 1 : 1 - dist/maxLen;
 }
+// ზუსტი ანალოგი Supabase-ის quiz_is_guess_correct-ისა — იხ. ზემოთ normName-ის
+// კომენტარი. STRICT_SHORT ზღვარი შემოღებულია იმიტომ, რომ 6 სიმბოლომდე
+// ვარიანტებზე უბრალო 60%-იანი მსგავსება ცდომილებების ტოლერანტულია
+// (მაგ. "მესი" საკმარისად ჰგავს "მესხი"-ს — 0.8 — რომ არასწორად ჩათვალოს
+// სწორად; short ვარიანტებს ამიტომ თითქმის ზუსტი დამთხვევა სჭირდება).
+const MATCH_LOOSE = 0.6;
+const MATCH_STRICT_SHORT = 0.84;
 function isGuessCorrect(guess, answer){
-  const gRaw = normName(guess), aRaw = normName(answer);
-  if(!gRaw) return { correct:false, exact:false };
-  if(gRaw === aRaw) return { correct:true, exact:true };
+  const g = normName(guess);
+  if(!g) return { correct:false, exact:false };
+  const exact = g === normName(answer);
 
-  const g = collapseSpaces(gRaw), a = collapseSpaces(aRaw);
-  if(g === a) return { correct:true, exact:false }; // მხოლოდ სივრცე/აპოსტროფი განსხვავდებოდა
+  const variants = buildAnswerVariants(answer);
 
-  if(nameSimilarity(g, a) >= 0.65) return { correct:true, exact:false };
-
-  const aWords = aRaw.split(" ").filter(w=>w.length>=2);
-  const gWords = gRaw.split(" ").filter(w=>w.length>=2);
-  if(aWords.length && gWords.length){
-    let allMatch = true;
-    for(const aw of aWords){
-      let best = 0;
-      for(const gw of gWords){ best = Math.max(best, nameSimilarity(gw, aw)); }
-      if(best < 0.62){ allMatch = false; break; }
-    }
-    if(allMatch) return { correct:true, exact:false };
+  for(const v of variants){
+    if(g === v) return { correct:true, exact };
+  }
+  for(const v of variants){
+    const threshold = v.length <= 6 ? MATCH_STRICT_SHORT : MATCH_LOOSE;
+    if(nameSimilarity(g, v) >= threshold) return { correct:true, exact };
   }
 
-  if(g.length>=4 && (a.includes(g) || g.includes(a))) return { correct:true, exact:false };
+  // სიტყვების ქვესიმრავლის შემოწმება — დასაშვებია ნაწილობრივი/შეცდომიანი
+  // მრავალსიტყვიანი სახელი (მაგ. "ქვინს პარკი" ვარიანტზე "ქუინზ პარკ
+  // რეინჯერსი"), თუმცა მხოლოდ >=2 რეალურ სიტყვაზე — ერთსიტყვიანი ვარიანტები
+  // ზემოთა STRICT_SHORT შემოწმებით უნდა გავიდეს, თორემ "მესი" isGuessCorrect-ში
+  // "მესხი"-საც დაემთხვევა ცალკეული სიტყვების 60%-იანი ზღვრით.
+  const poolWords = variants.flatMap(v => v.split(" ")).filter(w=>w.length>=2);
+  const guessWords = g.split(" ").filter(w=>w.length>=2);
+  if(guessWords.length >= 2 && poolWords.length){
+    let allMatch = true;
+    for(const gw of guessWords){
+      let best = 0;
+      for(const pw of poolWords){ best = Math.max(best, nameSimilarity(gw, pw)); }
+      if(best < MATCH_LOOSE){ allMatch = false; break; }
+    }
+    if(allMatch) return { correct:true, exact };
+  }
+
+  for(const v of variants){
+    if(g.length>=4 && (v.includes(g) || g.includes(v))) return { correct:true, exact };
+  }
 
   return { correct:false, exact:false };
 }
@@ -770,25 +831,10 @@ function quizRestoreStep(sport, gameType, mode){
     updateLandAbout();
     return;
   }
-  if(sport === "Football"){
-    // Football has no gametype screen (no guess-who content yet) -- the
-    // sport step itself already lands on screen-mode with gameType
-    // forced to "quiz" (see chooseSport). A null `mode` here means
-    // exactly that step; a set `mode` means one level further in.
-    if(!mode){
-      chooseSport("Football", { push:false });
-      return;
-    }
-    S.sport = "Football";
-    S.gameType = "quiz";
-    updateLandAbout();
-    startLobby(mode, { push:false });
-    return;
-  }
-  S.sport = "UFC";
+  S.sport = sport;
   updateLandAbout();
   if(!gameType){
-    chooseSport("UFC", { push:false });
+    chooseSport(sport, { push:false });
     return;
   }
   if(!mode){
@@ -822,38 +868,48 @@ function readPersistedSport(){
   try{ return sessionStorage.getItem(QUIZ_SPORT_STORAGE_KEY); }catch(e){ return null; }
 }
 
+// screen-gametype's two card descriptions are sport-dependent copy too
+// (same reason as DIFFICULTY_FOOTBALL's notes and the land-about divs
+// below) -- exact verbatim strings, not generated.
+const GAMETYPE_CARD_TEXT = {
+  UFC: {
+    quiz: "კითხვები UFC-დან",
+    guess: "ფაქტებს გეტყვი მებრძოლებზე<br>ეცადე გამოიცნო ვისზეა საუბარი"
+  },
+  Football: {
+    quiz: "კითხვები ფეხბურთიდან",
+    guess: "ფეხბურთთან დაკავშირებულ ფაქტებს გეტყვი<br>ეცადე გამოიცნო ვისზე ან რაზეა საუბარი"
+  }
+};
+
 // Sport-aware land-about explainer (ufc/quiz/index.html, below the quiz
 // app) -- one <div data-landabout="neutral|UFC|Football"> per sport in the
 // markup, this just shows the one matching S.sport and hides the others.
-// Called from every place S.sport changes (chooseSport, quizRestoreStep,
-// PvP join/resume, the pending-intent resume after login) so the text
-// never drifts from what's actually selected, plus once on initial load
-// below for the neutral default.
+// Also refreshes screen-gametype's two card descriptions (GAMETYPE_CARD_TEXT
+// above), the other sport-dependent copy outside the per-level DIFFICULTY
+// arrays. Called from every place S.sport changes (chooseSport,
+// quizRestoreStep, PvP join/resume, the pending-intent resume after login)
+// so neither drifts from what's actually selected, plus once on initial
+// load below for the neutral default.
 function updateLandAbout(){
   const key = (S.sport === "UFC" || S.sport === "Football") ? S.sport : "neutral";
   $$(".land-about [data-landabout]").forEach(el=>{
     el.style.display = (el.dataset.landabout === key) ? "" : "none";
   });
+  const cardText = GAMETYPE_CARD_TEXT[S.sport] || GAMETYPE_CARD_TEXT.UFC;
+  const quizDesc = document.getElementById("gametype-quiz-desc");
+  const guessDesc = document.getElementById("gametype-guess-desc");
+  if(quizDesc) quizDesc.textContent = cardText.quiz;
+  if(guessDesc) guessDesc.innerHTML = cardText.guess;
 }
 updateLandAbout();
 
-// Football has no guess-who content yet (see DIFFICULTY_FOOTBALL/PRD §4.2) --
-// rather than a hardcoded block that would need a rewrite later, picking
-// Football just defaults S.gameType to "quiz" and skips straight to
-// screen-mode. Re-enabling a Football guess-who mode later only needs a
-// gametype screen branch added here, nothing downstream changes.
 function chooseSport(sport, opts){
   opts = opts || {};
   S.sport = sport; // "UFC" | "Football"
   persistCurrentSport(sport);
   updateLandAbout();
-  if(sport === "Football"){
-    S.gameType = "quiz";
-    $("#screen-mode-heading").textContent = "ქვიზი";
-    show("screen-mode");
-  } else {
-    show("screen-gametype");
-  }
+  show("screen-gametype");
   if(opts.push !== false) pushSportStep(sport);
 }
 
@@ -863,7 +919,7 @@ function chooseSport(sport, opts){
 function pushSportStep(sport){
   const roomParam = new URLSearchParams(location.search).get("room");
   const addressBarUrl = "/ufc/quiz/" + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
-  history.pushState({ quizSport: sport, quizGameType: sport === "Football" ? "quiz" : null, quizMode: null }, "", addressBarUrl);
+  history.pushState({ quizSport: sport, quizGameType: null, quizMode: null }, "", addressBarUrl);
   window.dataLayer = window.dataLayer || [];
   window.dataLayer.push({ event: "quiz_step", page_path: "/ufc/quiz/", page_title: "Quiz — Sport: " + sport, quiz_sport: sport, external_id: (currentAuthUser && currentAuthUser.id) || "" });
 }
@@ -1595,7 +1651,6 @@ function finishPvpResults(){
   clearPvpRoomRecoveryState();
   stripRoomParam();
   resetPvp();
-  if(S.sport === "Football"){ chooseSport("Football"); return; }
   S.gameType = null;
   show("screen-gametype");
   pushQuizStep(null, null);
@@ -1878,6 +1933,23 @@ function updateGuessPoints(){
   const el = $("#gq-points");
   if(el) el.textContent = guessPointsNow() + " ქულა";
 }
+// დინამიკური ლეიბლი პასუხის ველზე — კითხვის sub_category-ზე დაყრდნობით
+// (display-only, არასდროს ფილტრავს/აჯგუფებს კითხვების პულს). PvP-ში item.answer
+// არ მოსდის კლიენტს (ანტი-ჩიტი), ამიტომ RCDE-ის განსაკუთრებული შემთხვევა
+// is_abbrev_hint დროშითაა მონიშნული სერვერზე (create_quiz_room/get_ai_quiz_questions),
+// პასუხის ტექსტის გამჟღავნების გარეშე.
+function guessWhoInputLabel(item){
+  if(item && item.is_abbrev_hint) return "გამოიცანი მოედანი (ინგლისური აბრევიატურა ქართულად ან ინგლისურად)";
+  if(S.sport !== "Football") return "გამოიცანი მებრძოლი";
+  switch(item && item.sub_category){
+    case "ფეხბურთელი": return "გამოიცანი ფეხბურთელი";
+    case "გუნდი":      return "გამოიცანი კლუბი";
+    case "სტადიონი":   return "გამოიცანი მოედანი";
+    case "მსაჯი":      return "გამოიცანი მსაჯი";
+    case "მწვრთნელი":  return "გამოიცანი მწვრთნელი";
+    default:            return "გამოიცანი";
+  }
+}
 function renderGuessQuestion(){
   const item = S.questions[S.qi];
   $("#gq-idx").textContent = S.qi+1;
@@ -1886,7 +1958,12 @@ function renderGuessQuestion(){
   updateGuessPoints();
   renderGuessClues();
 
+  const inputLabel = guessWhoInputLabel(item);
+  const inputLabelEl = $("#gq-input-label");
+  if(inputLabelEl) inputLabelEl.textContent = inputLabel;
+
   const inp = $("#gq-input");
+  inp.setAttribute("aria-label", inputLabel);
   inp.value = ""; inp.disabled = false;
   $("#gq-submit").disabled = false;
   $("#gq-next-clue").disabled = (item.clues.length <= 1);
@@ -2266,9 +2343,6 @@ $("#back-from-cards").addEventListener("click", resetToMode);
 
 function resetToMode(){
   stopQuestionTimer(); stopEndBattleAnimation();
-  // Football has no gametype screen -- its "reset" destination is its own
-  // entry screen (screen-mode, gameType forced to "quiz"), not UFC's.
-  if(S.sport === "Football"){ chooseSport("Football"); return; }
   S.gameType = null;
   show("screen-gametype");
   pushQuizStep(null, null);
@@ -2334,7 +2408,7 @@ window.addEventListener("popstate", e=>{
   quizRestoreStep(sport, null, null);
   const roomParam = params.get("room");
   const canonicalPath = "/ufc/quiz/" + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
-  history.replaceState({ quizSport: sport, quizGameType: sport === "Football" ? "quiz" : null, quizMode: null }, "", canonicalPath);
+  history.replaceState({ quizSport: sport, quizGameType: null, quizMode: null }, "", canonicalPath);
 })();
 
 // PvP share link (?room=<code>) must join the room directly, not just
