@@ -208,15 +208,20 @@ function homeHeroCardHtml(a) {
 }
 
 // Shared by the homepage strip and each sport page's bottom block: both
-// use the same hero card (homeHeroCardHtml() above) in the same 3-column
-// grid, so the two surfaces read as one component (task 6). Always KA
-// (these are the Georgian-primary site's own pages, not /en/ pages).
-function homeNewsStripHtml(articles, heading) {
+// use the same hero card (homeHeroCardHtml() above). Always KA (these are
+// the Georgian-primary site's own pages, not /en/ pages).
+// opts.stacked (homepage only, per Giorgi's layout request): adds
+// nw-strip-list--single so style.css's higher-specificity override forces
+// one card per row at every width, instead of the sport pages' shared
+// 3-column (2-column under 860px) grid -- the two surfaces no longer
+// "read as one component" for this block, by explicit instruction.
+function homeNewsStripHtml(articles, heading, opts) {
   if (!articles.length) return '';
+  const stacked = !!(opts && opts.stacked);
   return [
     '<section id="newsStrip"><div class="wrap">',
     `<div class="sec-head"><h2>${escapeHtml(heading)}</h2></div>`,
-    '<div class="nw-strip-list">',
+    `<div class="nw-strip-list${stacked ? ' nw-strip-list--single' : ''}">`,
     articles.map((a) => homeHeroCardHtml(a)).join(''),
     '</div>',
     '</div></section>',
@@ -694,7 +699,7 @@ async function main() {
     log('✗ index.html has no NEWS-HOME:START/END markers -- skipping homepage news strip.');
   } else {
     const homeArticles = articles.slice(0, 3);
-    const block = homeNewsStripHtml(homeArticles, 'სიახლეები');
+    const block = homeNewsStripHtml(homeArticles, 'სიახლეები', { stacked: true });
     const hsi = home.indexOf(homeStart);
     const hei = home.indexOf(homeEnd);
     home = home.slice(0, hsi) + homeStart + '\n' + block + '\n' + homeEnd + home.slice(hei + homeEnd.length);
