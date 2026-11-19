@@ -943,7 +943,14 @@ function updateLandAbout(){
   const quizDesc = document.getElementById("gametype-quiz-desc");
   const guessDesc = document.getElementById("gametype-guess-desc");
   if(quizDesc) quizDesc.textContent = cardText.quiz;
-  if(guessDesc) guessDesc.innerHTML = cardText.guess;
+  if(guessDesc){
+    guessDesc.innerHTML = cardText.guess;
+    // Football's text is longer before its own <br> than UFC's -- style.css's
+    // @media(max-width:480px) #screen-gametype .gametype-desc--tight rule
+    // shrinks just this paragraph's font-size on mobile so it still renders
+    // as 2 lines, matching UFC. UFC's own card is untouched either way.
+    guessDesc.classList.toggle("gametype-desc--tight", S.sport === "Football");
+  }
 }
 updateLandAbout();
 

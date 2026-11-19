@@ -769,18 +769,17 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 #newsStrip .nw-strip-list>.nw-card-wrap{min-width:0}
 @media(max-width:860px){
 #newsStrip .nw-strip-list{grid-template-columns:repeat(2,1fr);gap:11px;max-width:440px}
-}
-/* Homepage-only (task: "homepage news layout") -- one card per row at
-   every width, desktop included, same .nw-card look as /news/ itself,
-   just not the sport pages' shared 3/2-column grid above. The extra
-   class on top of the selector above (instead of a separate #newsStrip
-   id) keeps specificity high enough to win over both the base rule and
-   its max-width:860px override regardless of viewport, without
-   !important and without touching the nine sport pages, which render
-   the same markup/CSS but without this modifier class. Works unchanged
-   for a future mixed articles+videos list -- it's a plain 1-column
-   grid, not conditioned on which card type fills each row. */
+/* Homepage-only (task: "homepage news layout", desktop regression fix) --
+   one card per row, but mobile-only (this existing breakpoint, no new one
+   introduced) -- desktop keeps the unmodified 3-column rule above,
+   byte-for-byte as it was before nw-strip-list--single existed. Same
+   .nw-card look as /news/ itself; the nine sport pages render identical
+   markup/CSS but without this modifier class, so they're unaffected at
+   any width. Works unchanged for a future mixed articles+videos list --
+   it's a plain 1-column grid, not conditioned on which card type fills
+   each row. */
 #newsStrip .nw-strip-list.nw-strip-list--single{grid-template-columns:1fr;max-width:640px}
+}
 
 /* ── Shared "back" pill (promoted from ufc/quiz/index.html's #quizRoot
    .qback, unscoped here so every "go back" control on the site -- the

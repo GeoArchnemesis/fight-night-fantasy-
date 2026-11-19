@@ -47,7 +47,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-<link rel="stylesheet" href="/style.css?v=224">
+<link rel="stylesheet" href="/style.css?v=225">
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
@@ -177,9 +177,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    .quiz-card matches that rule's ID+class specificity plus one class. */
 #quizRoot .mode.quiz-card{padding:0;min-height:0;gap:0;align-items:stretch}
 #quizRoot .mode:hover,#quizRoot .mode:focus-visible{border-color:var(--muted);transform:translateY(-2px);outline:none}
-#quizRoot .mode .glyph{position:absolute;font-size:84px;opacity:.06;right:-10px;bottom:-18px;line-height:1}
 #quizRoot .mode h2{font-family:var(--display);font-weight:700;font-size:1.3rem;line-height:1.15;z-index:1}
 #quizRoot .mode p{color:var(--text);font-size:.84rem;line-height:1.4;z-index:1;max-width:240px}
+/* Football's gametype-guess-desc text (GAMETYPE_CARD_TEXT.Football.guess
+   in quiz.js) is longer than UFC's before its own <br>, so at the same
+   font-size its first line wraps on mobile, pushing the card to 3 visual
+   lines instead of 2. quiz.js toggles .gametype-desc--tight on that one
+   paragraph only when S.sport is Football -- text/markup unchanged,
+   UFC's card untouched, only this font-size shrinks it back to 2 lines. */
+@media(max-width:480px){
+  #screen-gametype .gametype-desc--tight{font-size:.64rem}
+}
 #quizRoot .mode.locked{cursor:not-allowed;opacity:.55}
 #quizRoot .mode.locked:hover{transform:none;border-color:var(--line)}
 #quizRoot .mode-soon{position:absolute;top:10px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 10px;z-index:1;white-space:nowrap}
@@ -590,12 +598,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="back-row"><button class="qback" id="back-to-sport"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button></div>
     <div class="modes">
       <div class="mode" tabindex="0" role="button" aria-label="ქვიზი" data-gametype="quiz">
-        <span class="glyph">❓</span>
         <h2>ქვიზი</h2>
         <p id="gametype-quiz-desc">კითხვები UFC-დან</p>
       </div>
       <div class="mode" tabindex="0" role="button" aria-label="ვინ ვარ" data-gametype="guess">
-        <span class="glyph">🕵️</span>
         <h2>გამოიცანი ვინ ვარ</h2>
         <p id="gametype-guess-desc">ფაქტებს გეტყვი მებრძოლებზე<br>ეცადე გამოიცნო ვისზეა საუბარი</p>
       </div>
@@ -952,7 +958,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- ── SCRIPTS ── -->
 <script src="/fantasy-nav.js?v=14"></script>
-<script src="/quiz/quiz.js?v=65"></script>
+<script src="/quiz/quiz.js?v=66"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){
