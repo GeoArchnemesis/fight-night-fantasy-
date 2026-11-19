@@ -237,6 +237,7 @@ function setAuthModalMode(mode){
   // R5: sign-in (არა რეგისტრაცია) დასაშვებია მეილის/ნიქნეიმის/ნომრით — label/placeholder მხოლოდ signin-ზე იცვლება
   const emailLabel = document.querySelector('label[for="quizAuthEmail"]');
   const emailInput = document.getElementById('quizAuthEmail');
+  const passInput = document.getElementById('quizAuthPass');
   if(mode === 'signup'){
     if(nickField) nickField.style.display = '';
     if(title) title.textContent = 'რეგისტრაცია';
@@ -246,10 +247,13 @@ function setAuthModalMode(mode){
     if(emailLabel) emailLabel.textContent = 'ელ. ფოსტა';
     if(emailInput){
       emailInput.placeholder = 'შეიყვანე შენი მეილი';
-      // R5-signup მხოლოდ მეილს იღებს -- type="email" უბრუნდება.
+      // R5-signup მხოლოდ მეილს იღებს -- type="email" უბრუნდება. autocomplete
+      // მაინც "username" რჩება (არა "email") -- ეს ველი ანგარიშის ლოგინ
+      // იდენტიფიკატორია პაროლის მენეჯერისთვის, არა საკონტაქტო მეილი.
       emailInput.type = 'email';
-      emailInput.autocomplete = 'email';
+      emailInput.autocomplete = 'username';
     }
+    if(passInput) passInput.autocomplete = 'new-password';
   } else {
     if(nickField) nickField.style.display = 'none';
     if(title) title.textContent = 'შესვლა';
@@ -267,6 +271,7 @@ function setAuthModalMode(mode){
       emailInput.inputMode = 'email';
       emailInput.autocomplete = 'username';
     }
+    if(passInput) passInput.autocomplete = 'current-password';
   }
   const switchBtn = document.getElementById('quizAuthSwitchBtn');
   if(switchBtn) switchBtn.addEventListener('click', ()=> setAuthModalMode(mode === 'signup' ? 'signin' : 'signup'));
