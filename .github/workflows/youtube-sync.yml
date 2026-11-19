@@ -1,0 +1,39 @@
+name: YouTube Video Sync
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'DRY_RUN -- read + log only, write nothing'
+        type: boolean
+        default: false
+
+# ერთდროულად მხოლოდ ერთი გაშვება; ახალი scheduled run რიგში დგება და მიმდინარეს არ წყვეტს
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install @supabase/supabase-js@2.49.1
+
+      - name: Run YouTube sync
+        run: node scripts/youtube-sync.js
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          YOUTUBE_API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DRY_RUN: ${{ (github.event.inputs.dry_run == 'true') && '1' || '' }}
