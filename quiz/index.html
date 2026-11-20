@@ -188,6 +188,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #screen-pvp-setup.active .pvp-panel{
   opacity:.9;
 }
+/* UFC only, mobile only -- same site-wide breakpoint used everywhere else
+   in this file (max-width:920px / min-width:921px), no new one introduced.
+   Football stays at .9 at every width; UFC desktop stays at .9 too (this
+   only fires under the max-width:920px query). Extra specificity (two ids
+   + two classes vs the base rule's one id + two classes) guarantees this
+   wins over the .9 rule above regardless of source order. #quizApp's
+   qzapp-sport-ufc class is the same one quiz.js's show() already sets for
+   the background-image override above. */
+@media(max-width:920px){
+  #quizApp.qzapp-sport-ufc #screen-gametype.active .mode,
+  #quizApp.qzapp-sport-ufc #screen-mode.active .mode,
+  #quizApp.qzapp-sport-ufc #screen-pvp-setup.active .pvp-panel{
+    opacity:.8;
+  }
+}
 
 .qz-hero{padding:clamp(20px,5vw,34px) 0 clamp(10px,2vw,16px)}
 .qz-hero .hero-in{display:flex;flex-direction:row;align-items:center;gap:10px}
