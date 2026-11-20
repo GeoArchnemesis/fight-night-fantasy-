@@ -24,6 +24,7 @@ jobs:
             TELEGRAM_WEBHOOK_SECRET="${{ secrets.TELEGRAM_WEBHOOK_SECRET }}" \
             ADMIN_NOTIFY_SECRET="${{ secrets.ADMIN_NOTIFY_SECRET }}" \
             ODDS_API_KEY="${{ secrets.ODDS_API_KEY }}" \
+            GITHUB_DISPATCH_TOKEN="${{ secrets.GH_DISPATCH_TOKEN }}" \
             --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} \
             --yes
         env:

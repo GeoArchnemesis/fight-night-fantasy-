@@ -49,10 +49,17 @@ function phoneForMeta(raw: string): string {
   return d;
 }
 
-// fbc ფორმატი: fb.1.<timestamp>.<fbclid>
+// fbc ფორმატი: fb.1.<timestamp>.<fbclid> -- fbclid ბმულის query string-იდან
+// პირდაპირ იკითხება, URL-დეკოდირების გარეშე. Meta-ს სჭირდება ზუსტად ის
+// სტრიქონი, რაც ბმულშია -- URL().searchParams.get() კი URL-დეკოდირებდა მას
+// (new URL(u).searchParams.get('fbclid') ცვლიდა %-ენკოდირებულ სიმბოლოებს).
 function fbcFromUrl(u: string): string {
   try {
-    const id = new URL(u).searchParams.get('fbclid');
+    const qIndex = u.indexOf('?');
+    if (qIndex === -1) return '';
+    const query = u.slice(qIndex + 1).split('#')[0];
+    const pair = query.split('&').find(p => p.startsWith('fbclid='));
+    const id = pair ? pair.slice('fbclid='.length) : '';
     return id ? 'fb.1.' + Date.now() + '.' + id : '';
   } catch (_e) { return ''; }
 }

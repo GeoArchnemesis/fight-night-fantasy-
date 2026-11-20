@@ -13,12 +13,49 @@ const ODDS_API_KEY = Deno.env.get('ODDS_API_KEY') || ''
 const ADMIN_CHAT_ID = Deno.env.get('TELEGRAM_CHAT_ID') || ''
 const TG_WEBHOOK_SECRET = Deno.env.get('TELEGRAM_WEBHOOK_SECRET') || ''
 const ADMIN_NOTIFY_SECRET = Deno.env.get('ADMIN_NOTIFY_SECRET') || ''
+// Task 4, phase 2: "იუთუბი" ბრძანებისთვის -- იგივე GH_DISPATCH_TOKEN
+// repository secret, რასაც supabase/functions/trigger-prerender და
+// trigger-youtube-sync-იც იყენებენ (remap-ილი GITHUB_DISPATCH_TOKEN-ზე,
+// იხ. .github/workflows/deploy-bot.yml).
+const GITHUB_DISPATCH_TOKEN = Deno.env.get('GITHUB_DISPATCH_TOKEN') || ''
 
 async function sendMsg(chatId: string | number, text: string) {
   await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
     method: 'POST', headers: corsHeaders,
     body: JSON.stringify({ chat_id: chatId, text, parse_mode: 'HTML' })
   })
+}
+
+// Task 4, phase 2: "იუთუბი" ბრძანება -- youtube-sync.yml-ს (GitHub Actions)
+// დაუყოვნებლივ უშვებს, იგივე workflow_dispatch call, რასაც
+// supabase/functions/trigger-youtube-sync-იც აკეთებს ბრაუზერის მხრიდან.
+// ცალკე ავტორიზაცია აქ არ სჭირდება -- ამ ფუნქციამდე მისასვლელად უკვე
+// გავლილია ADMIN_CHAT_ID-ის შემოწმება (იხ. Deno.serve-ის თავი). ამ
+// ბრძანების HTTP პასუხი (204) თავისთავად არაფერს ამბობს რეალურ
+// შედეგზე -- ის scripts/youtube-sync.js-ის საკუთარი, უკვე არსებული
+// sendTelegram()-ით მოვა, ცალკე შეტყობინებად, რამდენიმე წამში.
+async function cmdYoutubeSync(): Promise<string> {
+  if (!GITHUB_DISPATCH_TOKEN) return '🚨 GITHUB_DISPATCH_TOKEN არ არის კონფიგურირებული.'
+  try {
+    const gres = await fetch(
+      'https://api.github.com/repos/GeoArchnemesis/fight-night-fantasy-/actions/workflows/youtube-sync.yml/dispatches',
+      {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/vnd.github+json',
+          'Authorization': 'Bearer ' + GITHUB_DISPATCH_TOKEN,
+          'Content-Type': 'application/json',
+          'User-Agent': 'fnf-ge-telegram-bot',
+        },
+        body: JSON.stringify({ ref: 'main' }),
+      }
+    )
+    if (gres.status === 204) return '✅ იუთუბის სინქრონიზაცია დაიწყო — შედეგი მოვა რამდენიმე წამში.'
+    const txt = await gres.text()
+    return `🚨 GitHub dispatch ჩავარდა (HTTP ${gres.status}): ${txt.slice(0, 300)}`
+  } catch (e) {
+    return `🚨 შეცდომა: ${(e as Error).message}`
+  }
 }
 
 function countryToFlag(alt: string): string {
@@ -1625,6 +1662,9 @@ Deno.serve(async (req) => {
       } else {
         response = '🤷 ვერ გავიგე. UFC ბრძანებები: <b>help</b>'
       }
+    }
+    else if (text === 'იუთუბი' || text === '/იუთუბი') {
+      response = await cmdYoutubeSync()
     }
     else {
       response = '🤷 ვერ გავიგე. დაწერე <b>help</b> კომანდების სანახავად.'

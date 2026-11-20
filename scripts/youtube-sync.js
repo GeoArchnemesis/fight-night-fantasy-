@@ -42,6 +42,14 @@ const YT_API             = 'https://www.googleapis.com/youtube/v3';
 const SHORTS_MAX_SECONDS = 60;           // ამაზე ნაკლები ხანგრძლივობის ვიდეო საერთოდ არ ინახება
 const UPSERT_BATCH       = 500;          // ერთ .upsert()-ში ჩასაწერი მაქს. რიგის რაოდენობა
 
+// Task 4, phase 2: EPJQI8FX/admin.html-ის ღილაკს (და Telegram-ის "იუთუბი"
+// ბრძანებას) workflow_dispatch-ის HTTP პასუხი არაფერს ეუბნება რეალური
+// გაშვების შედეგზე (204 მაშინვე ბრუნდება, გაშვებამდეც კი) -- ამ გაშვების
+// შედეგი აქ, app_state-ში იწერება, რომ supabase/functions/trigger-youtube-sync
+// (საკუთარი, ავტომატურად მოწოდებული service_role-ით) უკან წაიკითხოს და
+// ბრაუზერს დაუბრუნოს -- ბრაუზერი app_state-ს არასდროს ეხება პირდაპირ.
+const APP_STATE_KEY = 'youtube_sync_last_run';
+
 // DRY_RUN=1 → ჩაწერის ნაცვლად მხოლოდ ლოგავს (insert/update/unpublish); ბაზაში არაფერი იწერება
 const DRY_RUN    = process.env.DRY_RUN === '1';
 const DRY_REPORT = [];   // { action: 'insert'|'update'|'unpublish', video, detail }
@@ -82,6 +90,20 @@ async function sendTelegram(msg) {
       signal: AbortSignal.timeout(15000),
     });
   } catch (e) { log(`⚠ Telegram: ${e.message}`); }
+}
+
+// nba-auto.js-ის იგივე app_state upsert კონვენცია (key/value/updated_at,
+// onConflict პარამეტრის გარეშე -- key უკვე პირველადი გასაღებია). ყოველთვის
+// _sb-ით (არა DRY_RUN-wrapped sb-ით) -- DRY_RUN-ზე ზემოთა if-ი ისედაც
+// აბრუნებს, ამ ფუნქციამდე არასდროს აღწევს.
+async function writeAppState(value) {
+  if (DRY_RUN) return;
+  try {
+    const { error } = await _sb.from('app_state').upsert({
+      key: APP_STATE_KEY, value: JSON.stringify(value), updated_at: new Date().toISOString(),
+    });
+    if (error) log(`🚨 app_state ჩაწერა ჩავარდა: ${error.message}`);
+  } catch (e) { log(`🚨 app_state ჩაწერა ჩავარდა: ${e.message}`); }
 }
 
 // ---------- ISO 8601 duration (PT#H#M#S) → წამები ----------
@@ -248,12 +270,18 @@ async function main() {
   log(`დასრულდა — YouTube API quota ~${totalQuota} ერთეული ამ გაშვებაზე`);
   if (!DRY_RUN) {
     const n = (a) => DRY_REPORT.filter(r => r.action === a).length;
-    await sendTelegram(`📺 <b>YouTube sync</b>\n\n${n('insert')} ახალი, ${n('update')} განახლდა, ${n('unpublish')} დაიმალა\n${skippedShorts} Shorts გამოტოვებული\nquota: ~${totalQuota}`);
+    const summary = {
+      ok: true, at: new Date().toISOString(),
+      inserted: n('insert'), updated: n('update'), unpublished: n('unpublish'), skipped_shorts: skippedShorts,
+    };
+    await writeAppState(summary);
+    await sendTelegram(`📺 <b>YouTube sync</b>\n\n${summary.inserted} ახალი, ${summary.updated} განახლდა, ${summary.unpublished} დაიმალა\n${skippedShorts} Shorts გამოტოვებული\nquota: ~${totalQuota}`);
   }
 }
 
 main().catch(async (e) => {
   console.error(e);
+  await writeAppState({ ok: false, at: new Date().toISOString(), error: (e.message || String(e)).slice(0, 500) });
   await sendTelegram(`🚨 <b>youtube-sync.js ჩავარდა (Fatal error)</b>\n\n<code>${(e.message || String(e)).slice(0, 500)}</code>\n\n➡️ საჭიროა ხელით შემოწმება.`);
   process.exit(1);
 });

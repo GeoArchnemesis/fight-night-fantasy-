@@ -168,6 +168,7 @@
 <button class="admin-tab-btn" data-tab="backgrounds">ბექგრაუნდები</button>
 <button class="admin-tab-btn" data-tab="badges">ბეიჯები</button>
 <button class="admin-tab-btn" data-tab="pages">გვერდები</button>
+<button class="admin-tab-btn" data-tab="youtube">იუთუბი</button>
 <a class="admin-tab-link" href="/EPJQI8FX/news.html">სიახლეები</a>
 </div>
 
@@ -374,6 +375,15 @@
 
 </div><!-- /admin-panel pages -->
 
+<div class="admin-panel" data-panel="youtube">
+
+<div class="card">
+  <button class="btn btn-primary" id="ytSyncBtn" onclick="triggerYoutubeSync()">იუთუბის ვიდეოს სინქრონიზაცია</button>
+  <div id="ytSyncStatus" style="margin-top:12px;font-size:.85rem;white-space:pre-line;color:var(--muted)"></div>
+</div>
+
+</div><!-- /admin-panel youtube -->
+
 <script>
 // ── ADMIN TABS — refactor-only chrome; no existing function/id touched.
 // Panels/buttons use data-tab/data-panel + classes only (no new ids), and
@@ -382,7 +392,7 @@
 // remembers the last open tab across a reload; wrapped in try/catch
 // (private-browsing safe).
 (function () {
-  var TABS = ['events', 'backgrounds', 'badges', 'pages'];
+  var TABS = ['events', 'backgrounds', 'badges', 'pages', 'youtube'];
   var activate = function (tab) {
     document.querySelectorAll('.admin-tab-btn').forEach(function (btn) {
       btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
@@ -768,6 +778,74 @@ let autoTimer = null;
 const TG_NOTIFY_URL = 'https://qxfcwsiysnjxhxljqigl.supabase.co/functions/v1/telegram-bot';
 async function notifyTelegram(msg) {
   try { await fetch(TG_NOTIFY_URL, { method: 'POST', headers: {'Content-Type':'application/json','X-Admin-Secret': ADMIN_NOTIFY_SECRET}, body: JSON.stringify({ notify: msg }) }); } catch(e) {}
+}
+
+// ── YouTube Sync (Task 4, phase 2) ──
+// trigger-youtube-sync Edge Function-ს მოძახებს admin-ის საკუთარი, უკვე
+// არსებული Supabase სესიით (იგივე ნიმუში, რასაც news.html-ის
+// nwTriggerPrerender() იყენებს) -- არც YOUTUBE_API_KEY, არც service_role
+// key აქ არასდროს ჩანს. workflow_dispatch-ის HTTP პასუხი თავისთავად არც
+// არაფერს ამბობს რეალურ შედეგზე, ამიტომ დისპატჩის მერე ?status=1-ს
+// ვკითხულობთ, სანამ youtube_sync_last_run app_state-ში არ შეიცვლება
+// (scripts/youtube-sync.js თავად წერს მას იქ გაშვების ბოლოს).
+const YT_SYNC_FN_URL = 'https://qxfcwsiysnjxhxljqigl.supabase.co/functions/v1/trigger-youtube-sync';
+
+async function ytFetchStatus(accessToken) {
+  try {
+    const res = await fetch(YT_SYNC_FN_URL + '?status=1', { headers: { 'Authorization': 'Bearer ' + accessToken } });
+    const out = await res.json().catch(() => null);
+    if (!res.ok || !out || !out.ok) return null;
+    return out.result || null;
+  } catch (e) { return null; }
+}
+
+let ytSyncBusy = false;
+async function triggerYoutubeSync() {
+  if (ytSyncBusy) return;
+  const btn = document.getElementById('ytSyncBtn');
+  const statusEl = document.getElementById('ytSyncStatus');
+
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { statusEl.textContent = 'შეცდომა: სესია არ არის'; return; }
+
+  ytSyncBusy = true;
+  btn.disabled = true;
+  statusEl.textContent = 'მიმდინარეობს...';
+
+  // წინასწარი მონიშვნა -- შემდეგ ვადარებთ, რომ ზუსტად ვიცოდეთ, ეს
+  // გაშვება დასრულდა თუ ჯერ კიდევ ძველი/არარსებული შედეგი ჩანს.
+  const before = await ytFetchStatus(session.access_token);
+  const beforeAt = before ? before.at : null;
+
+  try {
+    const res = await fetch(YT_SYNC_FN_URL, { method: 'POST', headers: { 'Authorization': 'Bearer ' + session.access_token } });
+    const out = await res.json().catch(() => null);
+    if (!res.ok || !out || !out.ok) {
+      statusEl.textContent = 'შეცდომა: ' + ((out && out.error) || ('HTTP ' + res.status));
+      btn.disabled = false; ytSyncBusy = false; return;
+    }
+  } catch (e) {
+    statusEl.textContent = 'შეცდომა: ' + e.message;
+    btn.disabled = false; ytSyncBusy = false; return;
+  }
+
+  let attempts = 0;
+  const poll = async () => {
+    attempts++;
+    const r = await ytFetchStatus(session.access_token);
+    if (r && r.at !== beforeAt) {
+      statusEl.textContent = (r.ok === false)
+        ? ('შეცდომა: ' + r.error)
+        : `დასრულდა: ${r.inserted} ახალი, ${r.updated} განახლებული, ${r.unpublished} დამალული`;
+      btn.disabled = false; ytSyncBusy = false; return;
+    }
+    if (attempts >= 24) {  // 24 × 5წმ ≈ 2 წუთი
+      statusEl.textContent = 'ვერ დადასტურდა — შეამოწმე GitHub Actions-ზე პირდაპირ.';
+      btn.disabled = false; ytSyncBusy = false; return;
+    }
+    setTimeout(poll, 5000);
+  };
+  setTimeout(poll, 5000);
 }
 
 // ─────────────────────────────────────────────────────────────
