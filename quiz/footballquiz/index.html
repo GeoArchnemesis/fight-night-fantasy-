@@ -48,6 +48,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
 <link rel="stylesheet" href="/style.css?v=226">
+<!-- Sport-background preload -- only on ufcquiz/footballquiz, where the
+     sport is already known at build time (see build-quiz-pages.js
+     bgPreloadTags()); empty on the bare /quiz/ picker, where it isn't yet.
+     `media` means the browser only actually fetches the one matching the
+     current viewport, never both. -->
+<link rel="preload" as="image" href="/images/quiz-bg-football-mobile.webp" media="(max-width:920px)">
+<link rel="preload" as="image" href="/images/quiz-bg-football-desktop.webp" media="(min-width:921px)">
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Archivo:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;700&family=Noto+Sans+Georgian:wght@400;500;600;700;800;900&display=swap" /></noscript>
 <!-- supabase-js moved to just before quiz.js at the bottom of <body> --
@@ -149,6 +156,41 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #quizApp{min-height:480px}
 }
 
+/* Sport-specific backgrounds -- exactly 3 screens (game-type, mode,
+   pvp-setup): quiz.js's show() toggles qzapp-sportbg + qzapp-sport-ufc/
+   -football on #quizApp exactly when one of those three is the active
+   screen, so this overrides the shared #quizApp::before rule above only
+   there -- every other screen (sport picker, quiz, guess, cards, pvp
+   lobby/wait/results) keeps the plain BackgroundQuiz.webp rule above,
+   untouched. Same mobile/desktop split as the rest of this file
+   (max-width:920px / min-width:921px). Same dark overlay gradient as the
+   rule above -- not a new one. */
+#quizApp.qzapp-sportbg.qzapp-sport-ufc::before{
+  background-image:linear-gradient(rgba(11,10,18,.55),rgba(11,10,18,.55)),url(/images/quiz-bg-ufc-mobile.webp);
+}
+#quizApp.qzapp-sportbg.qzapp-sport-football::before{
+  background-image:linear-gradient(rgba(11,10,18,.55),rgba(11,10,18,.55)),url(/images/quiz-bg-football-mobile.webp);
+}
+@media(min-width:921px){
+  #quizApp.qzapp-sportbg.qzapp-sport-ufc::before{
+    background-image:linear-gradient(rgba(11,10,18,.55),rgba(11,10,18,.55)),url(/images/quiz-bg-ufc-desktop.webp);
+  }
+  #quizApp.qzapp-sportbg.qzapp-sport-football::before{
+    background-image:linear-gradient(rgba(11,10,18,.55),rgba(11,10,18,.55)),url(/images/quiz-bg-football-desktop.webp);
+  }
+}
+
+/* Same 3 screens only -- their own cards/buttons go to 90% opacity so the
+   background shows through. .mode is shared with #screen-sport's own
+   cards, but this selector only matches while the gametype/mode screen
+   itself is .active, so the sport picker (#screen-sport) is never
+   affected. */
+#screen-gametype.active .mode,
+#screen-mode.active .mode,
+#screen-pvp-setup.active .pvp-panel{
+  opacity:.9;
+}
+
 .qz-hero{padding:clamp(20px,5vw,34px) 0 clamp(10px,2vw,16px)}
 .qz-hero .hero-in{display:flex;flex-direction:row;align-items:center;gap:10px}
 .qz-title{display:flex;align-items:center;justify-content:center;gap:10px;font-family:var(--display);font-weight:700;font-size:clamp(1.375rem,3vw,1.75rem);line-height:1.1;flex:1;min-width:0}
@@ -165,12 +207,25 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 @keyframes qzFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){#quizRoot *{animation-duration:.01ms !important;transition-duration:.01ms !important}}
 
-#quizRoot .back-row{display:flex;justify-content:flex-start;margin-bottom:12px}
+#quizRoot .back-row{display:flex;align-items:center;justify-content:flex-start;margin-bottom:12px}
 /* .qback/.qback-label (the red chevron "back" pill) moved to style.css,
    unscoped, so the same shared class can be reused outside the quiz too
    (news article back link, profile back link). Declarations there are
    verbatim from this page's own rule, only the #quizRoot prefix dropped --
    this page's own appearance is unchanged. */
+
+/* #screen-gametype's back-row only -- "UFC"/"ფეხბურთი", horizontally
+   centered on the row (the page's own centered quiz column), not in the
+   space left over next to უკან -- position:relative on this one back-row
+   + position:absolute + left:50%/translateX(-50%) on the label decouples
+   it from flex layout entirely, so the button's own width/position never
+   shifts it off-center. top:50%/translateY(-50%) keeps it vertically
+   centered on the same row as the button. Text itself is set by
+   build-quiz-pages.js (ufcquiz/footballquiz, pre-painted) and kept in
+   sync at runtime by quiz.js's updateLandAbout() (same place the
+   gametype card text already gets refreshed from S.sport). */
+#screen-gametype .back-row{position:relative}
+#screen-gametype .gametype-sport-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--head);font-weight:700;font-size:.95rem;color:var(--text)}
 
 #quizRoot .modes{display:grid;grid-template-columns:1fr;gap:12px}
 /* #screen-sport's two cards are the .quiz-card photo cards (style.css) --
@@ -185,14 +240,35 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .mode:hover,#quizRoot .mode:focus-visible{border-color:var(--muted);transform:translateY(-2px);outline:none}
 #quizRoot .mode h2{font-family:var(--display);font-weight:700;font-size:1.3rem;line-height:1.15;z-index:1}
 #quizRoot .mode p{color:var(--text);font-size:.84rem;line-height:1.4;z-index:1;max-width:240px}
-/* Football's gametype-guess-desc text (GAMETYPE_CARD_TEXT.Football.guess
-   in quiz.js) is longer than UFC's before its own <br>, so at the same
-   font-size its first line wraps on mobile, pushing the card to 3 visual
-   lines instead of 2. quiz.js toggles .gametype-desc--tight on that one
-   paragraph only when S.sport is Football -- text/markup unchanged,
-   UFC's card untouched, only this font-size shrinks it back to 2 lines. */
-@media(max-width:480px){
-  #screen-gametype .gametype-desc--tight{font-size:.64rem}
+/* gametype-guess-desc (both UFC's and Football's text, see
+   GAMETYPE_CARD_TEXT in quiz.js) must render as exactly its two <br>-
+   separated lines at every viewport width, 320px up -- not the 3-4 lines
+   the generic .mode p rule above (240px max-width, fixed .84rem) would
+   wrap it into once a line is long enough, Football's especially. A
+   previous fix only shrank the font under max-width:480px, which did
+   nothing on wider screens -- this one covers every width.
+   #quizRoot #gametype-guess-desc (two IDs) is required, not just
+   #gametype-guess-desc alone -- #quizRoot .mode p above already has
+   specificity (1 id, 1 class, 1 element); a bare ID selector (1 id, 0
+   classes, 0 elements) ties on the id count and then LOSES on the class
+   tiebreak, so it would never actually override it.
+   max-width:none lets the paragraph use the card's real available width
+   instead of the generic 240px cap; white-space:nowrap stops each line
+   from wrapping within itself (the <br> between them still forces the
+   split, nowrap doesn't affect that). font-size is a calc() tied to the
+   exact same min(92vw, 560px) expression that already sizes #quizRoot
+   itself (see #quizRoot/.wrap above), so it shrinks in lockstep with the
+   card's real width below ~609px and stays constant above it, then capped
+   so it never grows past a comfortable reading size on wide screens.
+   Calibrated (headless Chrome + the real Noto Sans Georgian webfont,
+   measuring the longest of the two sports' two lines -- Football's first
+   line) to use ~90% of the available width at every tested size
+   (1920/1440/1024/768/390/320px), leaving a ~10% safety margin for
+   font-rendering differences across browsers/OSes. */
+#quizRoot #gametype-guess-desc{
+  max-width:none;
+  white-space:nowrap;
+  font-size:min(calc((92vw - 40px) * 0.03764), 19.5px);
 }
 #quizRoot .mode.locked{cursor:not-allowed;opacity:.55}
 #quizRoot .mode.locked:hover{transform:none;border-color:var(--line)}
@@ -585,7 +661,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- GAME TYPE SELECT -->
   <section id="screen-gametype" class="screen">
-    <div class="back-row"><button class="qback" id="back-to-sport"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button></div>
+    <div class="back-row"><button class="qback" id="back-to-sport"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button><span id="gametype-sport-label" class="gametype-sport-label">ფეხბურთი</span></div>
     <div class="modes">
       <div class="mode" tabindex="0" role="button" aria-label="ქვიზი" data-gametype="quiz">
         <h2>ქვიზი</h2>
@@ -593,7 +669,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
       <div class="mode" tabindex="0" role="button" aria-label="ვინ ვარ" data-gametype="guess">
         <h2>გამოიცანი ვინ ვარ</h2>
-        <p id="gametype-guess-desc" class="gametype-desc--tight">ფეხბურთთან დაკავშირებულ ფაქტებს გეტყვი<br>ეცადე გამოიცნო ვისზე ან რაზეა საუბარი</p>
+        <p id="gametype-guess-desc">ფეხბურთთან დაკავშირებულ ფაქტებს გეტყვი<br>ეცადე გამოიცნო ვისზე ან რაზეა საუბარი</p>
       </div>
     </div>
   </section>
@@ -952,7 +1028,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- ── SCRIPTS ── -->
 <script src="/fantasy-nav.js?v=14"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
-<script src="/quiz/quiz.js?v=67"></script>
+<script src="/quiz/quiz.js?v=70"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){

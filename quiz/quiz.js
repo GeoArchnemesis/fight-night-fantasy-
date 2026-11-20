@@ -617,6 +617,20 @@ function show(id){
   // შედეგი) ბრენდინგის მაგივრად პირდაპირ კითხვა/ტაიმერი ჩანდეს თავში.
   const hero = document.getElementById('quizHero');
   if(hero) hero.style.display = (id === "screen-sport") ? "" : "none";
+  // სპორტის მიხედვით ფონი -- ზუსტად 3 ეკრანზე (თამაშის ტიპი/ოპონენტი/
+  // ოთახის შექმნა-შესვლა). #quizApp.qzapp-sportbg(.qzapp-sport-ufc|
+  // -football) ჩართავს quiz-page.template.html-ის შესაბამის CSS წესს
+  // (#quizApp::before-ის override, იხ. იქაური კომენტარი) -- დანარჩენ
+  // ყველა ეკრანზე (სპორტის არჩევის ჩათვლით) იგივე საერთო BackgroundQuiz.webp
+  // რჩება უცვლელი, რადგან ეს კლასი მხოლოდ აქ ემატება.
+  const sportBgScreens = ["screen-gametype","screen-mode","screen-pvp-setup"];
+  const quizAppEl = document.getElementById('quizApp');
+  if(quizAppEl){
+    const sportBg = sportBgScreens.indexOf(id) > -1;
+    quizAppEl.classList.toggle('qzapp-sportbg', sportBg);
+    quizAppEl.classList.toggle('qzapp-sport-ufc', sportBg && S.sport === 'UFC');
+    quizAppEl.classList.toggle('qzapp-sport-football', sportBg && S.sport === 'Football');
+  }
   const inGame = ["screen-quiz","screen-guess","screen-cards","screen-pvp-setup","screen-pvp-lobby","screen-pvp-wait","screen-pvp-results"].indexOf(id) > -1;
   if(!inGame){ window.scrollTo(0,0); return; }
   requestAnimationFrame(()=>{
@@ -944,14 +958,12 @@ function updateLandAbout(){
   const quizDesc = document.getElementById("gametype-quiz-desc");
   const guessDesc = document.getElementById("gametype-guess-desc");
   if(quizDesc) quizDesc.textContent = cardText.quiz;
-  if(guessDesc){
-    guessDesc.innerHTML = cardText.guess;
-    // Football's text is longer before its own <br> than UFC's -- style.css's
-    // @media(max-width:480px) #screen-gametype .gametype-desc--tight rule
-    // shrinks just this paragraph's font-size on mobile so it still renders
-    // as 2 lines, matching UFC. UFC's own card is untouched either way.
-    guessDesc.classList.toggle("gametype-desc--tight", S.sport === "Football");
-  }
+  // #quizRoot #gametype-guess-desc (quiz-page.template.html) handles both
+  // sports' two-line rendering itself (nowrap + a calc()'d font-size tied
+  // to the card's own width) -- no per-sport class needed here anymore.
+  if(guessDesc) guessDesc.innerHTML = cardText.guess;
+  const sportLabel = document.getElementById("gametype-sport-label");
+  if(sportLabel) sportLabel.textContent = (S.sport === "Football") ? "ფეხბურთი" : (S.sport === "UFC") ? "UFC" : "";
 }
 updateLandAbout();
 

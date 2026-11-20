@@ -47,12 +47,10 @@ const GAMETYPE_CARD_TEXT = {
   UFC: {
     quiz: 'კითხვები UFC-დან',
     guess: 'ფაქტებს გეტყვი მებრძოლებზე<br>ეცადე გამოიცნო ვისზეა საუბარი',
-    guessTight: false,
   },
   Football: {
     quiz: 'კითხვები ფეხბურთიდან',
     guess: 'ფეხბურთთან დაკავშირებულ ფაქტებს გეტყვი<br>ეცადე გამოიცნო ვისზე ან რაზეა საუბარი',
-    guessTight: true,
   },
 };
 
@@ -71,6 +69,12 @@ const PAGES = [
     // bare /quiz/ shows screen-sport first -- no sport chosen yet, so this
     // matches quiz.js updateLandAbout()'s own UFC fallback for S.sport===null.
     gametype: GAMETYPE_CARD_TEXT.UFC,
+    // No sport-background preload here -- which sport the visitor will
+    // pick isn't known until they click (see bgPreloadTags() below).
+    bgSport: null,
+    // Likewise -- screen-gametype only shows after a sport is chosen, at
+    // which point quiz.js's updateLandAbout() sets this label itself.
+    gametypeSportLabel: '',
   },
   {
     outFile: 'quiz/ufcquiz/index.html',
@@ -85,6 +89,8 @@ const PAGES = [
       { name: 'UFC ქვიზი', item: 'https://fnf.ge/quiz/ufcquiz/' },
     ],
     gametype: GAMETYPE_CARD_TEXT.UFC,
+    bgSport: 'ufc',
+    gametypeSportLabel: 'UFC',
   },
   {
     outFile: 'quiz/footballquiz/index.html',
@@ -99,8 +105,27 @@ const PAGES = [
       { name: 'საფეხბურთო ქვიზი', item: 'https://fnf.ge/quiz/footballquiz/' },
     ],
     gametype: GAMETYPE_CARD_TEXT.Football,
+    bgSport: 'football',
+    gametypeSportLabel: 'ფეხბურთი',
   },
 ];
+
+// ufcquiz/footballquiz already know their sport at build time (unlike the
+// bare /quiz/ picker), so each gets a real head start on its own
+// sport-background image -- two preload links (mobile/desktop), gated by
+// `media` so the browser only actually fetches the one that matches the
+// current viewport, never both. Images referenced here must stay in sync
+// with quiz-page.template.html's qzapp-sport-ufc/-football CSS rules.
+const BG_PRELOAD_IMAGES = {
+  ufc: { mobile: '/images/quiz-bg-ufc-mobile.webp', desktop: '/images/quiz-bg-ufc-desktop.webp' },
+  football: { mobile: '/images/quiz-bg-football-mobile.webp', desktop: '/images/quiz-bg-football-desktop.webp' },
+};
+function bgPreloadTags(bgSport) {
+  if (!bgSport) return '';
+  const imgs = BG_PRELOAD_IMAGES[bgSport];
+  return `<link rel="preload" as="image" href="${imgs.mobile}" media="(max-width:920px)">\n`
+    + `<link rel="preload" as="image" href="${imgs.desktop}" media="(min-width:921px)">`;
+}
 
 function escapeHtml(s) {
   return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -127,7 +152,8 @@ function renderPage(template, page) {
     // not HTML-escaped, unlike the meta/title fields above.
     .replace(/__QUIZ_GAMETYPE_QUIZ_DESC__/g, () => page.gametype.quiz)
     .replace(/__QUIZ_GAMETYPE_GUESS_DESC__/g, () => page.gametype.guess)
-    .replace(/__QUIZ_GAMETYPE_GUESS_DESC_CLASS__/g, page.gametype.guessTight ? 'gametype-desc--tight' : '');
+    .replace(/__QUIZ_BG_PRELOAD__/g, () => bgPreloadTags(page.bgSport))
+    .replace(/__QUIZ_GAMETYPE_SPORT_LABEL__/g, () => escapeHtml(page.gametypeSportLabel));
 }
 
 function main() {
@@ -138,7 +164,8 @@ function main() {
   const requiredPlaceholders = [
     '__QUIZ_TITLE__', '__QUIZ_DESCRIPTION__', '__QUIZ_CANONICAL__',
     '__QUIZ_OG_TITLE__', '__QUIZ_OG_DESCRIPTION__', '__QUIZ_BREADCRUMB_JSON__',
-    '__QUIZ_GAMETYPE_QUIZ_DESC__', '__QUIZ_GAMETYPE_GUESS_DESC__', '__QUIZ_GAMETYPE_GUESS_DESC_CLASS__',
+    '__QUIZ_GAMETYPE_QUIZ_DESC__', '__QUIZ_GAMETYPE_GUESS_DESC__',
+    '__QUIZ_BG_PRELOAD__', '__QUIZ_GAMETYPE_SPORT_LABEL__',
   ];
   for (const ph of requiredPlaceholders) {
     if (!template.includes(ph)) throw new Error(`template missing placeholder: ${ph}`);
