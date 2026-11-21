@@ -57,7 +57,7 @@ function replaceMarkerBlock(html, startMarker, endMarker, content, label) {
 
 // Multi-line block marker pair (the body sits on its own lines between
 // the markers) -- same shape as prerender-news.js's NEWS-HOME/
-// NEWS-SPORT block splicing: markers kept, explicit surrounding
+// VIDEO-SLIDER block splicing: markers kept, explicit surrounding
 // newlines so the file's existing formatting is preserved exactly.
 function replaceMultilineMarkerBlock(html, startMarker, endMarker, content, label) {
   const startIdx = html.indexOf(startMarker);

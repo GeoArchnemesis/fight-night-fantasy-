@@ -41,7 +41,7 @@
 //  every frontend file -- no service_role needed, since this only
 //  ever reads is_published=true rows, same filter the public site
 //  already applies). Writes local files under news/ and en/news/, plus
-//  the homepage and the nine sport pages' NEWS-HOME/NEWS-SPORT marker
+//  the homepage's NEWS-HOME and the nine sport pages' VIDEO-SLIDER marker
 //  blocks and sitemap.xml's NEWS-EN block (internal links,
 //  FNF-SEO-PRD.md §5).
 //
@@ -269,37 +269,14 @@ function homeHeroCardHtml(a) {
     </div>`;
 }
 
-// Shared by the homepage strip and each sport page's bottom block: both
-// use the same hero card (homeHeroCardHtml() above). Always KA (these are
-// the Georgian-primary site's own pages, not /en/ pages).
-// opts.stacked (homepage only, per Giorgi's layout request): adds
-// nw-strip-list--single so style.css's higher-specificity override forces
-// one card per row at every width, instead of the sport pages' shared
-// 3-column (2-column under 860px) grid -- the two surfaces no longer
-// "read as one component" for this block, by explicit instruction.
-function homeNewsStripHtml(articles, heading, opts) {
-  if (!articles.length) return '';
-  const stacked = !!(opts && opts.stacked);
-  return [
-    '<section id="newsStrip" class="news-strip"><div class="wrap">',
-    `<div class="sec-head"><h2>${escapeHtml(heading)}</h2></div>`,
-    `<div class="nw-strip-list${stacked ? ' nw-strip-list--single' : ''}">`,
-    articles.map((a) => homeHeroCardHtml(a)).join(''),
-    '</div>',
-    '</div></section>',
-  ].join('\n');
-}
-
 // Task 4, phase 3 -- fantasy pages (above "ჩემი ბილეთები", VIDEO-SLIDER
 // marker) AND the homepage (NEWS-HOME marker, see main() below -- the
 // homepage's own news section is this same slider too, not a separate
 // 3-item grid). The complete merged list, no cap -- .nw-slider-list is
 // the scroll-snap container (style.css), same .nw-card-wrap cards.
-// opts.id: the 9 fantasy pages already have id="newsStrip" further down
-// (from homeNewsStripHtml() above, a second, different block on the same
-// page) -- class="news-strip" alone carries the heading/layout styling
-// there, no id needed/wanted. The homepage has only this one section, so
-// it passes opts.id:'newsStrip' to keep that id exactly where it was.
+// opts.id: the homepage is the only page with an id="newsStrip" anchor on
+// this section (nothing links to one on the 9 fantasy pages), so only it
+// passes opts.id:'newsStrip'.
 function videoSliderHtml(items, heading, opts) {
   if (!items.length) return '';
   const idAttr = (opts && opts.id) ? ` id="${opts.id}"` : '';
@@ -805,19 +782,17 @@ async function main() {
     log(`✓ index.html news strip updated (${feedItems.length} item(s))`);
   }
 
-  // Each sport page's bottom "latest news" block (task 3c). Categories
-  // are gone, so this can no longer be filtered per sport -- every sport
-  // page shows the same 3 newest articles overall (identical to the
-  // homepage strip), per the task's own instruction.
+  // Each sport page's "latest news" slider (task 3c, reworked task 4 phase
+  // 3). Categories are gone, so this can no longer be filtered per sport --
+  // every sport page shows the same complete merged list as the homepage
+  // strip. (The older, pre-slider 3-item NEWS-SPORT block that used to sit
+  // further down these same 9 pages was removed as a duplicate -- this
+  // slider is the only "latest news" block left on them.)
   const SPORT_NEWS_FILES = [
     'ufc/index.html', 'f1/index.html', 'nba/index.html',
     'football/epl/index.html', 'football/laliga/index.html', 'football/seriea/index.html',
     'football/bundesliga/index.html', 'football/ligue1/index.html', 'football/ucl/index.html',
   ];
-  const sportItems = feedItems.slice(0, 3);
-  const sportBlock = homeNewsStripHtml(sportItems, 'სიახლეები');
-  // Task 4, phase 3: complete merged list, no cap, as a horizontal
-  // slider -- separate marker, separate (unsliced) block, same 9 files.
   const sliderBlock = videoSliderHtml(feedItems, 'სიახლეები');
   for (const file of SPORT_NEWS_FILES) {
     const spPath = path.join(REPO_ROOT, file);
@@ -828,28 +803,19 @@ async function main() {
       log(`✗ ${file}: ${e.message}`);
       continue;
     }
-    const spStart = '<!-- NEWS-SPORT:START -->';
-    const spEnd = '<!-- NEWS-SPORT:END -->';
-    if (!spHtml.includes(spStart) || !spHtml.includes(spEnd)) {
-      log(`✗ ${file} has no NEWS-SPORT:START/END markers -- skipping.`);
-      continue;
-    }
-    const ssi = spHtml.indexOf(spStart);
-    const sei = spHtml.indexOf(spEnd);
-    spHtml = spHtml.slice(0, ssi) + spStart + '\n' + sportBlock + '\n' + spEnd + spHtml.slice(sei + spEnd.length);
 
     const vsStart = '<!-- VIDEO-SLIDER:START -->';
     const vsEnd = '<!-- VIDEO-SLIDER:END -->';
     if (!spHtml.includes(vsStart) || !spHtml.includes(vsEnd)) {
       log(`✗ ${file} has no VIDEO-SLIDER:START/END markers -- skipping slider.`);
-    } else {
-      const vsi = spHtml.indexOf(vsStart);
-      const vei = spHtml.indexOf(vsEnd);
-      spHtml = spHtml.slice(0, vsi) + vsStart + '\n' + sliderBlock + '\n' + vsEnd + spHtml.slice(vei + vsEnd.length);
+      continue;
     }
+    const vsi = spHtml.indexOf(vsStart);
+    const vei = spHtml.indexOf(vsEnd);
+    spHtml = spHtml.slice(0, vsi) + vsStart + '\n' + sliderBlock + '\n' + vsEnd + spHtml.slice(vei + vsEnd.length);
 
     fs.writeFileSync(spPath, spHtml, 'utf8');
-    log(`✓ ${file} news block updated (${sportItems.length} item(s)), slider updated (${feedItems.length} item(s))`);
+    log(`✓ ${file} slider updated (${feedItems.length} item(s))`);
   }
 
   log(`Done. ${ok} KA article page(s) written (${failed} failed), ${enOk} EN article page(s) written (${enFailed} failed).`);
