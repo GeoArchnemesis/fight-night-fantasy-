@@ -474,6 +474,85 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #gametype-opponent-wrap .btn{display:block;width:min(300px,100%);margin-inline:auto}
 }
 
+/* ---------- Desktop-only enlarge (2026-11-22 request, now 1.5x total) ----------
+   Every value below is exactly the shared (mobile+desktop) value above,
+   times 1.5 -- the four cards, their two gaps, and the start button, all
+   scaled up 50% from their original desktop sizes (first a 25% pass, then
+   a further 20% pass on top of that: 1.25*1.2=1.5). Uses the min-width:641px
+   split this same screen's own max-width:640px overrides above already
+   established -- no new breakpoint. #quizRoot.gt-wide (toggled by quiz.js's
+   show() only while #screen-gametype is the active screen) widens just
+   this screen's own 560px column cap; every other screen inside #quizRoot
+   (sport picker, lobby, pvp, quiz/guess/cards) keeps 560px untouched, and
+   max-width (not a fixed width) means it never exceeds the real available
+   space at narrower desktop widths either -- no horizontal scroll.
+   560*1.5=840, 20*1.5=30, 82*1.5=123, 6*1.5=9, 170*1.5=255,
+   11*1.5=16.5, 12*1.5=18, 4*1.5=6, .92*1.5=1.38, .7*1.5=1.05,
+   .74*1.5=1.11, 9*1.5=13.5, 8*1.5=12, 36*1.5=54. Card height
+   (min-height + the row/.modes height above) scales right along with the
+   padding/font so the structural fixed-height anti-layout-shift technique
+   above still holds, and #gametype-guess-desc's two-line text keeps the
+   exact same text-width/card-width ratio it had before (both scaled by the
+   same 1.5), so its nowrap two-line rule above still holds too. */
+@media(min-width:641px){
+  #quizRoot.gt-wide{max-width:840px}
+  .gametype-layout{gap:30px}
+  #quizRoot .gametype-modes,
+  #quizRoot #gametype-opponent-wrap .modes{gap:9px;height:255px;grid-template-rows:123px 123px}
+  #quizRoot .gametype-modes .mode,
+  #quizRoot #gametype-opponent-wrap .modes .mode{min-height:123px;padding:16.5px 18px;gap:6px}
+  #quizRoot .gametype-modes .mode h2,
+  #quizRoot #gametype-opponent-wrap .modes .mode h2{font-size:1.38rem}
+  #quizRoot .gametype-modes .mode p,
+  #quizRoot #gametype-opponent-wrap .modes .mode p{font-size:1.05rem}
+  #quizRoot #gametype-quiz-desc{font-size:1.11rem}
+  #quizRoot #gametype-guess-desc{font-size:13.5px}
+  #gametype-opponent-wrap .btn{margin-top:12px;min-height:54px;padding:12px 30px}
+}
+
+/* ---------- Desktop-only connector line (2026-11-22 request) ----------
+   SVG overlay joining the selected game-type card to the selected opponent
+   card (Part 3), plus a faint hover preview of where it would move (Part
+   4). pointer-events:none + a lower z-index than the cards (below) means
+   it can never intercept a click. display:none outright below 641px, so
+   mobile is completely untouched -- see quiz.js's drawGametypeConnector/
+   drawGametypePreview, which both already no-op when a selected card can't
+   be found (always true while this screen or this viewport doesn't apply). */
+#gametype-connector{display:none}
+@media(min-width:641px){
+  .gametype-layout{position:relative}
+  #gametype-connector{display:block;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+  #quizRoot .gametype-modes .mode,
+  #quizRoot #gametype-opponent-wrap .modes .mode{position:relative;z-index:2}
+}
+/* Colour: var(--green) (#3ad17e) -- the same token #quizRoot
+   .gametype-modes .mode.sel/#gametype-opponent-wrap .modes .mode.sel
+   already use for a selected card's border above; no new colour.
+   Flowing-dash style (2026-11-22, replaces the plain solid line): .gtc-base
+   is a faint static copy of the same path (always the same "d" as
+   .gtc-line, set together in quiz.js), sitting underneath so the gap
+   between dashes still reads as part of one continuous curve; .gtc-line
+   itself is dashed and its stroke-dashoffset animates 26 -> 0 (14+12=26,
+   one full dash+gap cycle) so the dashes appear to travel in the path's
+   own drawn direction -- M p1 ... p2 is always gametype-card -> mode-card
+   (see quiz.js's gtcPathFor), so this already flows the required way;
+   flip to "0 -> 26" here if a future path direction change ever reverses
+   that. Endpoint circles (.gtc-dot) are separate, undashed shapes, so they
+   stay solid regardless. */
+#gametype-connector .gtc-base{fill:none;stroke:var(--green);stroke-width:3;opacity:.22}
+#gametype-connector .gtc-line{fill:none;stroke:var(--green);stroke-width:3;stroke-linecap:round;stroke-dasharray:14 12;stroke-dashoffset:26;animation:gtcDash .9s linear infinite}
+@keyframes gtcDash{to{stroke-dashoffset:0}}
+#gametype-connector .gtc-preview{fill:none;stroke:var(--green);stroke-width:3;stroke-linecap:round;opacity:0;transition:opacity .15s ease}
+#gametype-connector .gtc-preview.show{opacity:.3}
+#gametype-connector .gtc-dot{fill:var(--green)}
+/* The static base curve isn't animated, so it's unaffected either way;
+   this stops the dashes travelling (they stay visible, just still) and
+   drops the hover fade's transition. */
+@media(prefers-reduced-motion:reduce){
+  #gametype-connector .gtc-line{animation:none}
+  #gametype-connector .gtc-preview{transition:none}
+}
+
 /* vs-AI hologram card -- faithful red-palette port of a CodePen hologram-card
    effect, scoped to [data-mode="ai"] only; .mode already has
    position:relative/overflow:hidden (above), relied on here, no duplicate
@@ -922,6 +1001,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section id="screen-gametype" class="screen">
     <div class="back-row"><button class="qback" id="back-to-sport"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button><h2 class="back-row-title gametype-sport-label-mobile">აირჩიე თამაშის ტიპი</h2></div>
     <div class="gametype-layout">
+      <svg id="gametype-connector" aria-hidden="true" focusable="false">
+        <path class="gtc-preview"></path>
+        <path class="gtc-base"></path>
+        <path class="gtc-line"></path>
+        <circle class="gtc-dot gtc-dot-a" r="5"></circle>
+        <circle class="gtc-dot gtc-dot-b" r="5"></circle>
+      </svg>
       <div id="gametype-sport-wrap">
         <h2 id="gametype-sport-label" class="gametype-opp-heading">აირჩიე თამაშის ტიპი</h2>
         <div class="modes gametype-modes">
@@ -1320,7 +1406,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- ── SCRIPTS ── -->
 <script src="/fantasy-nav.js?v=14"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
-<script src="/quiz/quiz.js?v=76"></script>
+<script src="/quiz/quiz.js?v=77"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){

@@ -651,6 +651,12 @@ function show(id){
     quizAppEl.classList.toggle('qzapp-sport-ufc', sportBg && S.sport === 'UFC');
     quizAppEl.classList.toggle('qzapp-sport-football', sportBg && S.sport === 'Football');
   }
+  // Desktop card enlarge (2026-11-22 request, Part 1): #quizRoot.gt-wide
+  // widens just this one screen's column grid (CSS, min-width:641px only)
+  // -- on while screen-gametype is active, off for every other screen, so
+  // #quizRoot's shared 560px cap is untouched everywhere else.
+  const quizRootEl = document.getElementById('quizRoot');
+  if(quizRootEl) quizRootEl.classList.toggle('gt-wide', id === 'screen-gametype');
   const inGame = ["screen-quiz","screen-guess","screen-cards","screen-pvp-setup","screen-pvp-lobby","screen-pvp-wait","screen-pvp-results"].indexOf(id) > -1;
   if(!inGame){ window.scrollTo(0,0); return; }
   requestAnimationFrame(()=>{
@@ -1049,18 +1055,43 @@ const gametypeStartBtn = $("#gametype-start-btn");
 // გამორთვა) -- chooseGameType-ის (ახალი ტიპის არჩევისას) და PvP-დან/
 // ბარათების ეკრანიდან დაბრუნების ყველა წერტილში (resetToMode/
 // finishPvpResults/onPvpRoomAbandoned) გამოიყენება ერთნაირად.
+// Default opponent (2026-11-22 request, Part 2; narrowed same day): the
+// human/PvP card is pre-selected on the very first load only -- not on
+// every later reset (switching game type, returning from a finished/
+// abandoned PvP match all route through chooseGameType -> resetGametypeUI
+// too, same as the first load, but from then on this just reapplies
+// whatever S.mode the user last actually chose, instead of forcing PvP
+// again). gametypeDefaultModeApplied is the one-time flag gating that.
+const DEFAULT_GAMETYPE_MODE = "pvp";
+let gametypeDefaultModeApplied = false;
 function resetGametypeUI(){
-  S.mode = null;
+  if(!gametypeDefaultModeApplied){
+    S.mode = DEFAULT_GAMETYPE_MODE;
+    gametypeDefaultModeApplied = true;
+  }
   $$("#screen-gametype .gametype-modes .mode").forEach(c=> c.classList.remove("sel"));
-  $$("#gametype-opponent-wrap .mode").forEach(c=> c.classList.remove("sel"));
+  $$("#gametype-opponent-wrap .mode").forEach(c=> c.classList.toggle("sel", c.dataset.mode === S.mode));
   if(gametypeOppWrap) gametypeOppWrap.classList.remove("show");
-  if(gametypeStartBtn) gametypeStartBtn.disabled = true;
+  // S.gameType is already set by chooseGameType (the only caller) before
+  // this runs, so this correctly enables the button for the new default.
+  if(gametypeStartBtn) gametypeStartBtn.disabled = !(S.gameType && S.mode);
 }
 
 $$("#screen-gametype .gametype-modes .mode").forEach(card=>{
   const go = ()=> chooseGameType(card.dataset.gametype);
   card.addEventListener("click", go);
   card.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); }});
+  // Connector hover preview (2026-11-22 request, Part 4) -- desktop only;
+  // CSS keeps #gametype-connector display:none below 641px, so this is
+  // visually inert on mobile. Hovering an unselected game-type card
+  // previews the curve from THIS card to the currently selected opponent
+  // card.
+  card.addEventListener("mouseenter", ()=>{
+    if(card.classList.contains("sel")) return;
+    const selMode = $("#gametype-opponent-wrap .modes .mode.sel");
+    if(selMode) drawGametypePreview(card, selMode);
+  });
+  card.addEventListener("mouseleave", clearGametypePreview);
 });
 
 function chooseGameType(type, opts){
@@ -1070,6 +1101,7 @@ function chooseGameType(type, opts){
   $$("#screen-gametype .gametype-modes .mode").forEach(c=> c.classList.toggle("sel", c.dataset.gametype === type));
   if(gametypeOppWrap) gametypeOppWrap.classList.add("show");
   show("screen-gametype");
+  drawGametypeConnector();
   if(opts.push !== false) pushQuizStep(type, null);
 }
 
@@ -1079,14 +1111,83 @@ $$("#gametype-opponent-wrap .mode").forEach(card=>{
     S.mode = card.dataset.mode;
     $$("#gametype-opponent-wrap .mode").forEach(c=> c.classList.toggle("sel", c === card));
     if(gametypeStartBtn) gametypeStartBtn.disabled = !(S.gameType && S.mode);
+    clearGametypePreview();
+    drawGametypeConnector();
   };
   card.addEventListener("click", go);
   card.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); }});
+  // Hovering an unselected opponent card previews the curve from the
+  // currently selected game-type card to THIS card.
+  card.addEventListener("mouseenter", ()=>{
+    if(card.classList.contains("sel")) return;
+    const selGametype = $("#screen-gametype .gametype-modes .mode.sel");
+    if(selGametype) drawGametypePreview(selGametype, card);
+  });
+  card.addEventListener("mouseleave", clearGametypePreview);
 });
 if(gametypeStartBtn) gametypeStartBtn.addEventListener("click", ()=>{
   if(!S.gameType || !S.mode) return;
   startLobby(S.mode); // "ai" -> screen-lobby (სირთულის არჩევა); "pvp" -> startPvpSetup (ოთახის შექმნა/შესვლა)
 });
+
+/* ============================================================
+   Connector line (2026-11-22 request, Parts 3/4) -- static SVG curve
+   between the selected game-type card and the selected opponent card,
+   plus a faint hover preview of where it would move. Desktop only (CSS
+   hides #gametype-connector entirely below 641px); both draw functions
+   below bail out harmlessly whenever a selected card can't be found,
+   which covers the mobile/hidden-screen case too (no separate guard
+   needed). Redrawn on selection change (the two "go" closures above, plus
+   chooseGameType above), window resize, and once web fonts finish loading
+   (a font swap can shift each card's real width/height after first paint).
+   ============================================================ */
+const gametypeLayoutEl = document.querySelector(".gametype-layout");
+const gametypeConnectorSvg = document.getElementById("gametype-connector");
+const gtcLine = gametypeConnectorSvg && gametypeConnectorSvg.querySelector(".gtc-line");
+const gtcBase = gametypeConnectorSvg && gametypeConnectorSvg.querySelector(".gtc-base");
+const gtcPreview = gametypeConnectorSvg && gametypeConnectorSvg.querySelector(".gtc-preview");
+const gtcDotA = gametypeConnectorSvg && gametypeConnectorSvg.querySelector(".gtc-dot-a");
+const gtcDotB = gametypeConnectorSvg && gametypeConnectorSvg.querySelector(".gtc-dot-b");
+
+// Mid-point of a card's right or left edge, in pixels relative to
+// containerRect (always .gametype-layout's own getBoundingClientRect()).
+function gtcEdgePoint(card, edge, containerRect){
+  const r = card.getBoundingClientRect();
+  return { x: (edge === "right" ? r.right : r.left) - containerRect.left, y: (r.top + r.height / 2) - containerRect.top };
+}
+// Cubic bezier, both control points offset horizontally by 55% of the
+// horizontal distance between the two endpoints: M x1 y1 C x1+dx y1,
+// x2-dx y2, x2 y2 with dx = (x2-x1)*0.55.
+function gtcPathFor(p1, p2){
+  const dx = (p2.x - p1.x) * 0.55;
+  return "M " + p1.x + " " + p1.y + " C " + (p1.x + dx) + " " + p1.y + ", " + (p2.x - dx) + " " + p2.y + ", " + p2.x + " " + p2.y;
+}
+function drawGametypeConnector(){
+  if(!gametypeConnectorSvg || !gametypeLayoutEl) return;
+  const gtCard = document.querySelector("#screen-gametype .gametype-modes .mode.sel");
+  const mdCard = document.querySelector("#gametype-opponent-wrap .modes .mode.sel");
+  if(!gtCard || !mdCard){ gtcLine.setAttribute("d", ""); gtcBase.setAttribute("d", ""); return; }
+  const containerRect = gametypeLayoutEl.getBoundingClientRect();
+  gametypeConnectorSvg.setAttribute("viewBox", "0 0 " + containerRect.width + " " + containerRect.height);
+  const p1 = gtcEdgePoint(gtCard, "right", containerRect);
+  const p2 = gtcEdgePoint(mdCard, "left", containerRect);
+  const d = gtcPathFor(p1, p2);
+  gtcLine.setAttribute("d", d);
+  gtcBase.setAttribute("d", d);
+  gtcDotA.setAttribute("cx", p1.x); gtcDotA.setAttribute("cy", p1.y);
+  gtcDotB.setAttribute("cx", p2.x); gtcDotB.setAttribute("cy", p2.y);
+}
+function drawGametypePreview(fromCard, toCard){
+  if(!gtcPreview || !gametypeLayoutEl) return;
+  const containerRect = gametypeLayoutEl.getBoundingClientRect();
+  gtcPreview.setAttribute("d", gtcPathFor(gtcEdgePoint(fromCard, "right", containerRect), gtcEdgePoint(toCard, "left", containerRect)));
+  gtcPreview.classList.add("show");
+}
+function clearGametypePreview(){
+  if(gtcPreview) gtcPreview.classList.remove("show");
+}
+window.addEventListener("resize", drawGametypeConnector);
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(drawGametypeConnector);
 
 // #quizHero's back control sits above the sport picker, outside the
 // QUIZ_STEPS history stack the other .qback buttons rely on -- it needs
@@ -2328,6 +2429,19 @@ function renderGuessQuestion(){
   } else {
     startGuessTimer();
   }
+
+  // 2026-11-22: same scrollIntoView call submitGuess() already uses to
+  // bring .qcard back into view (the "one deliberate scroll in the whole
+  // quiz flow" comment there), reused here so it also fires when the NEW
+  // question actually renders -- not just at submit/feedback time. Single
+  // player's normal-answer path already happened to land in the right
+  // place because nothing moved the viewport between that submit-time
+  // scroll and the next render; "არ ვიცი" (submitGuess(false, true)) and
+  // every PvP path (which returns out of submitGuess before reaching that
+  // scroll at all -- PvP renders its next question immediately, no
+  // separate "next question" click) did not. This one call, unconditional
+  // and un-branched by viewport width, covers all of them identically.
+  fb.closest(".qcard").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 // "ვინ ვარ?" — GUESS_TIME_PER_Q წამი (PvP-ის და AI-ის წინააღმდეგ ორივეში,
