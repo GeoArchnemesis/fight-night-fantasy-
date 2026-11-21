@@ -801,8 +801,22 @@ function nameSimilarity(a,b){
 // ვარიანტებზე უბრალო 60%-იანი მსგავსება ცდომილებების ტოლერანტულია
 // (მაგ. "მესი" საკმარისად ჰგავს "მესხი"-ს — 0.8 — რომ არასწორად ჩათვალოს
 // სწორად; short ვარიანტებს ამიტომ თითქმის ზუსტი დამთხვევა სჭირდება).
-const MATCH_LOOSE = 0.6;
+const MATCH_LOOSE = 0.6; // კვლავ გამოიყენება მხოლოდ სიტყვების ქვესიმრავლის შემოწმებაში ქვემოთ — უცვლელი, ცალკე გადასაწყვეტია
 const MATCH_STRICT_SHORT = 0.84;
+// 6 სიმბოლოზე გრძელი ვარიანტებისთვის ბრტყელი 60%-იანი მსგავსება (ძველი
+// MATCH_LOOSE) სიგრძის ზრდასთან ერთად სულ უფრო მეტ რედაქტირების მანძილს
+// უშვებდა (7 სიმბოლოზე უკვე 2-მდე) — ზუსტად ეს აღმოჩნდა "რონალდო"-ს
+// "რივალდო"-დ ცნობის მიზეზი. ამის ნაცვლად დასაშვები მანძილი თავად
+// სკალირდება სიგრძესთან: ზუსტად 1 სიმბოლო სხვაობა 7-სიმბოლოიან
+// ვარიანტებზე, იზრდება კიდევ 1-ით მხოლოდ ყოველ +10 სიგრძეზე (უფრო
+// სწრაფი ზრდა, მაგ. length/7, ცდაში უშვებდა ორი სხვადასხვა ~25-
+// სიმბოლოიანი სტადიონის სახელის დამთხვევას, განსხვავებულს მხოლოდ
+// ქალაქის სახელით — სანამ ეს ფორმულა არ შენელდა). ზუსტი ანალოგი
+// quiz_is_guess_correct-ის ალგორითმის SQL-ში (supabase/guess_who_answer_matching.sql)
+// — თუ ოდესმე შეცვალო, შეცვალე ორივე მხარეს ერთად.
+function guessMatchAllowedDistance(len){
+  return 1 + Math.floor(Math.max(0, len - 7) / 10);
+}
 function isGuessCorrect(guess, answer){
   const g = normName(guess);
   if(!g) return { correct:false, exact:false };
@@ -814,8 +828,11 @@ function isGuessCorrect(guess, answer){
     if(g === v) return { correct:true, exact };
   }
   for(const v of variants){
-    const threshold = v.length <= 6 ? MATCH_STRICT_SHORT : MATCH_LOOSE;
-    if(nameSimilarity(g, v) >= threshold) return { correct:true, exact };
+    if(v.length <= 6){
+      if(nameSimilarity(g, v) >= MATCH_STRICT_SHORT) return { correct:true, exact };
+    } else {
+      if(levenshtein(g, v) <= guessMatchAllowedDistance(v.length)) return { correct:true, exact };
+    }
   }
 
   // სიტყვების ქვესიმრავლის შემოწმება — დასაშვებია ნაწილობრივი/შეცდომიანი

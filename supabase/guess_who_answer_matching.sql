@@ -145,6 +145,11 @@ $function$;
 -- branch was edited in place); this note is just the changelog entry.
 -- ============================================================
 
+-- ⚠️ SUPERSEDED by PART 3c below (the >6-char branch's flat 0.6 similarity
+-- was replaced with a length-scaled edit-distance cap -- 60% similarity let
+-- 7-char names like რონალდო match რივალდო). Kept here only as a historical
+-- snapshot; do not re-run this CREATE OR REPLACE.
+--
 -- Accept a guess if it matches ANY accepted variant at >=60% similarity;
 -- variants of <=6 characters require a much stricter near-exact match
 -- (otherwise short names like მესი/მესხი would cross-accept each other).
@@ -184,6 +189,100 @@ begin
       if public.quiz_name_similarity(g, v) >= 0.84 then return true; end if;
     else
       if public.quiz_name_similarity(g, v) >= 0.6 then return true; end if;
+    end if;
+  end loop;
+
+  foreach v in array variants loop
+    pool_words := pool_words || regexp_split_to_array(v, '\s+');
+  end loop;
+  guess_words := regexp_split_to_array(g, '\s+');
+  foreach gw in array guess_words loop
+    if length(gw) < 2 then continue; end if;
+    checked_count := checked_count + 1;
+    best := 0;
+    foreach pw in array pool_words loop
+      if length(pw) < 2 then continue; end if;
+      best := greatest(best, public.quiz_name_similarity(gw, pw));
+    end loop;
+    if best < 0.6 then
+      all_match := false;
+      exit;
+    end if;
+  end loop;
+  if checked_count >= 2 and all_match then return true; end if;
+
+  foreach v in array variants loop
+    if length(g) >= 4 and (position(g in v) > 0 or position(v in g) > 0) then
+      return true;
+    end if;
+  end loop;
+
+  return false;
+end;
+$function$;
+
+-- ============================================================
+-- PART 3c — length-scaled edit-distance cap replaces the flat 0.6
+-- similarity for >6-char variants (reported bug: "რონალდო" matched the
+-- answer "რივალდო" -- 7 chars, edit distance 2, similarity 0.71 >= 0.6).
+-- quiz_guess_match_allowed_distance(len) = 1 + max(0, len-7)/10 -- exactly
+-- 1 allowed character difference at length 7 (missing/doubled letter, a
+-- short different ending), growing by only 1 more every +10 length after
+-- that. A faster-growing candidate (len/7) was tried first and rejected:
+-- it let two different ~25-char stadium names, differing only by a 3-char
+-- city name, cross-match (distance 3 <= allowed 3).
+--
+-- Dry run against the live bank before this was applied (880 answers: 820
+-- Football + 60 UFC): 880/880 still self-match, all 6 manual aliases still
+-- match (exact-variant match, untouched by this branch), the 1,305-case
+-- synthetic near-miss test (missing/doubled letter, different ending)
+-- rejects the same 6 pre-existing edge cases as the old rule (zero
+-- regressions), and რონალდო vs რივალდო no longer matches. Exact mirror of
+-- quiz.js's guessMatchAllowedDistance/isGuessCorrect -- keep both in sync.
+--
+-- The <=6-char branch (0.84 similarity), the word-subset check, and the
+-- substring-containment check below are UNCHANGED -- out of scope for this
+-- fix (the substring/word-subset paths have their own, separate,
+-- not-yet-addressed cross-match problem).
+-- ============================================================
+create or replace function public.quiz_guess_match_allowed_distance(len integer)
+returns integer
+language sql
+immutable
+as $function$
+  select 1 + greatest(0, len - 7) / 10;
+$function$;
+
+create or replace function public.quiz_is_guess_correct(p_guess text, p_answer text)
+ returns boolean
+ language plpgsql
+ immutable
+as $function$
+declare
+  g text := public.quiz_norm_name(p_guess);
+  variants text[];
+  v text;
+  gw text;
+  pw text;
+  best numeric;
+  all_match boolean := true;
+  checked_count int := 0;
+  pool_words text[] := '{}';
+  guess_words text[];
+begin
+  if g = '' then return false; end if;
+
+  variants := public.quiz_build_answer_variants(p_answer);
+
+  foreach v in array variants loop
+    if g = v then return true; end if;
+  end loop;
+
+  foreach v in array variants loop
+    if length(v) <= 6 then
+      if public.quiz_name_similarity(g, v) >= 0.84 then return true; end if;
+    else
+      if levenshtein(g, v) <= public.quiz_guess_match_allowed_distance(length(v)) then return true; end if;
     end if;
   end loop;
 
