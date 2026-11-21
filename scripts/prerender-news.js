@@ -92,10 +92,32 @@ function escapeHtml(s) {
 // An article counts as having a real English version only when BOTH the
 // headline and the body are non-empty -- a lone meta_title_en with no
 // body would ship a half-English page, which is exactly what task 2a
-// says to skip.
+// says to skip. Videos (Task 4, phase 3) are Georgian-only but always
+// appear in the EN listing with their Georgian title (news_feed_view
+// already sets a video row's title_en = its title_ka, never null) -- no
+// body to check, no translation, always eligible.
 function hasEn(a) {
+  if (a.kind === 'video') return true;
   return !!(a.title_en && a.title_en.trim() && a.body_en && a.body_en.trim());
 }
+
+// Task 4, phase 3: "minutes:seconds", literally -- not H:MM:SS, per spec.
+function formatDuration(totalSeconds) {
+  const s = Math.max(0, Math.round(totalSeconds || 0));
+  const m = Math.floor(s / 60);
+  const sec = s % 60;
+  return `${m}:${String(sec).padStart(2, '0')}`;
+}
+
+// Standard play-button overlay (circle + triangle), inline SVG matching
+// this site's existing icon convention (contact popup's X, quiz's back
+// chevron) rather than an emoji or icon font.
+const PLAY_ICON_SVG = '<svg class="nw-play-icon" width="56" height="56" viewBox="0 0 56 56" aria-hidden="true" focusable="false"><circle cx="28" cy="28" r="28" fill="rgba(0,0,0,.55)"/><path d="M22 17.5v21l18-10.5z" fill="#fff"/></svg>';
+// Feather Icons v4.29.1 "eye" (MIT) -- same icon set/stroke conventions as
+// news/index.html's NW_ICON_LIKE/COMMENT/SHARE (that file's own comment
+// names the exact set), copied statically, not drawn/invented.
+const EYE_ICON_SVG = '<svg class="nw-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+function formatViewCount(n) { return Number(n || 0).toLocaleString('en-US'); }
 
 // Mirrors nwTransformUrl()/nwSrcset() in news/post.html and
 // news/index.html -- Supabase Storage's object endpoint ignores
@@ -181,6 +203,45 @@ function sidebarCardHtml(a, lang) {
   return `<a class="article-card--list" href="${relUrlFor(a.slug, lang)}">${thumb}<div class="acl-content"><h3 class="acl-title">${escapeHtml(title)}</h3><div class="acl-meta"><time datetime="${a.published_at || ''}">${escapeHtml(dateStr)}</time></div></div></a>`;
 }
 
+// Video card (Task 4, phase 3) -- shared by homeHeroCardHtml() and
+// heroCardHtml() below, same way those two already share identical
+// markup/CSS for articles, just the heading tag differing (h3 under the
+// homepage/sport strip's own <h2>, h2 under /news/'s <h1>). Exactly the
+// elements approved: thumbnail + play overlay + duration, title, date
+// (same formatDate() as articles), and the watch button -- nothing else.
+// No dek (videos have none); same Georgian title in both languages
+// (news_feed_view already sets title_en = title_ka for a video row, so
+// this reads a.title_ka regardless of `lang` -- never translated).
+//
+// opts.showViewCount: /news/ itself ("good, do not touch it") keeps the
+// exact card it already had -- only homeHeroCardHtml() (homepage slider,
+// fantasy-page slider, fantasy-page 3-item strip) passes this, adding the
+// eye icon + view count on the same line as the date, right after it.
+function videoCardHtmlInner(a, lang, headingTag, opts) {
+  const title = a.title_ka;
+  const dateStr = a.published_at ? formatDate(new Date(a.published_at), lang) : '';
+  const durationStr = formatDuration(a.duration_seconds);
+  const watchLabel = 'უყურე ვიდეოს საიტზე';
+  const viewsHtml = (opts && opts.showViewCount)
+    ? ` <span class="nw-video-views">${EYE_ICON_SVG} ${formatViewCount(a.view_count)}</span>`
+    : '';
+  return `
+    <div class="nw-card-wrap">
+      <a class="nw-card video-card--hero" href="?video=${encodeURIComponent(a.video_id)}" data-video-id="${xmlEscapeAttr(a.video_id)}">
+        <span class="nw-video-thumb-wrap">
+          <img class="nw-card-img" src="${xmlEscapeAttr(a.thumbnail_url)}" alt="${xmlEscapeAttr(title)}" width="800" height="450" loading="lazy" decoding="async" />
+          <span class="nw-play-btn" aria-hidden="true">${PLAY_ICON_SVG}</span>
+          <span class="nw-video-duration">${escapeHtml(durationStr)}</span>
+        </span>
+        <div class="nw-card-body">
+          <${headingTag} class="nw-card-title">${escapeHtml(title)}</${headingTag}>
+          <div class="nw-card-meta"><time datetime="${xmlEscapeAttr(a.published_at || '')}">${escapeHtml(dateStr)}</time>${viewsHtml}</div>
+          <span class="btn btn-primary nw-video-watch-btn">${escapeHtml(watchLabel)}</span>
+        </div>
+      </a>
+    </div>`;
+}
+
 // Same markup/CSS as /news/'s own hero card (heroCardHtml, defined
 // below) -- duplicated rather than called directly because the
 // homepage's section heading is already an <h2> ("სიახლეები"), so the
@@ -188,6 +249,7 @@ function sidebarCardHtml(a, lang) {
 // it in the heading hierarchy. /news/'s own hero keeps <h2> (it sits
 // under that page's <h1>, not an <h2>).
 function homeHeroCardHtml(a) {
+  if (a.kind === 'video') return videoCardHtmlInner(a, 'ka', 'h3', { showViewCount: true });
   const alt = a.cover_image_alt_ka || a.title_ka;
   const dek = a.meta_description_ka;
   const dateStr = a.published_at ? formatDate(new Date(a.published_at), 'ka') : '';
@@ -219,10 +281,33 @@ function homeNewsStripHtml(articles, heading, opts) {
   if (!articles.length) return '';
   const stacked = !!(opts && opts.stacked);
   return [
-    '<section id="newsStrip"><div class="wrap">',
+    '<section id="newsStrip" class="news-strip"><div class="wrap">',
     `<div class="sec-head"><h2>${escapeHtml(heading)}</h2></div>`,
     `<div class="nw-strip-list${stacked ? ' nw-strip-list--single' : ''}">`,
     articles.map((a) => homeHeroCardHtml(a)).join(''),
+    '</div>',
+    '</div></section>',
+  ].join('\n');
+}
+
+// Task 4, phase 3 -- fantasy pages (above "ჩემი ბილეთები", VIDEO-SLIDER
+// marker) AND the homepage (NEWS-HOME marker, see main() below -- the
+// homepage's own news section is this same slider too, not a separate
+// 3-item grid). The complete merged list, no cap -- .nw-slider-list is
+// the scroll-snap container (style.css), same .nw-card-wrap cards.
+// opts.id: the 9 fantasy pages already have id="newsStrip" further down
+// (from homeNewsStripHtml() above, a second, different block on the same
+// page) -- class="news-strip" alone carries the heading/layout styling
+// there, no id needed/wanted. The homepage has only this one section, so
+// it passes opts.id:'newsStrip' to keep that id exactly where it was.
+function videoSliderHtml(items, heading, opts) {
+  if (!items.length) return '';
+  const idAttr = (opts && opts.id) ? ` id="${opts.id}"` : '';
+  return [
+    `<section class="news-strip"${idAttr}><div class="wrap">`,
+    `<div class="sec-head"><h2>${escapeHtml(heading)}</h2></div>`,
+    '<div class="nw-slider-list">',
+    items.map((a) => homeHeroCardHtml(a)).join(''),
     '</div>',
     '</div></section>',
   ].join('\n');
@@ -456,6 +541,7 @@ function buildArticlePage(template, a, allArticles, lang) {
 // so the PRD's named component is present in the markup; .nw-card-dek
 // is the one element the hero needs that .nw-card didn't already have.
 function heroCardHtml(a, lang) {
+  if (a.kind === 'video') return videoCardHtmlInner(a, lang, 'h2');
   const title = lang === 'en' ? a.title_en : a.title_ka;
   const alt = (lang === 'en' ? a.cover_image_alt_en : a.cover_image_alt_ka) || title;
   const dek = lang === 'en' ? a.meta_description_en : a.meta_description_ka;
@@ -578,15 +664,27 @@ function buildListingPage(listingTemplate, articles, lang) {
 async function main() {
   const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-  log('Fetching published articles...');
-  const { data: articles, error } = await sb
-    .from('news')
+  log('Fetching published articles + videos (news_feed_view)...');
+  // One query, one round trip -- news_feed_view (supabase/news_feed_view.sql)
+  // unions news + youtube_videos server-side and does the is_published
+  // filtering itself (kept here too, harmlessly, as defense in depth).
+  const { data: feedItems, error } = await sb
+    .from('news_feed_view')
     .select('*')
     .eq('is_published', true)
     .order('published_at', { ascending: false });
 
   if (error) { log('Supabase error: ' + error.message); process.exit(1); }
-  log(`Found ${articles.length} published article(s), ${articles.filter(hasEn).length} with an English version.`);
+
+  // Everything below that generates an actual article page (per-article
+  // /news/<slug>/, the sidebar related-articles list, the sitemap's EN
+  // block) must never see a video row -- videos have no slug/body and
+  // never get their own page (Task 4, phase 3). `articles` is exactly
+  // what this whole file already called `articles` before this change;
+  // every one of those call sites is untouched.
+  const articles = feedItems.filter((i) => i.kind === 'article');
+  const videoCount = feedItems.length - articles.length;
+  log(`Found ${articles.length} published article(s) (${articles.filter(hasEn).length} with an English version), ${videoCount} published video(s).`);
 
   const template = fs.readFileSync(TEMPLATE_PATH, 'utf8');
   // The template's placeholder JSON-LD tag is injected at runtime by
@@ -637,19 +735,19 @@ async function main() {
   // still re-draws the same grid on top once Supabase replies, for live
   // like/comment counts and infinite scroll.
   try {
-    const listing = buildListingPage(listingPristine, articles, 'ka');
+    const listing = buildListingPage(listingPristine, feedItems, 'ka');
     fs.writeFileSync(LISTING_PATH, listing, 'utf8');
-    log(`✓ news/index.html grid updated (${articles.length} card(s) baked in)`);
+    log(`✓ news/index.html grid updated (${feedItems.length} card(s) baked in)`);
   } catch (e) {
     log(`✗ news/index.html: ${e.message}`);
   }
 
   let enListingOk = false;
   try {
-    const enListing = buildListingPage(listingPristine, articles, 'en');
+    const enListing = buildListingPage(listingPristine, feedItems, 'en');
     fs.mkdirSync(EN_NEWS_DIR, { recursive: true });
     fs.writeFileSync(path.join(EN_NEWS_DIR, 'index.html'), enListing, 'utf8');
-    const enCount = articles.filter(hasEn).length;
+    const enCount = feedItems.filter(hasEn).length;
     log(`✓ en/news/index.html grid updated (${enCount} card(s) baked in)`);
     enListingOk = true;
   } catch (e) {
@@ -687,10 +785,11 @@ async function main() {
     log(`✓ sitemap.xml EN block updated (${urls.length} url(s))`);
   }
 
-  // Homepage "სიახლეები" strip (FNF-SEO-PRD.md §5a / task 3b): 3 newest
-  // articles overall, real <a href> anchors baked into the raw HTML.
-  // Renders nothing (not an empty section) when there are no published
-  // articles yet -- same rule as the sport-page blocks below.
+  // Homepage "სიახლეები" section (FNF-SEO-PRD.md §5a / task 3b): same
+  // complete merged list as the fantasy-page slider, no cap -- not a
+  // sliced 3-item grid. Position (NEWS-HOME marker) and heading text
+  // unchanged. Renders nothing (not an empty section) when there's
+  // nothing published yet -- same rule as the sport-page blocks below.
   const homePath = path.join(REPO_ROOT, 'index.html');
   let home = fs.readFileSync(homePath, 'utf8');
   const homeStart = '<!-- NEWS-HOME:START -->';
@@ -698,13 +797,12 @@ async function main() {
   if (!home.includes(homeStart) || !home.includes(homeEnd)) {
     log('✗ index.html has no NEWS-HOME:START/END markers -- skipping homepage news strip.');
   } else {
-    const homeArticles = articles.slice(0, 3);
-    const block = homeNewsStripHtml(homeArticles, 'სიახლეები', { stacked: true });
+    const block = videoSliderHtml(feedItems, 'სიახლეები', { id: 'newsStrip' });
     const hsi = home.indexOf(homeStart);
     const hei = home.indexOf(homeEnd);
     home = home.slice(0, hsi) + homeStart + '\n' + block + '\n' + homeEnd + home.slice(hei + homeEnd.length);
     fs.writeFileSync(homePath, home, 'utf8');
-    log(`✓ index.html news strip updated (${homeArticles.length} article(s))`);
+    log(`✓ index.html news strip updated (${feedItems.length} item(s))`);
   }
 
   // Each sport page's bottom "latest news" block (task 3c). Categories
@@ -716,8 +814,11 @@ async function main() {
     'football/epl/index.html', 'football/laliga/index.html', 'football/seriea/index.html',
     'football/bundesliga/index.html', 'football/ligue1/index.html', 'football/ucl/index.html',
   ];
-  const sportArticles = articles.slice(0, 3);
-  const sportBlock = homeNewsStripHtml(sportArticles, 'სიახლეები');
+  const sportItems = feedItems.slice(0, 3);
+  const sportBlock = homeNewsStripHtml(sportItems, 'სიახლეები');
+  // Task 4, phase 3: complete merged list, no cap, as a horizontal
+  // slider -- separate marker, separate (unsliced) block, same 9 files.
+  const sliderBlock = videoSliderHtml(feedItems, 'სიახლეები');
   for (const file of SPORT_NEWS_FILES) {
     const spPath = path.join(REPO_ROOT, file);
     let spHtml;
@@ -736,8 +837,19 @@ async function main() {
     const ssi = spHtml.indexOf(spStart);
     const sei = spHtml.indexOf(spEnd);
     spHtml = spHtml.slice(0, ssi) + spStart + '\n' + sportBlock + '\n' + spEnd + spHtml.slice(sei + spEnd.length);
+
+    const vsStart = '<!-- VIDEO-SLIDER:START -->';
+    const vsEnd = '<!-- VIDEO-SLIDER:END -->';
+    if (!spHtml.includes(vsStart) || !spHtml.includes(vsEnd)) {
+      log(`✗ ${file} has no VIDEO-SLIDER:START/END markers -- skipping slider.`);
+    } else {
+      const vsi = spHtml.indexOf(vsStart);
+      const vei = spHtml.indexOf(vsEnd);
+      spHtml = spHtml.slice(0, vsi) + vsStart + '\n' + sliderBlock + '\n' + vsEnd + spHtml.slice(vei + vsEnd.length);
+    }
+
     fs.writeFileSync(spPath, spHtml, 'utf8');
-    log(`✓ ${file} news block updated (${sportArticles.length} article(s))`);
+    log(`✓ ${file} news block updated (${sportItems.length} item(s)), slider updated (${feedItems.length} item(s))`);
   }
 
   log(`Done. ${ok} KA article page(s) written (${failed} failed), ${enOk} EN article page(s) written (${enFailed} failed).`);

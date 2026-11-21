@@ -471,6 +471,24 @@ input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-
 .nw-card-dek{font-size:var(--fs-sm);line-height:var(--lh-sm);color:var(--text-2);margin:4px 0 2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .nw-card-wrap .nw-cat-pill{position:absolute;top:12px;left:12px;z-index:1}
 
+/* Video card (Task 4, phase 3) -- reuses .nw-card/.nw-card-wrap/.nw-card-img/
+   .nw-card-body/.nw-card-title/.nw-card-meta verbatim, same reason
+   .article-card--hero does: same box, same size, so the merged articles+
+   videos list reads as one component. .video-card--hero{} is the same
+   kind of empty "named component marker" class as .article-card--hero{}.
+   nw-video-thumb-wrap wraps just the <img> (not the whole card) so the
+   play-button/duration overlays position against the image only. */
+.video-card--hero{}
+.nw-video-thumb-wrap{position:relative;display:block}
+.nw-play-btn{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;filter:drop-shadow(0 2px 6px rgba(0,0,0,.45))}
+.nw-play-btn svg{display:block}
+.nw-video-duration{position:absolute;right:8px;bottom:8px;background:rgba(0,0,0,.75);color:#fff;font-size:.72rem;font-weight:700;padding:2px 6px;border-radius:4px;font-family:var(--mono);line-height:1.4}
+.nw-video-watch-btn{display:inline-block;margin-top:10px}
+/* View count -- same line as the date, right after it (.nw-card-meta's
+   own time element), icon + number only, no label. */
+.nw-video-views{display:inline-flex;align-items:center;gap:3px;margin-left:8px}
+.nw-video-views .nw-icon{width:14px;height:14px;flex-shrink:0}
+
 /* Shared news-card base (.nw-card/.nw-card-wrap/.nw-card-img/.nw-card-body/
    .nw-card-title/.nw-card-meta/.nw-card-stats/.nw-card-stat/.nw-card-share),
    copied verbatim from news/index.html's inline <style>. Previously only
@@ -674,6 +692,17 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 
 /* ── CONTACT INFO POPUP ── */
 .modal-contact{max-width:380px}
+/* ── VIDEO POPUP (Task 4, phase 3, video-popup.js) -- same .modal-bg/
+   .modal/.show toggle system as every other modal here, X/Esc/backdrop
+   close behavior matching #contactPopup. Transparent/no-padding .modal
+   so the 16:9 player fills the whole card; close button floats above it
+   (dark site, same X icon as #contactPopup) since there's no card
+   background to sit inside here. ── */
+.modal-video{width:min(900px,96vw);padding:0;background:transparent;border:none;box-shadow:none;position:relative}
+.modal-video-close{top:10px;right:10px;color:#fff;background:rgba(0,0,0,.55);border-radius:50%;width:34px;height:34px;display:grid;place-items:center;padding:0;z-index:2}
+#videoPopup.modal-bg{align-items:center}
+.video-popup-frame-wrap{position:relative;width:100%;aspect-ratio:16/9;border-radius:var(--r-sm);overflow:hidden;background:#000}
+.video-popup-frame-wrap iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
 .contact-or{text-align:center;color:var(--muted);font-size:var(--fs-meta);margin:4px 0 8px;position:relative}
 .contact-or span{background:var(--surface);padding:0 12px;position:relative;z-index:1}
 .contact-or::before{content:"";position:absolute;left:0;right:0;top:50%;height:1px;background:var(--line)}
@@ -762,9 +791,15 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
    .nw-card-wrap keeps the hero's intrinsic 800px image attribute from
    inflating a bare 1fr track past the viewport -- /news/ itself avoids
    this with minmax(280px,1fr). */
-#newsStrip{width:100%;margin-top:34px}
-#newsStrip .sec-head{justify-content:center;margin-bottom:14px}
-#newsStrip h2{font-family:var(--head);font-weight:800;font-size:clamp(1.6rem,5vw,2.6rem);color:var(--text,#fff)}
+/* .news-strip (class) is the same rule as #newsStrip (id), added
+   alongside it so the new fantasy-page video/article slider below can
+   share this exact heading/layout styling under its own id -- a page
+   can only have one #newsStrip, and these 9 pages already have one
+   further down (the existing NEWS-SPORT block); the new slider section
+   needs the identical look under a different id, hence the class. */
+#newsStrip,.news-strip{width:100%;margin-top:34px}
+#newsStrip .sec-head,.news-strip .sec-head{justify-content:center;margin-bottom:14px}
+#newsStrip h2,.news-strip h2{font-family:var(--head);font-weight:800;font-size:clamp(1.6rem,5vw,2.6rem);color:var(--text,#fff)}
 #newsStrip .nw-strip-list{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;width:100%;max-width:1040px;margin:0 auto}
 #newsStrip .nw-strip-list>.nw-card-wrap{min-width:0}
 @media(max-width:860px){
@@ -779,6 +814,82 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
    it's a plain 1-column grid, not conditioned on which card type fills
    each row. */
 #newsStrip .nw-strip-list.nw-strip-list--single{grid-template-columns:1fr;max-width:640px}
+}
+
+/* Fantasy-page video/article slider (Task 4, phase 3) -- the complete
+   merged list, no cap, horizontal scroll-snap (same native-scroll recipe
+   as news/post.html's .nw-related-list: flex + overflow-x:auto +
+   scroll-snap-type:x mandatory, hidden scrollbar -- no JS carousel
+   needed). Desktop: flex-basis is the grid's own column math (100% minus
+   the gaps, divided by the column count) -- 3 visible, unchanged by the
+   mobile rework below. */
+.news-strip .nw-slider-list{display:flex;gap:18px;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;scrollbar-width:none;overscroll-behavior-x:contain;padding:4px 4px 14px;width:100%;max-width:1040px;margin:0 auto}
+.news-strip .nw-slider-list::-webkit-scrollbar{display:none}
+.news-strip .nw-slider-list>.nw-card-wrap{scroll-snap-align:start;flex:0 0 calc((100% - 2*18px)/3);min-width:0}
+/* Mobile: 2 cards per "page", stacked vertically, not side by side --
+   CSS grid with grid-auto-flow:column + 2 explicit rows places card 1 in
+   column 1/row 1, card 2 in column 1/row 2, card 3 in column 2/row 1, and
+   so on, entirely from source order -- no DOM grouping into pairs
+   needed. grid-auto-columns:100% makes each column (page) exactly the
+   visible width, so only one column's pair is ever on screen; the
+   scroll-snap-align:start above (shared with desktop) then snaps on
+   column boundaries since both cards of a column share the same x
+   position. news-slider.js's nav steps by 2 cards at a time to match
+   (see its own comment). Card content itself is trimmed down for this
+   narrower vertical budget below. */
+@media(max-width:860px){
+.news-strip .nw-slider-list{display:grid;grid-auto-flow:column;grid-template-rows:repeat(2,auto);grid-auto-columns:100%;gap:11px;max-width:440px}
+.news-strip .nw-slider-list>.nw-card-wrap{min-width:0}
+/* Compact "mobile list" card -- thumbnail, title, view count (video) /
+   nothing (article), duration (already an overlay badge on the
+   thumbnail, untouched) -- date and the watch-button CTA are dropped
+   entirely; the dek (articles only) too. .nw-card-meta still renders for
+   a video card (it holds .nw-video-views, kept), so only the <time>
+   inside it is hidden there; for an article card .nw-card-meta only ever
+   holds the date, so the whole element is hidden instead of leaving an
+   empty row. */
+.news-strip .nw-slider-list .nw-card-dek{display:none}
+.news-strip .nw-slider-list .article-card--hero .nw-card-meta{display:none}
+.news-strip .nw-slider-list .video-card--hero .nw-card-meta time{display:none}
+.news-strip .nw-slider-list .nw-video-watch-btn{display:none}
+.news-strip .nw-slider-list .nw-card-body{padding:10px 12px}
+/* -webkit-line-clamp:2 + overflow:hidden -- title shrinks to fit this
+   narrower card via the smaller font-size, and anything still too long
+   for 2 lines ellipsizes there instead of being cut off mid-word with no
+   indication, same clamp technique .nw-card-dek already uses above. */
+.news-strip .nw-slider-list .nw-card-title{font-size:14px;line-height:18px;margin-bottom:2px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.news-strip .nw-slider-list .nw-video-views{font-size:.78rem}
+}
+
+/* Slider "counter" variant nav (news-slider.js, progressive enhancement --
+   built client-side so prerender-news.js's markup is untouched): arrows +
+   "current/total" counter at the top-right of the block, dots below the
+   card row. .sec-head's own base rule (style.css, shared site-wide) is
+   already display:flex/justify-content:space-between -- the news-strip
+   override above forces :center only because, before this nav existed,
+   the heading was the row's only child; --has-nav (added by
+   news-slider.js only once it actually finds >=2 cards to build a nav
+   for) restores that base space-between so the heading sits left and the
+   nav sits right, same pattern every other .sec-head on the site already
+   uses for its heading+side-link row. */
+/* #newsStrip.news-slider--has-nav (two IDs: wait, one id + one class) is
+   needed alongside the class-only branch -- the homepage's slider section
+   has BOTH id="newsStrip" and class="news-strip" (see prerender-news.js),
+   so the base rule's #newsStrip branch (1 id, 1 class) would otherwise
+   keep winning over a class-only override here regardless of source
+   order, same specificity trap #gametype-guess-desc's own CSS comment
+   documents for quiz.js. */
+#newsStrip.news-slider--has-nav .sec-head,.news-strip.news-slider--has-nav .sec-head{justify-content:space-between}
+.nw-slider-nav{display:inline-flex;align-items:center;gap:8px;flex-shrink:0}
+.nw-slider-arrow{width:32px;height:32px;flex:none;border-radius:50%;border:1px solid var(--line);background:var(--surface);color:var(--text);display:grid;place-items:center;cursor:pointer;padding:0}
+.nw-slider-arrow:disabled{opacity:.35;cursor:not-allowed}
+.nw-slider-arrow svg{width:16px;height:16px}
+.nw-slider-counter{font-family:var(--mono);font-weight:700;font-size:.82rem;color:var(--muted);min-width:2.6em;text-align:center}
+.nw-slider-dots{display:flex;justify-content:center;align-items:center;gap:7px;margin:10px auto 0;max-width:1040px}
+.nw-slider-dot{width:7px;height:7px;flex:none;border-radius:50%;border:none;padding:0;background:var(--line);cursor:pointer}
+.nw-slider-dot.active{background:var(--red)}
+@media(max-width:860px){
+.nw-slider-dots{max-width:440px}
 }
 
 /* ── Shared "back" pill (promoted from ufc/quiz/index.html's #quizRoot

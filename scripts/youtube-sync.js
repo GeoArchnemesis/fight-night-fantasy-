@@ -39,7 +39,12 @@ const TG_CHAT         = process.env.TELEGRAM_CHAT_ID || '';
 
 const CHANNEL_HANDLE     = 'FNFantasy';  // https://www.youtube.com/@FNFantasy -- channels.list(forHandle=) არ ითხოვს "@"-ს
 const YT_API             = 'https://www.googleapis.com/youtube/v3';
-const SHORTS_MAX_SECONDS = 60;           // ამაზე ნაკლები ხანგრძლივობის ვიდეო საერთოდ არ ინახება
+const SHORTS_MAX_SECONDS = 60;           // ამაზე ნაკლები ხანგრძლივობის ვიდეო ყოველთვის Short-ია -- იაფი pre-filter, ქსელის მოთხოვნის გარეშე
+// YouTube-მა Shorts-ის მაქს. ხანგრძლივობა 3 წუთამდე გაზარდა -- მხოლოდ
+// duration ამიერიდან საკმარისი აღარაა (იხ. isActuallyShort ქვემოთ). ეს
+// ზედა ზღვარი მხოლოდ გადაწყვეტს, რომელ ვიდეოებს სჭირდება ქსელური
+// გადამოწმება საერთოდ -- ამაზე გრძელი ვიდეო ცალსახად Short ვერ იქნება.
+const SHORTS_CHECK_MAX_SECONDS = 180;
 const UPSERT_BATCH       = 500;          // ერთ .upsert()-ში ჩასაწერი მაქს. რიგის რაოდენობა
 
 // Task 4, phase 2: EPJQI8FX/admin.html-ის ღილაკს (და Telegram-ის "იუთუბი"
@@ -169,6 +174,25 @@ async function fetchVideoDetails(videoIds) {
   return { details, quotaUnits };
 }
 
+// ---------- 4) Shorts-ის ავტორიტეტული შემოწმება ----------
+// YouTube /shorts/<id> URL-ზე პირდაპირ 200-ით პასუხობს ზუსტად მაშინ, როცა
+// ეს ვიდეო რეალურად Short-ია -- ნებისმიერი ჩვეულებრივი ატვირთვა იმავე
+// URL-დან 303-ით გადამისამართდება /watch?v=<id>-ზე. ეს ის გვერდია, საიდანაც
+// YouTube-ის საკუთარი აპებიც არჩევენ Short-ს ჩვეულებრივი ვიდეოსგან --
+// empirical-ად დადასტურებული (lt3QNTTrVPY, 68 წმ, duration-only წესს
+// გამორჩა: /shorts/lt3QNTTrVPY → HTTP 200, Location არ არის; ამ არხის
+// ჩვეულებრივი ვიდეოები კი ყველა 303-ით მიდის /watch-ზე) -- ამიტომ
+// ავტორიტეტულია, არა ევრისტიკა. redirect:'manual' საჭიროა, რომ fetch
+// თავად არ გაჰყვეს redirect-ს -- სტატუსი და Location თავად გვჭირდება.
+async function isActuallyShort(videoId) {
+  const res = await fetch(`https://www.youtube.com/shorts/${videoId}`, {
+    method: 'GET', redirect: 'manual', signal: AbortSignal.timeout(15000),
+  });
+  if (res.status === 200) return true;                      // /shorts/-ზევე დარჩა -- ნამდვილი Short
+  if (res.status >= 300 && res.status < 400) return false;   // გადამისამართდა /watch-ზე -- არ არის Short
+  throw new Error(`/shorts/ პასუხი მოულოდნელია: HTTP ${res.status}`);
+}
+
 async function main() {
   log(`▶️ YouTube sync — დაწყება${DRY_RUN ? ' (DRY_RUN)' : ''}`);
   let totalQuota = 0;
@@ -196,6 +220,10 @@ async function main() {
   const existingByVideoId = new Map((existingRows || []).map(r => [r.video_id, r]));
 
   const seenVideoIds = new Set();
+  // /shorts/ შემოწმება ვერ დასრულდა ამ ვიდეოზე ამ გაშვებაზე (ქსელის
+  // შეცდომა/ვადა) -- toHide-მ ეს ვიდეო არ უნდა ჩათვალოს "გაქრაო", თორემ
+  // დროებითი ქსელის ავარია შეცდომით დამალავდა ნამდვილად საჯარო ვიდეოს.
+  const checkFailedIds = new Set();
   const rows = [];
   let skippedShorts = 0, skippedNoDuration = 0;
 
@@ -206,7 +234,21 @@ async function main() {
     const durationSeconds = isoDurationToSeconds(v.contentDetails?.duration);
     if (!durationSeconds) { skippedNoDuration++; continue; }  // მიმდინარე ლაივი ან ჯერ არ დამუშავებული — შემდეგ გაშვებაზე
 
-    if (durationSeconds < SHORTS_MAX_SECONDS) { skippedShorts++; continue; }  // Shorts — საერთოდ არ ინახება
+    if (durationSeconds < SHORTS_MAX_SECONDS) { skippedShorts++; continue; }  // 60წმ-ზე ნაკლები -- ცალსახად Short, ქსელური შემოწმება არც კი სჭირდება
+
+    // 60-180წმ შუალედი ორაზროვანია (YouTube-ის გაზრდილი Shorts ზღვრის
+    // გამო) -- მხოლოდ აქ გვჭირდება ავტორიტეტული /shorts/ redirect-შემოწმება.
+    if (durationSeconds <= SHORTS_CHECK_MAX_SECONDS) {
+      let isShort;
+      try {
+        isShort = await isActuallyShort(pi.videoId);
+      } catch (e) {
+        log(`⚠ ${pi.videoId}: /shorts/ შემოწმება ჩავარდა (${e.message}) — გამოტოვებული ამ გაშვებაზე, ხელახლა ეცდება შემდეგზე`);
+        checkFailedIds.add(pi.videoId);
+        continue;
+      }
+      if (isShort) { skippedShorts++; continue; }  // Short დადასტურდა -- საერთოდ არ ინახება
+    }
 
     seenVideoIds.add(pi.videoId);
     const row = {
@@ -231,9 +273,11 @@ async function main() {
     }
   }
 
-  // ადრე ნანახი, ახლა საჯარო სიიდან გამქრალი ვიდეოები → is_published=false
+  // ადრე ნანახი, ახლა საჯარო სიიდან გამქრალი ვიდეოები → is_published=false.
+  // checkFailedIds გამორიცხულია განზრახ -- მათზე უბრალოდ არ ვიცით ამ
+  // გაშვებაზე (/shorts/ შემოწმება ჩავარდა), ეს არ ნიშნავს რომ გაქრნენ.
   const toHide = (existingRows || [])
-    .filter(r => r.is_published && !seenVideoIds.has(r.video_id))
+    .filter(r => r.is_published && !seenVideoIds.has(r.video_id) && !checkFailedIds.has(r.video_id))
     .map(r => r.video_id);
   for (const videoId of toHide) DRY_REPORT.push({ action: 'unpublish', video: videoId, detail: 'აღარ ჩანს არხის საჯარო ატვირთვების სიაში' });
 
