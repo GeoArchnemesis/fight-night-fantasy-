@@ -1317,11 +1317,21 @@ function resetPvp(){
 // at parse time (not inside startPvpSetup, which re-runs every visit to
 // the screen) -- closes on an option pick (handled separately, inside
 // startPvpSetup), a click anywhere outside it, or Escape.
+//
+// #pvp-create-panel also gets .answer-time-dd-open toggled here, not
+// just the list's own .show -- that .pvp-panel is what actually traps
+// the dropdown (opacity:.9/.8 makes it a stacking context, quiz-page.
+// template.html's own comment by #quizRoot .pvp-panel.answer-time-dd-open
+// has the full explanation), so closing it here (not just on the list)
+// is what lets the join-room panel and the mobile bottom nav paint over
+// it again once it's closed.
 function closeAnswerTimeDropdown(){
   const btn = document.getElementById("pvp-answer-time-btn");
   const list = document.getElementById("pvp-answer-time-list");
+  const panel = document.getElementById("pvp-create-panel");
   if(btn) btn.setAttribute("aria-expanded", "false");
   if(list) list.classList.remove("show");
+  if(panel) panel.classList.remove("answer-time-dd-open");
 }
 document.addEventListener("click", (e)=>{
   const wrap = document.getElementById("pvp-answer-time-wrap");
@@ -1398,6 +1408,8 @@ function startPvpSetup(opts){
       if(open){ closeAnswerTimeDropdown(); return; }
       atBtn.setAttribute("aria-expanded", "true");
       atList.classList.add("show");
+      const panel = document.getElementById("pvp-create-panel");
+      if(panel) panel.classList.add("answer-time-dd-open");
     };
   } else {
     atWrap.style.display = "none";

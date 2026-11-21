@@ -151,6 +151,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   background-size:cover;
   background-position:center;
   background-repeat:no-repeat;
+  /* Slight softening only, on the pseudo-element alone -- the real quiz
+     content (#quizRoot and everything in it) is a separate element
+     entirely, never a descendant of this pseudo, so it's never affected
+     by this filter. Doesn't touch the darkening overlay gradient above
+     (still the same flat colour before and after a blur) or the image
+     file itself -- applies identically to every background-image this
+     rule and its sport-specific/UFC-football overrides below set, since
+     filter isn't something those override rules redeclare. */
+  filter:blur(4px);
 }
 @media(min-width:921px){
   #quizApp{min-height:480px}
@@ -229,19 +238,42 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    (news article back link, profile back link). Declarations there are
    verbatim from this page's own rule, only the #quizRoot prefix dropped --
    this page's own appearance is unchanged. */
+/* Every screen's title sits beside უკან on the same back-row, never
+   stacked under it -- one shared class so the pattern (and its look) is
+   identical on every screen that has both a back button and a title
+   (lobby's difficulty heading, PvP wait, PvP results). flex:1+min-width:0
+   +ellipsis is a safety net for a long title next to a long button label
+   (e.g. "ოთახის დატოვება") on a narrow phone -- truncates instead of
+   wrapping to a second line or overflowing the row. */
+#quizRoot .back-row-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:10px;font-family:var(--head);font-weight:700;font-size:.95rem;color:var(--text);text-align:left}
 
-/* #screen-gametype's back-row only -- "UFC"/"ფეხბურთი", horizontally
-   centered on the row (the page's own centered quiz column), not in the
-   space left over next to უკან -- position:relative on this one back-row
-   + position:absolute + left:50%/translateX(-50%) on the label decouples
-   it from flex layout entirely, so the button's own width/position never
-   shifts it off-center. top:50%/translateY(-50%) keeps it vertically
-   centered on the same row as the button. Text itself is set by
-   build-quiz-pages.js (ufcquiz/footballquiz, pre-painted) and kept in
-   sync at runtime by quiz.js's updateLandAbout() (same place the
-   gametype card text already gets refreshed from S.sport). */
-#screen-gametype .back-row{position:relative}
-#screen-gametype .gametype-sport-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--head);font-weight:700;font-size:.88rem;color:var(--text);white-space:nowrap}
+/* #gametype-sport-label ("UFC"/"ფეხბურთი") used to float centered in
+   this screen's back-row, reading as a page title rather than a heading
+   for the game-type cards below it -- moved into #gametype-sport-wrap
+   (above), first child, reusing .gametype-opp-heading's exact class so
+   it matches "აირჩიე რეჟიმი"'s role/style over the opponent cards on the
+   right. Text itself is set by build-quiz-pages.js (ufcquiz/footballquiz,
+   pre-painted) and kept in sync at runtime by quiz.js's
+   updateLandAbout() (same place the gametype card text already gets
+   refreshed from S.sport).
+
+   .gametype-sport-label-mobile is a second copy of that same text, in
+   the back-row itself (.back-row-title, same class every other
+   back-row+title screen uses) -- hidden on desktop, where
+   #gametype-sport-label above the cards already reads fine on its own
+   row. Below 640px .gametype-layout stacks to one column (above), so
+   #gametype-sport-label would otherwise land right under the back-row,
+   reading as a title stacked under the back button -- swapped for this
+   one instead, same breakpoint, so the back button and title share a
+   line at phone width like every other screen. Both copies are set by
+   the same build-quiz-pages.js placeholder/quiz.js sync -- never drift
+   independently. */
+#quizRoot .gametype-sport-label-mobile{display:none}
+@media(max-width:640px){
+  #quizRoot .gametype-sport-label-mobile{display:block}
+  #quizRoot #gametype-sport-label{display:none}
+}
+
 
 #quizRoot .modes{display:grid;grid-template-columns:1fr;gap:12px}
 /* #screen-sport's two cards are the .quiz-card photo cards (style.css) --
@@ -674,6 +706,27 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 /* ---------- PvP (group, host + up to 8 friends) ---------- */
 #quizRoot .pvp-setup{display:flex;flex-direction:column;gap:16px}
 #quizRoot .pvp-panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
+/* The ancestor that traps the open answer-time dropdown: #screen-pvp-setup
+   .pvp-panel{opacity:.9} (and .8 for UFC mobile) ABOVE unconditionally
+   makes every .pvp-panel its own stacking context (opacity<1 is one of
+   the few unconditional CSS stacking-context triggers -- no browser
+   disagreement here). Once trapped, no z-index on a descendant, however
+   high, can ever rise above a SIBLING .pvp-panel (the join-room panel) or
+   beyond this screen entirely (.mnav, this file's own fixed mobile bottom
+   nav, z-index:46) -- only raising THIS stacking context itself (the
+   panel) escapes that. position:relative is required for z-index to do
+   anything at all on a non-positioned element; it adds no offset, so
+   nothing moves. The raised z-index applies ONLY while this panel's own
+   dropdown is open (quiz.js toggles .answer-time-dd-open on it, not on
+   the other .pvp-panel), so paint order is completely unaffected the
+   rest of the time. 51 is not an arbitrary large number: it specifically
+   clears .mnav's 46 (this file) and style.css's top nav's own 50 (picked
+   distinct from it on purpose, not relying on their DOM-order tie-break)
+   -- the one fixed-position element that could otherwise still win near
+   the bottom of a short phone viewport even after escaping the sibling
+   .pvp-panel. */
+#quizRoot .pvp-panel{position:relative}
+#quizRoot .pvp-panel.answer-time-dd-open{z-index:51}
 #quizRoot .pvp-panel h3{font-family:var(--display);font-weight:700;font-size:1rem;margin-bottom:12px;text-align:center}
 #quizRoot .pvp-divider{text-align:center;color:var(--text);font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase}
 /* Answer-time control (room creation, guess-who PvP only, BELOW the
@@ -867,16 +920,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        the opponent cards + start button below it on this same screen;
        see quiz.js's chooseGameType/resetGametypeUI) -->
   <section id="screen-gametype" class="screen">
-    <div class="back-row"><button class="qback" id="back-to-sport"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button><span id="gametype-sport-label" class="gametype-sport-label">აირჩიე თამაშის ტიპი</span></div>
+    <div class="back-row"><button class="qback" id="back-to-sport"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button><h2 class="back-row-title gametype-sport-label-mobile">აირჩიე თამაშის ტიპი</h2></div>
     <div class="gametype-layout">
-      <div class="modes gametype-modes">
-        <div class="mode" tabindex="0" role="button" aria-label="ქვიზი" data-gametype="quiz">
-          <h2>ქვიზი</h2>
-          <p id="gametype-quiz-desc">კითხვები UFC-დან</p>
-        </div>
-        <div class="mode" tabindex="0" role="button" aria-label="ვინ ვარ" data-gametype="guess">
-          <h2>გამოიცანი ვინ ვარ</h2>
-          <p id="gametype-guess-desc">ფაქტებს გეტყვი მებრძოლებზე<br>ეცადე გამოიცნო ვისზეა საუბარი</p>
+      <div id="gametype-sport-wrap">
+        <h2 id="gametype-sport-label" class="gametype-opp-heading">აირჩიე თამაშის ტიპი</h2>
+        <div class="modes gametype-modes">
+          <div class="mode" tabindex="0" role="button" aria-label="ქვიზი" data-gametype="quiz">
+            <h2>ქვიზი</h2>
+            <p id="gametype-quiz-desc">კითხვები UFC-დან</p>
+          </div>
+          <div class="mode" tabindex="0" role="button" aria-label="ვინ ვარ" data-gametype="guess">
+            <h2>გამოიცანი ვინ ვარ</h2>
+            <p id="gametype-guess-desc">ფაქტებს გეტყვი მებრძოლებზე<br>ეცადე გამოიცნო ვისზეა საუბარი</p>
+          </div>
         </div>
       </div>
       <div id="gametype-opponent-wrap">
@@ -898,9 +954,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- LOBBY -->
   <section id="screen-lobby" class="screen">
-    <div class="back-row"><button class="qback" id="back-from-lobby"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button></div>
+    <div class="back-row"><button class="qback" id="back-from-lobby"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button><h2 class="back-row-title" id="lobby-belt">აირჩიე სირთულის დონე</h2></div>
     <div class="arena">
-      <div style="text-align:center;font-family:var(--display);font-weight:700;font-size:13px;color:var(--text);letter-spacing:1px" id="lobby-belt">აირჩიე სირთულის დონე</div>
       <div id="lobby-action" class="btn-row" style="width:100%;max-width:340px"></div>
     </div>
   </section>
@@ -909,7 +964,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section id="screen-pvp-setup" class="screen">
     <div class="back-row"><button class="qback" id="back-to-mode-from-pvp"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან დაბრუნება</span></button></div>
     <div class="pvp-setup">
-      <div class="pvp-panel">
+      <div class="pvp-panel" id="pvp-create-panel">
         <h3>აირჩიე დონე</h3>
         <div id="pvp-create-diff" class="difficulty"></div>
         <div id="pvp-answer-time-wrap" class="answer-time-row" style="display:none">
@@ -962,18 +1017,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- PvP — WAITING FOR OTHERS -->
   <section id="screen-pvp-wait" class="screen">
-    <div class="back-row"><button class="qback" id="back-from-pvp-wait"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">ოთახის დატოვება</span></button></div>
+    <div class="back-row"><button class="qback" id="back-from-pvp-wait"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">ოთახის დატოვება</span></button><h2 class="back-row-title">ველოდებით ოპონენტებს</h2></div>
     <div class="pvp-wait">
       <div class="pvp-wait-spinner">⏳</div>
-      <h2>ველოდებით ოპონენტებს</h2>
       <div id="pvp-wait-count" class="tinyinfo">0 / 0 დაასრულა</div>
     </div>
   </section>
 
   <!-- PvP — RESULTS -->
   <section id="screen-pvp-results" class="screen">
-    <div class="back-row"><button class="qback" id="back-from-pvp-results"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button></div>
-    <h2 style="text-align:center;font-family:var(--display);margin-bottom:18px">შედეგები</h2>
+    <div class="back-row"><button class="qback" id="back-from-pvp-results"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button><h2 class="back-row-title">შედეგები</h2></div>
     <div class="pvp-rest" id="pvp-rest-list"></div>
     <div class="cb-review" id="pvpResultsReview">
       <div class="cb-review-list" id="pvpResultsReviewList"></div>
