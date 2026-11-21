@@ -620,6 +620,8 @@ function show(id){
   // startPvpWaitPolling) -- ამ ეკრანიდან ნებისმიერ სხვაზე გადასვლისას
   // ყოველთვის წყდება აქ, ერთ ადგილას.
   if(id !== "screen-pvp-wait") stopPvpWaitPolling();
+  // იგივე screen-pvp-lobby-ისთვის (იხ. startPvpLobbyPolling).
+  if(id !== "screen-pvp-lobby") stopPvpLobbyPolling();
   // ბარათების ბრძოლის დასრულების ეკრანზე (strips-ის ანიმაცია + ქულების
   // თვლა) დაგეგმილი setTimeout-ები ყოველთვის წყდება აქ ერთ ადგილას — ახალი
   // თამაში ძველის ტაიმერებს არასდროს იმკვიდრებს.
@@ -1295,6 +1297,7 @@ window.addEventListener("pagehide", sendQuizMarkAwayKeepalive);
 
 function resetPvp(){
   stopPvpWaitPolling();
+  stopPvpLobbyPolling();
   if(PVP){
     try{ if(PVP.playersChannel) sb.removeChannel(PVP.playersChannel); }catch(e){}
     try{ if(PVP.roomChannel) sb.removeChannel(PVP.roomChannel); }catch(e){}
@@ -1432,6 +1435,7 @@ function enterPvpLobby({ roomId, code, isHost, questions }){
   renderPvpLobbyList();
   subscribePvpRoom();
   refreshPvpPlayers();
+  startPvpLobbyPolling();
   show("screen-pvp-lobby");
 }
 
@@ -1550,6 +1554,22 @@ function startPvpWaitPolling(){
   _pvpWaitInterval = setInterval(refreshPvpPlayers, 4000);
 }
 
+// Same fallback as startPvpWaitPolling above, for the lobby screen --
+// subscribePvpRoom's playersChannel.subscribe() takes no status callback,
+// so a dropped/never-connected Realtime subscription here was previously
+// completely silent: enterPvpLobby called refreshPvpPlayers() exactly
+// once, and a player already sitting in the lobby had no other path that
+// ever asked the server again, so a friend joining never appeared without
+// a manual page reload. Same 4s interval/reasoning as the wait screen.
+let _pvpLobbyInterval = null;
+function stopPvpLobbyPolling(){
+  if(_pvpLobbyInterval){ clearInterval(_pvpLobbyInterval); _pvpLobbyInterval = null; }
+}
+function startPvpLobbyPolling(){
+  stopPvpLobbyPolling();
+  _pvpLobbyInterval = setInterval(refreshPvpPlayers, 4000);
+}
+
 function onPvpRoomActive(){
   if(!PVP || PVP.started) return;
   PVP.started = true;
@@ -1601,29 +1621,54 @@ async function revealPvpClue(qIndex){
 async function onPvpRoomFinished(){
   if(!PVP || PVP.resultsShown || PVP.resultsLoading) return;
   PVP.resultsLoading = true;
+  let data, error;
   try{
-    const { data, error } = await sb.rpc('get_quiz_results', { p_room_id: PVP.roomId });
-    if(error){
-      // The fallback above can fire a moment before sweep_quiz_room (called
-      // inside get_quiz_results itself) has flipped the room to 'finished'
-      // server-side -- supabase/quiz_presence.sql's get_quiz_results then
-      // raises exactly this message. Leaving resultsShown false lets the
-      // Realtime event or the next poll retry; it must not be silenced here.
-      if(!/room not finished yet/.test(error.message || "")){
-        showQuizToast("შედეგების ჩატვირთვა ვერ მოხერხდა.", 3500);
-      }
-      return;
-    }
-    if(!data || !data.length){
+    ({ data, error } = await sb.rpc('get_quiz_results', { p_room_id: PVP.roomId }));
+  }catch(e){
+    // Network/transport failure, not a server-side rejection -- same
+    // "stay retriable" contract as the two branches below: resultsShown
+    // is never touched here, so the next poll tick or Realtime event
+    // tries again instead of the player being stuck silently.
+    console.warn("[quiz] PvP get_quiz_results request failed:", e);
+    if(PVP) PVP.resultsLoading = false;
+    return;
+  }
+  if(error){
+    // The fallback above can fire a moment before sweep_quiz_room (called
+    // inside get_quiz_results itself) has flipped the room to 'finished'
+    // server-side -- supabase/quiz_presence.sql's get_quiz_results then
+    // raises exactly this message. Leaving resultsShown false lets the
+    // Realtime event or the next poll retry; it must not be silenced here.
+    if(!/room not finished yet/.test(error.message || "")){
       showQuizToast("შედეგების ჩატვირთვა ვერ მოხერხდა.", 3500);
-      return;
     }
-    PVP.resultsShown = true;
-    clearPvpRoomRecoveryState();
+    if(PVP) PVP.resultsLoading = false;
+    return;
+  }
+  if(!data || !data.length){
+    showQuizToast("შედეგების ჩატვირთვა ვერ მოხერხდა.", 3500);
+    if(PVP) PVP.resultsLoading = false;
+    return;
+  }
+  // Rendering gets its OWN try/catch, separate from the RPC call above --
+  // a bug in renderPvpResults must not look like (or permanently behave
+  // like) a failed RPC response. resultsShown is only set AFTER render
+  // actually succeeds, so a throw here leaves it false: the next poll
+  // tick or Realtime event calls this function again from scratch and
+  // retries the render, instead of the player being stranded forever
+  // with resultsShown already (wrongly) true. The player sees no change
+  // on a failed attempt -- still screen-pvp-wait, same ველოდებით
+  // ოპონენტებს/counter text already on screen -- until a later attempt
+  // renders successfully.
+  try{
     renderPvpResults(data[0]);
+    clearPvpRoomRecoveryState();
+    PVP.resultsShown = true;
     show("screen-pvp-results");
-  }catch(e){ console.warn("[quiz] PvP get_quiz_results failed:", e); }
-  finally{ if(PVP) PVP.resultsLoading = false; }
+  }catch(e){
+    console.error("[quiz] PvP results render failed -- will retry on next poll/Realtime tick:", e, { roomId: PVP.roomId, result: data[0] });
+  }
+  if(PVP) PVP.resultsLoading = false;
 }
 
 function onPvpRoomAbandoned(){
@@ -1695,7 +1740,7 @@ function renderPvpResultsReview(result, players){
       } else {
         pText = (typeof pick === "number" && pick >= 0 && item.o && item.o[pick] != null) ? item.o[pick] : "პასუხი არ გაეცა";
       }
-      return `<div class="cb-review-a ${ok ? "ok" : "bad"}">${escapeHtml(p.player_name)}${isMe ? " (შენ)" : ""}: ${pText}</div>`;
+      return `<div class="cb-review-a ${ok ? "ok" : "bad"}">${escapeHtml(p.player_name)}${isMe ? " (შენ)" : ""}: ${pText} <span class="pts">${points}</span></div>`;
     }).join("");
 
     const row = document.createElement("div");
@@ -2216,6 +2261,15 @@ function submitGuess(forced, giveUp){
     fb.innerHTML = `✗ არასწორია <span class="sub">სწორი პასუხია: ${item.answer}</span>`;
   }
 
+  // #gq-answer-area just collapsed (display:none above), so on a short
+  // mobile viewport the question/clues can be scrolled out of frame above
+  // it (the player was scrolled down to reach the input/submit button) --
+  // the result is then unreadable without its context. This is the one
+  // deliberate scroll in the whole quiz flow; it must not be copied
+  // anywhere else questions are shown.
+  const qcard = fb.closest(".qcard");
+  if(qcard) qcard.scrollIntoView({ behavior: "smooth", block: "start" });
+
   const nextBtn = $("#gq-next-q");
   nextBtn.style.display = "";
   nextBtn.onclick = ()=> advanceGuessQuestion();
@@ -2467,26 +2521,33 @@ function renderReview(){
 
   list.innerHTML = "";
   S.questions.forEach((item, i)=>{
-    let correctText, pText, oText, pOk, oOk;
+    let correctText, pText, oText, pOk, oOk, pPts, oPts;
     if(S.gameType === "guess"){
       correctText = item.answer;
       pText = (S.playerPicks[i] && String(S.playerPicks[i]).trim()) ? S.playerPicks[i] : "პასუხი არ გაეცა";
       oText = (S.oppPicks[i] && String(S.oppPicks[i]).trim()) ? S.oppPicks[i] : "-";
-      pOk = (S.playerPoints[i] || 0) > 0;
-      oOk = (S.oppPoints[i] || 0) > 0;
+      pPts = S.playerPoints[i] || 0;
+      oPts = S.oppPoints[i] || 0;
+      pOk = pPts > 0;
+      oOk = oPts > 0;
     } else {
       correctText = item.o[item.a];
       pText = (S.playerPicks[i] >= 0 && item.o[S.playerPicks[i]] != null) ? item.o[S.playerPicks[i]] : "პასუხი არ გაეცა";
       oText = (S.oppPicks[i] >= 0 && item.o[S.oppPicks[i]] != null) ? item.o[S.oppPicks[i]] : "-";
       pOk = S.playerPicks[i] === item.a; oOk = S.oppPicks[i] === item.a;
+      // ჩვეულებრივ ქვიზში S.playerPoints/oppPoints საერთოდ არ ივსება
+      // (tallyFinalScores-იც ბინარულად, +1 თითო სწორ პასუხზე, ითვლის --
+      // იხ. ზემოთ) -- იგივე წესით, არა S.playerPoints[i]-ით (ყოველთვის 0
+      // იქნებოდა ამ რეჟიმში).
+      pPts = pOk ? 1 : 0; oPts = oOk ? 1 : 0;
     }
     const qText = item.q || (item.clues && item.clues[0]) || "";
     const row = document.createElement("div");
     row.className = "cb-review-item";
     row.innerHTML = `
       <div class="cb-review-q"><span class="cb-review-num">${i+1}.</span>${qText}</div>
-      <div class="cb-review-a ${pOk ? "ok" : "bad"}">${myLab}: ${pText}</div>
-      <div class="cb-review-a ${oOk ? "ok" : "bad"}"><span class="cb-review-ai">${oppLab}:</span> ${oText}</div>
+      <div class="cb-review-a ${pOk ? "ok" : "bad"}">${myLab}: ${pText} <span class="pts">${pPts}</span></div>
+      <div class="cb-review-a ${oOk ? "ok" : "bad"}"><span class="cb-review-ai">${oppLab}:</span> ${oText} <span class="pts">${oPts}</span></div>
       <div class="cb-review-correct">სწორი პასუხი: ${correctText}</div>`;
     list.appendChild(row);
   });
