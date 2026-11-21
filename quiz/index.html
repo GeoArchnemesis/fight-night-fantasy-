@@ -674,6 +674,34 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .pvp-panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px}
 #quizRoot .pvp-panel h3{font-family:var(--display);font-weight:700;font-size:1rem;margin-bottom:12px;text-align:center}
 #quizRoot .pvp-divider{text-align:center;color:var(--text);font-family:var(--mono);font-size:.72rem;letter-spacing:.1em;text-transform:uppercase}
+/* Answer-time control (room creation, guess-who PvP only, BELOW the
+   difficulty picker) -- host picks a per-question time limit or
+   "გამორთული" (off); see quiz.js's startPvpSetup/createPvpRoom and
+   supabase/quiz_pvp_answer_time.sql. #pvp-answer-time-wrap is hidden
+   entirely for regular-quiz PvP (JS sets display:none -- this feature
+   doesn't apply there). A compact classic dropdown, not the earlier
+   toggle+chips version -- label left, one small value button right. */
+#quizRoot .answer-time-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px}
+#quizRoot .answer-time-label{font-family:var(--head);font-weight:700;font-size:.88rem;color:var(--text)}
+/* position:relative anchors the absolutely-positioned list below so
+   opening/closing it never affects any other element's layout -- nothing
+   on the page may move, grow or stretch when it opens. */
+#quizRoot .answer-time-dd{position:relative;flex-shrink:0}
+#quizRoot .answer-time-dd-btn{display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:7px 11px;font-family:var(--head);font-weight:700;font-size:.82rem;color:var(--text);cursor:pointer}
+#quizRoot .answer-time-dd-btn:hover{border-color:var(--muted)}
+#quizRoot .answer-time-chevron{transition:transform .15s}
+#quizRoot .answer-time-dd-btn[aria-expanded="true"] .answer-time-chevron{transform:rotate(180deg)}
+/* right:0 (not left:0) aligns the list's right edge under the button's
+   right edge -- "right-aligned under the button" -- regardless of the
+   list's own min-width (the longest option, "გამორთული", is wider than
+   the button's own collapsed width). z-index clears the difficulty chips
+   and create button below it; this is the one thing on this screen that
+   overlays instead of pushing. */
+#quizRoot .answer-time-dd-list{display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:20;min-width:124px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px;flex-direction:column;gap:2px;box-shadow:0 8px 24px rgba(0,0,0,.35)}
+#quizRoot .answer-time-dd-list.show{display:flex}
+#quizRoot .answer-time-dd-opt{background:none;border:none;text-align:left;padding:8px 10px;border-radius:6px;font-family:var(--head);font-weight:600;font-size:.82rem;color:var(--text);cursor:pointer;white-space:nowrap}
+#quizRoot .answer-time-dd-opt:hover{background:var(--ink)}
+#quizRoot .answer-time-dd-opt.sel{color:var(--green);font-weight:700}
 /* PvP room-setup screen must fit between the site nav and the mobile
    bottom nav without scrolling on a phone -- tightened spacing only,
    same colours/borders/radii/font-sizes, same HTML structure. */
@@ -684,6 +712,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #screen-pvp-setup .pvp-panel h3{margin-bottom:6px}
   #screen-pvp-setup #pvp-create-btn,#screen-pvp-setup #pvp-join-btn{margin-top:6px}
   #screen-pvp-setup .name-entry input{padding:10px 14px}
+  #screen-pvp-setup .answer-time-row{margin-top:10px}
 }
 #quizRoot .pvp-lobby{display:flex;flex-direction:column;align-items:center;gap:16px;width:100%}
 #quizRoot .pvp-code-box{text-align:center}
@@ -881,6 +910,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="pvp-panel">
         <h3>აირჩიე დონე</h3>
         <div id="pvp-create-diff" class="difficulty"></div>
+        <div id="pvp-answer-time-wrap" class="answer-time-row" style="display:none">
+          <span class="answer-time-label">კითხვაზე პასუხის დრო</span>
+          <div class="answer-time-dd">
+            <button type="button" class="answer-time-dd-btn" id="pvp-answer-time-btn" aria-haspopup="listbox" aria-expanded="false">
+              <span id="pvp-answer-time-value">40 წამი</span>
+              <svg class="answer-time-chevron" viewBox="0 0 10 6" width="10" height="6" aria-hidden="true" focusable="false"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div class="answer-time-dd-list" id="pvp-answer-time-list" role="listbox">
+              <button type="button" class="answer-time-dd-opt" role="option" aria-selected="false" data-seconds="30">30 წამი</button>
+              <button type="button" class="answer-time-dd-opt sel" role="option" aria-selected="true" data-seconds="40">40 წამი</button>
+              <button type="button" class="answer-time-dd-opt" role="option" aria-selected="false" data-seconds="60">1 წუთი</button>
+              <button type="button" class="answer-time-dd-opt" role="option" aria-selected="false" data-seconds="">გამორთული</button>
+            </div>
+          </div>
+        </div>
         <button class="btn btn-primary" id="pvp-create-btn" style="width:100%;margin-top:10px" disabled>ოთახის შექმნა</button>
       </div>
       <div class="pvp-divider">ან</div>
@@ -1047,6 +1091,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
   </section>
+
+  <!-- PvP guess-who, room answer-time OFF only (quiz.js's
+       startGuessWhoAfkWatch) -- there's no visible per-question countdown
+       in this mode, so this presence check is the only thing that still
+       guarantees forward progress when a player stops responding. Inside
+       #quizRoot (not beside #quizAuthModal below) so the .btn-green/
+       .btn-gold scoped rules above apply to its buttons. -->
+  <div class="modal-bg" id="pvpAfkModal"><div class="modal" style="text-align:center">
+    <h3>აქ ხარ?</h3>
+    <div style="display:flex;gap:10px;margin-top:22px">
+      <button type="button" class="btn btn-green" id="pvp-afk-yes" style="flex:1">კი</button>
+      <button type="button" class="btn btn-primary" id="pvp-afk-leave" style="flex:1">ოთახის დატოვება</button>
+    </div>
+  </div></div>
 
 </div>
 </div></section>

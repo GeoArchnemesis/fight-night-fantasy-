@@ -616,6 +616,10 @@ function show(id){
   // კითხვის ეკრანებიდან (quiz/guess) გასვლისას თაიმერის rAF ციკლი ყოველთვის
   // წყდება აქ ერთ ადგილას — არც ერთი stray loop არ რჩება ფონში.
   if(id !== "screen-quiz" && id !== "screen-guess") stopQuestionTimer();
+  // იგივე, გამორთული პასუხის დროის "აქ ხარ?" პატერნისთვის (იხ.
+  // startGuessWhoAfkWatch) -- ჩვეულებრივი თაიმერისგან დამოუკიდებელი
+  // setTimeout-ების წყვილი, ამიტომ ცალკე უნდა გაითიშოს აქვე.
+  if(id !== "screen-guess") stopGuessWhoAfkWatch();
   // იგივე პატერნი screen-pvp-wait-ის fallback პოლინგისთვის (იხ.
   // startPvpWaitPolling) -- ამ ეკრანიდან ნებისმიერ სხვაზე გადასვლისას
   // ყოველთვის წყდება აქ, ერთ ადგილას.
@@ -1298,12 +1302,34 @@ window.addEventListener("pagehide", sendQuizMarkAwayKeepalive);
 function resetPvp(){
   stopPvpWaitPolling();
   stopPvpLobbyPolling();
+  stopGuessWhoAfkWatch();
   if(PVP){
     try{ if(PVP.playersChannel) sb.removeChannel(PVP.playersChannel); }catch(e){}
     try{ if(PVP.roomChannel) sb.removeChannel(PVP.roomChannel); }catch(e){}
   }
   PVP = null;
 }
+
+// Compact classic dropdown -- guess-who PvP room creation's answer-time
+// picker (see startPvpSetup below). Absolutely positioned via CSS, so
+// opening/closing it never moves, grows or stretches anything else on
+// the page. These two document-level listeners are registered once, here
+// at parse time (not inside startPvpSetup, which re-runs every visit to
+// the screen) -- closes on an option pick (handled separately, inside
+// startPvpSetup), a click anywhere outside it, or Escape.
+function closeAnswerTimeDropdown(){
+  const btn = document.getElementById("pvp-answer-time-btn");
+  const list = document.getElementById("pvp-answer-time-list");
+  if(btn) btn.setAttribute("aria-expanded", "false");
+  if(list) list.classList.remove("show");
+}
+document.addEventListener("click", (e)=>{
+  const wrap = document.getElementById("pvp-answer-time-wrap");
+  if(wrap && !wrap.contains(e.target)) closeAnswerTimeDropdown();
+});
+document.addEventListener("keydown", (e)=>{
+  if(e.key === "Escape") closeAnswerTimeDropdown();
+});
 
 function startPvpSetup(opts){
   opts = opts || {};
@@ -1337,7 +1363,50 @@ function startPvpSetup(opts){
   const defaultChip = Array.from(chips.children).find((_,i)=> currentDifficulty()[i].enabled);
   if(defaultChip) defaultChip.click();
 
-  createBtn.onclick = ()=> requireAuth(()=> createPvpRoom(chosenLevel), { type:'pvp-create', gameType:S.gameType, sport:S.sport });
+  // Answer-time control -- guess-who PvP only (decision: regular quiz PvP
+  // keeps its fixed 30s timer untouched, this control doesn't apply there
+  // and stays hidden). Default on screen load: 40s, i.e. byte-for-byte
+  // today's existing fixed GUESS_TIME_PER_Q behaviour, unless the host
+  // actually picks a different option -- see pvpAnswerTimeOff()/
+  // startGuessTimer() and supabase/quiz_pvp_answer_time.sql.
+  const atWrap = $("#pvp-answer-time-wrap");
+  const atBtn = $("#pvp-answer-time-btn");
+  const atValue = $("#pvp-answer-time-value");
+  const atList = $("#pvp-answer-time-list");
+  let answerTimeSeconds = 40;
+  if(S.gameType === "guess"){
+    atWrap.style.display = "";
+    closeAnswerTimeDropdown();
+    atValue.textContent = "40 წამი";
+    atList.querySelectorAll(".answer-time-dd-opt").forEach(opt=>{
+      const isDefault = opt.dataset.seconds === "40";
+      opt.classList.toggle("sel", isDefault);
+      opt.setAttribute("aria-selected", String(isDefault));
+      opt.onclick = ()=>{
+        answerTimeSeconds = opt.dataset.seconds === "" ? null : Number(opt.dataset.seconds);
+        atValue.textContent = opt.textContent;
+        atList.querySelectorAll(".answer-time-dd-opt").forEach(x=>{
+          x.classList.toggle("sel", x === opt);
+          x.setAttribute("aria-selected", String(x === opt));
+        });
+        closeAnswerTimeDropdown();
+      };
+    });
+    atBtn.onclick = (e)=>{
+      e.stopPropagation();
+      const open = atBtn.getAttribute("aria-expanded") === "true";
+      if(open){ closeAnswerTimeDropdown(); return; }
+      atBtn.setAttribute("aria-expanded", "true");
+      atList.classList.add("show");
+    };
+  } else {
+    atWrap.style.display = "none";
+  }
+
+  createBtn.onclick = ()=> requireAuth(
+    ()=> createPvpRoom(chosenLevel, S.gameType === "guess" ? answerTimeSeconds : undefined),
+    { type:'pvp-create', gameType:S.gameType, sport:S.sport }
+  );
 
   const codeInput = $("#pvp-join-code");
   const joinErr = $("#pvp-join-error");
@@ -1362,7 +1431,11 @@ function pvpErrorMessage(err){
   return msg || "დაფიქსირდა შეცდომა - სცადე თავიდან.";
 }
 
-async function createPvpRoom(level){
+// answerTimeSeconds: undefined for regular quiz (control doesn't apply,
+// nothing to persist), or a guess-who room's choice from the dropdown --
+// a number (30/40/60), or null for "გამორთული" (off). See startPvpSetup
+// above and supabase/quiz_pvp_answer_time.sql.
+async function createPvpRoom(level, answerTimeSeconds){
   if(!level || !sb) return;
   const btn = $("#pvp-create-btn");
   btn.disabled = true; btn.textContent = "იქმნება…";
@@ -1375,6 +1448,16 @@ async function createPvpRoom(level){
     }
     const row = data[0];
     S.gameType = S.gameType || 'quiz';
+    // Must be awaited (not fire-and-forget) and must happen before
+    // enterPvpLobby below shows the room code -- that's the ordering
+    // that guarantees a guest can never join before this is committed.
+    // A failure here just leaves the column at its default (off) instead
+    // of blocking room creation over a non-critical setting.
+    if(answerTimeSeconds !== undefined){
+      try{
+        await sb.rpc('set_quiz_room_answer_time', { p_room_id: row.room_id, p_seconds: answerTimeSeconds });
+      }catch(e){ console.warn("[quiz] set_quiz_room_answer_time failed:", e); }
+    }
     enterPvpLobby({ roomId: row.room_id, code: row.code, isHost: true, questions: row.questions });
   }catch(e){
     showQuizToast("დაფიქსირდა შეცდომა - სცადე თავიდან.", 3500);
@@ -1424,7 +1507,9 @@ function enterPvpLobby({ roomId, code, isHost, questions }){
     started: false,
     resultsShown: false,
     resultsLoading: false,
+    answerTimeSeconds: null, // guess-who only -- fetched below, see pvpAnswerTimeOff()
   };
+  fetchPvpAnswerTime();
   $("#pvp-room-code").textContent = code;
   const startBtn = $("#pvp-start-btn");
   startBtn.style.display = isHost ? "" : "none";
@@ -1437,6 +1522,32 @@ function enterPvpLobby({ roomId, code, isHost, questions }){
   refreshPvpPlayers();
   startPvpLobbyPolling();
   show("screen-pvp-lobby");
+}
+
+// Guess-who PvP's per-room answer-time setting (supabase/
+// quiz_pvp_answer_time.sql) -- a plain select, not an RPC: quiz_rooms
+// already has a public SELECT RLS policy (quiz_rooms_select_all), so this
+// needs no new grant and touches none of create_quiz_room/join_quiz_room/
+// rejoin_quiz_room/start_quiz_room. Read here for BOTH host and guest
+// (not trusted from the host's own in-memory choice at creation time), so
+// a refresh/rejoin mid-lobby always reflects what's actually committed
+// server-side, not a stale local value.
+async function fetchPvpAnswerTime(){
+  if(!PVP || !sb) return;
+  const roomId = PVP.roomId;
+  try{
+    const { data, error } = await sb.from('quiz_rooms').select('answer_time_seconds').eq('id', roomId).single();
+    if(error){ console.warn("[quiz] fetchPvpAnswerTime failed:", error.message || error); return; }
+    if(PVP && PVP.roomId === roomId) PVP.answerTimeSeconds = (data && data.answer_time_seconds) || null;
+  }catch(e){ console.warn("[quiz] fetchPvpAnswerTime failed:", e); }
+}
+
+// true only for a guess-who PvP room whose host explicitly turned the
+// per-question timer off -- this control doesn't exist for regular quiz
+// PvP (always false there, see startPvpSetup/createPvpRoom), so
+// S.gameType==="guess" is implied whenever this returns true in practice.
+function pvpAnswerTimeOff(){
+  return !!(PVP && S.gameType === "guess" && PVP.answerTimeSeconds == null);
 }
 
 function subscribePvpRoom(){
@@ -2092,7 +2203,15 @@ function catchUpPvpTimer(){
     S.timerRaf = requestAnimationFrame(tickQuestionTimer);
     return;
   }
-  const totalMs = (S.gameType === "guess" ? GUESS_TIME_PER_Q : PVP_TIME_PER_Q) * 1000;
+  // Mirrors startGuessTimer's own base-duration pick below -- a room with
+  // a custom guess-who answer time (30/40/60) must reconcile against that
+  // same duration, not the hardcoded default, or this skips the wrong
+  // number of questions. Never reached for an answer-time-OFF room: that
+  // mode never sets S.timerRaf in the first place (see renderGuessQuestion),
+  // so onQuizPageHidden's own guard already skips calling this at all.
+  const totalMs = (S.gameType === "guess")
+    ? ((PVP && typeof PVP.answerTimeSeconds === "number") ? PVP.answerTimeSeconds : GUESS_TIME_PER_Q) * 1000
+    : PVP_TIME_PER_Q * 1000;
   const questionsToSkip = Math.floor(overrun / totalMs) + 1;
   for(let i = 0; i < questionsToSkip && S.qi < S.questions.length; i++){
     submitPvpTimeoutSilently();
@@ -2189,7 +2308,14 @@ function renderGuessQuestion(){
   nextQBtn.style.display = "none";
   nextQBtn.onclick = null;
 
-  startGuessTimer();
+  // Answer-time OFF (guess-who PvP only) replaces the visible countdown
+  // with the "აქ ხარ?" presence check instead -- see startGuessWhoAfkWatch.
+  if(pvpAnswerTimeOff()){
+    $("#gq-timer-row").style.display = "none";
+    startGuessWhoAfkWatch();
+  } else {
+    startGuessTimer();
+  }
 }
 
 // "ვინ ვარ?" — GUESS_TIME_PER_Q წამი (PvP-ის და AI-ის წინააღმდეგ ორივეში,
@@ -2198,12 +2324,92 @@ function renderGuessQuestion(){
 // reveal_quiz_clue-ს არსებული ლოგიკა, ახალი scoring არაფერი დამატებული).
 // დრო რომ ამოიწურება, submitGuess(true) იძახება — "ნაძალადევი" submit,
 // ცარიელი ველის დაბლოკვის გარეშე, ყოველთვის გადადის შემდეგ კითხვაზე.
+// PvP-ში GUESS_TIME_PER_Q-ის მაგივრად ოთახის საკუთარი დრო გამოიყენება,
+// თუ ჰოსტმა შეცვალა (იხ. pvpAnswerTimeOff -- off რეჟიმში ეს ფუნქცია
+// საერთოდ არ გამოიძახება, renderGuessQuestion-ის ზემოთა განშტოება).
 function startGuessTimer(){
   $("#gq-timer-row").style.display = "";
-  const totalMs = pvpAfkModeActive() ? AFK_SHORT_TIME_MS : GUESS_TIME_PER_Q*1000;
+  const base = (PVP && S.gameType === "guess" && typeof PVP.answerTimeSeconds === "number")
+    ? PVP.answerTimeSeconds : GUESS_TIME_PER_Q;
+  const totalMs = pvpAfkModeActive() ? AFK_SHORT_TIME_MS : base*1000;
   startQuestionTimer($("#gq-timer"), $("#gq-timer-num"), totalMs, ()=> submitGuess(true));
   updateAfkButtonVisibility();
 }
+
+/* ---------- Guess-who PvP, room answer-time OFF -- "აქ ხარ?" presence
+   check replaces the countdown entirely (no visible bar/number, see
+   renderGuessQuestion above). Plain setTimeouts, not the shared rAF engine
+   above -- there's no bar to drive, and unlike rAF these keep running
+   (not throttled to a full stop) while the tab is backgrounded, which
+   already matches PvP's "time keeps running while hidden" policy on its
+   own, with no catch-up reconciliation needed on return.
+
+   Two strikes, same S.consecTimeouts counter the timer-ON AFK rule above
+   already uses (reset to 0 on any manual submit, inside submitGuess) --
+   only the CONSEQUENCE differs here: a first unconfirmed prompt silently
+   skips just this one question (submitGuess(true), consecTimeouts -> 1).
+   A second CONSECUTIVE one (no successful "კი" or manual answer in
+   between, i.e. consecTimeouts already >= 1 when the grace window lapses
+   again) ends this player's game entirely via quiz_forfeit_player -- an
+   existing, already-live RPC with no caller until now (see
+   forfeitPvpRoom's own comment elsewhere in this file): it forfeits the
+   player and runs sweep_quiz_room, which zeroes every one of their
+   answers, including ones already correct, and advances the room toward
+   'finished' once the opponent is done too. ---------- */
+let _gqAfkWatchTimer = null;
+let _gqAfkGraceTimer = null;
+
+function stopGuessWhoAfkWatch(){
+  if(_gqAfkWatchTimer) clearTimeout(_gqAfkWatchTimer);
+  if(_gqAfkGraceTimer) clearTimeout(_gqAfkGraceTimer);
+  _gqAfkWatchTimer = null; _gqAfkGraceTimer = null;
+  hideAfkPrompt();
+}
+
+function startGuessWhoAfkWatch(){
+  stopGuessWhoAfkWatch();
+  _gqAfkWatchTimer = setTimeout(showAfkPrompt, 40000);
+}
+
+function showAfkPrompt(){
+  const m = $("#pvpAfkModal");
+  if(m) m.classList.add("show");
+  _gqAfkGraceTimer = setTimeout(onAfkPromptExpired, 10000);
+}
+
+function hideAfkPrompt(){
+  const m = $("#pvpAfkModal");
+  if(m) m.classList.remove("show");
+}
+
+function onAfkPromptYes(){
+  if(_gqAfkGraceTimer) clearTimeout(_gqAfkGraceTimer);
+  _gqAfkGraceTimer = null;
+  hideAfkPrompt();
+  S.consecTimeouts = 0; // proved presence -- clears any pending strike
+  startGuessWhoAfkWatch(); // same still-unanswered question, watch again
+}
+
+function onAfkPromptExpired(){
+  _gqAfkGraceTimer = null;
+  hideAfkPrompt();
+  if(!PVP || S.gameType !== "guess") return;
+  if((S.consecTimeouts||0) >= 1) forfeitPvpGuessWho();
+  else submitGuess(true); // advances; renderGuessQuestion re-arms this
+                           // watch for the next question automatically
+}
+
+async function forfeitPvpGuessWho(){
+  stopGuessWhoAfkWatch();
+  if(!PVP || !sb) return;
+  const roomId = PVP.roomId;
+  try{ await sb.rpc('quiz_forfeit_player', { p_room_id: roomId }); }
+  catch(e){ console.warn("[quiz] quiz_forfeit_player failed:", e); }
+  finishPvpQuiz();
+}
+
+$("#pvp-afk-yes").addEventListener("click", onAfkPromptYes);
+$("#pvp-afk-leave").addEventListener("click", ()=>{ hideAfkPrompt(); leavePvpRoom(); });
 
 function renderGuessClues(){
   const item = S.questions[S.qi];
