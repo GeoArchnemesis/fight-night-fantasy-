@@ -692,6 +692,11 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 
 /* ── CONTACT INFO POPUP ── */
 .modal-contact{max-width:380px}
+/* #contactInfoModal h3 (1 id, 1 element) beats the generic .modal h3
+   (0 id, 1 class, 1 element) on the id alone, regardless of source
+   order -- scoped so no other modal's heading shrinks. */
+#contactInfoModal h3{font-size:1.3rem}
+
 /* ── VIDEO POPUP (Task 4, phase 3, video-popup.js) -- same .modal-bg/
    .modal/.show toggle system as every other modal here, X/Esc/backdrop
    close behavior matching #contactPopup. Transparent/no-padding .modal

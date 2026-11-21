@@ -18,7 +18,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 
 // 18+ მოთხოვნა — დინამიურად, არა ფიქსირებული წელი (იხ. CLAUDE.md compliance ნოუთი)
 const MAX_BIRTH_YEAR = new Date().getFullYear() - 18;
-['inBirthYear', 'ciBirthYear'].forEach(id => { const el = document.getElementById(id); if (el) el.max = MAX_BIRTH_YEAR; });
+['ciBirthYear'].forEach(id => { const el = document.getElementById(id); if (el) el.max = MAX_BIRTH_YEAR; });
 
 // ── helpers ──
 const r2  = x => Math.round(x * 100) / 100;
@@ -935,32 +935,42 @@ function passwordError(pass) {
   if (!/[0-9]/.test(pass)) return 'პაროლში მინ. 1 ციფრი (0-9)';
   return null;
 }
-// ცოცხალი პაროლის ჩეკლისტი — ჩაწერისას თითო მოთხოვნა მწვანდება
+// ცოცხალი პაროლის ჩეკლისტი — ჩაწერისას თითო მოთხოვნა მწვანდება. მხოლოდ
+// რეგისტრაციის ველს (#inPassReg) ეხება -- ჩეკლისტი თავად მხოლოდ join
+// რეჟიმში ჩანს.
 function updatePassChecklist() {
-  const p = ($('inPass') && $('inPass').value) || '';
+  const p = ($('inPassReg') && $('inPassReg').value) || '';
   const set = (id, cond) => { const el = $(id); if (el) el.classList.toggle('ok', cond); };
   set('pcLen',   p.length >= 6);
   set('pcUpper', /[A-Z]/.test(p));
   set('pcLower', /[a-z]/.test(p));
   set('pcDigit', /[0-9]/.test(p));
 }
-$on('inPass', 'input', updatePassChecklist);
+$on('inPassReg', 'input', updatePassChecklist);
 function authError(msg) { const el = document.getElementById('authError'); if (el) { el.textContent = msg; el.style.display = msg ? 'block' : 'none'; } }
 
 function openModal(mode) {
   modalMode = mode; authError('');
   const authErrEl = document.getElementById('authError'); if (authErrEl) authErrEl.style.color = 'var(--red)';
-  const passEl = document.getElementById('inPass'); if (passEl) { passEl.value = ''; passEl.setAttribute('autocomplete', mode === 'join' ? 'new-password' : 'current-password'); }
+  // პაროლის ბრაუზერის ავტომატური "ძლიერი პაროლის" შეთავაზება: ერთ ველზე
+  // autocomplete-ის გადართვა (ძველი მიდგომა) არ მუშაობს — Chrome ველს
+  // პირველი რენდერის მიხედვით განსაზღვრავს და მერე აღარ გადაანალიზებს.
+  // ორი ცალკე, სტაბილური ID-ითა და ფიქსირებული autocomplete-ით ველი
+  // (#inPassLogin/#inPassReg) + display-ის გადართვა ხსნის ამას სტრუქტურულად.
+  const passLoginEl = document.getElementById('inPassLogin');
+  const passRegEl = document.getElementById('inPassReg');
+  if (passLoginEl) passLoginEl.value = '';
+  if (passRegEl) passRegEl.value = '';
+  const passFieldLoginEl = document.getElementById('passFieldLogin'); if (passFieldLoginEl) passFieldLoginEl.style.display = mode === 'join' ? 'none' : 'block';
+  const passFieldRegEl = document.getElementById('passFieldReg'); if (passFieldRegEl) passFieldRegEl.style.display = mode === 'join' ? 'block' : 'none';
   const titleEl = document.getElementById('modalTitle'); if (titleEl) titleEl.textContent = mode === 'join' ? 'შემოუერთდი ლიგას' : 'კეთილი იყოს დაბრუნება';
   const subEl = document.getElementById('modalSub'); if (subEl) subEl.textContent = ' ';
   const nameFieldEl = document.getElementById('nameField'); if (nameFieldEl) nameFieldEl.style.display = mode === 'join' ? 'block' : 'none';
   const confirmFieldEl = document.getElementById('confirmField'); if (confirmFieldEl) confirmFieldEl.style.display = mode === 'join' ? 'block' : 'none';
   const phoneFieldEl = document.getElementById('phoneField'); if (phoneFieldEl) phoneFieldEl.style.display = mode === 'join' ? 'block' : 'none';
-  const birthYearFieldEl = document.getElementById('birthYearField'); if (birthYearFieldEl) birthYearFieldEl.style.display = mode === 'join' ? 'block' : 'none';
   const genderFieldEl = document.getElementById('genderField'); if (genderFieldEl) genderFieldEl.style.display = mode === 'join' ? 'block' : 'none';
   const nameEl = document.getElementById('inName'); if (nameEl) nameEl.value = '';
   const regPhoneEl = document.getElementById('inRegPhone'); if (regPhoneEl) regPhoneEl.value = '';
-  const birthYearEl = document.getElementById('inBirthYear'); if (birthYearEl) birthYearEl.value = '';
   document.querySelectorAll('input[name="gender"]').forEach(r => r.checked = false);
   updatePassChecklist();
   const passHintEl = document.getElementById('passHint'); if (passHintEl) passHintEl.style.display = mode === 'join' ? 'block' : 'none';
@@ -1079,10 +1089,9 @@ async function hydrateUserData() {
 async function doRegister() {
   const nick = (document.getElementById('inName').value || '').trim();
   const email = (document.getElementById('inEmail').value || '').trim();
-  const pass = document.getElementById('inPass').value || '';
+  const pass = document.getElementById('inPassReg').value || '';
   const passConfirm = document.getElementById('inPassConfirm').value || '';
   const phone = normalizePhone((document.getElementById('inRegPhone') && document.getElementById('inRegPhone').value || '').trim());
-  const birthYear = (document.getElementById('inBirthYear') && document.getElementById('inBirthYear').value || '').trim();
   const genderEl = document.querySelector('input[name="gender"]:checked');
   const gender = genderEl ? genderEl.value : '';
   if (!nick || !/^[a-zA-Z0-9._]{3,20}$/.test(nick)) { authError('სახელი: 3-20 სიმბოლო (ასოები, ციფრები, . _)'); return; }
@@ -1094,10 +1103,9 @@ async function doRegister() {
   if (!phone) { authError('შეიყვანე მობილურის ნომერი'); return; }
   // R5: ნომრის უნიკალურობა — is_phone_taken RPC, nick-ის ანალოგიურად (supabase/phone_uniqueness.sql)
   try { const { data: phoneTaken } = await sb.rpc('is_phone_taken', { p_phone: phone, p_exclude_user_id: null }); if (phoneTaken) { authError('ეს ნომერი უკვე რეგისტრირებულია'); return; } } catch (e) {}
-  if (!birthYear || !/^\d{4}$/.test(birthYear) || +birthYear < 1900 || +birthYear > MAX_BIRTH_YEAR) { authError('შეიყვანე სწორი დაბადების წელი (მაგ. 1998)'); return; }
   if (!gender) { authError('აირჩიე სქესი'); return; }
   const btn = document.getElementById('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
-  const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick, phone, birth_year: +birthYear, gender } } });
+  const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick, phone, gender } } });
   btn.disabled = false; btn.textContent = 'რეგისტრაცია';
   if (error) {
     const msg = error.message || '';
@@ -1116,10 +1124,10 @@ async function doRegister() {
   let ud = null;
   try { const res = await sb.from('users').select('*').eq('id', data.user.id).maybeSingle(); ud = res.data; } catch (e) {}
   // #7: პროფილის ველების შენახვა ipify-სგან დამოუკიდებლად — AdBlock-მა IP fetch რომ დაბლოკოს,
-  // phone/birth_year/gender მაინც შეინახება
-  try { await sb.from('users').update({ phone: phone || null, birth_year: +birthYear, gender }).eq('id', data.user.id); } catch (e) {}
+  // phone/gender მაინც შეინახება
+  try { await sb.from('users').update({ phone: phone || null, gender }).eq('id', data.user.id); } catch (e) {}
   try { const ipRes = await fetch('https://api.ipify.org?format=json'); const ipData = await ipRes.json(); await sb.from('users').update({ registration_ip: ipData.ip, last_login_ip: ipData.ip }).eq('id', data.user.id); } catch (e) {}
-  currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: phone || ud?.phone || null, telegram: ud?.telegram || null, birth_year: +birthYear || ud?.birth_year || null, gender: gender || ud?.gender || null, avatar_url: ud?.avatar_url || null, avatar_type: ud?.avatar_type || 'emoji' };
+  currentUser = { id: data.user.id, email, nick: ud?.nick || nick, balance: (ud && ud.balance != null) ? ud.balance : null, score: Number(ud?.score) || 0, icon: ud?.icon || '🥊', phone: phone || ud?.phone || null, telegram: ud?.telegram || null, birth_year: ud?.birth_year || null, gender: gender || ud?.gender || null, avatar_url: ud?.avatar_url || null, avatar_type: ud?.avatar_type || 'emoji' };
   // ერთი საერთო event_id ბრაუზერისთვის (GTM) და სერვერისთვის (Meta CAPI) — Deduplicated
   var fbEventId = 'reg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
   window.dataLayer = window.dataLayer || [];
@@ -1145,7 +1153,7 @@ async function doRegister() {
 // რეალური მეილი ბრაუზერამდე არასდროს აღწევს).
 async function doSignIn() {
   const typed = (document.getElementById('inEmail').value || '').trim();
-  const pass = document.getElementById('inPass').value || '';
+  const pass = document.getElementById('inPassLogin').value || '';
   if (!typed || !pass) { authError('შეიყვანე ელ. ფოსტა და პაროლი'); return; }
   const btn = document.getElementById('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
   let userId, email = typed;

@@ -19,7 +19,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
 
 // 18+ მოთხოვნა — დინამიურად, არა ფიქსირებული წელი
 const MAX_BIRTH_YEAR = new Date().getFullYear() - 18;
-['inBirthYear', 'ciBirthYear'].forEach(id => { const el = document.getElementById(id); if (el) el.max = MAX_BIRTH_YEAR; });
+['ciBirthYear'].forEach(id => { const el = document.getElementById(id); if (el) el.max = MAX_BIRTH_YEAR; });
 
 const SPORT = 'nba';
 const TZ = 'Asia/Tbilisi';
@@ -765,7 +765,7 @@ function passwordError(pass) {
   return null;
 }
 function updatePassChecklist() {
-  const pass = ($('inPass') && $('inPass').value) || '';
+  const pass = ($('inPassReg') && $('inPassReg').value) || '';
   const set = (id, ok) => { const el = $(id); if (el) el.classList.toggle('ok', ok); };
   set('pcLen', pass.length >= 6); set('pcUpper', /[A-Z]/.test(pass)); set('pcLower', /[a-z]/.test(pass)); set('pcDigit', /[0-9]/.test(pass));
 }
@@ -773,13 +773,15 @@ function authError(msg) { const el = $('authError'); if (el) { el.textContent = 
 function openModal(mode) {
   modalMode = mode; authError('');
   const ae = $('authError'); if (ae) ae.style.color = 'var(--red)';
-  if ($('inPass')) { $('inPass').value = ''; $('inPass').setAttribute('autocomplete', mode === 'join' ? 'new-password' : 'current-password'); }
+  if ($('inPassLogin')) $('inPassLogin').value = '';
+  if ($('inPassReg')) $('inPassReg').value = '';
+  if ($('passFieldLogin')) $('passFieldLogin').style.display = mode === 'join' ? 'none' : 'block';
+  if ($('passFieldReg')) $('passFieldReg').style.display = mode === 'join' ? 'block' : 'none';
   if ($('modalTitle')) $('modalTitle').textContent = mode === 'join' ? 'შემოუერთდი ლიგას' : 'კეთილი იყოს დაბრუნება';
   if ($('modalSub')) $('modalSub').textContent = ' ';
-  ['nameField','confirmField','phoneField','birthYearField','genderField'].forEach(id => { const el = $(id); if (el) el.style.display = mode === 'join' ? 'block' : 'none'; });
+  ['nameField','confirmField','phoneField','genderField'].forEach(id => { const el = $(id); if (el) el.style.display = mode === 'join' ? 'block' : 'none'; });
   if ($('inName')) $('inName').value = '';
   if ($('inRegPhone')) $('inRegPhone').value = '';
-  if ($('inBirthYear')) $('inBirthYear').value = '';
   document.querySelectorAll('input[name="gender"]').forEach(r => r.checked = false);
   updatePassChecklist();
   if ($('passHint')) $('passHint').style.display = mode === 'join' ? 'block' : 'none';
@@ -885,10 +887,9 @@ async function hydrateUserData() {
 async function doRegister() {
   const nick = ($('inName').value || '').trim();
   const email = ($('inEmail').value || '').trim();
-  const pass = $('inPass').value || '';
+  const pass = $('inPassReg').value || '';
   const passConfirm = $('inPassConfirm').value || '';
   const phone = normalizePhone(($('inRegPhone') && $('inRegPhone').value || '').trim());
-  const birthYear = ($('inBirthYear') && $('inBirthYear').value || '').trim();
   const gEl = document.querySelector('input[name="gender"]:checked');
   const gender = gEl ? gEl.value : '';
   if (!nick || !/^[a-zA-Z0-9._]{3,20}$/.test(nick)) { authError('სახელი: 3-20 სიმბოლო (ასოები, ციფრები, . _)'); return; }
@@ -899,10 +900,9 @@ async function doRegister() {
   if (!phone) { authError('შეიყვანე მობილურის ნომერი'); return; }
   // R5: ნომრის უნიკალურობა — is_phone_taken RPC (supabase/phone_uniqueness.sql)
   try { const { data: phoneTaken } = await sb.rpc('is_phone_taken', { p_phone: phone, p_exclude_user_id: null }); if (phoneTaken) { authError('ეს ნომერი უკვე რეგისტრირებულია'); return; } } catch (e) {}
-  if (!birthYear || !/^\d{4}$/.test(birthYear) || +birthYear < 1900 || +birthYear > MAX_BIRTH_YEAR) { authError('შეიყვანე სწორი დაბადების წელი'); return; }
   if (!gender) { authError('აირჩიე სქესი'); return; }
   const btn = $('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
-  const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick, phone, birth_year: +birthYear, gender } } });
+  const { data, error } = await sb.auth.signUp({ email, password: pass, options: { data: { nick, phone, gender } } });
   btn.disabled = false; btn.textContent = 'რეგისტრაცია';
   if (error) {
     const msg = error.message || '';
@@ -915,9 +915,9 @@ async function doRegister() {
   }
   if (!data.session) { const el = $('authError'); el.style.color = 'var(--green)'; el.textContent = 'რეგისტრაცია წარმატებულია! დაადასტურე ელ.ფოსტა.'; el.style.display = 'block'; return; }
   await new Promise(r => setTimeout(r, 1000));
-  try { await sb.from('users').update({ phone: phone || null, birth_year: +birthYear, gender }).eq('id', data.user.id); } catch (e) {}
+  try { await sb.from('users').update({ phone: phone || null, gender }).eq('id', data.user.id); } catch (e) {}
   currentUser = await loadUserProfile(data.user.id, email);
-  currentUser.phone = currentUser.phone || phone; currentUser.birth_year = currentUser.birth_year || +birthYear; currentUser.gender = currentUser.gender || gender;
+  currentUser.phone = currentUser.phone || phone; currentUser.gender = currentUser.gender || gender;
   // ერთი საერთო event_id ბრაუზერისთვის (GTM) და სერვერისთვის (Meta CAPI) — Deduplicated
   var fbEventId = 'reg_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
   window.dataLayer = window.dataLayer || [];
@@ -942,7 +942,7 @@ async function doRegister() {
 // რეალური მეილი ბრაუზერამდე არასდროს აღწევს).
 async function doSignIn() {
   const typed = ($('inEmail').value || '').trim();
-  const pass = $('inPass').value || '';
+  const pass = $('inPassLogin').value || '';
   if (!typed || !pass) { authError('შეიყვანე ელ. ფოსტა და პაროლი'); return; }
   const btn = $('modalSubmit'); btn.textContent = '…'; btn.disabled = true;
   let userId, email = typed;
@@ -1052,7 +1052,7 @@ $on('signinBtn', 'click', () => openModal('signin'));
 $on('modalClose', 'click', closeModal);
 if (modal) modal.onclick = e => { if (e.target === modal) closeModal(); };
 $on('modalSubmit', 'click', () => modalMode === 'join' ? doRegister() : doSignIn());
-$on('inPass', 'input', updatePassChecklist);
+$on('inPassReg', 'input', updatePassChecklist);
 $on('googleBtn', 'click', handleGoogleAuth);
 $on('forgotBtn', 'click', openForgotPassword);
 $on('forgotModalClose', 'click', closeForgotModal);

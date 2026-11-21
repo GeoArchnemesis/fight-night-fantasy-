@@ -336,10 +336,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <label for="inRegPhone">მობილურის ნომერი</label>
   <input type="tel" id="inRegPhone" name="tel" placeholder="მაგ. 555123456" autocomplete="tel" />
 </div>
-<div class="field" id="birthYearField">
-  <label for="inBirthYear">დაბადების წელი</label>
-  <input type="number" id="inBirthYear" name="bday-year" placeholder="მაგ. 1998" inputmode="numeric" min="1900" autocomplete="bday-year" />
-</div>
 <div class="field" id="genderField">
   <label>სქესი</label>
   <div class="gender-opts">
@@ -357,11 +353,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <label for="inEmail">ელ. ფოსტა</label>
   <input type="email" id="inEmail" name="email" placeholder="შეიყვანე შენი მეილი" autocomplete="username" />
 </div>
-<div class="field">
-  <label for="inPass">პასვორდი</label>
+<div class="field" id="passFieldLogin">
+  <label for="inPassLogin">პასვორდი</label>
   <div style="position:relative">
-    <input type="password" id="inPass" name="password" placeholder="მინ. 6 სიმბოლო" autocomplete="new-password" />
-    <button type="button" class="eye-toggle" onclick="toggleEye('inPass')" aria-label="პაროლის ჩვენება"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+    <input type="password" id="inPassLogin" name="password" placeholder="მინ. 6 სიმბოლო" autocomplete="current-password" />
+    <button type="button" class="eye-toggle" onclick="toggleEye('inPassLogin')" aria-label="პაროლის ჩვენება"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+  </div>
+</div>
+<div class="field" id="passFieldReg" style="display:none">
+  <label for="inPassReg">პასვორდი</label>
+  <div style="position:relative">
+    <input type="password" id="inPassReg" name="password" placeholder="მინ. 6 სიმბოლო" autocomplete="new-password" />
+    <button type="button" class="eye-toggle" onclick="toggleEye('inPassReg')" aria-label="პაროლის ჩვენება"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
   </div>
   <div class="pass-check" id="passHint">
     <div class="pc-item" id="pcLen"><span class="pc-tick">✓</span> მინ. 6 სიმბოლო</div>
@@ -433,8 +436,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- ── CONTACT INFO POPUP ── -->
 <div class="modal-bg" id="contactInfoModal"><div class="modal modal-contact">
-<h3>შეავსე პროფილი</h3>
-<p class="sub">ფულადი პრიზების მისაღებად გთხოვთ შეავსოთ დარჩენილი ინფორმაცია.</p>
+<h3>დაასრულე რეგისტრაცია</h3>
+<p class="sub">ფულადი პრიზების მისაღებად გთხოვთ შეავსოთ მობილურის ნომერი.</p>
 <div id="ciContactWrap">
   <div class="field">
     <label for="ciPhone">მობილურის ნომერი</label>
