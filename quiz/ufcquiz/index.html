@@ -47,7 +47,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-<link rel="stylesheet" href="/style.css?v=226">
+<link rel="stylesheet" href="/style.css?v=231">
 <!-- Sport-background preload -- only on ufcquiz/footballquiz, where the
      sport is already known at build time (see build-quiz-pages.js
      bgPreloadTags()); empty on the bare /quiz/ picker, where it isn't yet.
@@ -180,13 +180,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
 }
 
-/* Same 3 screens only -- their own cards/buttons go to 90% opacity so the
+/* Same 2 screens only -- their own cards/buttons go to 90% opacity so the
    background shows through. .mode is shared with #screen-sport's own
-   cards, but this selector only matches while the gametype/mode screen
-   itself is .active, so the sport picker (#screen-sport) is never
-   affected. */
+   cards, but this selector only matches while the gametype screen itself
+   is .active, so the sport picker (#screen-sport) is never affected.
+   (Quiz screens merge: the opponent cards that used to live on their own
+   #screen-mode section are now nested inside #screen-gametype too --
+   #screen-gametype.active .mode already covers them, no separate
+   selector needed any more.) */
 #screen-gametype.active .mode,
-#screen-mode.active .mode,
 #screen-pvp-setup.active .pvp-panel{
   opacity:.9;
 }
@@ -200,7 +202,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    the background-image override above. */
 @media(max-width:920px){
   #quizApp.qzapp-sport-ufc #screen-gametype.active .mode,
-  #quizApp.qzapp-sport-ufc #screen-mode.active .mode,
   #quizApp.qzapp-sport-ufc #screen-pvp-setup.active .pvp-panel{
     opacity:.8;
   }
@@ -240,7 +241,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    sync at runtime by quiz.js's updateLandAbout() (same place the
    gametype card text already gets refreshed from S.sport). */
 #screen-gametype .back-row{position:relative}
-#screen-gametype .gametype-sport-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--head);font-weight:700;font-size:.95rem;color:var(--text)}
+#screen-gametype .gametype-sport-label{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--head);font-weight:700;font-size:.88rem;color:var(--text);white-space:nowrap}
 
 #quizRoot .modes{display:grid;grid-template-columns:1fr;gap:12px}
 /* #screen-sport's two cards are the .quiz-card photo cards (style.css) --
@@ -255,6 +256,99 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 #quizRoot .mode:hover,#quizRoot .mode:focus-visible{border-color:var(--muted);transform:translateY(-2px);outline:none}
 #quizRoot .mode h2{font-family:var(--display);font-weight:700;font-size:1.3rem;line-height:1.15;z-index:1}
 #quizRoot .mode p{color:var(--text);font-size:.84rem;line-height:1.4;z-index:1;max-width:240px}
+/* Merged game-type+opponent screen: game-type cards on the left
+   (.gametype-modes, first in source order), opponent choice + start
+   button on the right (#gametype-opponent-wrap, second) -- grid puts them
+   side by side on desktop; below 640px two columns don't comfortably fit
+   a two-line description next to a two-card opponent choice, so it
+   collapses to one column and the opponent wrap (already second in
+   source order) stacks underneath instead, same as a plain block flow. */
+.gametype-layout{display:grid;grid-template-columns:1fr 1fr;align-items:start;gap:20px}
+/* Mobile: the two blocks stack, so this gap reads as the vertical space
+   between the game-type cards and the opponent section -- kept to a
+   minimum so they read as one continuous block, not two separate
+   screens. The 20px above is a horizontal gap between side-by-side
+   columns on desktop, which isn't this complaint -- left alone. */
+@media(max-width:640px){
+  .gametype-layout{grid-template-columns:1fr;gap:6px}
+}
+/* Smaller gap than #quizRoot .modes's own 12px default, between the two
+   cards in each group -- same must-fit-with-no-scrolling reason as
+   everything else on this screen. NOTE: measured (headless Chrome)
+   container height still runs ~11px taller than (both children's own
+   heights + this gap) sum to -- tried both display:grid (the inherited
+   default) and display:flex here, identical result either way, so it is
+   not a grid-vs-flex auto-sizing difference -- but it turned out to
+   depend on WHICH card is selected (confirmed: measurably different gap
+   with ქვიზი selected vs. გამოიცანი ვინ ვარ selected, same markup,
+   same CSS, only the .sel class differs), i.e. a real, user-visible
+   "picking a card pushes the next one" bug, not just a harmless
+   measurement quirk. Root cause still not pinned to one exact
+   declaration -- fixed structurally instead: an explicit height
+   (2 cards' own fixed 82px + this gap, not "auto") makes this container
+   WHOLLY INDEPENDENT of any content/selection-based intrinsic sizing
+   pass, so nothing about a card's state can ever change its height
+   again, whatever was causing it. */
+#quizRoot .gametype-modes,
+#quizRoot #gametype-opponent-wrap .modes{gap:6px;height:170px;grid-template-rows:82px 82px}
+/* The game-type cards (ქვიზი / გამოიცანი ვინ ვარ) AND the opponent cards
+   (AI-ის წინააღმდეგ / ადამიანის წინააღმდეგ) -- all four the same size as
+   each other, smaller than the generic .mode default so all 4 cards +
+   heading + start button fit one 375x667 screen with no scrolling at
+   all (measured -- see the comment by #gametype-opponent-wrap .btn
+   below). .gametype-modes .mode (not the sport-picker's own .quiz-card
+   variant) and #gametype-opponent-wrap .modes .mode (not
+   #gametype-opponent-wrap itself, which also has non-.mode children now
+   -- the heading, the button) keep this scoped to just these four cards;
+   wording/two-line rule for #gametype-guess-desc is unchanged in
+   content, only its sizing further below is recalibrated for the card's
+   real width.
+   #quizRoot prefix (not just .gametype-modes .mode) is required to beat
+   #quizRoot .mode's own padding/min-height above on specificity --
+   #quizRoot .mode is (1 id, 1 class); a bare .gametype-modes .mode would
+   only be (0 id, 2 classes), which LOSES the id-count tiebreak regardless
+   of source order, same trap #gametype-quiz-desc's own comment documents. */
+#quizRoot .gametype-modes .mode,
+#quizRoot #gametype-opponent-wrap .modes .mode{min-height:82px;padding:11px 12px;gap:4px}
+/* Card heading/description font, scoped to just these four cards --
+   smaller than the generic .mode h2/p (1.3rem/.84rem) to fit the
+   shorter card above. Wording unchanged; #gametype-quiz-desc/
+   #gametype-guess-desc's own font-size rules further below (untouched
+   here) already override this p rule for those two specifically. */
+#quizRoot .gametype-modes .mode h2,
+#quizRoot #gametype-opponent-wrap .modes .mode h2{font-size:.92rem;line-height:1.1}
+#quizRoot .gametype-modes .mode p,
+#quizRoot #gametype-opponent-wrap .modes .mode p{font-size:.7rem;line-height:1.25}
+/* The narrowing/centering below 640px goes on the .modes CONTAINER, not
+   on each .mode -- a flex item with auto inline margins AND a max-width
+   (instead of an explicit width) sizes to its own shrink-to-fit content
+   width, capped by that max-width -- which made the opponent cards
+   (longer labels, "ადამიანის წინააღმდეგ" etc.) a DIFFERENT, wider,
+   shrink-to-fit result than the game-type cards (shorter labels) at
+   narrow widths below where either one actually reaches the cap, even
+   though both groups shared the same cap value. An explicit width (not
+   max-width) sidesteps shrink-to-fit entirely -- every card gets this
+   exact resolved width regardless of its own content, so all four match
+   each other, not just their own pair, at every width. Above 640px the
+   two-column layout already narrows both columns to the same ~270px grid
+   track, so this rule doesn't apply there -- not needed, same reasoning
+   the .mode rule above documents. */
+@media(max-width:640px){
+  .gametype-modes,
+  #gametype-opponent-wrap .modes{width:min(300px,100%);margin-inline:auto}
+}
+/* Heading above the opponent cards ("აირჩიე რეჟიმი") -- first child of
+   #gametype-opponent-wrap, so it reads as "above the opponent choice";
+   same centered-heading convention as the removed #screen-mode-heading
+   this merge replaced. Smaller font/margin than the first version of
+   this merge, for the same total-height-must-fit-one-screen reason as
+   the cards above. */
+.gametype-opp-heading{text-align:center;font-family:var(--display);font-weight:700;font-size:1.05rem;margin-bottom:4px;color:var(--text)}
+/* #quizRoot #gametype-quiz-desc (two IDs, 2-0-0) -- a bare
+   #gametype-quiz-desc (1-0-0) would tie #quizRoot .mode p's id count and
+   then lose the class tiebreak (1-1-1), same trap #gametype-guess-desc's
+   own comment above already documents. */
+#quizRoot #gametype-quiz-desc{font-size:.74rem}
 /* gametype-guess-desc (both UFC's and Football's text, see
    GAMETYPE_CARD_TEXT in quiz.js) must render as exactly its two <br>-
    separated lines at every viewport width, 320px up -- not the 3-4 lines
@@ -270,24 +364,83 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    max-width:none lets the paragraph use the card's real available width
    instead of the generic 240px cap; white-space:nowrap stops each line
    from wrapping within itself (the <br> between them still forces the
-   split, nowrap doesn't affect that). font-size is a calc() tied to the
-   exact same min(92vw, 560px) expression that already sizes #quizRoot
-   itself (see #quizRoot/.wrap above), so it shrinks in lockstep with the
-   card's real width below ~609px and stays constant above it, then capped
-   so it never grows past a comfortable reading size on wide screens.
-   Calibrated (headless Chrome + the real Noto Sans Georgian webfont,
-   measuring the longest of the two sports' two lines -- Football's first
-   line) to use ~90% of the available width at every tested size
-   (1920/1440/1024/768/390/320px), leaving a ~10% safety margin for
-   font-rendering differences across browsers/OSes. */
+   split, nowrap doesn't affect that).
+   Quiz screens merge: the card itself is no longer sized off the
+   viewport (#quizRoot's own width) -- it's now a FIXED width at every
+   breakpoint (270px in the >640px two-column layout; capped/centered at
+   280px, or narrower still via fit-content, at <=640px -- see
+   .gametype-modes .mode above), so a vw-based font-size formula no
+   longer tracks the card's real width at all. A single fixed px value
+   works instead, calibrated (headless Chrome + the real Noto Sans
+   Georgian webfont) against the tighter of the two real card widths this
+   now ever renders at (270px, the >640px two-column case) for the longer
+   of the two sports' two lines (Football's), with a safety margin --
+   confirmed to still fit at every other width this card can render at,
+   320px up. */
 #quizRoot #gametype-guess-desc{
   max-width:none;
   white-space:nowrap;
-  font-size:min(calc((92vw - 40px) * 0.03764), 19.5px);
+  font-size:9px;
 }
 #quizRoot .mode.locked{cursor:not-allowed;opacity:.55}
 #quizRoot .mode.locked:hover{transform:none;border-color:var(--line)}
 #quizRoot .mode-soon{position:absolute;top:10px;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:999px;padding:3px 10px;z-index:1;white-space:nowrap}
+/* Quiz screens merge -- an unselected game-type/opponent card has no
+   border at all; only the currently selected one gets one (same accent
+   colour, --green, #quizRoot .chip.sel already uses for the equivalent
+   "selected" state on the difficulty chips). border-color only (not the
+   shorthand) so each group's own border-WIDTH is untouched -- the
+   generic .mode's 1px, or the AI/PVP cards' own 2px below, which also
+   need their own override since an attribute selector there outranks
+   this plain class one. */
+#quizRoot .gametype-modes .mode,
+#quizRoot #gametype-opponent-wrap .modes .mode{border-color:transparent}
+#quizRoot .gametype-modes .mode.sel,
+#quizRoot #gametype-opponent-wrap .modes .mode.sel{border-color:var(--green)}
+/* Zero layout movement on selection: #quizRoot .mode:hover/:focus-visible
+   above applies transform:translateY(-2px) to ANY .mode site-wide (a
+   deliberate lift effect for the sport picker/difficulty chips etc.) --
+   but a plain click on these 4 cards (role="button", tabindex, not a
+   native <button>) DOES trigger :focus-visible in Chromium, so clicking
+   one shifted its own box by -2px, a small but real, measured
+   (getBoundingClientRect) position change this screen must never have.
+   transform:none overrides it back to static for just these cards;
+   their own border-color (above) already gives click feedback instead. */
+#quizRoot .gametype-modes .mode:hover,
+#quizRoot .gametype-modes .mode:focus-visible,
+#quizRoot #gametype-opponent-wrap .modes .mode:hover,
+#quizRoot #gametype-opponent-wrap .modes .mode:focus-visible{transform:none}
+/* Opponent section revealed once a game type is chosen (chooseGameType in
+   quiz.js toggles .show) -- same display:none/.show toggle pattern as
+   #quizRoot .diff-note above, not a new one. .gametype-layout's own
+   gap (both breakpoints: it's a grid item there, whether side by side or
+   stacked) already spaces it from the game-type column -- no extra
+   margin needed on top of that. */
+#gametype-opponent-wrap{display:none}
+#gametype-opponent-wrap.show{display:block}
+/* min-height:36px (not the generic .btn's 44px) + margin-top:8px (not
+   16px) -- same must-fit-one-screen-with-no-scrolling reason as the
+   cards/heading above; measured (headless Chrome, real clicks through
+   the actual sport->gametype->opponent flow, font.ready awaited) at
+   375x667 and 390x844 with every reduction in this merged screen
+   combined. */
+#gametype-opponent-wrap .btn{width:100%;margin-top:8px;min-height:36px;padding:8px 20px}
+/* Below 640px #gametype-opponent-wrap itself stays the full column width
+   (it also holds the heading, which reads better full-width) while
+   .modes (the two opponent cards) narrows to min(300px,100%), centered
+   -- so width:100% here no longer matches the cards above it. Same
+   min(300px,100%) + centering instead, so the button sits in the same
+   column as the cards, not stretched past them. display:block is
+   required for margin-inline:auto to actually center it -- .btn is a
+   <button>, inline-block by default (no display rule above sets
+   otherwise), and auto margins don't center inline-level boxes, only
+   block-level ones. Must come AFTER the base rule above: same selector
+   text, so without the media query this would just be a styles tie
+   resolved by source order -- being later is what makes it win here,
+   not specificity. */
+@media(max-width:640px){
+  #gametype-opponent-wrap .btn{display:block;width:min(300px,100%);margin-inline:auto}
+}
 
 /* vs-AI hologram card -- faithful red-palette port of a CodePen hologram-card
    effect, scoped to [data-mode="ai"] only; .mode already has
@@ -302,7 +455,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    no blur) now that the page has background artwork behind the card: the
    translucent fill let the artwork show through and made the heading hard
    to read, and the blur was pointless cost once the fill is opaque. */
-#quizRoot .mode[data-mode="ai"]{border:2px solid rgba(243,29,37,.5);background:var(--surface);box-shadow:0 0 15px rgba(243,29,37,.3)}
+/* Quiz screens merge: border is transparent until selected -- the
+   #gametype-opponent-wrap .modes .mode.sel rule above already covers
+   this card too (higher specificity: 2 ids vs. this rule's 1), so no
+   separate .sel override is needed here. The red glow (box-shadow)
+   stays permanent, it's not a border. */
+#quizRoot .mode[data-mode="ai"]{border:2px solid transparent;background:var(--surface);box-shadow:0 0 15px rgba(243,29,37,.3)}
 #quizRoot .mode[data-mode="ai"] .qai-glitch{position:relative;display:inline-block;text-shadow:0 0 8px rgba(243,29,37,.5)}
 #quizRoot .mode[data-mode="ai"] .qai-glitch::before,#quizRoot .mode[data-mode="ai"] .qai-glitch::after{content:attr(data-text);position:absolute;left:0;opacity:0;filter:blur(1px);transition:all .3s ease}
 #quizRoot .mode[data-mode="ai"] .qai-glitch::before{top:-2px;color:var(--red-soft);transform:translateX(0);animation:qaiGlitch 2s infinite}
@@ -314,7 +472,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    was removed on request. The fill stays var(--surface) so the card reads as
    opaque over the page's background artwork, like the AI card, and the green
    is var(--green) (#3ad17e), the site's existing accent, not pure #0f0. */
-#quizRoot .mode[data-mode="pvp"]{border:2px solid rgba(58,209,126,.5);background:var(--surface);box-shadow:0 0 15px rgba(58,209,126,.3)}
+/* Same transparent-until-selected treatment as the AI card above. */
+#quizRoot .mode[data-mode="pvp"]{border:2px solid transparent;background:var(--surface);box-shadow:0 0 15px rgba(58,209,126,.3)}
 
 #quizRoot .tinyinfo{margin-top:12px;text-align:center;color:var(--text);font-size:12px;line-height:1.5}
 
@@ -674,33 +833,35 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </section>
 
-  <!-- GAME TYPE SELECT -->
+  <!-- GAME TYPE + OPPONENT SELECT (merged -- choosing a game type reveals
+       the opponent cards + start button below it on this same screen;
+       see quiz.js's chooseGameType/resetGametypeUI) -->
   <section id="screen-gametype" class="screen">
-    <div class="back-row"><button class="qback" id="back-to-sport"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button><span id="gametype-sport-label" class="gametype-sport-label">UFC</span></div>
-    <div class="modes">
-      <div class="mode" tabindex="0" role="button" aria-label="ქვიზი" data-gametype="quiz">
-        <h2>ქვიზი</h2>
-        <p id="gametype-quiz-desc">კითხვები UFC-დან</p>
+    <div class="back-row"><button class="qback" id="back-to-sport"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button><span id="gametype-sport-label" class="gametype-sport-label">აირჩიე თამაშის ტიპი</span></div>
+    <div class="gametype-layout">
+      <div class="modes gametype-modes">
+        <div class="mode" tabindex="0" role="button" aria-label="ქვიზი" data-gametype="quiz">
+          <h2>ქვიზი</h2>
+          <p id="gametype-quiz-desc">კითხვები UFC-დან</p>
+        </div>
+        <div class="mode" tabindex="0" role="button" aria-label="ვინ ვარ" data-gametype="guess">
+          <h2>გამოიცანი ვინ ვარ</h2>
+          <p id="gametype-guess-desc">ფაქტებს გეტყვი მებრძოლებზე<br>ეცადე გამოიცნო ვისზეა საუბარი</p>
+        </div>
       </div>
-      <div class="mode" tabindex="0" role="button" aria-label="ვინ ვარ" data-gametype="guess">
-        <h2>გამოიცანი ვინ ვარ</h2>
-        <p id="gametype-guess-desc">ფაქტებს გეტყვი მებრძოლებზე<br>ეცადე გამოიცნო ვისზეა საუბარი</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- MODE SELECT -->
-  <section id="screen-mode" class="screen">
-    <div class="back-row"><button class="qback" id="back-to-gametype"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button></div>
-    <h2 id="screen-mode-heading" style="text-align:center;font-family:var(--display);margin-bottom:18px"></h2>
-    <div class="modes">
-      <div class="mode" tabindex="0" role="button" aria-label="AI-ის წინააღმდეგ" data-mode="ai">
-        <h2><span class="qai-glitch" data-text="AI-ის წინააღმდეგ">AI-ის წინააღმდეგ</span></h2>
-        <p>შეეჯიბრე შენს თავს</p>
-      </div>
-      <div class="mode" tabindex="0" role="button" aria-label="ადამიანის წინააღმდეგ - მეგობრის მოწვევა" data-mode="pvp">
-        <h2>ადამიანის წინააღმდეგ</h2>
-        <p>მოიწვიე 8-მდე მეგობარი</p>
+      <div id="gametype-opponent-wrap">
+        <h2 class="gametype-opp-heading">აირჩიე რეჟიმი</h2>
+        <div class="modes">
+          <div class="mode" tabindex="0" role="button" aria-label="AI-ის წინააღმდეგ" data-mode="ai">
+            <h2><span class="qai-glitch" data-text="AI-ის წინააღმდეგ">AI-ის წინააღმდეგ</span></h2>
+            <p>შეეჯიბრე შენს თავს</p>
+          </div>
+          <div class="mode" tabindex="0" role="button" aria-label="ადამიანის წინააღმდეგ - მეგობრის მოწვევა" data-mode="pvp">
+            <h2>ადამიანის წინააღმდეგ</h2>
+            <p>მოიწვიე 8-მდე მეგობარი</p>
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary" id="gametype-start-btn" disabled>დაწყება</button>
       </div>
     </div>
   </section>
@@ -915,9 +1076,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <label for="quizAuthEmail">ელ. ფოსტა</label>
       <input type="email" id="quizAuthEmail" placeholder="შეიყვანე შენი მეილი" autocomplete="username" />
     </div>
-    <div class="field">
-      <label for="quizAuthPass">პასვორდი</label>
-      <input type="password" id="quizAuthPass" placeholder="მინ. 6 სიმბოლო" autocomplete="current-password" />
+    <div class="field" id="quizAuthPassFieldLogin">
+      <label for="quizAuthPassLogin">პასვორდი</label>
+      <input type="password" id="quizAuthPassLogin" placeholder="მინ. 6 სიმბოლო" autocomplete="current-password" />
+    </div>
+    <div class="field" id="quizAuthPassFieldReg" style="display:none">
+      <label for="quizAuthPassReg">პასვორდი</label>
+      <input type="password" id="quizAuthPassReg" placeholder="მინ. 6 სიმბოლო" autocomplete="new-password" />
     </div>
   </form>
   <div id="quizAuthError" style="color:var(--red);font-size:.85rem;margin:-4px 0 6px;display:none"></div>
@@ -1043,7 +1208,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- ── SCRIPTS ── -->
 <script src="/fantasy-nav.js?v=14"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
-<script src="/quiz/quiz.js?v=70"></script>
+<script src="/quiz/quiz.js?v=74"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){

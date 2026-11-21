@@ -72,9 +72,9 @@ const PAGES = [
     // No sport-background preload here -- which sport the visitor will
     // pick isn't known until they click (see bgPreloadTags() below).
     bgSport: null,
-    // Likewise -- screen-gametype only shows after a sport is chosen, at
-    // which point quiz.js's updateLandAbout() sets this label itself.
-    gametypeSportLabel: '',
+    // Fixed text, same on all three pages now -- no longer sport-specific
+    // (quiz.js's updateLandAbout() no longer touches this label).
+    gametypeSportLabel: 'აირჩიე თამაშის ტიპი',
   },
   {
     outFile: 'quiz/ufcquiz/index.html',
@@ -90,7 +90,7 @@ const PAGES = [
     ],
     gametype: GAMETYPE_CARD_TEXT.UFC,
     bgSport: 'ufc',
-    gametypeSportLabel: 'UFC',
+    gametypeSportLabel: 'აირჩიე თამაშის ტიპი',
   },
   {
     outFile: 'quiz/footballquiz/index.html',
@@ -106,7 +106,7 @@ const PAGES = [
     ],
     gametype: GAMETYPE_CARD_TEXT.Football,
     bgSport: 'football',
-    gametypeSportLabel: 'ფეხბურთი',
+    gametypeSportLabel: 'აირჩიე თამაშის ტიპი',
   },
 ];
 

@@ -238,7 +238,18 @@ function setAuthModalMode(mode){
   // R5: sign-in (არა რეგისტრაცია) დასაშვებია მეილის/ნიქნეიმის/ნომრით — label/placeholder მხოლოდ signin-ზე იცვლება
   const emailLabel = document.querySelector('label[for="quizAuthEmail"]');
   const emailInput = document.getElementById('quizAuthEmail');
-  const passInput = document.getElementById('quizAuthPass');
+  // პაროლის ავტომატური "ძლიერი პაროლის" შეთავაზება: ერთ ველზე autocomplete-ის
+  // გადართვა (ძველი მიდგომა) არ მუშაობდა -- Chrome ველს პირველი რენდერის
+  // მიხედვით განსაზღვრავს და მერე აღარ გადაანალიზებს. ორი ცალკე, სტაბილური
+  // ID-ითა და ფიქსირებული autocomplete-ით ველი (quizAuthPassLogin/
+  // quizAuthPassReg) + display-ის გადართვა ხსნის ამას სტრუქტურულად, app.js-ის
+  // openModal()-ის იგივე ფიქსის ანალოგიურად.
+  const passFieldLogin = document.getElementById('quizAuthPassFieldLogin');
+  const passFieldReg = document.getElementById('quizAuthPassFieldReg');
+  const passLoginInput = document.getElementById('quizAuthPassLogin');
+  const passRegInput = document.getElementById('quizAuthPassReg');
+  if(passLoginInput) passLoginInput.value = '';
+  if(passRegInput) passRegInput.value = '';
   if(mode === 'signup'){
     if(nickField) nickField.style.display = '';
     if(title) title.textContent = 'რეგისტრაცია';
@@ -254,7 +265,8 @@ function setAuthModalMode(mode){
       emailInput.type = 'email';
       emailInput.autocomplete = 'username';
     }
-    if(passInput) passInput.autocomplete = 'new-password';
+    if(passFieldLogin) passFieldLogin.style.display = 'none';
+    if(passFieldReg) passFieldReg.style.display = '';
   } else {
     if(nickField) nickField.style.display = 'none';
     if(title) title.textContent = 'შესვლა';
@@ -272,7 +284,8 @@ function setAuthModalMode(mode){
       emailInput.inputMode = 'email';
       emailInput.autocomplete = 'username';
     }
-    if(passInput) passInput.autocomplete = 'current-password';
+    if(passFieldLogin) passFieldLogin.style.display = '';
+    if(passFieldReg) passFieldReg.style.display = 'none';
   }
   const switchBtn = document.getElementById('quizAuthSwitchBtn');
   if(switchBtn) switchBtn.addEventListener('click', ()=> setAuthModalMode(mode === 'signup' ? 'signin' : 'signup'));
@@ -296,7 +309,7 @@ function normalizePhone(raw){
 
 async function doQuizAuthSubmit(){
   const email = (document.getElementById('quizAuthEmail').value || '').trim();
-  const pass = document.getElementById('quizAuthPass').value || '';
+  const pass = document.getElementById(_authModalMode === 'signup' ? 'quizAuthPassReg' : 'quizAuthPassLogin').value || '';
   const btn = document.getElementById('quizAuthSubmit');
   if(!email || !pass){ showAuthError('შეავსე ყველა ველი'); return; }
   if(!sb){ showAuthError('სერვერთან კავშირი ვერ დამყარდა.'); return; }
@@ -571,6 +584,7 @@ function currentDifficulty(){
 const S = {
   sport:null,      // "UFC" | "Football" -- chosen on screen-sport, see chooseSport()
   gameType:null,   // "quiz" | "guess"
+  mode:null,       // "ai" | "pvp" -- opponent picked on the merged screen-gametype screen, before Start is pressed (see chooseGameType/resetGametypeUI)
   questions:[],
   gCluesShown:1,   // "ვინ ვარ?" — რამდენი მინიშნებაა ამჟამად გამოჩენილი
   qi:0,
@@ -617,13 +631,13 @@ function show(id){
   // შედეგი) ბრენდინგის მაგივრად პირდაპირ კითხვა/ტაიმერი ჩანდეს თავში.
   const hero = document.getElementById('quizHero');
   if(hero) hero.style.display = (id === "screen-sport") ? "" : "none";
-  // სპორტის მიხედვით ფონი -- ზუსტად 3 ეკრანზე (თამაშის ტიპი/ოპონენტი/
-  // ოთახის შექმნა-შესვლა). #quizApp.qzapp-sportbg(.qzapp-sport-ufc|
+  // სპორტის მიხედვით ფონი -- ზუსტად 2 ეკრანზე (თამაშის ტიპი+ოპონენტი
+  // გაერთიანებული ეკრანი / ოთახის შექმნა-შესვლა). #quizApp.qzapp-sportbg(.qzapp-sport-ufc|
   // -football) ჩართავს quiz-page.template.html-ის შესაბამის CSS წესს
   // (#quizApp::before-ის override, იხ. იქაური კომენტარი) -- დანარჩენ
   // ყველა ეკრანზე (სპორტის არჩევის ჩათვლით) იგივე საერთო BackgroundQuiz.webp
   // რჩება უცვლელი, რადგან ეს კლასი მხოლოდ აქ ემატება.
-  const sportBgScreens = ["screen-gametype","screen-mode","screen-pvp-setup"];
+  const sportBgScreens = ["screen-gametype","screen-pvp-setup"];
   const quizAppEl = document.getElementById('quizApp');
   if(quizAppEl){
     const sportBg = sportBgScreens.indexOf(id) > -1;
@@ -962,8 +976,9 @@ function updateLandAbout(){
   // sports' two-line rendering itself (nowrap + a calc()'d font-size tied
   // to the card's own width) -- no per-sport class needed here anymore.
   if(guessDesc) guessDesc.innerHTML = cardText.guess;
-  const sportLabel = document.getElementById("gametype-sport-label");
-  if(sportLabel) sportLabel.textContent = (S.sport === "Football") ? "ფეხბურთი" : (S.sport === "UFC") ? "UFC" : "";
+  // gametype-sport-label is now a fixed string ("აირჩიე თამაშის ტიპი",
+  // baked in by build-quiz-pages.js) on all three pages -- no longer
+  // sport-specific, so nothing to update here any more.
 }
 updateLandAbout();
 
@@ -972,7 +987,10 @@ function chooseSport(sport, opts){
   S.sport = sport; // "UFC" | "Football"
   persistCurrentSport(sport);
   updateLandAbout();
-  show("screen-gametype");
+  // ქვიზი წინასწარ არჩეულია ეკრანის გახსნისთანავე, რომ ოპონენტის არჩევანი
+  // მაშინვე ჩანდეს (push:false -- ეს default-ი არ ინახება ისტორიაში/URL-ში,
+  // მხოლოდ pushSportStep-ის სპორტის root URL-ი იწერება ქვემოთ).
+  chooseGameType("quiz", { push:false });
   if(opts.push !== false) pushSportStep(sport);
 }
 
@@ -992,9 +1010,31 @@ function pushSportStep(sport){
 }
 
 /* ============================================================
-   0) თამაშის ტიპის არჩევა (ქვიზი / ვინ ვარ?) -- UFC-ს ეკრანი
+   0) თამაშის ტიპის და ოპონენტის არჩევა (გაერთიანებული ეკრანი) -- თამაშის
+   ტიპის არჩევისას (ქვიზი / ვინ ვარ?) ოპონენტის ბარათები ("AI-ის
+   წინააღმდეგ" / "ადამიანის წინააღმდეგ") ამავე screen-gametype ეკრანზე
+   ქვემოთ ჩნდება (#gametype-opponent-wrap, .show კლასით) -- ცალკე
+   screen-mode ეკრანი აღარ არსებობს. data-locked მხარდაჭერა დარჩენილია
+   მომავალში ხელახლა გამოსაყენებლად, თუ ოდესმე კიდევ რომელიმე ოპონენტის
+   ბარათი დაიბლოკება.
    ============================================================ */
-$$("#screen-gametype .mode").forEach(card=>{
+const gametypeOppWrap = $("#gametype-opponent-wrap");
+const gametypeStartBtn = $("#gametype-start-btn");
+
+// S.gameType/S.mode-ზე დამოკიდებული UI-ს ნეიტრალურ მდგომარეობაში დაბრუნება
+// (ორივე ბარათის .sel მოხსნა, ოპონენტის სექცია დამალვა, "დაწყება" ღილაკის
+// გამორთვა) -- chooseGameType-ის (ახალი ტიპის არჩევისას) და PvP-დან/
+// ბარათების ეკრანიდან დაბრუნების ყველა წერტილში (resetToMode/
+// finishPvpResults/onPvpRoomAbandoned) გამოიყენება ერთნაირად.
+function resetGametypeUI(){
+  S.mode = null;
+  $$("#screen-gametype .gametype-modes .mode").forEach(c=> c.classList.remove("sel"));
+  $$("#gametype-opponent-wrap .mode").forEach(c=> c.classList.remove("sel"));
+  if(gametypeOppWrap) gametypeOppWrap.classList.remove("show");
+  if(gametypeStartBtn) gametypeStartBtn.disabled = true;
+}
+
+$$("#screen-gametype .gametype-modes .mode").forEach(card=>{
   const go = ()=> chooseGameType(card.dataset.gametype);
   card.addEventListener("click", go);
   card.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); }});
@@ -1003,10 +1043,27 @@ $$("#screen-gametype .mode").forEach(card=>{
 function chooseGameType(type, opts){
   opts = opts || {};
   S.gameType = type; // "quiz" | "guess"
-  $("#screen-mode-heading").textContent = type === "guess" ? "გამოიცანი ვინ ვარ მე" : "ქვიზი";
-  show("screen-mode");
+  resetGametypeUI(); // ახალი ტიპის არჩევისას ოპონენტის წინა არჩევანი ყოველთვის იწმინდება
+  $$("#screen-gametype .gametype-modes .mode").forEach(c=> c.classList.toggle("sel", c.dataset.gametype === type));
+  if(gametypeOppWrap) gametypeOppWrap.classList.add("show");
+  show("screen-gametype");
   if(opts.push !== false) pushQuizStep(type, null);
 }
+
+$$("#gametype-opponent-wrap .mode").forEach(card=>{
+  if(card.dataset.locked === "true") return; // მომავალში ჯერ არ ჩართული ბარათებისთვის
+  const go = ()=>{
+    S.mode = card.dataset.mode;
+    $$("#gametype-opponent-wrap .mode").forEach(c=> c.classList.toggle("sel", c === card));
+    if(gametypeStartBtn) gametypeStartBtn.disabled = !(S.gameType && S.mode);
+  };
+  card.addEventListener("click", go);
+  card.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); }});
+});
+if(gametypeStartBtn) gametypeStartBtn.addEventListener("click", ()=>{
+  if(!S.gameType || !S.mode) return;
+  startLobby(S.mode); // "ai" -> screen-lobby (სირთულის არჩევა); "pvp" -> startPvpSetup (ოთახის შექმნა/შესვლა)
+});
 
 // #quizHero's back control sits above the sport picker, outside the
 // QUIZ_STEPS history stack the other .qback buttons rely on -- it needs
@@ -1021,9 +1078,6 @@ if(quizHeroBackBtn) quizHeroBackBtn.addEventListener("click", (e)=>{
   }
 });
 
-const backBtn = $("#back-to-gametype");
-if(backBtn) backBtn.addEventListener("click", ()=> history.back());
-
 // screen-gametype is one level below the sport picker now (it used to be
 // the root screen and had no back control of its own) -- Back here always
 // means "return to the sport picker", same history.back() pattern as
@@ -1036,15 +1090,7 @@ $("#back-from-lobby").addEventListener("click", ()=>{ stopQuestionTimer(); histo
 /* ============================================================
    1) რეჟიმის არჩევა — "AI-ის წინააღმდეგ" (startLobby) ან "ადამიანის
    წინააღმდეგ" (startPvpSetup — PvP ჯგუფური ოთახი, იხ. §2.5 ქვემოთ).
-   data-locked მხარდაჭერა დარჩენილია მომავალში ხელახლა გამოსაყენებლად,
-   თუ ოდესმე კიდევ რომელიმე ბარათი დაიბლოკება.
    ============================================================ */
-$$("#screen-mode .mode").forEach(card=>{
-  if(card.dataset.locked === "true") return; // მომავალში ჯერ არ ჩართული ბარათებისთვის
-  const go = ()=> startLobby(card.dataset.mode);
-  card.addEventListener("click", go);
-  card.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); }});
-});
 
 /* ============================================================
    2) ლობი — სირთულის არჩევა, შემდეგ "დაწყება"
@@ -1569,8 +1615,7 @@ function onPvpRoomAbandoned(){
   stripRoomParam();
   showQuizToast("ოთახი დაიხურა.", 3500);
   resetPvp();
-  S.gameType = null;
-  show("screen-mode");
+  chooseGameType("quiz", { push:false }); // ეკრანის ხელახლა გახსნისას ისევ ქვიზი წინასწარ არჩეული
 }
 
 // get_quiz_results sorts players by total_score desc already (see
@@ -1757,8 +1802,7 @@ function finishPvpResults(){
   clearPvpRoomRecoveryState();
   stripRoomParam();
   resetPvp();
-  S.gameType = null;
-  show("screen-gametype");
+  chooseGameType("quiz", { push:false }); // ეკრანის ხელახლა გახსნისას ისევ ქვიზი წინასწარ არჩეული
   pushQuizStep(null, null);
 }
 $("#pvp-results-done").addEventListener("click", finishPvpResults);
@@ -2445,8 +2489,7 @@ $("#back-from-cards").addEventListener("click", resetToMode);
 
 function resetToMode(){
   stopQuestionTimer(); stopEndBattleAnimation();
-  S.gameType = null;
-  show("screen-gametype");
+  chooseGameType("quiz", { push:false }); // ეკრანის ხელახლა გახსნისას ისევ ქვიზი წინასწარ არჩეული
   pushQuizStep(null, null);
 }
 
