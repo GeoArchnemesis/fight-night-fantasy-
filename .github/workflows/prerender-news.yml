@@ -25,6 +25,12 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history, not the default shallow depth-1 clone --
+          # scripts/generate-sitemap.js derives every static page's
+          # <lastmod> from `git log -1 -- <path>`, which needs the real
+          # commit history to find anything on a shallow checkout.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -45,11 +51,11 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
-      - name: Sync news sitemap block
-        run: node scripts/sync-news-sitemap.js
+      - name: Generate sitemap
+        run: node scripts/generate-sitemap.js
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
 
       - name: Commit generated pages if changed
         run: |

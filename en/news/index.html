@@ -194,9 +194,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <!-- Grid content between the markers below is baked in by
      scripts/prerender-news.js so a crawler sees real <a href="/news/<slug>/">
-     anchors and titles in the raw HTML (same convention as sitemap.xml's
-     NEWS:START/END block, maintained by scripts/sync-news-sitemap.js).
-     nwRender() still redraws the same grid on top once Supabase replies,
+     anchors and titles in the raw HTML. sitemap.xml is generated
+     separately by scripts/generate-sitemap.js. nwRender() still redraws
+     the same grid on top once Supabase replies,
      for the KA/EN toggle and live like/comment counts -- that re-render
      is harmless, not a correctness requirement of the baked copy. -->
 <div id="nwGrid" class="nw-grid"><!-- NEWS-GRID:START -->

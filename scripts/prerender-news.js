@@ -42,8 +42,10 @@
 //  ever reads is_published=true rows, same filter the public site
 //  already applies). Writes local files under news/ and en/news/, plus
 //  the homepage's NEWS-HOME and the nine sport pages' VIDEO-SLIDER marker
-//  blocks and sitemap.xml's NEWS-EN block (internal links,
-//  FNF-SEO-PRD.md §5).
+//  blocks (internal links, FNF-SEO-PRD.md §5).
+//
+//  Does NOT write sitemap.xml -- scripts/generate-sitemap.js is the only
+//  script that owns that file; run it after this one.
 //
 //  Usage:
 //    node scripts/prerender-news.js
@@ -706,11 +708,10 @@ async function main() {
   const listingPristine = fs.readFileSync(LISTING_PATH, 'utf8');
 
   // Inject real <a href> anchors + titles into news/index.html's
-  // initial grid, between marker comments, same convention as
-  // scripts/sync-news-sitemap.js's NEWS:START/END block. Everything
-  // else in the file (nav, styles, client JS) is untouched -- nwRender()
-  // still re-draws the same grid on top once Supabase replies, for live
-  // like/comment counts and infinite scroll.
+  // initial grid, between marker comments (NEWS-GRID:START/END below).
+  // Everything else in the file (nav, styles, client JS) is untouched --
+  // nwRender() still re-draws the same grid on top once Supabase replies,
+  // for live like/comment counts and infinite scroll.
   try {
     const listing = buildListingPage(listingPristine, feedItems, 'ka');
     fs.writeFileSync(LISTING_PATH, listing, 'utf8');
@@ -719,47 +720,14 @@ async function main() {
     log(`✗ news/index.html: ${e.message}`);
   }
 
-  let enListingOk = false;
   try {
     const enListing = buildListingPage(listingPristine, feedItems, 'en');
     fs.mkdirSync(EN_NEWS_DIR, { recursive: true });
     fs.writeFileSync(path.join(EN_NEWS_DIR, 'index.html'), enListing, 'utf8');
     const enCount = feedItems.filter(hasEn).length;
     log(`✓ en/news/index.html grid updated (${enCount} card(s) baked in)`);
-    enListingOk = true;
   } catch (e) {
     log(`✗ en/news/index.html: ${e.message}`);
-  }
-
-  // Sitemap: per-article KA entries stay scripts/sync-news-sitemap.js's
-  // job (run separately, service_role) -- this script owns the EN block,
-  // the only sitemap data it alone has (which articles got an EN twin).
-  const sitemapPath = path.join(REPO_ROOT, 'sitemap.xml');
-  let sitemap = fs.readFileSync(sitemapPath, 'utf8');
-  const enStart = '<!-- NEWS-EN:START -->';
-  const enEnd = '<!-- NEWS-EN:END -->';
-  if (!sitemap.includes(enStart) || !sitemap.includes(enEnd)) {
-    log('✗ sitemap.xml has no NEWS-EN:START/END markers -- add them once, skipping EN sitemap entries.');
-  } else {
-    const enArticles = articles.filter(hasEn);
-    const articleLastmod = (a) => (a.published_at || a.created_at || '').slice(0, 10);
-    const listingLastmod = enArticles.map(articleLastmod).filter(Boolean).sort().pop() || '';
-    const urls = [enListingOk ? ['https://fnf.ge/en/news/', '0.6', listingLastmod] : null]
-      .concat(enArticles.map((a) => [urlFor(a.slug, 'en'), '0.5', articleLastmod(a)]))
-      .filter(Boolean);
-    const enUrls = urls.map(([loc, priority, lastmod]) => [
-      '  <url>',
-      `    <loc>${loc}</loc>`,
-      lastmod ? `    <lastmod>${lastmod}</lastmod>` : null,
-      `    <priority>${priority}</priority>`,
-      '  </url>',
-    ].filter(Boolean).join('\n')).join('\n');
-    const block = `${enStart}\n${enUrls}\n${enEnd}`;
-    const esi = sitemap.indexOf(enStart);
-    const eei = sitemap.indexOf(enEnd);
-    sitemap = sitemap.slice(0, esi) + block + sitemap.slice(eei + enEnd.length);
-    fs.writeFileSync(sitemapPath, sitemap, 'utf8');
-    log(`✓ sitemap.xml EN block updated (${urls.length} url(s))`);
   }
 
   // Homepage "სიახლეები" section (FNF-SEO-PRD.md §5a / task 3b): same

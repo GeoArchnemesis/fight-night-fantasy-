@@ -2,103 +2,94 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://fnf.ge/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://fnf.ge/ufc/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/quiz/</loc>
-    <lastmod>2026-11-19</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/quiz/ufcquiz/</loc>
-    <lastmod>2026-11-19</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/quiz/footballquiz/</loc>
-    <lastmod>2026-11-19</lastmod>
+    <lastmod>2026-11-22</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/f1/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/nba/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/football/laliga/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/football/epl/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/football/seriea/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/football/bundesliga/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/football/ligue1/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/football/ucl/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://fnf.ge/about/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://fnf.ge/rules/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://fnf.ge/news/</loc>
-    <lastmod>2026-10-18</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>0.6</priority>
   </url>
-  <!-- /profile/ intentionally left out: login-gated utility page with no unique
-       static content, noindex'd (see profile/index.html). -->
   <url>
     <loc>https://fnf.ge/terms/</loc>
-    <lastmod>2026-10-29</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
     <loc>https://fnf.ge/privacy/</loc>
-    <lastmod>2026-10-29</lastmod>
+    <lastmod>2026-11-21</lastmod>
     <priority>0.6</priority>
   </url>
-  <!-- Individual articles are NOT added here by hand — there can be many and
-       they come and go as the admin publishes/unpublishes. The block below is
-       maintained by scripts/sync-news-sitemap.js (run manually; see that file's
-       header). URLs point at /news/post.html?slug=... (the real working URL
-       today, per the Phase D3 decision) — update this script, not by hand,
-       once real /news/&lt;slug&gt;/ paths exist via per-route SSR. -->
-  <!-- NEWS:START -->
   <url>
     <loc>https://fnf.ge/news/david-kharabadze-talks-about-khvicha-kvaratskhelia/</loc>
     <lastmod>2026-11-04</lastmod>
@@ -114,11 +105,6 @@
     <lastmod>2026-10-18</lastmod>
     <priority>0.5</priority>
   </url>
-<!-- NEWS:END -->
-  <!-- English article/listing pages (/en/news/, /en/news/&lt;slug&gt;/ for
-       every article with a real EN translation), maintained by
-       scripts/prerender-news.js, same convention as the NEWS block above. -->
-  <!-- NEWS-EN:START -->
   <url>
     <loc>https://fnf.ge/en/news/</loc>
     <lastmod>2026-11-04</lastmod>
@@ -139,5 +125,4 @@
     <lastmod>2026-10-18</lastmod>
     <priority>0.5</priority>
   </url>
-<!-- NEWS-EN:END -->
 </urlset>
