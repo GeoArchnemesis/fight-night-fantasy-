@@ -37,7 +37,10 @@ supabase/.temp/
 SEOAUDITFNF.md
 EPICQUIZ.PRD
 CLOUDFLARE-PREVIEW-TESTS.md
-functions/
+# Root-level Cloudflare Pages Function scaffold (functions/[[path]].js), not
+# the supabase/functions/* edge functions -- anchored so it only matches the
+# repo-root directory and doesn't shadow supabase/functions/*.
+/functions/
 
 # Superseded by monthly_badges_pending_awards.sql + monthly_badges_resolver.sql
 # (the single-table schema this file creates was renamed to

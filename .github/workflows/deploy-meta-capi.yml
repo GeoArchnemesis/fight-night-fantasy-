@@ -1,0 +1,35 @@
+name: Deploy Meta CAPI Function
+
+# Deploys supabase/functions/meta-capi on every push that touches it, plus
+# workflow_dispatch for manual runs. Same one-workflow-per-function model as
+# deploy-trigger-prerender.yml and deploy-trigger-youtube-sync.yml.
+#
+# No "Set Edge Function secrets" step: unlike those functions, meta-capi's
+# own secrets (META_PIXEL_ID, META_CAPI_TOKEN, optional META_TEST_EVENT_CODE)
+# are configured directly in the Supabase Dashboard per the comment at the
+# top of supabase/functions/meta-capi/index.ts, not sourced from a GitHub
+# Actions secret -- there is nothing for this workflow to pass through.
+
+on:
+  push:
+    paths:
+      - 'supabase/functions/meta-capi/**'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Deploy Edge Function
+        run: |
+          supabase functions deploy meta-capi \
+            --project-ref ${{ secrets.SUPABASE_PROJECT_REF }} \
+            --yes
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
