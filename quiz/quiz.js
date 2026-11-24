@@ -893,8 +893,29 @@ const QUIZ_STEPS = [
 function quizStepFor(gameType, mode){
   return QUIZ_STEPS.find(s => s.gameType === (gameType || null) && s.mode === (mode || null));
 }
-// pushState + dataLayer for one of the seven forward transitions above.
-// Never called for a backward (popstate) move or on page load -- only
+// GA4 virtual-pageview tracking (replaces the old quiz_step event -- nothing
+// in GTM listened to it, so renaming it is safe). One push per real screen
+// change; _lastVirtualPageViewUrl guards against pushing twice in a row for
+// the same address, e.g. if a caller pushes and the address bar doesn't
+// actually end up different. page_path/page_title/page_location are always
+// read fresh from the document, after the history call that moved the
+// address bar -- so they're never stale relative to what's shown there.
+let _lastVirtualPageViewUrl = null;
+function pushVirtualPageView(extra){
+  const href = location.href;
+  if(href === _lastVirtualPageViewUrl) return;
+  _lastVirtualPageViewUrl = href;
+  window.dataLayer = window.dataLayer || [];
+  window.dataLayer.push(Object.assign({
+    event: "virtual_page_view",
+    page_path: location.pathname + location.search,
+    page_title: document.title,
+    page_location: href
+  }, extra || {}));
+}
+
+// pushState + virtual_page_view for one of the seven forward transitions
+// above. Never called for a backward (popstate) move or on page load -- only
 // from the four places below that build a screen's UI for the first time
 // in a given visit (chooseGameType, startLobby's ai branch, startPvpSetup,
 // and the two "play again"/"done" resets back to the gametype screen).
@@ -911,12 +932,11 @@ function pushQuizStep(gameType, mode){
   const roomParam = new URLSearchParams(location.search).get("room");
   const addressBarUrl = path + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
   history.pushState({ quizSport: S.sport, quizGameType: step.gameType, quizMode: step.mode }, "", addressBarUrl);
-  window.dataLayer = window.dataLayer || [];
-  const payload = { event: "quiz_step", page_path: path, page_title: step.title, external_id: (currentAuthUser && currentAuthUser.id) || "" };
-  if(S.sport) payload.quiz_sport = S.sport;
-  if(step.gameType) payload.quiz_game_type = step.gameType;
-  if(step.mode) payload.quiz_mode = step.mode;
-  window.dataLayer.push(payload);
+  const extra = { external_id: (currentAuthUser && currentAuthUser.id) || "" };
+  if(S.sport) extra.quiz_sport = S.sport;
+  if(step.gameType) extra.quiz_game_type = step.gameType;
+  if(step.mode) extra.quiz_mode = step.mode;
+  pushVirtualPageView(extra);
 }
 // Rebuilds a screen's UI for a given (sport, gameType, mode) triple without
 // touching history -- shared by popstate and the ?s= direct-link shim.
@@ -1034,8 +1054,7 @@ function pushSportStep(sport){
   const roomParam = new URLSearchParams(location.search).get("room");
   const addressBarUrl = root + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
   history.pushState({ quizSport: sport, quizGameType: null, quizMode: null }, "", addressBarUrl);
-  window.dataLayer = window.dataLayer || [];
-  window.dataLayer.push({ event: "quiz_step", page_path: root, page_title: "Quiz — Sport: " + sport, quiz_sport: sport, external_id: (currentAuthUser && currentAuthUser.id) || "" });
+  pushVirtualPageView({ quiz_sport: sport, external_id: (currentAuthUser && currentAuthUser.id) || "" });
 }
 
 /* ============================================================
@@ -2930,6 +2949,13 @@ window.addEventListener("popstate", e=>{
   }
   const st = e.state || {};
   quizRestoreStep(st.quizSport || null, st.quizGameType || null, st.quizMode || null);
+  // Browser Back/Forward inside the quiz is a real screen change too --
+  // pushQuizStep/pushSportStep only cover the forward direction.
+  const extra = { external_id: (currentAuthUser && currentAuthUser.id) || "" };
+  if(st.quizSport) extra.quiz_sport = st.quizSport;
+  if(st.quizGameType) extra.quiz_game_type = st.quizGameType;
+  if(st.quizMode) extra.quiz_mode = st.quizMode;
+  pushVirtualPageView(extra);
 });
 
 // initQuizDeepLink below resolves and consumes ?s=, then rewrites the URL

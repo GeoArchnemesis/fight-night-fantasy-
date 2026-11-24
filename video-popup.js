@@ -31,6 +31,23 @@
   var POPUP_ID = 'videoPopup';
   var FRAME_ID = 'videoPopupFrame';
 
+  // GA4 virtual-pageview tracking for the popup's two history-only states
+  // (?video=ID open, and closed). _lastVirtualPageViewUrl guards against a
+  // duplicate push if the resulting URL doesn't actually change.
+  var _lastVirtualPageViewUrl = null;
+  function pushVirtualPageView() {
+    var href = location.href;
+    if (href === _lastVirtualPageViewUrl) return;
+    _lastVirtualPageViewUrl = href;
+    window.dataLayer = window.dataLayer || [];
+    window.dataLayer.push({
+      event: 'virtual_page_view',
+      page_path: location.pathname + location.search,
+      page_title: document.title,
+      page_location: href
+    });
+  }
+
   function injectMarkup() {
     if (document.getElementById(POPUP_ID)) return;
     var bg = document.createElement('div');
@@ -51,7 +68,15 @@
     document.getElementById('videoPopupClose').addEventListener('click', function () { closeVideoPopup(); });
   }
 
-  function openVideoPopup(videoId, push) {
+  // push: whether this call should write a new history entry (false when
+  // the address bar already reflects this state -- popstate, or the
+  // initial-load direct-link case below). track: whether this call should
+  // report a virtual pageview -- defaults to the same as push, except
+  // popstate explicitly passes track:true even though push:false, since
+  // Back/Forward over the popup is still a real screen change; the
+  // initial-load case passes neither, so it stays silent (that URL's real
+  // pageview already covers it).
+  function openVideoPopup(videoId, push, track) {
     if (!videoId) return;
     injectMarkup();
     document.getElementById(FRAME_ID).src = 'https://www.youtube.com/embed/' + encodeURIComponent(videoId) + '?autoplay=1';
@@ -59,8 +84,9 @@
     if (push !== false) {
       history.pushState({ videoPopup: videoId }, '', location.pathname + '?video=' + encodeURIComponent(videoId));
     }
+    if (track === undefined ? push !== false : track) pushVirtualPageView();
   }
-  function closeVideoPopup(push) {
+  function closeVideoPopup(push, track) {
     var el = document.getElementById(POPUP_ID);
     if (el) el.classList.remove('show');
     var frame = document.getElementById(FRAME_ID);
@@ -68,6 +94,7 @@
     if (push !== false) {
       history.pushState({}, '', location.pathname);
     }
+    if (track === undefined ? push !== false : track) pushVirtualPageView();
   }
   window.openVideoPopup = openVideoPopup;
   window.closeVideoPopup = closeVideoPopup;
@@ -80,7 +107,7 @@
 
   window.addEventListener('popstate', function () {
     var id = new URLSearchParams(location.search).get('video');
-    if (id) openVideoPopup(id, false); else closeVideoPopup(false);
+    if (id) openVideoPopup(id, false, true); else closeVideoPopup(false, true);
   });
 
   // Click-delegation: ნებისმიერი [data-video-id] მქონე ელემენტი (ვიდეოს
