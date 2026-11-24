@@ -42,6 +42,12 @@ CLOUDFLARE-PREVIEW-TESTS.md
 # repo-root directory and doesn't shadow supabase/functions/*.
 /functions/
 
+# Local reference files kept out of git -- not served to users, just weight.
+FootballWhoAmI.pdf
+FOOTBALL-QUIZ-DATABASE.md
+UFC-QUIZ-DATABASE.md
+FOOTBALL-QUIZ-PRD.md
+
 # Superseded by monthly_badges_pending_awards.sql + monthly_badges_resolver.sql
 # (the single-table schema this file creates was renamed to
 # monthly_badges_deprecated). Kept locally for reference only -- must never be
