@@ -889,7 +889,7 @@ function rebuildSelNameDB(fighterName, s) {
 
 // ── SLIP OPEN/CLOSE ──
 function openSlip() { document.getElementById('slipBg').classList.add('show'); document.getElementById('slip').classList.add('show'); }
-function closeSlip() { document.getElementById('slipBg').classList.remove('show'); document.getElementById('slip').classList.remove('show'); }
+function closeSlip() { document.getElementById('slipBg')?.classList.remove('show'); document.getElementById('slip')?.classList.remove('show'); }
 
 // ── COUNTDOWN ──
 const cd_d = document.getElementById('cd-d'), cd_h = document.getElementById('cd-h'), cd_m = document.getElementById('cd-m'), cd_s = document.getElementById('cd-s');

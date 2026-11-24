@@ -763,7 +763,7 @@ async function loadLiveResults() {
 
 // ── SLIP open/close ──
 function openSlip() { $('slipBg').classList.add('show'); $('slip').classList.add('show'); }
-function closeSlip() { $('slipBg').classList.remove('show'); $('slip').classList.remove('show'); }
+function closeSlip() { $('slipBg')?.classList.remove('show'); $('slip')?.classList.remove('show'); }
 
 // ── COUNTDOWN ──
 const cd_d = $('cd-d'), cd_h = $('cd-h'), cd_m = $('cd-m'), cd_s = $('cd-s');

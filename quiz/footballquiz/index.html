@@ -151,15 +151,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   background-size:cover;
   background-position:center;
   background-repeat:no-repeat;
-  /* Slight softening only, on the pseudo-element alone -- the real quiz
-     content (#quizRoot and everything in it) is a separate element
-     entirely, never a descendant of this pseudo, so it's never affected
-     by this filter. Doesn't touch the darkening overlay gradient above
-     (still the same flat colour before and after a blur) or the image
-     file itself -- applies identically to every background-image this
-     rule and its sport-specific/UFC-football overrides below set, since
-     filter isn't something those override rules redeclare. */
-  filter:blur(4px);
+  /* Sharp, no blur -- this is the plain BackgroundQuiz.webp background used
+     everywhere except the 3 UFC/football sport-specific screens below.
+     The softening that used to live here unconditionally (applying to
+     every screen, both sports, mobile and desktop) is now scoped to just
+     UFC on mobile, on its own dedicated rule further down -- see the
+     max-width:920px override right after the sport-specific rules below.
+     Doesn't touch the darkening overlay gradient above (still the same
+     flat colour as every other rule in this file) or the image file
+     itself. */
 }
 @media(min-width:921px){
   #quizApp{min-height:480px}
@@ -186,6 +186,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   #quizApp.qzapp-sportbg.qzapp-sport-football::before{
     background-image:linear-gradient(rgba(11,10,18,.55),rgba(11,10,18,.55)),url(/images/quiz-bg-football-desktop.webp);
+  }
+}
+
+/* UFC only, mobile only -- same site-wide breakpoint used everywhere else
+   in this file (max-width:920px / min-width:921px), no new one introduced.
+   Re-adds, just for this one case, the softening the base #quizApp::before
+   rule above no longer has. Fires only while qzapp-sport-ufc is set (the
+   same 3 screens the sport-specific background-image rule above targets:
+   game-type, mode, pvp-setup) and only below the breakpoint -- UFC desktop
+   and football at every width stay sharp. Doesn't touch the
+   background-image, opacity or darkening overlay gradient set above. */
+@media(max-width:920px){
+  #quizApp.qzapp-sportbg.qzapp-sport-ufc::before{
+    filter:blur(4px);
   }
 }
 
