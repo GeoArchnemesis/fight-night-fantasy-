@@ -15,7 +15,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta name="description" content="ეს გვერდი ვერ მოიძებნა. დაბრუნდი მთავარ გვერდზე." />
 <meta name="robots" content="noindex" />
 <link rel="icon" type="image/x-icon" href="/favicon.ico" />
-<link rel="stylesheet" href="/style.css?v=231" />
+<link rel="stylesheet" href="/style.css?v=233" />
 <script>
   (function () {
     // დიდი/შერეული ასოების მისამართები რეალურ ფაილებზე გადავიყვანოთ.
@@ -66,6 +66,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       var quizRootMatch = /^\/(ufc\/quiz|quiz\/ufcquiz|quiz\/footballquiz)\//.exec(p);
       target = '/' + quizRootMatch[1] + '/';
       targetQuery = '?s=' + QUIZ_REST_CANON[p.slice(target.length)];
+    }
+    // TransferGalaxy.md §5: "გამოიცანი ტრანსფერი" -- football quiz only, so
+    // this branch (unlike the one above) matches only quiz/footballquiz/,
+    // never ufc/quiz or quiz/ufcquiz.
+    else if (/^\/quiz\/footballquiz\/(transfer|transferai|transfercoop)$/.test(p)) {
+      var FOOTBALL_REST_CANON = {
+        'transfer': 'transfer',
+        'transferai': 'transferAI',
+        'transfercoop': 'transfercoop'
+      };
+      target = '/quiz/footballquiz/';
+      targetQuery = '?s=' + FOOTBALL_REST_CANON[p.slice(target.length)];
     }
     // guard: pathname-ებს ვადარებთ (query/hash-ის გარეშე) → loop შეუძლებელია,
     // მხოლოდ query ან hash-ით განსხვავებულ გვერდსაც კი არ გადაამისამართებს საკუთარ თავზე.

@@ -430,6 +430,7 @@ function resumePendingIntent(){
   // intent.sport missing (an older/pre-sport-picker intent) defaults to
   // UFC -- every pre-existing intent was UFC-only.
   S.sport = intent.sport || 'UFC';
+  S.category = intent.category || S.sport;
   S.gameType = intent.gameType;
   updateLandAbout();
   if(intent.type === 'ai'){
@@ -574,7 +575,21 @@ const DIFFICULTY_FOOTBALL = [
   { key:"mixed",  label:"შერეული", acc:0.62, dbLevel:"შერეული", enabled:true,
     note:"ამ დონეზე ალბათ ყველაზე კარგად გაერთობი", color:"var(--blue)" },
 ];
+// TransferGalaxy.md §5: no level choice for this mode -- all four chips
+// render (same labels), but only შერეული is enabled:true, so the existing
+// auto-select/lock-icon machinery in buildDifficultyPicker/startPvpSetup
+// picks it for free. The other three stay locked with no dbLevel/acc ever
+// read (never clickable). Used by currentDifficulty() when S.category is
+// "Transfer" (checked before S.sport, since S.sport stays "Football" here).
+const DIFFICULTY_TRANSFER = [
+  { key:"easy",   label:"მარტივი", enabled:false },
+  { key:"medium", label:"საშუალო", enabled:false },
+  { key:"hard",   label:"რთული",   enabled:false },
+  { key:"mixed",  label:"შერეული", acc:0.62, dbLevel:"შერეული", enabled:true,
+    note:"ამ თამაშში შერეული ყველაზე სახალისოა", color:"var(--blue)" },
+];
 function currentDifficulty(){
+  if(S.category === "Transfer") return DIFFICULTY_TRANSFER;
   return S.sport === "Football" ? DIFFICULTY_FOOTBALL : DIFFICULTY_UFC;
 }
 
@@ -583,6 +598,7 @@ function currentDifficulty(){
    ============================================================ */
 const S = {
   sport:null,      // "UFC" | "Football" -- chosen on screen-sport, see chooseSport()
+  category:null,   // "UFC" | "Football" | "Transfer" -- the DB category passed to p_category; mirrors S.sport except for the Transfer game type (gameType stays "guess", sport stays "Football"), see chooseGameType()
   gameType:null,   // "quiz" | "guess"
   mode:null,       // "ai" | "pvp" -- opponent picked on the merged screen-gametype screen, before Start is pressed (see chooseGameType/resetGametypeUI)
   questions:[],
@@ -702,7 +718,7 @@ async function fetchQuestions(dbLevel){
     // get_ai_quiz_questions (supabase/quiz_no_repeat.sql) ირჩევს 10 კითხვას
     // სერვერზე, user-ის „ნანახის" ისტორიის გათვალისწინებით (no-repeat) —
     // კლიენტს აღარ სჭირდება მთელი პულის წამოღება/shuffle/slice.
-    const { data, error } = await sb.rpc('get_ai_quiz_questions', { p_game_type: 'quiz', p_level: dbLevel, p_category: S.sport || 'UFC' });
+    const { data, error } = await sb.rpc('get_ai_quiz_questions', { p_game_type: 'quiz', p_level: dbLevel, p_category: S.category || 'UFC' });
     if(error){ console.error("[quiz] Supabase შეცდომა:", error.message||error); return null; }
     // ⚠️ განზრახ არ ვბეჭდავთ არც კითხვის, არც პასუხის შემცველ მონაცემებს კონსოლში (anti-cheat).
     if(!Array.isArray(data) || !data.length) return null;
@@ -733,7 +749,7 @@ async function fetchGuessQuestions(dbLevel){
   if(!sb || !dbLevel) return null;
   try{
     // იხ. ზემოთ fetchQuestions-ის შენიშვნა — იგივე no-repeat RPC, guess-who პულზე.
-    const { data, error } = await sb.rpc('get_ai_quiz_questions', { p_game_type: 'guess', p_level: dbLevel, p_category: S.sport || 'UFC' });
+    const { data, error } = await sb.rpc('get_ai_quiz_questions', { p_game_type: 'guess', p_level: dbLevel, p_category: S.category || 'UFC' });
     if(error){ console.error("[quiz] Supabase შეცდომა (ვინ ვარ?):", error.message||error); return null; }
     // ⚠️ აქაც არ ვბეჭდავთ მონაცემებს (პასუხებს) კონსოლში.
     if(!Array.isArray(data) || !data.length) return null;
@@ -889,9 +905,18 @@ const QUIZ_STEPS = [
   { rest: "questionquiz/quizcoop", gameType: "quiz",  mode: "pvp", title: "Quiz — vs Friends" },
   { rest: "wheamI/whoAI",          gameType: "guess", mode: "ai",  title: "Guess Who — vs AI" },
   { rest: "wheamI/whocoop",        gameType: "guess", mode: "pvp", title: "Guess Who — vs Friends" },
+  // TransferGalaxy.md §5: football-only. Internally this IS game_type="guess"
+  // (S.gameType stays "guess"), only the category differs ("Transfer" vs
+  // "UFC"/"Football") -- category:"Transfer" here is what lets quizStepFor
+  // below tell these three apart from the three wheamI/* rows above, which
+  // otherwise share the exact same (gameType,mode) pairs.
+  { rest: "transfer",              gameType: "guess", mode: null,  category: "Transfer", title: "Transfer — Choose Mode" },
+  { rest: "transferAI",            gameType: "guess", mode: "ai",  category: "Transfer", title: "Transfer — vs AI" },
+  { rest: "transfercoop",          gameType: "guess", mode: "pvp", category: "Transfer", title: "Transfer — vs Friends" },
 ];
-function quizStepFor(gameType, mode){
-  return QUIZ_STEPS.find(s => s.gameType === (gameType || null) && s.mode === (mode || null));
+function quizStepFor(gameType, mode, category){
+  const wantTransfer = category === "Transfer";
+  return QUIZ_STEPS.find(s => s.gameType === (gameType || null) && s.mode === (mode || null) && !!s.category === wantTransfer);
 }
 // GA4 virtual-pageview tracking (replaces the old quiz_step event -- nothing
 // in GTM listened to it, so renaming it is safe). One push per real screen
@@ -923,7 +948,7 @@ function pushVirtualPageView(extra){
 // UFC (no separate URL scheme this run, see pushSportStep below) --
 // quizSport is carried in history.state only, never in the path/rest.
 function pushQuizStep(gameType, mode){
-  const step = quizStepFor(gameType, mode);
+  const step = quizStepFor(gameType, mode, S.category);
   if(!step) return;
   const path = quizRootForSport(S.sport) + step.rest;
   // ?room=<code> (the PvP share link) has to survive every pushState
@@ -931,7 +956,7 @@ function pushQuizStep(gameType, mode){
   // pushState(..., path) would silently drop it from the address bar.
   const roomParam = new URLSearchParams(location.search).get("room");
   const addressBarUrl = path + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
-  history.pushState({ quizSport: S.sport, quizGameType: step.gameType, quizMode: step.mode }, "", addressBarUrl);
+  history.pushState({ quizSport: S.sport, quizGameType: step.gameType, quizMode: step.mode, quizCategory: S.category }, "", addressBarUrl);
   const extra = { external_id: (currentAuthUser && currentAuthUser.id) || "" };
   if(S.sport) extra.quiz_sport = S.sport;
   if(step.gameType) extra.quiz_game_type = step.gameType;
@@ -943,9 +968,10 @@ function pushQuizStep(gameType, mode){
 // Reuses chooseSport/chooseGameType/startLobby themselves (push:false)
 // rather than duplicating their UI-building logic. sport===null means the
 // true root (screen-sport, nothing chosen yet -- see pushSportStep).
-function quizRestoreStep(sport, gameType, mode){
+function quizRestoreStep(sport, gameType, mode, category){
   if(!sport){
     S.sport = null;
+    S.category = null;
     S.gameType = null;
     show("screen-sport");
     updateLandAbout();
@@ -957,11 +983,13 @@ function quizRestoreStep(sport, gameType, mode){
     chooseSport(sport, { push:false });
     return;
   }
+  const isTransfer = category === "Transfer";
   if(!mode){
-    chooseGameType(gameType, { push:false });
+    chooseGameType(isTransfer ? "transfer" : gameType, { push:false });
     return;
   }
   S.gameType = gameType;
+  S.category = isTransfer ? "Transfer" : sport;
   startLobby(mode, { push:false });
 }
 
@@ -999,7 +1027,8 @@ const GAMETYPE_CARD_TEXT = {
   },
   Football: {
     quiz: "კითხვები ფეხბურთიდან",
-    guess: "ფეხბურთთან დაკავშირებულ ფაქტებს გეტყვი<br>ეცადე გამოიცნო ვისზე ან რაზეა საუბარი"
+    guess: "ფეხბურთთან დაკავშირებულ ფაქტებს გეტყვი<br>ეცადე გამოიცნო ვისზე ან რაზეა საუბარი",
+    transfer: "მინიშნებებით გამოიცანი ფეხბურთელი"
   }
 };
 
@@ -1028,6 +1057,13 @@ function updateLandAbout(){
   // gametype-sport-label is now a fixed string ("აირჩიე თამაშის ტიპი",
   // baked in by build-quiz-pages.js) on all three pages -- no longer
   // sport-specific, so nothing to update here any more.
+  // TransferGalaxy.md §5: the third game-type card is football-only --
+  // hidden on UFC and on the neutral (no-sport-yet) state, same as the
+  // DIFFICULTY_FOOTBALL/GAMETYPE_CARD_TEXT.Football split above.
+  const transferCard = document.querySelector('#screen-gametype .gametype-modes [data-gametype="transfer"]');
+  const transferDesc = document.getElementById("gametype-transfer-desc");
+  if(transferDesc && cardText.transfer) transferDesc.textContent = cardText.transfer;
+  if(transferCard) transferCard.style.display = (S.sport === "Football") ? "" : "none";
 }
 updateLandAbout();
 
@@ -1053,7 +1089,7 @@ function pushSportStep(sport){
   const root = quizRootForSport(sport);
   const roomParam = new URLSearchParams(location.search).get("room");
   const addressBarUrl = root + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
-  history.pushState({ quizSport: sport, quizGameType: null, quizMode: null }, "", addressBarUrl);
+  history.pushState({ quizSport: sport, quizGameType: null, quizMode: null, quizCategory: null }, "", addressBarUrl);
   pushVirtualPageView({ quiz_sport: sport, external_id: (currentAuthUser && currentAuthUser.id) || "" });
 }
 
@@ -1100,28 +1136,23 @@ $$("#screen-gametype .gametype-modes .mode").forEach(card=>{
   const go = ()=> chooseGameType(card.dataset.gametype);
   card.addEventListener("click", go);
   card.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); }});
-  // Connector hover preview (2026-11-22 request, Part 4) -- desktop only;
-  // CSS keeps #gametype-connector display:none below 641px, so this is
-  // visually inert on mobile. Hovering an unselected game-type card
-  // previews the curve from THIS card to the currently selected opponent
-  // card.
-  card.addEventListener("mouseenter", ()=>{
-    if(card.classList.contains("sel")) return;
-    const selMode = $("#gametype-opponent-wrap .modes .mode.sel");
-    if(selMode) drawGametypePreview(card, selMode);
-  });
-  card.addEventListener("mouseleave", clearGametypePreview);
 });
 
 function chooseGameType(type, opts){
   opts = opts || {};
-  S.gameType = type; // "quiz" | "guess"
+  // "transfer" (the third card's data-gametype) is a routing/category label,
+  // not a real game_type -- TransferGalaxy.md §5: S.gameType stays "guess"
+  // (every existing "guess" branch then applies for free), only S.category
+  // becomes "Transfer" instead of mirroring S.sport.
+  const isTransfer = type === "transfer";
+  S.gameType = isTransfer ? "guess" : type; // "quiz" | "guess"
+  S.category = isTransfer ? "Transfer" : S.sport;
   resetGametypeUI(); // ახალი ტიპის არჩევისას ოპონენტის წინა არჩევანი ყოველთვის იწმინდება
   $$("#screen-gametype .gametype-modes .mode").forEach(c=> c.classList.toggle("sel", c.dataset.gametype === type));
   if(gametypeOppWrap) gametypeOppWrap.classList.add("show");
   show("screen-gametype");
   drawGametypeConnector();
-  if(opts.push !== false) pushQuizStep(type, null);
+  if(opts.push !== false) pushQuizStep(S.gameType, null);
 }
 
 $$("#gametype-opponent-wrap .mode").forEach(card=>{
@@ -1130,19 +1161,10 @@ $$("#gametype-opponent-wrap .mode").forEach(card=>{
     S.mode = card.dataset.mode;
     $$("#gametype-opponent-wrap .mode").forEach(c=> c.classList.toggle("sel", c === card));
     if(gametypeStartBtn) gametypeStartBtn.disabled = !(S.gameType && S.mode);
-    clearGametypePreview();
     drawGametypeConnector();
   };
   card.addEventListener("click", go);
   card.addEventListener("keydown", e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); }});
-  // Hovering an unselected opponent card previews the curve from the
-  // currently selected game-type card to THIS card.
-  card.addEventListener("mouseenter", ()=>{
-    if(card.classList.contains("sel")) return;
-    const selGametype = $("#screen-gametype .gametype-modes .mode.sel");
-    if(selGametype) drawGametypePreview(selGametype, card);
-  });
-  card.addEventListener("mouseleave", clearGametypePreview);
 });
 if(gametypeStartBtn) gametypeStartBtn.addEventListener("click", ()=>{
   if(!S.gameType || !S.mode) return;
@@ -1150,23 +1172,32 @@ if(gametypeStartBtn) gametypeStartBtn.addEventListener("click", ()=>{
 });
 
 /* ============================================================
-   Connector line (2026-11-22 request, Parts 3/4) -- static SVG curve
-   between the selected game-type card and the selected opponent card,
-   plus a faint hover preview of where it would move. Desktop only (CSS
-   hides #gametype-connector entirely below 641px); both draw functions
-   below bail out harmlessly whenever a selected card can't be found,
-   which covers the mobile/hidden-screen case too (no separate guard
-   needed). Redrawn on selection change (the two "go" closures above, plus
-   chooseGameType above), window resize, and once web fonts finish loading
-   (a font swap can shift each card's real width/height after first paint).
+   Connector line (TransferGalaxy.md §6) -- SVG overlay joining the selected
+   game-type card to the selected opponent card. Desktop (and UFC/bare-sport
+   mobile, unchanged from before): a single bezier curve from the gt card's
+   right edge to the md card's left edge. Football's mobile layout now has
+   three game-type cards arranged with ქვიზი/გამოიცანი ტრანსფერი side by
+   side (see the grid-template-areas CSS), so on football mobile the line
+   instead routes around the outside of the cards: it leaves the selected
+   game-type card from its left edge (ქვიზი/გამოიცანი ვინ ვარ) or right edge
+   (გამოიცანი ტრანსფერი), runs down a single vertical track just outside
+   both cards in the margin beside them (never through a card, never across
+   the "აირჩიე რეჟიმი" heading), then enters the selected mode card from
+   that same side. Both branches bail out harmlessly whenever a selected
+   card can't be found. Redrawn on selection change (the two "go" closures
+   above, plus chooseGameType above), window resize, and once web fonts
+   finish loading (a font swap can shift each card's real width/height
+   after first paint). The hover preview that used to live here
+   (drawGametypePreview/clearGametypePreview/.gtc-preview) is permanently
+   removed, on every viewport -- do not restore it.
    ============================================================ */
 const gametypeLayoutEl = document.querySelector(".gametype-layout");
 const gametypeConnectorSvg = document.getElementById("gametype-connector");
 const gtcLine = gametypeConnectorSvg && gametypeConnectorSvg.querySelector(".gtc-line");
 const gtcBase = gametypeConnectorSvg && gametypeConnectorSvg.querySelector(".gtc-base");
-const gtcPreview = gametypeConnectorSvg && gametypeConnectorSvg.querySelector(".gtc-preview");
 const gtcDotA = gametypeConnectorSvg && gametypeConnectorSvg.querySelector(".gtc-dot-a");
 const gtcDotB = gametypeConnectorSvg && gametypeConnectorSvg.querySelector(".gtc-dot-b");
+const gtcMobileQuery = (typeof window !== "undefined" && window.matchMedia) ? window.matchMedia("(max-width:640px)") : null;
 
 // Mid-point of a card's right or left edge, in pixels relative to
 // containerRect (always .gametype-layout's own getBoundingClientRect()).
@@ -1181,6 +1212,21 @@ function gtcPathFor(p1, p2){
   const dx = (p2.x - p1.x) * 0.55;
   return "M " + p1.x + " " + p1.y + " C " + (p1.x + dx) + " " + p1.y + ", " + (p2.x - dx) + " " + p2.y + ", " + p2.x + " " + p2.y;
 }
+// Football mobile only -- straight-line route around the outside of the
+// cards: out from p1 to a vertical track just past both cards' own edge
+// (on the exit side), down/up that one track, then in to p2. trackX is
+// derived from the cards' own live rects (not a hardcoded guess), so it
+// adapts to however much margin the centred, width-capped card column
+// actually has on either side at the current viewport width.
+function gtcAroundPathFor(gtCard, mdCard, side, containerRect, p1, p2){
+  const gtRect = gtCard.getBoundingClientRect();
+  const mdRect = mdCard.getBoundingClientRect();
+  const margin = 8;
+  const trackX = side === "left"
+    ? Math.min(gtRect.left, mdRect.left) - containerRect.left - margin
+    : Math.max(gtRect.right, mdRect.right) - containerRect.left + margin;
+  return "M " + p1.x + " " + p1.y + " L " + trackX + " " + p1.y + " L " + trackX + " " + p2.y + " L " + p2.x + " " + p2.y;
+}
 function drawGametypeConnector(){
   if(!gametypeConnectorSvg || !gametypeLayoutEl) return;
   const gtCard = document.querySelector("#screen-gametype .gametype-modes .mode.sel");
@@ -1188,22 +1234,27 @@ function drawGametypeConnector(){
   if(!gtCard || !mdCard){ gtcLine.setAttribute("d", ""); gtcBase.setAttribute("d", ""); return; }
   const containerRect = gametypeLayoutEl.getBoundingClientRect();
   gametypeConnectorSvg.setAttribute("viewBox", "0 0 " + containerRect.width + " " + containerRect.height);
-  const p1 = gtcEdgePoint(gtCard, "right", containerRect);
-  const p2 = gtcEdgePoint(mdCard, "left", containerRect);
-  const d = gtcPathFor(p1, p2);
+  // Football's own mobile card layout (quiz/transfer side by side) is the
+  // only case the around-the-outside route applies to -- UFC/bare mobile
+  // keep today's single-column cards and the connector stays hidden there
+  // (see the CSS), so this branch is moot for them either way.
+  const isFootballMobile = !!(gtcMobileQuery && gtcMobileQuery.matches
+    && document.getElementById("quizApp") && document.getElementById("quizApp").classList.contains("qzapp-sport-football"));
+  let p1, p2, d;
+  if(isFootballMobile){
+    const side = gtCard.dataset.gametype === "transfer" ? "right" : "left";
+    p1 = gtcEdgePoint(gtCard, side, containerRect);
+    p2 = gtcEdgePoint(mdCard, side, containerRect);
+    d = gtcAroundPathFor(gtCard, mdCard, side, containerRect, p1, p2);
+  } else {
+    p1 = gtcEdgePoint(gtCard, "right", containerRect);
+    p2 = gtcEdgePoint(mdCard, "left", containerRect);
+    d = gtcPathFor(p1, p2);
+  }
   gtcLine.setAttribute("d", d);
   gtcBase.setAttribute("d", d);
   gtcDotA.setAttribute("cx", p1.x); gtcDotA.setAttribute("cy", p1.y);
   gtcDotB.setAttribute("cx", p2.x); gtcDotB.setAttribute("cy", p2.y);
-}
-function drawGametypePreview(fromCard, toCard){
-  if(!gtcPreview || !gametypeLayoutEl) return;
-  const containerRect = gametypeLayoutEl.getBoundingClientRect();
-  gtcPreview.setAttribute("d", gtcPathFor(gtcEdgePoint(fromCard, "right", containerRect), gtcEdgePoint(toCard, "left", containerRect)));
-  gtcPreview.classList.add("show");
-}
-function clearGametypePreview(){
-  if(gtcPreview) gtcPreview.classList.remove("show");
 }
 window.addEventListener("resize", drawGametypeConnector);
 if(document.fonts && document.fonts.ready) document.fonts.ready.then(drawGametypeConnector);
@@ -1268,7 +1319,7 @@ function buildDifficultyPicker(action, { onReady, startLabel, onStart }){
   startBtn.disabled = true;
   startBtn.onclick = ()=>{
     if(S.aiAcc == null) return;
-    requireAuth(()=> startDifficulty(), { type:'ai', gameType:S.gameType, sport:S.sport });
+    requireAuth(()=> startDifficulty(), { type:'ai', gameType:S.gameType, sport:S.sport, category:S.category });
   };
   async function startDifficulty(){
     startBtn.disabled = true;
@@ -1288,7 +1339,9 @@ function buildDifficultyPicker(action, { onReady, startLabel, onStart }){
     c.className = "chip"; c.textContent = d.label + (d.enabled ? "" : " 🔒");
     if(!d.enabled){
       c.disabled = true;
-      c.title = "მალე დაემატება - ჯერ არ არის კითხვები ამ დონეზე სერვერზე.";
+      // TransferGalaxy.md §5: no hover title on locked chips in this mode --
+      // UFC/Football keep the existing tooltip.
+      if(S.category !== "Transfer") c.title = "მალე დაემატება - ჯერ არ არის კითხვები ამ დონეზე სერვერზე.";
     } else {
       c.onclick = ()=>{
         S.aiAcc = d.acc;
@@ -1478,7 +1531,9 @@ function startPvpSetup(opts){
     c.className = "chip"; c.textContent = d.label + (d.enabled ? "" : " 🔒");
     if(!d.enabled){
       c.disabled = true;
-      c.title = "მალე დაემატება - ჯერ არ არის კითხვები ამ დონეზე სერვერზე.";
+      // TransferGalaxy.md §5: no hover title on locked chips in this mode --
+      // UFC/Football keep the existing tooltip.
+      if(S.category !== "Transfer") c.title = "მალე დაემატება - ჯერ არ არის კითხვები ამ დონეზე სერვერზე.";
     } else {
       c.onclick = ()=>{
         chosenLevel = d.dbLevel;
@@ -1537,7 +1592,7 @@ function startPvpSetup(opts){
 
   createBtn.onclick = ()=> requireAuth(
     ()=> createPvpRoom(chosenLevel, S.gameType === "guess" ? answerTimeSeconds : undefined),
-    { type:'pvp-create', gameType:S.gameType, sport:S.sport }
+    { type:'pvp-create', gameType:S.gameType, sport:S.sport, category:S.category }
   );
 
   const codeInput = $("#pvp-join-code");
@@ -1547,7 +1602,7 @@ function startPvpSetup(opts){
   const urlCode = new URLSearchParams(location.search).get("room");
   codeInput.value = urlCode ? urlCode.toUpperCase() : "";
 
-  $("#pvp-join-btn").onclick = ()=> requireAuth(()=> joinPvpRoom(codeInput.value), { type:'pvp-join', gameType:S.gameType, sport:S.sport, roomCode:codeInput.value });
+  $("#pvp-join-btn").onclick = ()=> requireAuth(()=> joinPvpRoom(codeInput.value), { type:'pvp-join', gameType:S.gameType, sport:S.sport, category:S.category, roomCode:codeInput.value });
 
   show("screen-pvp-setup");
   if(opts.push !== false) pushQuizStep(S.gameType, "pvp");
@@ -1572,7 +1627,7 @@ async function createPvpRoom(level, answerTimeSeconds){
   const btn = $("#pvp-create-btn");
   btn.disabled = true; btn.textContent = "იქმნება…";
   try{
-    const { data, error } = await sb.rpc('create_quiz_room', { p_game_type: S.gameType || 'quiz', p_level: level, p_category: S.sport || 'UFC' });
+    const { data, error } = await sb.rpc('create_quiz_room', { p_game_type: S.gameType || 'quiz', p_level: level, p_category: S.category || 'UFC' });
     if(error || !data || !data.length){
       showQuizToast("ოთახის შექმნა ვერ მოხერხდა: " + pvpErrorMessage(error), 3500);
       btn.disabled = false; btn.textContent = "ოთახის შექმნა";
@@ -1615,7 +1670,14 @@ async function joinPvpRoom(codeRaw){
     }
     const row = data[0];
     S.gameType = row.game_type;
-    S.sport = row.category || 'UFC';
+    S.category = row.category || 'UFC';
+    // TransferGalaxy.md §5: Transfer rooms map back to S.sport = "Football"
+    // (sport keeps its own, separate meaning -- background/root URL/GA4/
+    // label) and S.gameType = "guess" (already true -- a Transfer room's
+    // row.game_type is always "guess", see createPvpRoom -- restated here
+    // for clarity/robustness).
+    if(S.category === 'Transfer'){ S.sport = 'Football'; S.gameType = 'guess'; }
+    else { S.sport = S.category; }
     updateLandAbout();
     enterPvpLobby({ roomId: row.room_id, code, isHost: false, questions: row.questions });
   }catch(e){
@@ -2449,18 +2511,17 @@ function renderGuessQuestion(){
     startGuessTimer();
   }
 
-  // 2026-11-22: same scrollIntoView call submitGuess() already uses to
-  // bring .qcard back into view (the "one deliberate scroll in the whole
-  // quiz flow" comment there), reused here so it also fires when the NEW
-  // question actually renders -- not just at submit/feedback time. Single
-  // player's normal-answer path already happened to land in the right
-  // place because nothing moved the viewport between that submit-time
+  // Same call submitGuess() already uses (see its own comment) to recover
+  // the viewport after an answer, reused here so it also fires when the
+  // NEW question actually renders -- not just at submit/feedback time.
+  // Single player's normal-answer path already happened to land in the
+  // right place because nothing moved the viewport between that submit-time
   // scroll and the next render; "არ ვიცი" (submitGuess(false, true)) and
   // every PvP path (which returns out of submitGuess before reaching that
   // scroll at all -- PvP renders its next question immediately, no
   // separate "next question" click) did not. This one call, unconditional
   // and un-branched by viewport width, covers all of them identically.
-  fb.closest(".qcard").scrollIntoView({ behavior: "smooth", block: "start" });
+  window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
 // "ვინ ვარ?" — GUESS_TIME_PER_Q წამი (PvP-ის და AI-ის წინააღმდეგ ორივეში,
@@ -2615,11 +2676,13 @@ function submitGuess(forced, giveUp){
   // #gq-answer-area just collapsed (display:none above), so on a short
   // mobile viewport the question/clues can be scrolled out of frame above
   // it (the player was scrolled down to reach the input/submit button) --
-  // the result is then unreadable without its context. This is the one
-  // deliberate scroll in the whole quiz flow; it must not be copied
-  // anywhere else questions are shown.
-  const qcard = fb.closest(".qcard");
-  if(qcard) qcard.scrollIntoView({ behavior: "smooth", block: "start" });
+  // the result is then unreadable without its context. Scrolling all the
+  // way to the top (rather than just bringing .qcard back into view) is
+  // the deliberate choice sitewide after answering any question, in every
+  // game/mode -- see the matching call in answer() (ქვიზი) and the one
+  // just above in renderGuessQuestion() (this same screen's own PvP/next-
+  // question path).
+  window.scrollTo({ top: 0, behavior: "smooth" });
 
   const nextBtn = $("#gq-next-q");
   nextBtn.style.display = "";
@@ -2670,6 +2733,11 @@ if(window.visualViewport){
 
 function answer(chosen, btn){
   stopQuestionTimer();
+  // Scroll all the way to the top after answering -- same choice as the
+  // "ვინ ვარ"/"ტრანსფერი" screen's own two calls (renderGuessQuestion/
+  // submitGuess), applied here so ქვიზი matches, AI and PvP alike (this
+  // function is the only answer path for both -- see advanceOrFinish()).
+  window.scrollTo({ top: 0, behavior: "smooth" });
   const opts = $$("#q-opts .opt");
   opts.forEach(o=> o.disabled = true);
   if(chosen>=0){
@@ -2908,7 +2976,7 @@ function renderReview(){
 $("#cb-restart").addEventListener("click", ()=>{
   stopQuestionTimer(); stopEndBattleAnimation();
   if(!S.gameType){ resetToMode(); return; }
-  chooseGameType(S.gameType);
+  chooseGameType(S.category === "Transfer" ? "transfer" : S.gameType);
 });
 $("#cb-finish").addEventListener("click", ()=>{
   stopQuestionTimer(); stopEndBattleAnimation();
@@ -2948,7 +3016,7 @@ window.addEventListener("popstate", e=>{
     if(roomId && sb) sb.rpc('leave_quiz_room', { p_room_id: roomId }).catch(()=>{});
   }
   const st = e.state || {};
-  quizRestoreStep(st.quizSport || null, st.quizGameType || null, st.quizMode || null);
+  quizRestoreStep(st.quizSport || null, st.quizGameType || null, st.quizMode || null, st.quizCategory || null);
   // Browser Back/Forward inside the quiz is a real screen change too --
   // pushQuizStep/pushSportStep only cover the forward direction.
   const extra = { external_id: (currentAuthUser && currentAuthUser.id) || "" };
@@ -2981,12 +3049,12 @@ const _quizInitialSearch = location.search;
   // then the last one persisted in this tab, defaulting to UFC only when
   // nothing else is known (e.g. a bookmarked/shared pre-sport-picker link).
   const sportHere = QUIZ_DEFAULT_SPORT || readPersistedSport() || "UFC";
-  quizRestoreStep(sportHere, step.gameType, step.mode);
+  quizRestoreStep(sportHere, step.gameType, step.mode, step.category || null);
   // ?room=<code> (the PvP share link, independent of this shim) stays
   // live if it rode along with the ?s= redirect.
   const roomParam = params.get("room");
   const canonicalPath = quizRootForSport(sportHere) + step.rest + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
-  history.replaceState({ quizSport: sportHere, quizGameType: step.gameType, quizMode: step.mode }, "", canonicalPath);
+  history.replaceState({ quizSport: sportHere, quizGameType: step.gameType, quizMode: step.mode, quizCategory: step.category || null }, "", canonicalPath);
 })();
 
 // Homepage sport cards (index.html) used to link here with ?sport=ufc or
@@ -3007,7 +3075,7 @@ const _quizInitialSearch = location.search;
   quizRestoreStep(sport, null, null);
   const roomParam = params.get("room");
   const canonicalPath = quizRootForSport(sport) + (roomParam ? "?room=" + encodeURIComponent(roomParam) : "");
-  history.replaceState({ quizSport: sport, quizGameType: null, quizMode: null }, "", canonicalPath);
+  history.replaceState({ quizSport: sport, quizGameType: null, quizMode: null, quizCategory: null }, "", canonicalPath);
 })();
 
 // PvP share link (?room=<code>) must join the room directly, not just
@@ -3178,8 +3246,12 @@ async function resumePvpRoom(roomId, row){
   S.gameType = row.game_type;
   // rejoin_quiz_room returns the room's own category (see
   // quiz_category_isolation.sql) -- a Football player resuming must land
-  // back in Football, never bounced to UFC.
-  S.sport = row.category || 'UFC';
+  // back in Football, never bounced to UFC. TransferGalaxy.md §5: a
+  // Transfer room maps back to S.sport = "Football" and S.gameType =
+  // "guess" (already true, see createPvpRoom), same as joinPvpRoom above.
+  S.category = row.category || 'UFC';
+  if(S.category === 'Transfer'){ S.sport = 'Football'; S.gameType = 'guess'; }
+  else { S.sport = S.category; }
   updateLandAbout();
 
   if(row.status === "waiting"){

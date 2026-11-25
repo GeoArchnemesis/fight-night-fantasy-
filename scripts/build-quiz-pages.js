@@ -51,6 +51,7 @@ const GAMETYPE_CARD_TEXT = {
   Football: {
     quiz: 'კითხვები ფეხბურთიდან',
     guess: 'ფეხბურთთან დაკავშირებულ ფაქტებს გეტყვი<br>ეცადე გამოიცნო ვისზე ან რაზეა საუბარი',
+    transfer: 'მინიშნებებით გამოიცანი ფეხბურთელი',
   },
 };
 
@@ -152,6 +153,10 @@ function renderPage(template, page) {
     // not HTML-escaped, unlike the meta/title fields above.
     .replace(/__QUIZ_GAMETYPE_QUIZ_DESC__/g, () => page.gametype.quiz)
     .replace(/__QUIZ_GAMETYPE_GUESS_DESC__/g, () => page.gametype.guess)
+    // page.gametype.transfer only exists on Football (GAMETYPE_CARD_TEXT above) --
+    // UFC/the bare picker fall back to "", harmless since quiz.js's own
+    // updateLandAbout() hides this card entirely outside S.sport==="Football".
+    .replace(/__QUIZ_GAMETYPE_TRANSFER_DESC__/g, () => page.gametype.transfer || '')
     .replace(/__QUIZ_BG_PRELOAD__/g, () => bgPreloadTags(page.bgSport))
     .replace(/__QUIZ_GAMETYPE_SPORT_LABEL__/g, () => escapeHtml(page.gametypeSportLabel));
 }
@@ -164,7 +169,7 @@ function main() {
   const requiredPlaceholders = [
     '__QUIZ_TITLE__', '__QUIZ_DESCRIPTION__', '__QUIZ_CANONICAL__',
     '__QUIZ_OG_TITLE__', '__QUIZ_OG_DESCRIPTION__', '__QUIZ_BREADCRUMB_JSON__',
-    '__QUIZ_GAMETYPE_QUIZ_DESC__', '__QUIZ_GAMETYPE_GUESS_DESC__',
+    '__QUIZ_GAMETYPE_QUIZ_DESC__', '__QUIZ_GAMETYPE_GUESS_DESC__', '__QUIZ_GAMETYPE_TRANSFER_DESC__',
     '__QUIZ_BG_PRELOAD__', '__QUIZ_GAMETYPE_SPORT_LABEL__',
   ];
   for (const ph of requiredPlaceholders) {

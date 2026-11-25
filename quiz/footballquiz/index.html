@@ -47,7 +47,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link rel="preconnect" href="https://qxfcwsiysnjxhxljqigl.supabase.co" />
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-<link rel="stylesheet" href="/style.css?v=231">
+<link rel="stylesheet" href="/style.css?v=233">
 <!-- Sport-background preload -- only on ufcquiz/footballquiz, where the
      sport is already known at build time (see build-quiz-pages.js
      bgPreloadTags()); empty on the bare /quiz/ picker, where it isn't yet.
@@ -337,6 +337,51 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    again, whatever was causing it. */
 #quizRoot .gametype-modes,
 #quizRoot #gametype-opponent-wrap .modes{gap:6px;height:170px;grid-template-rows:82px 82px}
+/* TransferGalaxy.md §6: football's third game-type card (გამოიცანი
+   ტრანსფერი) only exists on the football quiz -- #quizApp.qzapp-sport-
+   football is the same class quiz.js's show() already sets while this
+   screen is active and S.sport is "Football" (see updateLandAbout/show),
+   so this scoping leaves UFC and the bare /quiz/ picker on the plain
+   2-row rule above, completely untouched, both desktop and mobile.
+   Desktop keeps the single column (3 stacked full-width rows, same 123px
+   row height as the 2-row case -- see the min-width:641px override
+   further below); mobile switches to a 2-column grid instead: ქვიზი and
+   გამოიცანი ტრანსფერი side by side in row 1 (both the same size -- same
+   column width, same row height, so neither can ever differ from the
+   other), გამოიცანი ვინ ვარ spanning both columns in row 2.
+   Both rows are FIXED px, not "auto" -- same reason #quizRoot
+   .gametype-modes's own base rule above already documents (the
+   "picking a card pushes the next one" bug): an auto-sized row's final
+   height measurably depends on which card has .sel, not just on its
+   content, so it was re-tested here and confirmed to reproduce for this
+   row too (toggling only .sel, no click/focus involved, changes the
+   resolved row height) -- root cause not pinned down there either, so
+   it's sidestepped the same proven way: a wholly fixed, content- and
+   selection-independent row height. 110px is sized for the longest
+   wrap this row's two cards' text actually reaches at this width (the
+   description under გამოიცანი ტრანსფერი, measured at three lines) plus
+   this card group's own 12px/13px padding, with a small safety margin --
+   see the card-enlarge rule below for the exact card metrics this was
+   measured against. height here is just the two rows' sum (110+6+90),
+   spelled out explicitly rather than left to resolve on its own, for the
+   same wholly-independent-of-content reason. */
+@media(max-width:640px){
+  #quizApp.qzapp-sport-football .gametype-modes{
+    width:min(330px,100%);
+    height:206px;
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:110px 90px;
+    grid-template-areas:"quiz transfer" "guess guess";
+  }
+  #quizApp.qzapp-sport-football .gametype-modes [data-gametype="quiz"]{grid-area:quiz}
+  #quizApp.qzapp-sport-football .gametype-modes [data-gametype="transfer"]{grid-area:transfer}
+  #quizApp.qzapp-sport-football .gametype-modes [data-gametype="guess"]{grid-area:guess}
+  /* ~10% larger than the shared 82px/11px/12px base rule below (90/12/13),
+     football mobile only -- UFC/bare mobile and every desktop width keep
+     the shared rule untouched. Text/font-size unchanged; the extra room
+     is in the box, not the type. */
+  #quizApp.qzapp-sport-football .gametype-modes .mode{min-height:90px;padding:12px 13px}
+}
 /* The game-type cards (ქვიზი / გამოიცანი ვინ ვარ) AND the opponent cards
    (AI-ის წინააღმდეგ / ადამიანის წინააღმდეგ) -- all four the same size as
    each other, smaller than the generic .mode default so all 4 cards +
@@ -353,9 +398,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    #quizRoot .mode's own padding/min-height above on specificity --
    #quizRoot .mode is (1 id, 1 class); a bare .gametype-modes .mode would
    only be (0 id, 2 classes), which LOSES the id-count tiebreak regardless
-   of source order, same trap #gametype-quiz-desc's own comment documents. */
+   of source order, same trap #gametype-quiz-desc's own comment documents.
+   margin:0 -- found by testing (2026-11-24 request): selecting any one of
+   these four cards (.sel) makes IT SPECIFICALLY (never the others) report
+   a 11px computed margin-bottom with no author rule setting one -- this
+   is almost certainly the same "picking a card pushes the next one" bug
+   the comment two rules above already describes, just never pinned to
+   the individual card before (only ever worked around at the container
+   level). Root cause not identified here either; margin:0 reliably
+   zeroes it in testing (confirmed with the browser's own computed-style
+   panel, toggling .sel with no click/hover/focus involved) regardless of
+   mechanism, which is what this screen's "nothing may move or resize on
+   selection" requirement needs -- every card's bounding box, not just
+   the container's. */
 #quizRoot .gametype-modes .mode,
-#quizRoot #gametype-opponent-wrap .modes .mode{min-height:82px;padding:11px 12px;gap:4px}
+#quizRoot #gametype-opponent-wrap .modes .mode{min-height:82px;padding:11px 12px;gap:4px;margin:0}
 /* Card heading/description font, scoped to just these four cards --
    smaller than the generic .mode h2/p (1.3rem/.84rem) to fit the
    shorter card above. Wording unchanged; #gametype-quiz-desc/
@@ -522,49 +579,66 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #quizRoot #gametype-quiz-desc{font-size:1.11rem}
   #quizRoot #gametype-guess-desc{font-size:13.5px}
   #gametype-opponent-wrap .btn{margin-top:12px;min-height:54px;padding:12px 30px}
+  /* TransferGalaxy.md §6: football desktop keeps the single column (left
+     column reads ქვიზი, გამოიცანი ვინ ვარ, გამოიცანი ტრანსფერი top to
+     bottom) -- just a third 123px row added to the 2-row rule above,
+     same per-card size as every other card on this screen. The opponent
+     column (#gametype-opponent-wrap .modes, not touched here) stays the
+     unchanged 2-row/255px box from the rule above. */
+  #quizApp.qzapp-sport-football .gametype-modes{height:387px;grid-template-rows:123px 123px 123px}
 }
 
-/* ---------- Desktop-only connector line (2026-11-22 request) ----------
-   SVG overlay joining the selected game-type card to the selected opponent
-   card (Part 3), plus a faint hover preview of where it would move (Part
-   4). pointer-events:none + a lower z-index than the cards (below) means
-   it can never intercept a click. display:none outright below 641px, so
-   mobile is completely untouched -- see quiz.js's drawGametypeConnector/
-   drawGametypePreview, which both already no-op when a selected card can't
-   be found (always true while this screen or this viewport doesn't apply). */
+/* ---------- Connector line (TransferGalaxy.md §6, replaces the 2026-11-22
+   desktop-only version) ----------
+   SVG overlay joining the selected game-type card to the selected
+   opponent card. pointer-events:none + a lower z-index than the cards
+   (below) means it can never intercept a click.
+   Desktop (641px+): shown for every sport, exactly as before.
+   Mobile (<641px): shown for football only -- its third card (გამოიცანი
+   ტრანსფერი) is what the around-the-outside routing in quiz.js's
+   drawGametypeConnector exists for; UFC and the bare /quiz/ picker keep
+   today's mobile behaviour (no connector at all, single-column cards)
+   via the plain #gametype-connector{display:none} default below, same as
+   before this change. overflow:visible lets the mobile route's vertical
+   track run in the margin just outside the card column (see
+   drawGametypeConnector/gtcAroundPathFor in quiz.js) -- nothing else on
+   this screen extends past .gametype-layout's own box, so this has no
+   other effect. */
 #gametype-connector{display:none}
 @media(min-width:641px){
   .gametype-layout{position:relative}
-  #gametype-connector{display:block;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1}
+  #gametype-connector{display:block;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:visible}
   #quizRoot .gametype-modes .mode,
   #quizRoot #gametype-opponent-wrap .modes .mode{position:relative;z-index:2}
+}
+@media(max-width:640px){
+  #quizApp.qzapp-sport-football .gametype-layout{position:relative}
+  #quizApp.qzapp-sport-football #gametype-connector{display:block;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:visible}
+  #quizApp.qzapp-sport-football .gametype-modes .mode,
+  #quizApp.qzapp-sport-football #gametype-opponent-wrap .modes .mode{position:relative;z-index:2}
 }
 /* Colour: var(--green) (#3ad17e) -- the same token #quizRoot
    .gametype-modes .mode.sel/#gametype-opponent-wrap .modes .mode.sel
    already use for a selected card's border above; no new colour.
-   Flowing-dash style (2026-11-22, replaces the plain solid line): .gtc-base
-   is a faint static copy of the same path (always the same "d" as
-   .gtc-line, set together in quiz.js), sitting underneath so the gap
-   between dashes still reads as part of one continuous curve; .gtc-line
-   itself is dashed and its stroke-dashoffset animates 26 -> 0 (14+12=26,
-   one full dash+gap cycle) so the dashes appear to travel in the path's
-   own drawn direction -- M p1 ... p2 is always gametype-card -> mode-card
-   (see quiz.js's gtcPathFor), so this already flows the required way;
-   flip to "0 -> 26" here if a future path direction change ever reverses
-   that. Endpoint circles (.gtc-dot) are separate, undashed shapes, so they
-   stay solid regardless. */
+   Flowing-dash style: .gtc-base is a faint static copy of the same path
+   (always the same "d" as .gtc-line, set together in quiz.js), sitting
+   underneath so the gap between dashes still reads as part of one
+   continuous curve; .gtc-line itself is dashed and its stroke-dashoffset
+   animates 26 -> 0 (14+12=26, one full dash+gap cycle) so the dashes
+   appear to travel in the path's own drawn direction -- quiz.js's
+   gtcPathFor/gtcAroundPathFor always draw gametype-card -> mode-card, so
+   this already flows the required way. Endpoint circles (.gtc-dot) are
+   separate, undashed shapes, so they stay solid regardless. The hover
+   preview this screen used to have (.gtc-preview) is permanently removed,
+   on every viewport -- do not reintroduce it. */
 #gametype-connector .gtc-base{fill:none;stroke:var(--green);stroke-width:3;opacity:.22}
 #gametype-connector .gtc-line{fill:none;stroke:var(--green);stroke-width:3;stroke-linecap:round;stroke-dasharray:14 12;stroke-dashoffset:26;animation:gtcDash .9s linear infinite}
 @keyframes gtcDash{to{stroke-dashoffset:0}}
-#gametype-connector .gtc-preview{fill:none;stroke:var(--green);stroke-width:3;stroke-linecap:round;opacity:0;transition:opacity .15s ease}
-#gametype-connector .gtc-preview.show{opacity:.3}
 #gametype-connector .gtc-dot{fill:var(--green)}
 /* The static base curve isn't animated, so it's unaffected either way;
-   this stops the dashes travelling (they stay visible, just still) and
-   drops the hover fade's transition. */
+   this just stops the dashes travelling (they stay visible, just still). */
 @media(prefers-reduced-motion:reduce){
   #gametype-connector .gtc-line{animation:none}
-  #gametype-connector .gtc-preview{transition:none}
 }
 
 /* vs-AI hologram card -- faithful red-palette port of a CodePen hologram-card
@@ -1016,7 +1090,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="back-row"><button class="qback" id="back-to-sport"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 66 43" aria-hidden="true" focusable="false"><polygon points="39.58,4.46 44.11,0 66,21.5 44.11,43 39.58,38.54 56.94,21.5"></polygon><polygon points="19.79,4.46 24.32,0 46.21,21.5 24.32,43 19.79,38.54 37.15,21.5"></polygon><polygon points="0,4.46 4.53,0 26.42,21.5 4.53,43 0,38.54 17.36,21.5"></polygon></svg><span class="qback-label">უკან</span></button><h2 class="back-row-title gametype-sport-label-mobile">აირჩიე თამაშის ტიპი</h2></div>
     <div class="gametype-layout">
       <svg id="gametype-connector" aria-hidden="true" focusable="false">
-        <path class="gtc-preview"></path>
         <path class="gtc-base"></path>
         <path class="gtc-line"></path>
         <circle class="gtc-dot gtc-dot-a" r="5"></circle>
@@ -1032,6 +1105,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="mode" tabindex="0" role="button" aria-label="ვინ ვარ" data-gametype="guess">
             <h2>გამოიცანი ვინ ვარ</h2>
             <p id="gametype-guess-desc">ფეხბურთთან დაკავშირებულ ფაქტებს გეტყვი<br>ეცადე გამოიცნო ვისზე ან რაზეა საუბარი</p>
+          </div>
+          <div class="mode" tabindex="0" role="button" aria-label="გამოიცანი ტრანსფერი" data-gametype="transfer">
+            <h2>გამოიცანი ტრანსფერი</h2>
+            <p id="gametype-transfer-desc">მინიშნებებით გამოიცანი ფეხბურთელი</p>
           </div>
         </div>
       </div>
@@ -1335,6 +1412,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <h2>კითხვები ფეხბურთიდან</h2>
 <p>ფეხბურთელებზე, კლუბებზე და ჩემპიონატებზე. თითო თამაშში 10 კითხვაა.</p>
+<p>გამოიცანი ტრანსფერი - მინიშნებებს გეტყვი ტრანსფერის შესახებ, შენ კი უნდა გამოიცნო რომელ ფეხბურთელზე ვსაუბრობთ. პასუხს ქართულად ან ინგლისურად წერ. თუ გაგიჭირდა, დამატებით მინიშნებას გამოიყენებ, ყოველი მინიშნება 5 წამს გიმატებს და 1 ქულას გაკლებს.</p>
 
 <h2>ითამაშე მარტო ან მეგობრებთან</h2>
 <p>AI-ის წინააღმდეგ - მარტო თამაშობ, ოპონენტად AI გყავს. ანუ შენს თავს ეჯიბრები და მოწინააღმდეგე ფიქტიურია.</p>
@@ -1430,7 +1508,7 @@ document.addEventListener('keydown', function(e){
 <!-- ── SCRIPTS ── -->
 <script src="/fantasy-nav.js?v=14"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
-<script src="/quiz/quiz.js?v=78"></script>
+<script src="/quiz/quiz.js?v=82"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){

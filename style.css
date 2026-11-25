@@ -57,7 +57,39 @@ nav{position:relative;z-index:50;background:rgba(11,10,15,.82);backdrop-filter:b
    behavior rather than something News-specific). */
 nav.is-hidden{transform:translateY(-100%)}
 @media(prefers-reduced-motion:reduce){nav{transition:none}}
-.nav-in{display:flex;align-items:center;justify-content:space-between;height:68px;gap:14px}
+/* Mobile bottom nav (.mnav) height -- the .mnav/.betbar/body offset rules
+   this shrinks are NOT defined here; every page carries its own verbatim
+   copy of them in an inline <style> block. These overrides exist so this
+   is still the one place to change the bar's height: each selector below
+   is written one level more specific than the matching per-page copy
+   (html+body+class(es) vs. the copy's bare class selector), so it always
+   wins regardless of source order, without editing any of those pages.
+   -10px total on .mnav's own padding so far across two passes (first
+   -4px: 2px off top, 2px off the bottom safe-area calc; this pass another
+   -6px: 3px off top, 3px off the bottom safe-area calc) is mirrored by
+   the same total shrink on every page's body.logged-in padding-bottom/
+   .betbar bottom (92px->88px->82px, 58px->54px->48px), which is what
+   reserves space for/sits above this bar -- and, for ufc/index.html
+   specifically, by --mnav-h below (the only page that already reads that
+   custom property instead of a literal 58px, so redefining it here
+   reaches that page's own copy too, same reasoning). .toast's own
+   bottom offset tracks the same number for the same reason (629).
+   profile/index.html is the one page whose copy reads plain body{} with
+   no .logged-in guard (comment there: reaching that page already implies
+   logged in) -- that one rule is edited directly, in that file, since no
+   shared selector exists to override it without also touching every
+   logged-out page's unrelated default body padding-bottom. */
+:root{--mnav-h:48px}
+html body .mnav{padding:3px 4px calc(3px + env(safe-area-inset-bottom,0px))}
+@media(max-width:920px){
+  html body.logged-in{padding-bottom:calc(82px + env(safe-area-inset-bottom,0px))}
+  html body.logged-in .betbar{bottom:calc(48px + env(safe-area-inset-bottom,0px))}
+}
+/* .nav-in's height feeds two dependent offsets: .nav-links.open's
+   top:56px (650, the mobile dropdown sits flush under this bar) and
+   .toast.attop's top:78px (631) -- both must shrink by the same amount
+   as any future change here. */
+.nav-in{display:flex;align-items:center;justify-content:space-between;height:56px;gap:14px}
 .brand{display:flex;align-items:center;justify-content:center;gap:12px;flex-shrink:0;min-width:44px;min-height:44px}
 .brand img{width:34px;height:34px;border-radius:6px;display:block}
 .wordmark{font-family:"Anton","Archivo",sans-serif;font-weight:700;font-size:1.35rem;letter-spacing:.04em;line-height:1;white-space:nowrap}
@@ -601,9 +633,9 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 .foot-social:hover{border-color:var(--red);color:#fff;background:var(--surface-2);transform:translateY(-2px)}
 .lb-ava-glove{width:34px;height:34px;border-radius:50%;background:var(--surface-2);display:grid;place-items:center;font-size:1.1rem}
 .nav-auth-link{color:var(--gold) !important;border-top:1px solid var(--line) !important}
-.toast{position:fixed;bottom:88px;left:50%;transform:translate(-50%,220%);z-index:130;background:var(--surface-2);color:var(--text);border:1px solid var(--line);font-weight:700;padding:13px 24px;border-radius:6px;font-size:.86rem;transition:transform .35s cubic-bezier(.2,.7,.2,1);box-shadow:0 14px 40px -12px rgba(0,0,0,.7);max-width:90vw;text-align:center}
+.toast{position:fixed;bottom:82px;left:50%;transform:translate(-50%,220%);z-index:130;background:var(--surface-2);color:var(--text);border:1px solid var(--line);font-weight:700;padding:13px 24px;border-radius:6px;font-size:.86rem;transition:transform .35s cubic-bezier(.2,.7,.2,1);box-shadow:0 14px 40px -12px rgba(0,0,0,.7);max-width:90vw;text-align:center}
 .toast.show{transform:translate(-50%,0)}
-.toast.attop{bottom:auto;top:82px;transform:translate(-50%,-220%)}
+.toast.attop{bottom:auto;top:78px;transform:translate(-50%,-220%)}
 .toast.attop.show{transform:translate(-50%,0)}
 .modal-profile{max-height:88vh;overflow-y:auto}
 .profile-section{margin-bottom:20px;padding-bottom:16px;border-bottom:1px solid var(--line)}
@@ -622,7 +654,7 @@ footer{border-top:1px solid var(--line);padding:44px 0 56px}
 @media(max-width:760px){.stage-img{height:215px}.tale-row .tv{font-size:.97rem}.tale-row{column-gap:10px}}
 @media(max-width:520px){.bout-stage{grid-template-columns:minmax(0,1fr) minmax(0,1.7fr) minmax(0,1fr);position:static;align-items:stretch}.stage-img{height:235px}.stage-img.left img{object-position:50% 0}.stage-img.right img{object-position:50% 0}.stage-mid{position:static;display:flex;align-items:center;justify-content:center;padding:4px 6px;background:transparent;pointer-events:auto;z-index:auto}.stage-mid .tale-wrap{background:none;padding:0;border-radius:0;gap:10px;max-width:none}.tale-row{column-gap:4px}.tale-row .tv{font-size:.87rem}.tale-row .tl{font-size:calc(var(--fs-meta) - 1px);letter-spacing:.04em}.bout-picks{gap:7px}.picks-wrap{padding:10px 10px 12px}.pick{gap:5px;padding:11px 6px}.event-tag{flex-wrap:wrap;justify-content:center}.pick.red .p-flag{margin-left:10px}.pick.blue .p-flag{margin-right:10px}.pick .p-name{font-size:clamp(var(--fs-meta),2.5vw,.85rem)}.slip{border-radius:14px}}
 @media(max-width:390px){.bout-stage{grid-template-columns:.85fr 1.7fr .85fr}.stage-img{height:200px}.stage-mid{padding:4px 4px}.stage-mid .tale-wrap{gap:8px}.tale-row{column-gap:3px}.tale-row .tv{font-size:calc(var(--fs-meta) + 1px)}.tale-row .tl{font-size:calc(var(--fs-meta) - 1px);letter-spacing:.02em}.pick{gap:3px;padding:10px 4px}}
-@media(max-width:920px){.nav-links{display:none}.menu-btn{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--line);border-radius:4px}.menu-btn span{display:block;width:18px;height:2px;background:var(--text);position:relative}.menu-btn span::before,.menu-btn span::after{content:"";position:absolute;left:0;width:18px;height:2px;background:var(--text)}.menu-btn span::before{top:-6px}.menu-btn span::after{top:6px}.nav-links.open{display:flex;position:absolute;top:68px;left:0;right:0;flex-direction:column;gap:0;background:var(--ink);border-bottom:1px solid var(--line);padding:8px 0}.nav-links.open a{padding:14px 4vw;width:100%;border-bottom:1px solid var(--line)}.odds-row{grid-template-columns:1fr 28px 1fr;gap:8px;padding:12px}.odds-btn{padding:11px 12px}.odds-btn .nm{font-size:.92rem}.odds-btn .od{font-size:1.2rem}.lb-head,.lb-row{grid-template-columns:42px 1fr 90px;padding:12px}.lb-roi{display:none}}
+@media(max-width:920px){.nav-links{display:none}.menu-btn{display:grid;place-items:center;width:44px;height:44px;border:1px solid var(--line);border-radius:4px}.menu-btn span{display:block;width:18px;height:2px;background:var(--text);position:relative}.menu-btn span::before,.menu-btn span::after{content:"";position:absolute;left:0;width:18px;height:2px;background:var(--text)}.menu-btn span::before{top:-6px}.menu-btn span::after{top:6px}.nav-links.open{display:flex;position:absolute;top:56px;left:0;right:0;flex-direction:column;gap:0;background:var(--ink);border-bottom:1px solid var(--line);padding:8px 0}.nav-links.open a{padding:14px 4vw;width:100%;border-bottom:1px solid var(--line)}.odds-row{grid-template-columns:1fr 28px 1fr;gap:8px;padding:12px}.odds-btn{padding:11px 12px}.odds-btn .nm{font-size:.92rem}.odds-btn .od{font-size:1.2rem}.lb-head,.lb-row{grid-template-columns:42px 1fr 90px;padding:12px}.lb-roi{display:none}}
 @media(max-width:520px){nav .wordmark{display:none}.nav-nick{max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.foot-in{flex-direction:column;align-items:center;text-align:center}.foot-brand{justify-content:center}.foot-note{max-width:100%}.nav-in{gap:8px}.nav-cta{gap:7px}.balance-pill{padding:6px 10px;font-size:var(--fs-meta);gap:6px}.nav-cta .btn{padding:8px 10px;font-size:var(--fs-meta)}.bb-left{gap:14px}.tk-head-left{gap:8px}.tk-type{overflow:visible;text-overflow:clip;font-size:var(--fs-meta);letter-spacing:.04em}.tk-status{padding:4px 9px;font-size:var(--fs-meta);letter-spacing:.03em}.ticket .tk-head{padding:12px 12px}}
 @media(max-width:380px){.odds-btn .rc{display:none}.cd-cell{min-width:60px;padding:11px 7px}}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.001s!important;transition-duration:.001s!important}}
