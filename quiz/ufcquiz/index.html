@@ -337,6 +337,26 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    again, whatever was causing it. */
 #quizRoot .gametype-modes,
 #quizRoot #gametype-opponent-wrap .modes{gap:6px;height:170px;grid-template-rows:82px 82px}
+/* Mobile game-type card enlarge, every sport (2026-11-26 request): the
+   football-only rule below gives football's game-type cards (not the
+   opponent/AI-PVP cards -- those keep the 82px base above, untouched)
+   90px min-height/12px 13px padding on mobile; UFC and the bare /quiz/
+   picker had no equivalent and were stuck at the smaller 82px/11px/12px
+   shared rule above, which was the actual inconsistency. This rule gives
+   their two game-type cards (single column, no grid-template-columns/
+   areas override -- that part stays football-only, it's for football's
+   third card) the exact same per-card size; the container height is
+   recomputed for two 90px rows (90+90+6=186) the same way football's own
+   206px (110+90+6) below is spelled out explicitly, same anti-layout-
+   shift reasoning. #quizRoot .gametype-modes alone (not
+   #gametype-opponent-wrap .modes, which must not change) is overridden;
+   font sizes are untouched (h2/p rules further below), only the box. The
+   football-scoped rule below has higher specificity (extra id+class) and
+   still wins for football, so this is a no-op there. */
+@media(max-width:640px){
+  #quizRoot .gametype-modes{height:186px;grid-template-rows:90px 90px}
+  #quizRoot .gametype-modes .mode{min-height:90px;padding:12px 13px}
+}
 /* TransferGalaxy.md §6: football's third game-type card (გამოიცანი
    ტრანსფერი) only exists on the football quiz -- #quizApp.qzapp-sport-
    football is the same class quiz.js's show() already sets while this
@@ -594,16 +614,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
    opponent card. pointer-events:none + a lower z-index than the cards
    (below) means it can never intercept a click.
    Desktop (641px+): shown for every sport, exactly as before.
-   Mobile (<641px): shown for football only -- its third card (გამოიცანი
-   ტრანსფერი) is what the around-the-outside routing in quiz.js's
-   drawGametypeConnector exists for; UFC and the bare /quiz/ picker keep
-   today's mobile behaviour (no connector at all, single-column cards)
-   via the plain #gametype-connector{display:none} default below, same as
-   before this change. overflow:visible lets the mobile route's vertical
-   track run in the margin just outside the card column (see
-   drawGametypeConnector/gtcAroundPathFor in quiz.js) -- nothing else on
-   this screen extends past .gametype-layout's own box, so this has no
-   other effect. */
+   Mobile (<641px) (2026-11-26: now every sport, not football only --
+   the previous football-only scoping here was the actual bug): the
+   around-the-outside routing in quiz.js's drawGametypeConnector runs for
+   every sport on mobile now. Football's third card (გამოიცანი
+   ტრანსფერი) can exit its selected game-type card from the right; UFC
+   and the bare /quiz/ picker only ever have "quiz"/"guess" selected (no
+   transfer card in their markup, see the transferCard display toggle in
+   quiz.js), so drawGametypeConnector's own side-selection logic already
+   always picks "left" for them -- no sport check needed there either.
+   overflow:visible lets the mobile route's vertical track run in the
+   margin just outside the card column (see drawGametypeConnector/
+   gtcAroundPathFor in quiz.js) -- nothing else on this screen extends
+   past .gametype-layout's own box, so this has no other effect. */
 #gametype-connector{display:none}
 @media(min-width:641px){
   .gametype-layout{position:relative}
@@ -612,10 +635,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #quizRoot #gametype-opponent-wrap .modes .mode{position:relative;z-index:2}
 }
 @media(max-width:640px){
-  #quizApp.qzapp-sport-football .gametype-layout{position:relative}
-  #quizApp.qzapp-sport-football #gametype-connector{display:block;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:visible}
-  #quizApp.qzapp-sport-football .gametype-modes .mode,
-  #quizApp.qzapp-sport-football #gametype-opponent-wrap .modes .mode{position:relative;z-index:2}
+  .gametype-layout{position:relative}
+  #gametype-connector{display:block;position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:1;overflow:visible}
+  #quizRoot .gametype-modes .mode,
+  #quizRoot #gametype-opponent-wrap .modes .mode{position:relative;z-index:2}
 }
 /* Colour: var(--green) (#3ad17e) -- the same token #quizRoot
    .gametype-modes .mode.sel/#gametype-opponent-wrap .modes .mode.sel
@@ -1230,7 +1253,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <button type="button" class="btn btn-ghost afk-return-btn" id="gq-afk-btn" style="display:none">დაბრუნება</button>
     <div class="qcard">
       <div class="qnum">კითხვა <span id="gq-num">1</span></div>
-      <div class="qtext" style="margin-bottom:14px">პასუხი შეიყვანე #ქართულად</div>
+      <div class="qtext" id="gq-note" style="margin-bottom:14px">პასუხი შეიყვანე #ქართულად</div>
       <div class="gq-clues" id="gq-clues"></div>
       <div id="gq-answer-area">
         <div class="gq-hint-row" style="margin-top:6px">
@@ -1508,7 +1531,7 @@ document.addEventListener('keydown', function(e){
 <!-- ── SCRIPTS ── -->
 <script src="/fantasy-nav.js?v=14"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
-<script src="/quiz/quiz.js?v=82"></script>
+<script src="/quiz/quiz.js?v=84"></script>
 <script>
 /* ── hamburger მენიუ + sport-switcher dropdown — app.js-ის გარეშე (ეს გვერდი betting app.js-ს არ ტვირთავს) ── */
 (function(){

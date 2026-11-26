@@ -1172,19 +1172,23 @@ if(gametypeStartBtn) gametypeStartBtn.addEventListener("click", ()=>{
 });
 
 /* ============================================================
-   Connector line (TransferGalaxy.md §6) -- SVG overlay joining the selected
-   game-type card to the selected opponent card. Desktop (and UFC/bare-sport
-   mobile, unchanged from before): a single bezier curve from the gt card's
-   right edge to the md card's left edge. Football's mobile layout now has
-   three game-type cards arranged with ქვიზი/გამოიცანი ტრანსფერი side by
-   side (see the grid-template-areas CSS), so on football mobile the line
-   instead routes around the outside of the cards: it leaves the selected
-   game-type card from its left edge (ქვიზი/გამოიცანი ვინ ვარ) or right edge
-   (გამოიცანი ტრანსფერი), runs down a single vertical track just outside
-   both cards in the margin beside them (never through a card, never across
-   the "აირჩიე რეჟიმი" heading), then enters the selected mode card from
-   that same side. Both branches bail out harmlessly whenever a selected
-   card can't be found. Redrawn on selection change (the two "go" closures
+   Connector line (TransferGalaxy.md §6, generalized to every sport
+   2026-11-26) -- SVG overlay joining the selected game-type card to the
+   selected opponent card. Desktop: a single bezier curve from the gt
+   card's right edge to the md card's left edge, every sport. Mobile
+   (every sport now, not football only): the line routes around the
+   outside of the cards instead -- it leaves the selected game-type card
+   from its left edge (ქვიზი/გამოიცანი ვინ ვარ) or right edge (football's
+   გამოიცანი ტრანსფერი, the only card that ever sits to the right of
+   another in this row), runs down a single vertical track just outside
+   both cards in the margin beside them (never through a card, never
+   across the "აირჩიე რეჟიმი" heading), then enters the selected mode
+   card from that same side. UFC and the bare /quiz/ picker never have a
+   "transfer" card selected (it's hidden outside football -- see the
+   transferCard display toggle above), so the side-selection logic below
+   already always resolves to "left" for them, with no sport check
+   needed. Both branches bail out harmlessly whenever a selected card
+   can't be found. Redrawn on selection change (the two "go" closures
    above, plus chooseGameType above), window resize, and once web fonts
    finish loading (a font swap can shift each card's real width/height
    after first paint). The hover preview that used to live here
@@ -1212,7 +1216,7 @@ function gtcPathFor(p1, p2){
   const dx = (p2.x - p1.x) * 0.55;
   return "M " + p1.x + " " + p1.y + " C " + (p1.x + dx) + " " + p1.y + ", " + (p2.x - dx) + " " + p2.y + ", " + p2.x + " " + p2.y;
 }
-// Football mobile only -- straight-line route around the outside of the
+// Mobile, every sport -- straight-line route around the outside of the
 // cards: out from p1 to a vertical track just past both cards' own edge
 // (on the exit side), down/up that one track, then in to p2. trackX is
 // derived from the cards' own live rects (not a hardcoded guess), so it
@@ -1234,14 +1238,13 @@ function drawGametypeConnector(){
   if(!gtCard || !mdCard){ gtcLine.setAttribute("d", ""); gtcBase.setAttribute("d", ""); return; }
   const containerRect = gametypeLayoutEl.getBoundingClientRect();
   gametypeConnectorSvg.setAttribute("viewBox", "0 0 " + containerRect.width + " " + containerRect.height);
-  // Football's own mobile card layout (quiz/transfer side by side) is the
-  // only case the around-the-outside route applies to -- UFC/bare mobile
-  // keep today's single-column cards and the connector stays hidden there
-  // (see the CSS), so this branch is moot for them either way.
-  const isFootballMobile = !!(gtcMobileQuery && gtcMobileQuery.matches
-    && document.getElementById("quizApp") && document.getElementById("quizApp").classList.contains("qzapp-sport-football"));
+  // Every sport now routes around the outside on mobile (see the CSS,
+  // no longer football-scoped). UFC/the bare picker never have a
+  // "transfer" card to select (hidden outside football), so side below
+  // always resolves to "left" for them -- no sport check needed.
+  const isMobile = !!(gtcMobileQuery && gtcMobileQuery.matches);
   let p1, p2, d;
-  if(isFootballMobile){
+  if(isMobile){
     const side = gtCard.dataset.gametype === "transfer" ? "right" : "left";
     p1 = gtcEdgePoint(gtCard, side, containerRect);
     p2 = gtcEdgePoint(mdCard, side, containerRect);
@@ -1378,7 +1381,9 @@ function showGuessAIStart(action){
       const info = document.createElement("p");
       info.className = "tinyinfo";
       info.style.marginBottom = "clamp(6px,1.4dvh,14px)";
-      info.textContent = "პასუხები შეიყვანე ქართულად 🇬🇪";
+      info.textContent = S.category === "Transfer"
+        ? "პასუხი შეიყვანე ქართულად 🇬🇪 ან ინგლისურად 🇬🇧"
+        : "პასუხები შეიყვანე ქართულად 🇬🇪";
       action.appendChild(info);
     }
   });
@@ -2482,6 +2487,21 @@ function renderGuessQuestion(){
   S.gCluesShown = 1;
   updateGuessPoints();
   renderGuessClues();
+
+  // Transfer-only answer-language note: shown on question 1 only, hidden
+  // (display:none, not just visually) from question 2 on so the card
+  // actually shrinks by the line's height + its 14px margin. Every other
+  // game keeps the existing note text, visible on all ten questions.
+  const noteEl = $("#gq-note");
+  if(noteEl){
+    if(S.category === "Transfer"){
+      noteEl.textContent = "პასუხი - ქართულად ან ინგლისურად";
+      noteEl.style.display = (S.qi === 0) ? "" : "none";
+    } else {
+      noteEl.textContent = "პასუხი შეიყვანე #ქართულად";
+      noteEl.style.display = "";
+    }
+  }
 
   const inputLabel = guessWhoInputLabel(item);
   const inputLabelEl = $("#gq-input-label");
